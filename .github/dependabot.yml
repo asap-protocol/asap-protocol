@@ -6,8 +6,8 @@ updates:
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: "monthly"
+      day: 1
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
@@ -28,8 +28,8 @@ updates:
   - package-ecosystem: "npm"
     directory: "/apps/web"
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: "monthly"
+      day: 1
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
@@ -57,8 +57,8 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: "monthly"
+      day: 1
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
