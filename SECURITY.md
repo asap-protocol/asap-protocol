@@ -105,11 +105,11 @@ npm audit --audit-level=high
 - **Production graph** (`--omit=dev`): moderate and above must be clean.
 - **Full graph** (including devDependencies): high and above must be clean.
 - Prefer range-compatible updates via `npm install` / `npm audit fix` (never `npm audit fix --force`).
-- Do **not** downgrade `next` to satisfy transitive advisories. For Next **16.2.10**, pin fixed transitive deps via npm overrides:
+- Do **not** downgrade `next` to satisfy transitive advisories. For Next **16.2.12**, pin fixed transitive deps via npm overrides with an unscoped `next` key — a versioned key like `next@16.2.10` pins nested copies of `next` and breaks `npm ci` (ERESOLVE) on every Next bump:
 
 ```json
 "overrides": {
-  "next@16.2.10": { "postcss": "8.5.10" },
+  "next": { "postcss": "^8.5.18" },
   "sharp": "^0.35.3"
 }
 ```
@@ -123,6 +123,8 @@ If a PostCSS or sharp override breaks `next build`, stop and report — do not s
 CI runs `pip-audit` after a sync that **excludes** the optional extras `crewai` and `llamaindex`, because those graphs currently pull transitive packages (`diskcache`, `nltk`) that OSV still lists with no fixed release on PyPI. To match the security job locally:
 
 `uv sync --frozen --all-extras --dev --no-extra crewai --no-extra llamaindex` then `uv run pip-audit --ignore-vuln CVE-2026-4539 --ignore-vuln CVE-2026-4963 --ignore-vuln CVE-2026-2654 --ignore-vuln PYSEC-2024-271 --ignore-vuln PYSEC-2026-89 --ignore-vuln PYSEC-2025-183` (matches CI).
+
+Security floors live in `tool.uv.override-dependencies` (with per-CVE comments in `pyproject.toml`) so lock refreshes cannot regress them; recent additions: `pymdown-extensions>=11.0.1` (CVE-2026-61632) and `pyasn1>=0.6.4` (PYSEC-2026-3455/3456/3457).
 
 **CVE-2026-4539 (Pygments)**: CI uses `--ignore-vuln CVE-2026-4539` until a patched `pygments` release on PyPI resolves the advisory (`tool.uv.override-dependencies` prefers `pygments>=2.20.0` when resolvable).
 
