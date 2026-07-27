@@ -7,7 +7,6 @@ updates:
     directory: "/"
     schedule:
       interval: "monthly"
-      day: 1
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
@@ -29,7 +28,6 @@ updates:
     directory: "/apps/web"
     schedule:
       interval: "monthly"
-      day: 1
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
@@ -58,7 +56,6 @@ updates:
     directory: "/"
     schedule:
       interval: "monthly"
-      day: 1
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
