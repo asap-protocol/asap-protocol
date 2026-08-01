@@ -1,6 +1,6 @@
 /**
  * Pure helpers for typescript-consumer smoke (exported for unit tests).
- * Keep URL TLS policy and log redaction in sync with smoke.mjs.
+ * Imported by smoke.mjs; treat this file as the SSOT for TLS policy and log redaction.
  */
 
 /**
