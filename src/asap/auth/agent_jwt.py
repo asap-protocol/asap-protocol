@@ -314,8 +314,10 @@ async def verify_agent_jwt(
 
     When ``expected_audience`` is set, ``aud`` must match (RFC 7519 §4.1.3).
 
-    Returns the extended :class:`AgentSession` in ``result.agent`` after persisting
-    the sliding ``last_used_at`` update via ``agent_store.save``.
+    On success, extends the session and persists via ``agent_store.save`` (LIFE-005
+    sliding ``last_used_at``). Callers — including ``GET /asap/capability/list`` —
+    therefore keep idle sessions warm on every authenticated verify; do not assume
+    a separate “caller persists” step.
     """
     try:
         header, unverified_payload = _unverified_header_and_payload(token)
