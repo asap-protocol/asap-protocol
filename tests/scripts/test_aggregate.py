@@ -52,6 +52,16 @@ def test_validate_snapshot_accepts_minimal_shape() -> None:
     aggregate_mod.validate_snapshot(sample)
 
 
+def test_aggregate_cli_defaults_use_org_cutover_urls() -> None:
+    """Aggregate CLI defaults must stay on asap-protocol org after the GitHub transfer."""
+    assert aggregate_mod.GITHUB_DEFAULT_OWNER == "asap-protocol"
+    assert aggregate_mod.GITHUB_DEFAULT_REPO == "asap-protocol"
+    assert aggregate_mod.DEFAULT_REGISTRY_URL == (
+        "https://raw.githubusercontent.com/asap-protocol/asap-protocol/main/registry.json"
+    )
+    assert "adriannoes" not in aggregate_mod.DEFAULT_REGISTRY_URL
+
+
 def test_flatten_adapter_request_counts() -> None:
     gh: dict[str, Any] = {
         "adapter_requests": {
