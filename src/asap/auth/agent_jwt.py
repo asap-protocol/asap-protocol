@@ -314,8 +314,8 @@ async def verify_agent_jwt(
 
     When ``expected_audience`` is set, ``aud`` must match (RFC 7519 §4.1.3).
 
-    Returns the extended :class:`AgentSession` in ``result.agent``; the caller
-    decides whether to persist it via ``await agent_store.save(agent)``.
+    Returns the extended :class:`AgentSession` in ``result.agent`` after persisting
+    the sliding ``last_used_at`` update via ``agent_store.save``.
     """
     try:
         header, unverified_payload = _unverified_header_and_payload(token)
@@ -376,6 +376,7 @@ async def verify_agent_jwt(
         return JwtVerifyResult(ok=False, error="agent_expired")
 
     agent = extend_session(agent)
+    await agent_store.save(agent)
 
     return JwtVerifyResult(ok=True, claims=claims, host=host, agent=agent)
 
