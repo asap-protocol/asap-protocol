@@ -9,6 +9,7 @@ import httpx
 import pytest
 
 from scripts.telemetry.collect_registry import (
+    DEFAULT_REGISTRY_URL,
     collect_registry_snapshot,
     count_registry_agents,
     detect_registry_format,
@@ -17,6 +18,15 @@ from scripts.telemetry.collect_registry import (
     main,
     resolve_previous_agent_count,
 )
+
+
+class TestRegistryUrlDefault:
+    def test_default_registry_url_uses_org_main_branch(self) -> None:
+        """Org cutover: telemetry must pin the public org raw registry URL."""
+        assert DEFAULT_REGISTRY_URL == (
+            "https://raw.githubusercontent.com/asap-protocol/asap-protocol/main/registry.json"
+        )
+        assert "adriannoes" not in DEFAULT_REGISTRY_URL
 
 
 class TestCountRegistryAgents:
