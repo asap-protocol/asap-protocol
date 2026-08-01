@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Agent JWT session sliding (LIFE-005)** — Successful
+  :func:`~asap.auth.agent_jwt.verify_agent_jwt` always persists the extended
+  session via ``agent_store.save`` after ``extend_session`` (restores the
+  pre-S3 “verifier writes” contract; callers must not assume they alone persist
+  ``last_used_at``). Side effect: authenticated ``GET /asap/capability/list``
+  with an Agent JWT now slides idle timeout the same as other verify paths —
+  list traffic keeps sessions warm. Custom ``AgentStore`` implementers should
+  expect a write on every successful verify.
+
 ### Follow-up (planned v2.5.5+)
 
 - **Formal Spec & Interop** — RFC spec, introspection, privacy ([prd-v2.5.5-formal-spec-interop.md](product/prd/prd-v2.5.5-formal-spec-interop.md)).
