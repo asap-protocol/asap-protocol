@@ -8,6 +8,8 @@ import httpx
 import pytest
 
 from scripts.telemetry.collect_github import (
+    DEFAULT_OWNER,
+    DEFAULT_REPO,
     collect_github_signals,
     fetch_popular_referrers,
     fetch_repo_summary,
@@ -17,6 +19,15 @@ from scripts.telemetry.collect_github import (
     slug_framework_label,
     summarize_adapter_requests,
 )
+
+
+class TestGithubOrgDefaults:
+    def test_defaults_point_at_asap_protocol_org(self) -> None:
+        """Org cutover: weekly collectors must not silently query the old personal fork."""
+        assert DEFAULT_OWNER == "asap-protocol"
+        assert DEFAULT_REPO == "asap-protocol"
+        assert "adriannoes" not in DEFAULT_OWNER
+        assert "adriannoes" not in DEFAULT_REPO
 
 
 def _json_response(data: object, status: int = 200) -> httpx.Response:
