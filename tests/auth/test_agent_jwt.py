@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import base64
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import pytest
@@ -296,6 +296,49 @@ async def test_verify_agent_jwt_success() -> None:
     assert res.ok
     assert res.agent is not None and res.agent.agent_id == "a1"
     assert res.host is not None and res.host.host_id == "h1"
+
+
+@pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
+async def test_verify_agent_jwt_persists_extended_session() -> None:
+    """Successful verification must persist sliding ``last_used_at`` for session_ttl."""
+    now = datetime.now(timezone.utc)
+    host_sk = Ed25519PrivateKey.generate()
+    host_pub = _public_jwk_dict(host_sk)
+    host_tp = jwk_thumbprint_sha256(host_pub)
+    agent_sk = Ed25519PrivateKey.generate()
+    agent_pub = _public_jwk_dict(agent_sk)
+
+    hosts = InMemoryHostStore()
+    agents = InMemoryAgentStore()
+    await hosts.save(
+        HostIdentity(
+            host_id="h1",
+            public_key=host_pub,
+            status="active",
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    stale_last_used = now - timedelta(minutes=30)
+    await agents.save(
+        AgentSession(
+            agent_id="a1",
+            host_id="h1",
+            public_key=agent_pub,
+            mode="delegated",
+            status="active",
+            created_at=now,
+            session_ttl=timedelta(hours=1),
+            last_used_at=stale_last_used,
+        )
+    )
+    token = create_agent_jwt(agent_sk, host_thumbprint=host_tp, agent_id="a1", aud="aud")
+    res = await verify_agent_jwt(token, hosts, agents)
+    assert res.ok
+    stored = await agents.get("a1")
+    assert stored is not None
+    assert stored.last_used_at is not None
+    assert stored.last_used_at > stale_last_used
 
 
 @pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
