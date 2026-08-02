@@ -1,0 +1,4518 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A streamlined protocol for agent-to-agent communication">
+      
+      
+      
+        <link rel="canonical" href="https://asap-protocol.github.io/asap-protocol/testing/">
+      
+      
+        <link rel="prev" href="../migration/">
+      
+      
+        <link rel="next" href="../deployment/kubernetes/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Testing - ASAP Protocol</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#testing-guide" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="ASAP Protocol" class="md-header__button md-logo" aria-label="ASAP Protocol" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ASAP Protocol
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Testing
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/asap-protocol/asap-protocol" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    asap-protocol/asap-protocol
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="ASAP Protocol" class="md-nav__button md-logo" aria-label="ASAP Protocol" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    ASAP Protocol
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/asap-protocol/asap-protocol" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    asap-protocol/asap-protocol
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SDKs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    SDKs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sdks/typescript/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TypeScript client
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integrations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Integrations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../integrations/mastra/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mastra
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../integrations/openai-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAI Agents SDK
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../integrations/workflow-connectors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflow connectors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../integrations/microsoft-agent-framework/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Microsoft Agent Framework
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../integrations/nemo-agent-toolkit/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NeMo Agent Toolkit
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adapters
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Adapters
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adapters/openapi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adapters/mcp-auth-bridge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Auth Bridge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/first-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Building Your First Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/stateful-workflows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stateful Workflows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/multi-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Orchestration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/resilience/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Building Resilient Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/production-checklist/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Production Deployment Checklist
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture Decision Records
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture Decision Records
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Index
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-001-ulid-for-id-generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-001 ULID for ID Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-002-async-first-api-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-002 Async-First API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-003-jsonrpc20-binding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-003 JSON-RPC 2.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-004-pydantic-for-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-004 Pydantic for Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-005-state-machine-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-005 State Machine
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-006-security-defaults/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-006 Security Defaults
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-007-fastapi-for-server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-007 FastAPI for Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-008-httpx-for-client/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-008 httpx for Client
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-009-snapshot-vs-event-sourced/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-009 Snapshot vs Event-Sourced
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-010-python-313-requirement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-010 Python 3.13+
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-011-per-sender-rate-limiting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-011 Per-Sender Rate Limiting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-012-error-taxonomy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-012 Error Taxonomy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-013-mcp-integration-approach/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-013 MCP Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-014-testing-strategy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-014 Testing Strategy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-015-observability-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-015 Observability Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-016-versioning-policy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-016 Versioning Policy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-017-failure-injection-strategy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-017 Failure Injection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/build-for-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build for agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/identity-signing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Identity Signing (v1.2)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/compliance-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compliance Testing (v1.2)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/migration-v1.1-to-v1.2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migration v1.1 → v1.2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../registry/auto-registration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lite Registry auto-registration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/automation-connector-security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Automation connector security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../state-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../transport/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transport
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#running-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running Tests
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-organization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test Organization
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Test Organization">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#unit-tests-teststransportunit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unit Tests (tests/transport/unit/)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#integration-tests-teststransportintegration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Integration Tests (tests/transport/integration/)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#e2e-tests-teststransporte2e" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        E2E Tests (tests/transport/e2e/)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#chaos-engineering-tests-testschaos" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chaos Engineering Tests (tests/chaos/)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Chaos Engineering Tests (tests/chaos/)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#network-partition-test_network_partitionpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Network Partition (test_network_partition.py)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#server-crashes-test_crashespy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Server Crashes (test_crashes.py)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#message-reliability-test_message_reliabilitypy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Message Reliability (test_message_reliability.py)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#clock-skew-test_clock_skewpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Clock Skew (test_clock_skew.py)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-isolation-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test Isolation Strategy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Test Isolation Strategy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-process-isolation-pytest-xdist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Process Isolation (pytest-xdist)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-aggressive-monkeypatch-fixtures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Aggressive Monkeypatch Fixtures
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-strategic-test-organization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Strategic Test Organization
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rate-limiting-in-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rate Limiting in Tests
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Rate Limiting in Tests">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#noratelimittestbase" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NoRateLimitTestBase
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#testing-rate-limiting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Rate Limiting
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#choosing-the-right-test-isolation-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Choosing the Right Test Isolation Strategy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Choosing the Right Test Isolation Strategy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#quick-reference-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick Reference Table
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-to-use-each-fixture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Use Each Fixture
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="When to Use Each Fixture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#use-noratelimittestbase-when" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use NoRateLimitTestBase when:
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#use-aggressive-monkeypatch-fixtures-when" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use Aggressive Monkeypatch Fixtures when:
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#use-neither-plain-pytest-when" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use Neither (plain pytest) when:
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-creating-a-class-level-fixture-for-rate-limiting-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: Creating a Class-Level Fixture for Rate Limiting Tests
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pytest-fixtures-explained" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pytest Fixtures Explained
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Pytest Fixtures Explained">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-are-fixtures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What are Fixtures?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#factory-fixtures-vs-regular-fixtures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Factory Fixtures vs Regular Fixtures
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#our-specific-fixtures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Our Specific Fixtures
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Our Specific Fixtures">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#isolated_limiter_factory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        isolated_limiter_factory
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#replace_global_limiter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        replace_global_limiter
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create_isolated_app" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        create_isolated_app
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#asap-testing-utilities-asaptesting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ASAP Testing Utilities (asap.testing)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ASAP Testing Utilities (asap.testing)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mockagent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MockAgent
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pytest-fixtures-asaptesting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pytest Fixtures (asap.testing)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#context-managers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context Managers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#custom-assertions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Custom Assertions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reducing-test-boilerplate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reducing Test Boilerplate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-fixtures-provide-test-isolation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How Fixtures Provide Test Isolation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#additional-test-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Additional test commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Additional test commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parallel-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parallel Execution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#running-by-test-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running by Test Type
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verbose-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verbose Output
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#writing-new-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Writing New Tests
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Writing New Tests">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#choosing-the-right-directory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Choosing the Right Directory
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#choosing-the-right-base-class" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Choosing the Right Base Class
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#test-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test Structure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Best Practices
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#skipped-tests-brotli" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Skipped Tests (Brotli)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tests-failing-with-http-429-rate-limit-exceeded" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tests Failing with HTTP 429 (Rate Limit Exceeded)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tests-interfering-with-each-other" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tests Interfering with Each Other
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#slow-test-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Slow Test Execution
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ci-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CI Integration
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deployment/kubernetes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment (Kubernetes)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_8_1" id="__nav_8_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Models
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Models
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/models/entities.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Entities
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/models/payloads.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Payloads
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/models/parts.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Parts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/transport.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transport
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/state.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../error-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error Handling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#running-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running Tests
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-organization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test Organization
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Test Organization">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#unit-tests-teststransportunit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unit Tests (tests/transport/unit/)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#integration-tests-teststransportintegration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Integration Tests (tests/transport/integration/)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#e2e-tests-teststransporte2e" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        E2E Tests (tests/transport/e2e/)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#chaos-engineering-tests-testschaos" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chaos Engineering Tests (tests/chaos/)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Chaos Engineering Tests (tests/chaos/)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#network-partition-test_network_partitionpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Network Partition (test_network_partition.py)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#server-crashes-test_crashespy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Server Crashes (test_crashes.py)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#message-reliability-test_message_reliabilitypy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Message Reliability (test_message_reliability.py)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#clock-skew-test_clock_skewpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Clock Skew (test_clock_skew.py)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-isolation-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test Isolation Strategy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Test Isolation Strategy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-process-isolation-pytest-xdist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Process Isolation (pytest-xdist)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-aggressive-monkeypatch-fixtures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Aggressive Monkeypatch Fixtures
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-strategic-test-organization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Strategic Test Organization
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rate-limiting-in-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rate Limiting in Tests
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Rate Limiting in Tests">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#noratelimittestbase" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NoRateLimitTestBase
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#testing-rate-limiting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Rate Limiting
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#choosing-the-right-test-isolation-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Choosing the Right Test Isolation Strategy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Choosing the Right Test Isolation Strategy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#quick-reference-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick Reference Table
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-to-use-each-fixture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Use Each Fixture
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="When to Use Each Fixture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#use-noratelimittestbase-when" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use NoRateLimitTestBase when:
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#use-aggressive-monkeypatch-fixtures-when" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use Aggressive Monkeypatch Fixtures when:
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#use-neither-plain-pytest-when" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use Neither (plain pytest) when:
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-creating-a-class-level-fixture-for-rate-limiting-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: Creating a Class-Level Fixture for Rate Limiting Tests
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pytest-fixtures-explained" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pytest Fixtures Explained
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Pytest Fixtures Explained">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-are-fixtures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What are Fixtures?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#factory-fixtures-vs-regular-fixtures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Factory Fixtures vs Regular Fixtures
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#our-specific-fixtures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Our Specific Fixtures
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Our Specific Fixtures">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#isolated_limiter_factory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        isolated_limiter_factory
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#replace_global_limiter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        replace_global_limiter
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create_isolated_app" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        create_isolated_app
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#asap-testing-utilities-asaptesting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ASAP Testing Utilities (asap.testing)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ASAP Testing Utilities (asap.testing)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mockagent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MockAgent
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pytest-fixtures-asaptesting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pytest Fixtures (asap.testing)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#context-managers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context Managers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#custom-assertions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Custom Assertions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reducing-test-boilerplate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reducing Test Boilerplate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-fixtures-provide-test-isolation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How Fixtures Provide Test Isolation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#additional-test-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Additional test commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Additional test commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parallel-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parallel Execution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#running-by-test-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running by Test Type
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verbose-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verbose Output
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#writing-new-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Writing New Tests
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Writing New Tests">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#choosing-the-right-directory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Choosing the Right Directory
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#choosing-the-right-base-class" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Choosing the Right Base Class
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#test-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test Structure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Best Practices
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#skipped-tests-brotli" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Skipped Tests (Brotli)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tests-failing-with-http-429-rate-limit-exceeded" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tests Failing with HTTP 429 (Rate Limit Exceeded)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tests-interfering-with-each-other" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tests Interfering with Each Other
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#slow-test-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Slow Test Execution
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ci-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CI Integration
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="testing-guide">Testing Guide</h1>
+<p>This guide covers the testing infrastructure for the ASAP Protocol implementation.</p>
+<h2 id="running-tests">Running Tests</h2>
+<p><strong>Always use <code>uv run pytest</code> to run tests:</strong></p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Run all tests</span>
+uv<span class="w"> </span>run<span class="w"> </span>pytest
+
+<span class="c1"># Run specific test file</span>
+uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/transport/integration/test_rate_limiting.py<span class="w"> </span>-v
+
+<span class="c1"># Run specific test</span>
+uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/transport/integration/test_rate_limiting.py::TestRateLimiting::test_requests_within_limit_succeed<span class="w"> </span>-v
+
+<span class="c1"># Fast parallel run (CI test job — no coverage)</span>
+uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>-n<span class="w"> </span>auto<span class="w"> </span>--tb<span class="o">=</span>short
+
+<span class="c1"># Coverage (dedicated run — do NOT combine with -n auto; see below)</span>
+uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>--tb<span class="o">=</span>short<span class="w"> </span>--cov<span class="o">=</span>asap<span class="w"> </span>--cov-report<span class="o">=</span>html
+</code></pre></div>
+<blockquote>
+<p><strong>Coverage and xdist:</strong> Do not pass <code>--cov</code> together with <code>-n auto</code>. pytest-xdist + coverage can cause <code>INTERNALERROR</code> (exit code 3). CI uses two jobs: parallel tests without coverage, then a separate coverage run. Canonical commands: <a href="../.cursor/README.md#canonical-commands"><code>.cursor/README.md</code></a> and <code>testing-standards.mdc</code>.</p>
+</blockquote>
+<p><strong>Why <code>uv run pytest</code> instead of <code>pytest</code>?</strong></p>
+<p>The project requires Python 3.13+, but your system may have a global <code>pytest</code> installed under an older Python version (e.g., Python 3.9). Using <code>uv run pytest</code> ensures:</p>
+<ol>
+<li>✅ Correct Python version (from <code>.venv</code>, not system Python)</li>
+<li>✅ Correct pytest version (from project dependencies)</li>
+<li>✅ All project dependencies are available</li>
+<li>✅ Consistent with CI environment</li>
+</ol>
+<p><strong>Alternative:</strong> Activate the virtual environment first:</p>
+<div class="highlight"><pre><span></span><code><span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+pytest<span class="w"> </span>tests/transport/integration/test_rate_limiting.py<span class="w"> </span>-v
+deactivate
+</code></pre></div>
+<hr />
+<h2 id="test-organization">Test Organization</h2>
+<p>Tests are organized into three categories based on their scope and dependencies:</p>
+<h3 id="unit-tests-teststransportunit">Unit Tests (<code>tests/transport/unit/</code>)</h3>
+<p>Unit tests validate isolated components without external dependencies. These tests:
+- Test individual classes or functions in isolation
+- Have no HTTP dependencies
+- Have no rate limiting dependencies
+- Run very fast
+- Are deterministic and repeatable</p>
+<p><strong>Example</strong>: <code>test_bounded_executor.py</code> tests the <code>BoundedExecutor</code> class without any HTTP or rate limiting.</p>
+<h3 id="integration-tests-teststransportintegration">Integration Tests (<code>tests/transport/integration/</code>)</h3>
+<p>Integration tests validate component interactions within the transport layer. These tests:
+- Test interactions between multiple components (e.g., server, middleware, handlers)
+- May use HTTP clients (<code>TestClient</code>)
+- Are organized by feature area:
+  - <code>test_rate_limiting.py</code> - Rate limiting functionality (isolated file)
+  - <code>test_request_size_limits.py</code> - Request size validation
+  - <code>test_thread_pool_bounds.py</code> - Thread pool exhaustion handling
+  - <code>test_metrics_cardinality.py</code> - Metrics cardinality protection
+  - <code>test_server_core.py</code> - Core server functionality (endpoints, handlers, metrics)</p>
+<p><strong>IMPORTANT</strong>: Integration tests use fixtures from <code>tests/transport/conftest.py</code>. See the <a href="#pytest-fixtures-explained">Fixtures</a> section for details.</p>
+<h3 id="e2e-tests-teststransporte2e">E2E Tests (<code>tests/transport/e2e/</code>)</h3>
+<p>End-to-end tests validate the full agent flow using real agent implementations. These tests:
+- Test complete workflows from request to response
+- Use the full stack (server, handlers, state management)
+- Validate cross-component behavior
+- Are slower but provide high confidence</p>
+<p><strong>Example</strong>: <code>test_full_agent_flow.py</code> tests complete round-trip agent interactions.</p>
+<p><strong>Linking unit and integration:</strong> E2E tests can reuse the same app (e.g. <code>create_app(manifest)</code>) with <code>httpx.ASGITransport(app=app)</code> so that <code>ASAPClient</code> talks to the real server over HTTP. For example, <code>TestManifestDiscovery::test_asap_client_get_manifest_against_app_and_cache</code> asserts that <code>get_manifest()</code> fetches from <code>/.well-known/asap/manifest.json</code> and that the manifest cache is used on the second call, connecting the unit tests in <code>tests/transport/test_client.py</code> (cache hit/miss) with the real endpoint.</p>
+<p><strong>Future integration opportunities:</strong>
+- <strong>MCP:</strong> An integration test that runs the MCP server (e.g. in-process <code>run_stdio</code> or subprocess) and the MCP client, then calls <code>list_tools</code> and <code>call_tool</code>, would bridge the unit tests in <code>tests/mcp/</code> with a full round-trip.
+- <strong>Snapshot store:</strong> If handlers or workflows start using <code>InMemorySnapshotStore</code>, an integration test that saves and deletes snapshots and asserts store state would align with the snapshot unit tests (e.g. <code>test_delete_last_version_cleans_up_task</code>).
+- <strong>Trace parser and logs:</strong> A test that triggers a request, captures structured log output, and runs <code>parse_trace_from_lines()</code> (or <code>extract_trace_ids</code>) on it would ensure the observability log format stays compatible with the trace parser.</p>
+<h3 id="chaos-engineering-tests-testschaos">Chaos Engineering Tests (<code>tests/chaos/</code>)</h3>
+<p>Chaos engineering tests validate system resilience under adverse conditions. These tests simulate real-world failure scenarios that distributed systems may encounter.</p>
+<p><strong>Test modules:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Tests</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>test_network_partition.py</code></td>
+<td>12</td>
+<td>Network partition and connectivity issues</td>
+</tr>
+<tr>
+<td><code>test_crashes.py</code></td>
+<td>13</td>
+<td>Server crashes and 5xx error responses</td>
+</tr>
+<tr>
+<td><code>test_message_reliability.py</code></td>
+<td>19</td>
+<td>Message loss, duplication, and corruption</td>
+</tr>
+<tr>
+<td><code>test_clock_skew.py</code></td>
+<td>25</td>
+<td>Clock synchronization and timestamp validation</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Running chaos tests:</strong></p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Run all chaos tests</span>
+uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/chaos/<span class="w"> </span>-v
+
+<span class="c1"># Run specific chaos test module</span>
+uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/chaos/test_network_partition.py<span class="w"> </span>-v
+
+<span class="c1"># Run with verbose output for debugging</span>
+uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/chaos/<span class="w"> </span>-v<span class="w"> </span>--tb<span class="o">=</span>long
+</code></pre></div>
+<p><strong>Test categories:</strong></p>
+<h4 id="network-partition-test_network_partitionpy">Network Partition (<code>test_network_partition.py</code>)</h4>
+<p>Simulates network-level failures:
+- Complete connection failures (server unreachable)
+- Connection timeouts (server unresponsive)
+- Intermittent failures (flaky networks)
+- DNS resolution failures
+- SSL/TLS handshake failures
+- Circuit breaker behavior under sustained failures</p>
+<h4 id="server-crashes-test_crashespy">Server Crashes (<code>test_crashes.py</code>)</h4>
+<p>Simulates server-side failures:
+- Server crash during request (connection reset)
+- HTTP 502 Bad Gateway (proxy/load balancer issues)
+- HTTP 503 Service Unavailable (server restarting)
+- HTTP 504 Gateway Timeout (slow backend)
+- Rolling restart scenarios (K8s deployments)
+- OOM kill patterns
+- Cascading failures</p>
+<h4 id="message-reliability-test_message_reliabilitypy">Message Reliability (<code>test_message_reliability.py</code>)</h4>
+<p>Simulates message-level issues:
+- Message loss (timeout, no response)
+- Message duplication (idempotency testing)
+- Out-of-order delivery
+- Partial message corruption (truncated JSON)
+- Malformed responses
+- Retry behavior with same envelope ID</p>
+<h4 id="clock-skew-test_clock_skewpy">Clock Skew (<code>test_clock_skew.py</code>)</h4>
+<p>Simulates clock synchronization issues:
+- Past timestamps (stale messages, replay attacks)
+- Future timestamps (sender clock ahead)
+- Timezone handling (UTC, positive/negative offsets)
+- Clock drift detection
+- Multi-datacenter clock variance
+- NTP sync failure scenarios
+- VM snapshot/resume clock skew</p>
+<p><strong>Key patterns used:</strong></p>
+<ol>
+<li><strong>Mock transports</strong>: Uses <code>httpx.MockTransport</code> to simulate network behavior</li>
+<li><strong>Circuit breakers</strong>: Tests circuit breaker state transitions</li>
+<li><strong>Retry validation</strong>: Verifies retry counts and exponential backoff</li>
+<li><strong>Error message clarity</strong>: Ensures errors are actionable</li>
+</ol>
+<p><strong>Example chaos test:</strong></p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">unittest.mock</span><span class="w"> </span><span class="kn">import</span> <span class="n">patch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">httpx</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pytest</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.transport.client</span><span class="w"> </span><span class="kn">import</span> <span class="n">ASAPClient</span><span class="p">,</span> <span class="n">ASAPConnectionError</span>
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">test_intermittent_failure</span><span class="p">(</span><span class="n">sample_envelope</span><span class="p">,</span> <span class="n">response_envelope</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Test client resilience to intermittent failures.&quot;&quot;&quot;</span>
+    <span class="n">call_count</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">mock_transport</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">httpx</span><span class="o">.</span><span class="n">Request</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">httpx</span><span class="o">.</span><span class="n">Response</span><span class="p">:</span>
+        <span class="k">nonlocal</span> <span class="n">call_count</span>
+        <span class="n">call_count</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="c1"># First 2 attempts fail, 3rd succeeds</span>
+        <span class="k">if</span> <span class="n">call_count</span> <span class="o">&lt;=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">httpx</span><span class="o">.</span><span class="n">ConnectError</span><span class="p">(</span><span class="s2">&quot;Network flaky&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">create_mock_response</span><span class="p">(</span><span class="n">response_envelope</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;asap.transport.client.asyncio.sleep&quot;</span><span class="p">):</span>
+        <span class="k">async</span> <span class="k">with</span> <span class="n">ASAPClient</span><span class="p">(</span>
+            <span class="s2">&quot;http://localhost:8000&quot;</span><span class="p">,</span>
+            <span class="n">transport</span><span class="o">=</span><span class="n">httpx</span><span class="o">.</span><span class="n">MockTransport</span><span class="p">(</span><span class="n">mock_transport</span><span class="p">),</span>
+            <span class="n">max_retries</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+        <span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">sample_envelope</span><span class="p">)</span>
+            <span class="k">assert</span> <span class="n">response</span><span class="o">.</span><span class="n">payload_type</span> <span class="o">==</span> <span class="s2">&quot;task.response&quot;</span>
+
+    <span class="k">assert</span> <span class="n">call_count</span> <span class="o">==</span> <span class="mi">3</span>  <span class="c1"># 2 failures + 1 success</span>
+</code></pre></div>
+<h2 id="test-isolation-strategy">Test Isolation Strategy</h2>
+<p>The ASAP Protocol test suite uses a <strong>three-pronged approach</strong> to ensure complete test isolation and prevent interference, especially from rate limiting:</p>
+<h3 id="1-process-isolation-pytest-xdist">1. Process Isolation (pytest-xdist)</h3>
+<p>We use <code>pytest-xdist</code> to run tests in separate processes, providing complete isolation at the process level. This is the primary mechanism for preventing interference.</p>
+<p><strong>Usage</strong>:
+<div class="highlight"><pre><span></span><code><span class="c1"># Run tests in parallel with automatic worker count</span>
+uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>-n<span class="w"> </span>auto
+
+<span class="c1"># Run with specific number of workers</span>
+uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>-n<span class="w"> </span><span class="m">4</span>
+</code></pre></div></p>
+<p><strong>Benefits</strong>:
+- Complete process-level isolation
+- No shared state between test processes
+- Faster execution on multi-core systems
+- Automatic worker count based on CPU cores</p>
+<h3 id="2-aggressive-monkeypatch-fixtures">2. Aggressive Monkeypatch Fixtures</h3>
+<p>For tests that can't benefit from process isolation (or need additional isolation), we use "aggressive monkeypatch" fixtures that replace module-level rate limiters.</p>
+<p><strong>Why "Aggressive Monkeypatch"?</strong></p>
+<p>The <code>slowapi.Limiter</code> library maintains global state that persists across tests, even with unique storage URIs. Simply replacing <code>app.state.limiter</code> is not sufficient because:</p>
+<ul>
+<li>The limiter is created at module import time</li>
+<li>Code may reference the module-level limiter directly</li>
+<li>Internal state persists even with different storage URIs</li>
+</ul>
+<p><strong>Solution</strong>: Our fixtures replace the limiter at the <strong>module level</strong> in both <code>asap.transport.middleware</code> and <code>asap.transport.server</code>, ensuring complete isolation even when code uses the global limiter directly.</p>
+<p><strong>Example</strong>:
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">test_rate_limiting</span><span class="p">(</span><span class="n">replace_global_limiter</span><span class="p">,</span> <span class="n">isolated_limiter_factory</span><span class="p">):</span>
+    <span class="c1"># replace_global_limiter automatically replaces module-level limiters</span>
+    <span class="n">limiter</span> <span class="o">=</span> <span class="n">isolated_limiter_factory</span><span class="p">([</span><span class="s2">&quot;5/minute&quot;</span><span class="p">])</span>
+    <span class="c1"># Global limiter is now replaced, app will use it automatically</span>
+    <span class="n">app</span> <span class="o">=</span> <span class="n">create_app</span><span class="p">(</span><span class="n">manifest</span><span class="p">,</span> <span class="n">rate_limit</span><span class="o">=</span><span class="s2">&quot;5/minute&quot;</span><span class="p">)</span>
+</code></pre></div></p>
+<h3 id="3-strategic-test-organization">3. Strategic Test Organization</h3>
+<p>Tests are strategically organized to prevent interference:</p>
+<ul>
+<li><strong>Rate limiting tests</strong> are in a separate file (<code>test_rate_limiting.py</code>) that runs in isolated processes</li>
+<li><strong>Non-rate-limiting tests</strong> inherit from <code>NoRateLimitTestBase</code> to automatically disable rate limiting</li>
+<li><strong>Unit tests</strong> have no rate limiting dependencies at all</li>
+</ul>
+<p>This organization ensures that rate limiting tests don't interfere with other tests, and vice versa.</p>
+<h2 id="rate-limiting-in-tests">Rate Limiting in Tests</h2>
+<h3 id="noratelimittestbase">NoRateLimitTestBase</h3>
+<p>For tests that don't need rate limiting, inherit from <code>NoRateLimitTestBase</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">tests.transport.conftest</span><span class="w"> </span><span class="kn">import</span> <span class="n">NoRateLimitTestBase</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">TestMyFeature</span><span class="p">(</span><span class="n">NoRateLimitTestBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Tests for my feature without rate limiting interference.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_something</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">manifest</span><span class="p">):</span>
+        <span class="c1"># Rate limiting is automatically disabled</span>
+        <span class="n">app</span> <span class="o">=</span> <span class="n">create_app</span><span class="p">(</span><span class="n">manifest</span><span class="p">)</span>
+        <span class="c1"># Test your feature without rate limiting concerns</span>
+</code></pre></div>
+<p><strong>What it does</strong>:
+- Automatically disables rate limiting for all tests in the class
+- Replaces module-level limiters with a no-limit limiter
+- Prevents interference from rate limiting tests
+- No need to manually configure rate limiting</p>
+<p><strong>When to use</strong>:
+- Tests that don't test rate limiting functionality
+- Tests that need to make many requests without hitting limits
+- Integration tests that test other features (size validation, thread pools, etc.)</p>
+<h3 id="testing-rate-limiting">Testing Rate Limiting</h3>
+<p>When writing tests specifically for rate limiting functionality:</p>
+<ol>
+<li><strong>Use aggressive monkeypatch</strong>: Use <code>replace_global_limiter</code> or manually replace module-level limiters</li>
+<li><strong>Isolate in separate file</strong>: Put rate limiting tests in <code>test_rate_limiting.py</code></li>
+<li><strong>Use isolated limiters</strong>: Use <code>isolated_limiter_factory</code> to create fresh limiters</li>
+</ol>
+<p><strong>Example</strong>:
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">test_rate_limit_exceeded</span><span class="p">(</span>
+    <span class="n">monkeypatch</span><span class="p">,</span>
+    <span class="n">isolated_limiter_factory</span><span class="p">,</span>
+    <span class="n">rate_limit_manifest</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="c1"># Create isolated limiter with specific limits</span>
+    <span class="n">limiter</span> <span class="o">=</span> <span class="n">isolated_limiter_factory</span><span class="p">([</span><span class="s2">&quot;2/minute&quot;</span><span class="p">])</span>
+
+    <span class="c1"># Replace global limiter in both modules</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">asap.transport.middleware</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">middleware_module</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">asap.transport.server</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">server_module</span>
+
+    <span class="n">monkeypatch</span><span class="o">.</span><span class="n">setattr</span><span class="p">(</span><span class="n">middleware_module</span><span class="p">,</span> <span class="s2">&quot;limiter&quot;</span><span class="p">,</span> <span class="n">limiter</span><span class="p">)</span>
+    <span class="n">monkeypatch</span><span class="o">.</span><span class="n">setattr</span><span class="p">(</span><span class="n">server_module</span><span class="p">,</span> <span class="s2">&quot;limiter&quot;</span><span class="p">,</span> <span class="n">limiter</span><span class="p">)</span>
+
+    <span class="c1"># Create app with rate limiting</span>
+    <span class="n">app</span> <span class="o">=</span> <span class="n">create_app</span><span class="p">(</span><span class="n">rate_limit_manifest</span><span class="p">,</span> <span class="n">rate_limit</span><span class="o">=</span><span class="s2">&quot;2/minute&quot;</span><span class="p">)</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">limiter</span> <span class="o">=</span> <span class="n">limiter</span>
+
+    <span class="n">client</span> <span class="o">=</span> <span class="n">TestClient</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
+
+    <span class="c1"># Make requests and verify rate limiting behavior</span>
+    <span class="c1"># ...</span>
+</code></pre></div></p>
+<h2 id="choosing-the-right-test-isolation-strategy">Choosing the Right Test Isolation Strategy</h2>
+<p>When writing transport layer tests, use this decision tree to choose the appropriate fixtures and test organization:</p>
+<div class="highlight"><pre><span></span><code>graph TD
+    A[Writing Transport Test] --&gt; B{Testing rate&lt;br/&gt;limiting behavior?}
+    B --&gt;|Yes| C[Create class-level fixture&lt;br/&gt;with aggressive monkeypatch]
+    B --&gt;|No| D[Inherit from&lt;br/&gt;NoRateLimitTestBase]
+
+    C --&gt; E[See test_rate_limiting.py&lt;br/&gt;for examples]
+    C --&gt; F{Need custom&lt;br/&gt;rate limit?}
+    F --&gt;|Yes| G[Create fixture like&lt;br/&gt;isolated_app_5_per_minute]
+    F --&gt;|No| H[Use replace_global_limiter&lt;br/&gt;fixture]
+
+    D --&gt; I[Rate limiting automatically&lt;br/&gt;disabled for all tests]
+    D --&gt; J[Can make unlimited&lt;br/&gt;requests without 429 errors]
+
+    style C fill:#fff3cd,stroke:#856404
+    style D fill:#d4edda,stroke:#155724
+    style E fill:#e7f3ff,stroke:#004085
+    style G fill:#e7f3ff,stroke:#004085
+    style H fill:#e7f3ff,stroke:#004085
+    style I fill:#d1ecf1,stroke:#0c5460
+    style J fill:#d1ecf1,stroke:#0c5460
+</code></pre></div>
+<h3 id="quick-reference-table">Quick Reference Table</h3>
+<table>
+<thead>
+<tr>
+<th>Your Test Needs</th>
+<th>Recommended Approach</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Testing rate limiting</strong></td>
+<td>Class-level fixture with aggressive monkeypatch</td>
+<td><code>test_rate_limiting.py</code></td>
+</tr>
+<tr>
+<td><strong>NOT testing rate limiting</strong></td>
+<td>Inherit from <code>NoRateLimitTestBase</code></td>
+<td>Most integration tests</td>
+</tr>
+<tr>
+<td><strong>Unit test (no HTTP)</strong></td>
+<td>No special fixtures needed</td>
+<td><code>test_bounded_executor.py</code></td>
+</tr>
+<tr>
+<td><strong>Custom rate limit (e.g., 5/min)</strong></td>
+<td>Create class-level fixture</td>
+<td>See <code>isolated_app_5_per_minute</code></td>
+</tr>
+<tr>
+<td><strong>Testing other features</strong></td>
+<td><code>NoRateLimitTestBase</code> + specific fixtures</td>
+<td><code>test_request_size_limits.py</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="when-to-use-each-fixture">When to Use Each Fixture</h3>
+<h4 id="use-noratelimittestbase-when">Use <code>NoRateLimitTestBase</code> when:</h4>
+<ul>
+<li>✅ Testing features OTHER than rate limiting</li>
+<li>✅ Need to make many requests without hitting limits</li>
+<li>✅ Testing thread pools, request size limits, metrics, etc.</li>
+<li>✅ Running integration tests that involve HTTP but not rate limiting</li>
+</ul>
+<h4 id="use-aggressive-monkeypatch-fixtures-when">Use Aggressive Monkeypatch Fixtures when:</h4>
+<ul>
+<li>✅ <strong>Explicitly testing rate limiting behavior</strong></li>
+<li>✅ Need precise control over rate limit values</li>
+<li>✅ Testing limit thresholds, resets, or error responses</li>
+<li>✅ Creating rate limiting tests in <code>test_rate_limiting.py</code></li>
+</ul>
+<h4 id="use-neither-plain-pytest-when">Use Neither (plain pytest) when:</h4>
+<ul>
+<li>✅ Unit tests with no HTTP dependencies</li>
+<li>✅ Testing pure functions or classes</li>
+<li>✅ No rate limiting or app creation involved</li>
+</ul>
+<h3 id="example-creating-a-class-level-fixture-for-rate-limiting-tests">Example: Creating a Class-Level Fixture for Rate Limiting Tests</h3>
+<div class="highlight"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">TestMyRateLimitFeature</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Tests for rate limiting with custom limits.&quot;&quot;&quot;</span>
+
+    <span class="nd">@pytest</span><span class="o">.</span><span class="n">fixture</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">isolated_app_custom_limit</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">monkeypatch</span><span class="p">:</span> <span class="n">pytest</span><span class="o">.</span><span class="n">MonkeyPatch</span><span class="p">,</span>
+        <span class="n">isolated_limiter_factory</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span>
+        <span class="n">manifest</span><span class="p">:</span> <span class="n">Manifest</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FastAPI</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create app with custom rate limit.&quot;&quot;&quot;</span>
+        <span class="c1"># Create isolated limiter</span>
+        <span class="n">limiter</span> <span class="o">=</span> <span class="n">isolated_limiter_factory</span><span class="p">([</span><span class="s2">&quot;10/minute&quot;</span><span class="p">])</span>
+
+        <span class="c1"># Aggressive monkeypatch - replace in BOTH modules</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">asap.transport.middleware</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">middleware_module</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">asap.transport.server</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">server_module</span>
+
+        <span class="n">monkeypatch</span><span class="o">.</span><span class="n">setattr</span><span class="p">(</span><span class="n">middleware_module</span><span class="p">,</span> <span class="s2">&quot;limiter&quot;</span><span class="p">,</span> <span class="n">limiter</span><span class="p">)</span>
+        <span class="n">monkeypatch</span><span class="o">.</span><span class="n">setattr</span><span class="p">(</span><span class="n">server_module</span><span class="p">,</span> <span class="s2">&quot;limiter&quot;</span><span class="p">,</span> <span class="n">limiter</span><span class="p">)</span>
+
+        <span class="c1"># Create app</span>
+        <span class="n">app</span> <span class="o">=</span> <span class="n">create_app</span><span class="p">(</span><span class="n">manifest</span><span class="p">,</span> <span class="n">rate_limit</span><span class="o">=</span><span class="s2">&quot;10/minute&quot;</span><span class="p">)</span>
+        <span class="n">app</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">limiter</span> <span class="o">=</span> <span class="n">limiter</span>
+
+        <span class="k">return</span> <span class="n">app</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_my_rate_limit_feature</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">isolated_app_custom_limit</span><span class="p">:</span> <span class="n">FastAPI</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Test uses the custom rate-limited app.&quot;&quot;&quot;</span>
+        <span class="n">client</span> <span class="o">=</span> <span class="n">TestClient</span><span class="p">(</span><span class="n">isolated_app_custom_limit</span><span class="p">)</span>
+        <span class="c1"># Test implementation...</span>
+</code></pre></div>
+<hr />
+<h2 id="pytest-fixtures-explained">Pytest Fixtures Explained</h2>
+<h3 id="what-are-fixtures">What are Fixtures?</h3>
+<p>Fixtures are pytest's way of providing test dependencies. They:
+- Set up test data or objects
+- Provide reusable test components
+- Ensure proper cleanup after tests
+- Can be shared across multiple tests</p>
+<h3 id="factory-fixtures-vs-regular-fixtures">Factory Fixtures vs Regular Fixtures</h3>
+<p><strong>Regular Fixtures</strong>: Return a single value that is reused (or recreated) for each test:
+<div class="highlight"><pre><span></span><code><span class="nd">@pytest</span><span class="o">.</span><span class="n">fixture</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">manifest</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Manifest</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Returns a single Manifest instance.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">Manifest</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+</code></pre></div></p>
+<p><strong>Factory Fixtures</strong>: Return a function that creates new instances:
+<div class="highlight"><pre><span></span><code><span class="nd">@pytest</span><span class="o">.</span><span class="n">fixture</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">isolated_limiter_factory</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Returns a function that creates new limiters.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create</span><span class="p">(</span><span class="n">limits</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Limiter</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_create</span>
+</code></pre></div></p>
+<p>Factory fixtures are useful when you need multiple instances with different configurations.</p>
+<h3 id="our-specific-fixtures">Our Specific Fixtures</h3>
+<h4 id="isolated_limiter_factory"><code>isolated_limiter_factory</code></h4>
+<p>A factory fixture that creates isolated rate limiters with unique storage:</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">test_something</span><span class="p">(</span><span class="n">isolated_limiter_factory</span><span class="p">):</span>
+    <span class="c1"># Create a limiter with specific limits</span>
+    <span class="n">limiter</span> <span class="o">=</span> <span class="n">isolated_limiter_factory</span><span class="p">([</span><span class="s2">&quot;10/minute&quot;</span><span class="p">])</span>
+
+    <span class="c1"># Each call creates a NEW limiter with isolated storage</span>
+    <span class="n">another_limiter</span> <span class="o">=</span> <span class="n">isolated_limiter_factory</span><span class="p">([</span><span class="s2">&quot;5/minute&quot;</span><span class="p">])</span>
+</code></pre></div>
+<p><strong>Why we created it</strong>: Ensures each test gets a completely fresh limiter with no shared state.</p>
+<h4 id="replace_global_limiter"><code>replace_global_limiter</code></h4>
+<p>A fixture that replaces module-level limiters using aggressive monkeypatch:</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">test_something</span><span class="p">(</span><span class="n">replace_global_limiter</span><span class="p">):</span>
+    <span class="c1"># Global limiter is automatically replaced</span>
+    <span class="c1"># Any code using the module-level limiter will use the new one</span>
+    <span class="n">app</span> <span class="o">=</span> <span class="n">create_app</span><span class="p">(</span><span class="n">manifest</span><span class="p">)</span>
+</code></pre></div>
+<p><strong>Why we created it</strong>: Provides complete isolation by replacing limiters at the module level, not just at the app level.</p>
+<h4 id="create_isolated_app"><code>create_isolated_app</code></h4>
+<p>A factory fixture that creates apps with isolated limiters:</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">test_something</span><span class="p">(</span><span class="n">create_isolated_app</span><span class="p">,</span> <span class="n">manifest</span><span class="p">):</span>
+    <span class="c1"># Create app with isolated limiter</span>
+    <span class="n">app</span> <span class="o">=</span> <span class="n">create_isolated_app</span><span class="p">(</span>
+        <span class="n">manifest</span><span class="p">,</span>
+        <span class="n">rate_limit</span><span class="o">=</span><span class="s2">&quot;10/minute&quot;</span><span class="p">,</span>
+        <span class="n">use_monkeypatch</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># Use aggressive monkeypatch</span>
+    <span class="p">)</span>
+</code></pre></div>
+<p><strong>Why we created it</strong>: Simplifies app creation for tests that need complete isolation.</p>
+<hr />
+<h2 id="asap-testing-utilities-asaptesting">ASAP Testing Utilities (<code>asap.testing</code>)</h2>
+<p>The <code>asap.testing</code> package provides <strong>MockAgent</strong>, <strong>pytest fixtures</strong>, <strong>context managers</strong>, and <strong>custom assertions</strong> to reduce boilerplate when testing ASAP protocol integrations. Use these utilities to simulate agents, validate envelopes, and assert task outcomes without starting real servers.</p>
+<h3 id="mockagent">MockAgent</h3>
+<p><code>MockAgent</code> simulates an ASAP agent in memory. Pre-set responses per skill, record incoming requests, and optionally add delay or raise exceptions for error-path tests.</p>
+<p><strong>Basic usage:</strong></p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">asap.testing</span><span class="w"> </span><span class="kn">import</span> <span class="n">MockAgent</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.models.envelope</span><span class="w"> </span><span class="kn">import</span> <span class="n">Envelope</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.models.payloads</span><span class="w"> </span><span class="kn">import</span> <span class="n">TaskRequest</span><span class="p">,</span> <span class="n">TaskResponse</span>
+
+<span class="n">agent</span> <span class="o">=</span> <span class="n">MockAgent</span><span class="p">(</span><span class="s2">&quot;urn:asap:agent:mock&quot;</span><span class="p">)</span>
+<span class="n">agent</span><span class="o">.</span><span class="n">set_response</span><span class="p">(</span>
+    <span class="s2">&quot;echo&quot;</span><span class="p">,</span>
+    <span class="n">TaskResponse</span><span class="p">(</span><span class="n">task_id</span><span class="o">=</span><span class="s2">&quot;t1&quot;</span><span class="p">,</span> <span class="n">status</span><span class="o">=</span><span class="s2">&quot;completed&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">model_dump</span><span class="p">(),</span>
+<span class="p">)</span>
+
+<span class="n">req</span> <span class="o">=</span> <span class="n">Envelope</span><span class="p">(</span>
+    <span class="n">asap_version</span><span class="o">=</span><span class="s2">&quot;0.1&quot;</span><span class="p">,</span>
+    <span class="n">sender</span><span class="o">=</span><span class="s2">&quot;urn:asap:agent:a&quot;</span><span class="p">,</span>
+    <span class="n">recipient</span><span class="o">=</span><span class="n">agent</span><span class="o">.</span><span class="n">agent_id</span><span class="p">,</span>
+    <span class="n">payload_type</span><span class="o">=</span><span class="s2">&quot;TaskRequest&quot;</span><span class="p">,</span>
+    <span class="n">payload</span><span class="o">=</span><span class="n">TaskRequest</span><span class="p">(</span><span class="n">conversation_id</span><span class="o">=</span><span class="s2">&quot;c&quot;</span><span class="p">,</span> <span class="n">skill_id</span><span class="o">=</span><span class="s2">&quot;echo&quot;</span><span class="p">,</span> <span class="nb">input</span><span class="o">=</span><span class="p">{})</span><span class="o">.</span><span class="n">model_dump</span><span class="p">(),</span>
+<span class="p">)</span>
+<span class="n">out</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">handle</span><span class="p">(</span><span class="n">req</span><span class="p">)</span>
+
+<span class="k">assert</span> <span class="n">out</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+<span class="k">assert</span> <span class="n">out</span><span class="o">.</span><span class="n">payload_type</span> <span class="o">==</span> <span class="s2">&quot;TaskResponse&quot;</span>
+<span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">agent</span><span class="o">.</span><span class="n">requests</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+<span class="k">assert</span> <span class="n">agent</span><span class="o">.</span><span class="n">requests_for_skill</span><span class="p">(</span><span class="s2">&quot;echo&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">req</span>
+</code></pre></div>
+<p><strong>Optional behavior:</strong></p>
+<ul>
+<li><strong>Default response</strong>: <code>agent.set_default_response(payload)</code> — used when no skill-specific response is set.</li>
+<li><strong>Delay</strong>: <code>agent.set_delay(0.5)</code> — sleep (seconds) before returning the response (e.g. for timeout tests).</li>
+<li><strong>Simulated failure</strong>: <code>agent.set_failure(ValueError("error"))</code> — <code>handle()</code> records the request then raises; failure is cleared after one call.</li>
+<li><strong>Clear</strong>: <code>agent.clear()</code> — clears recorded requests and all pre-set responses.</li>
+</ul>
+<h3 id="pytest-fixtures-asaptesting">Pytest Fixtures (asap.testing)</h3>
+<p>These fixtures are loaded via <code>pytest_plugins</code> in <code>tests/conftest.py</code>. Request them by name in your test parameters.</p>
+<table>
+<thead>
+<tr>
+<th>Fixture</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mock_agent</code></td>
+<td><code>MockAgent</code></td>
+<td>Fresh MockAgent per test.</td>
+</tr>
+<tr>
+<td><code>mock_snapshot_store</code></td>
+<td><code>InMemorySnapshotStore</code></td>
+<td>Empty in-memory snapshot store per test.</td>
+</tr>
+<tr>
+<td><code>mock_client</code></td>
+<td>async</td>
+<td><code>ASAPClient</code> already entered; use in async tests. Base URL: <code>http://localhost:9999</code>.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example using fixtures:</strong></p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">test_echo_roundtrip</span><span class="p">(</span><span class="n">mock_agent</span><span class="p">:</span> <span class="n">MockAgent</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">mock_agent</span><span class="o">.</span><span class="n">set_response</span><span class="p">(</span>
+        <span class="s2">&quot;echo&quot;</span><span class="p">,</span>
+        <span class="n">TaskResponse</span><span class="p">(</span><span class="n">task_id</span><span class="o">=</span><span class="s2">&quot;t1&quot;</span><span class="p">,</span> <span class="n">status</span><span class="o">=</span><span class="s2">&quot;completed&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">model_dump</span><span class="p">(),</span>
+    <span class="p">)</span>
+    <span class="n">req</span> <span class="o">=</span> <span class="n">Envelope</span><span class="p">(</span>
+        <span class="n">asap_version</span><span class="o">=</span><span class="s2">&quot;0.1&quot;</span><span class="p">,</span>
+        <span class="n">sender</span><span class="o">=</span><span class="s2">&quot;urn:asap:agent:a&quot;</span><span class="p">,</span>
+        <span class="n">recipient</span><span class="o">=</span><span class="n">mock_agent</span><span class="o">.</span><span class="n">agent_id</span><span class="p">,</span>
+        <span class="n">payload_type</span><span class="o">=</span><span class="s2">&quot;TaskRequest&quot;</span><span class="p">,</span>
+        <span class="n">payload</span><span class="o">=</span><span class="n">TaskRequest</span><span class="p">(</span>
+            <span class="n">conversation_id</span><span class="o">=</span><span class="s2">&quot;c&quot;</span><span class="p">,</span> <span class="n">skill_id</span><span class="o">=</span><span class="s2">&quot;echo&quot;</span><span class="p">,</span> <span class="nb">input</span><span class="o">=</span><span class="p">{}</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">model_dump</span><span class="p">(),</span>
+    <span class="p">)</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">mock_agent</span><span class="o">.</span><span class="n">handle</span><span class="p">(</span><span class="n">req</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">out</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+    <span class="n">assert_task_completed</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="context-managers">Context Managers</h3>
+<p>Use context managers when you want an agent or client scoped to a block, with cleanup on exit.</p>
+<p><strong><code>test_agent(agent_id="urn:asap:agent:mock")</code></strong> — yields a <code>MockAgent</code> and calls <code>agent.clear()</code> on exit:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">asap.testing.fixtures</span><span class="w"> </span><span class="kn">import</span> <span class="n">test_agent</span>
+
+<span class="k">with</span> <span class="n">test_agent</span><span class="p">(</span><span class="s2">&quot;urn:asap:agent:custom&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">agent</span><span class="p">:</span>
+    <span class="n">agent</span><span class="o">.</span><span class="n">set_response</span><span class="p">(</span><span class="s2">&quot;echo&quot;</span><span class="p">,</span> <span class="n">response_payload</span><span class="p">)</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">handle</span><span class="p">(</span><span class="n">req</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">out</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+<span class="c1"># agent is cleared after the block</span>
+</code></pre></div>
+<p><strong><code>test_client(base_url="http://localhost:9999")</code></strong> — async context manager yielding an open <code>ASAPClient</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">asap.testing.fixtures</span><span class="w"> </span><span class="kn">import</span> <span class="n">test_client</span>
+
+<span class="k">async</span> <span class="k">with</span> <span class="n">test_client</span><span class="p">(</span><span class="s2">&quot;http://localhost:8000&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+    <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">envelope</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">response</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</code></pre></div>
+<h3 id="custom-assertions">Custom Assertions</h3>
+<p>Use these instead of ad-hoc <code>assert</code> logic for envelopes and task status.</p>
+<p><strong><code>assert_envelope_valid(envelope, require_id=True, require_timestamp=True, allowed_payload_types=None)</code></strong></p>
+<p>Checks that the envelope has required fields and, optionally, that <code>payload_type</code> is in <code>allowed_payload_types</code>. Fails with clear messages.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">asap.testing</span><span class="w"> </span><span class="kn">import</span> <span class="n">assert_envelope_valid</span>
+
+<span class="n">assert_envelope_valid</span><span class="p">(</span><span class="n">response_envelope</span><span class="p">)</span>
+<span class="n">assert_envelope_valid</span><span class="p">(</span>
+    <span class="n">response_envelope</span><span class="p">,</span>
+    <span class="n">allowed_payload_types</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;TaskResponse&quot;</span><span class="p">,</span> <span class="s2">&quot;TaskUpdate&quot;</span><span class="p">],</span>
+<span class="p">)</span>
+</code></pre></div>
+<p><strong><code>assert_task_completed(payload, status_key="status", completed_value="completed")</code></strong></p>
+<p>Asserts that a task response (dict or Envelope) indicates completion. Accepts either a payload dict or an Envelope (uses <code>envelope.payload</code>).</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">asap.testing</span><span class="w"> </span><span class="kn">import</span> <span class="n">assert_task_completed</span>
+
+<span class="n">assert_task_completed</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;completed&quot;</span><span class="p">})</span>
+<span class="n">assert_task_completed</span><span class="p">(</span><span class="n">response_envelope</span><span class="p">)</span>  <span class="c1"># envelope.payload must have status=completed</span>
+</code></pre></div>
+<p><strong><code>assert_response_correlates(request_envelope, response_envelope, correlation_id_field="correlation_id")</code></strong></p>
+<p>Asserts that the response’s correlation id matches the request’s id.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">asap.testing</span><span class="w"> </span><span class="kn">import</span> <span class="n">assert_response_correlates</span>
+
+<span class="n">assert_response_correlates</span><span class="p">(</span><span class="n">request_envelope</span><span class="p">,</span> <span class="n">response_envelope</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="reducing-test-boilerplate">Reducing Test Boilerplate</h3>
+<p><strong>Before</strong> (manual setup and assertions):</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">test_echo_response</span><span class="p">():</span>
+    <span class="n">agent_id</span> <span class="o">=</span> <span class="s2">&quot;urn:asap:agent:echo&quot;</span>
+    <span class="n">responses</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">responses</span><span class="p">[</span><span class="s2">&quot;echo&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;task_id&quot;</span><span class="p">:</span> <span class="s2">&quot;t1&quot;</span><span class="p">,</span> <span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;completed&quot;</span><span class="p">}</span>
+    <span class="n">req</span> <span class="o">=</span> <span class="n">Envelope</span><span class="p">(</span>
+        <span class="n">asap_version</span><span class="o">=</span><span class="s2">&quot;0.1&quot;</span><span class="p">,</span>
+        <span class="n">sender</span><span class="o">=</span><span class="s2">&quot;urn:asap:agent:a&quot;</span><span class="p">,</span>
+        <span class="n">recipient</span><span class="o">=</span><span class="n">agent_id</span><span class="p">,</span>
+        <span class="n">payload_type</span><span class="o">=</span><span class="s2">&quot;TaskRequest&quot;</span><span class="p">,</span>
+        <span class="n">payload</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;conversation_id&quot;</span><span class="p">:</span> <span class="s2">&quot;c&quot;</span><span class="p">,</span> <span class="s2">&quot;skill_id&quot;</span><span class="p">:</span> <span class="s2">&quot;echo&quot;</span><span class="p">,</span> <span class="s2">&quot;input&quot;</span><span class="p">:</span> <span class="p">{}},</span>
+    <span class="p">)</span>
+    <span class="c1"># ... manual handling and building response envelope ...</span>
+    <span class="k">assert</span> <span class="n">response</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+    <span class="k">assert</span> <span class="n">response</span><span class="o">.</span><span class="n">payload_type</span> <span class="o">==</span> <span class="s2">&quot;TaskResponse&quot;</span>
+    <span class="k">assert</span> <span class="n">response</span><span class="o">.</span><span class="n">sender</span> <span class="o">==</span> <span class="n">agent_id</span>
+    <span class="k">assert</span> <span class="n">response</span><span class="o">.</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;status&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;completed&quot;</span>
+    <span class="k">assert</span> <span class="n">response</span><span class="o">.</span><span class="n">correlation_id</span> <span class="o">==</span> <span class="n">req</span><span class="o">.</span><span class="n">id</span>
+</code></pre></div>
+<p><strong>After</strong> (using MockAgent and assertions):</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">test_echo_response</span><span class="p">(</span><span class="n">mock_agent</span><span class="p">:</span> <span class="n">MockAgent</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">mock_agent</span><span class="o">.</span><span class="n">set_response</span><span class="p">(</span>
+        <span class="s2">&quot;echo&quot;</span><span class="p">,</span>
+        <span class="n">TaskResponse</span><span class="p">(</span><span class="n">task_id</span><span class="o">=</span><span class="s2">&quot;t1&quot;</span><span class="p">,</span> <span class="n">status</span><span class="o">=</span><span class="s2">&quot;completed&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">model_dump</span><span class="p">(),</span>
+    <span class="p">)</span>
+    <span class="n">req</span> <span class="o">=</span> <span class="n">Envelope</span><span class="p">(</span>
+        <span class="n">asap_version</span><span class="o">=</span><span class="s2">&quot;0.1&quot;</span><span class="p">,</span>
+        <span class="n">sender</span><span class="o">=</span><span class="s2">&quot;urn:asap:agent:a&quot;</span><span class="p">,</span>
+        <span class="n">recipient</span><span class="o">=</span><span class="n">mock_agent</span><span class="o">.</span><span class="n">agent_id</span><span class="p">,</span>
+        <span class="n">payload_type</span><span class="o">=</span><span class="s2">&quot;TaskRequest&quot;</span><span class="p">,</span>
+        <span class="n">payload</span><span class="o">=</span><span class="n">TaskRequest</span><span class="p">(</span>
+            <span class="n">conversation_id</span><span class="o">=</span><span class="s2">&quot;c&quot;</span><span class="p">,</span> <span class="n">skill_id</span><span class="o">=</span><span class="s2">&quot;echo&quot;</span><span class="p">,</span> <span class="nb">input</span><span class="o">=</span><span class="p">{}</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">model_dump</span><span class="p">(),</span>
+    <span class="p">)</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">mock_agent</span><span class="o">.</span><span class="n">handle</span><span class="p">(</span><span class="n">req</span><span class="p">)</span>
+
+    <span class="n">assert_envelope_valid</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">allowed_payload_types</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;TaskResponse&quot;</span><span class="p">])</span>
+    <span class="n">assert_task_completed</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
+    <span class="n">assert_response_correlates</span><span class="p">(</span><span class="n">req</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+</code></pre></div>
+<p>Using <code>mock_agent</code>, <code>assert_envelope_valid</code>, <code>assert_task_completed</code>, and <code>assert_response_correlates</code> keeps tests shorter and failures easier to interpret.</p>
+<h3 id="how-fixtures-provide-test-isolation">How Fixtures Provide Test Isolation</h3>
+<p>Fixtures ensure test isolation by:
+1. <strong>Creating fresh instances</strong>: Each test gets its own instances of fixtures
+2. <strong>Using unique identifiers</strong>: UUIDs and unique storage URIs prevent state sharing
+3. <strong>Replacing global state</strong>: Monkeypatch fixtures replace module-level state
+4. <strong>Automatic cleanup</strong>: Pytest automatically cleans up fixtures after tests</p>
+<h2 id="additional-test-commands">Additional test commands</h2>
+<h3 id="parallel-execution">Parallel Execution</h3>
+<p>Run tests in parallel with pytest-xdist (fast feedback; <strong>no coverage</strong>):
+<div class="highlight"><pre><span></span><code><span class="c1"># Automatic worker count (recommended — same as CI test job)</span>
+uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>-n<span class="w"> </span>auto<span class="w"> </span>--tb<span class="o">=</span>short
+
+<span class="c1"># Specific number of workers</span>
+uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>-n<span class="w"> </span><span class="m">4</span><span class="w"> </span>--tb<span class="o">=</span>short
+</code></pre></div></p>
+<p>Do <strong>not</strong> add <code>--cov</code> to parallel runs. For coverage, use a separate command (see the canonical commands at the top of this guide or <a href="#ci-integration">CI Integration</a>).</p>
+<p><strong>Benefits</strong>:
+- Faster execution on multi-core systems
+- Complete process-level isolation
+- Automatic worker count based on CPU cores</p>
+<h3 id="running-by-test-type">Running by Test Type</h3>
+<p>Run only unit tests:
+<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/transport/unit/
+</code></pre></div></p>
+<p>Run only integration tests:
+<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/transport/integration/
+</code></pre></div></p>
+<p>Run only E2E tests:
+<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/transport/e2e/
+</code></pre></div></p>
+<h3 id="verbose-output">Verbose Output</h3>
+<p>For more detailed output:
+<div class="highlight"><pre><span></span><code><span class="c1"># Verbose mode</span>
+uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>-v
+
+<span class="c1"># Very verbose (shows each test name)</span>
+uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>-vv
+
+<span class="c1"># Show print statements</span>
+uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>-s
+</code></pre></div></p>
+<h2 id="writing-new-tests">Writing New Tests</h2>
+<h3 id="choosing-the-right-directory">Choosing the Right Directory</h3>
+<ol>
+<li><strong>Unit tests</strong> (<code>tests/transport/unit/</code>):</li>
+<li>Test individual classes/functions</li>
+<li>No HTTP dependencies</li>
+<li>No rate limiting dependencies</li>
+<li>
+<p>Fast and deterministic</p>
+</li>
+<li>
+<p><strong>Integration tests</strong> (<code>tests/transport/integration/</code>):</p>
+</li>
+<li>Test component interactions</li>
+<li>May use HTTP clients</li>
+<li>Use <code>NoRateLimitTestBase</code> if not testing rate limiting</li>
+<li>
+<p>Use aggressive monkeypatch if testing rate limiting</p>
+</li>
+<li>
+<p><strong>E2E tests</strong> (<code>tests/transport/e2e/</code>):</p>
+</li>
+<li>Test complete workflows</li>
+<li>Use full stack</li>
+<li>Inherit from <code>NoRateLimitTestBase</code></li>
+</ol>
+<h3 id="choosing-the-right-base-class">Choosing the Right Base Class</h3>
+<p><strong>For non-rate-limiting tests</strong>:
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">tests.transport.conftest</span><span class="w"> </span><span class="kn">import</span> <span class="n">NoRateLimitTestBase</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">TestMyFeature</span><span class="p">(</span><span class="n">NoRateLimitTestBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Tests automatically have rate limiting disabled.&quot;&quot;&quot;</span>
+    <span class="k">pass</span>
+</code></pre></div></p>
+<p><strong>For rate limiting tests</strong>:
+<div class="highlight"><pre><span></span><code><span class="c1"># Don&#39;t inherit from NoRateLimitTestBase</span>
+<span class="c1"># Use aggressive monkeypatch instead</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">test_rate_limiting</span><span class="p">(</span><span class="n">monkeypatch</span><span class="p">,</span> <span class="n">isolated_limiter_factory</span><span class="p">):</span>
+    <span class="c1"># Manual limiter replacement</span>
+    <span class="k">pass</span>
+</code></pre></div></p>
+<h3 id="test-structure">Test Structure</h3>
+<p>Follow this structure for new tests:</p>
+<div class="highlight"><pre><span></span><code><span class="sd">&quot;&quot;&quot;Brief description of what this test module covers.&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">pytest</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastapi.testclient</span><span class="w"> </span><span class="kn">import</span> <span class="n">TestClient</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">tests.transport.conftest</span><span class="w"> </span><span class="kn">import</span> <span class="n">NoRateLimitTestBase</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">TestMyFeature</span><span class="p">(</span><span class="n">NoRateLimitTestBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Tests for my feature.&quot;&quot;&quot;</span>
+
+    <span class="nd">@pytest</span><span class="o">.</span><span class="n">fixture</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">manifest</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Manifest</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create test manifest.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Manifest</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_specific_behavior</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">manifest</span><span class="p">:</span> <span class="n">Manifest</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Test a specific behavior.&quot;&quot;&quot;</span>
+        <span class="c1"># Arrange</span>
+        <span class="n">app</span> <span class="o">=</span> <span class="n">create_app</span><span class="p">(</span><span class="n">manifest</span><span class="p">)</span>
+        <span class="n">client</span> <span class="o">=</span> <span class="n">TestClient</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
+
+        <span class="c1"># Act</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;/asap&quot;</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span><span class="o">...</span><span class="p">})</span>
+
+        <span class="c1"># Assert</span>
+        <span class="k">assert</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span>
+        <span class="k">assert</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()[</span><span class="s2">&quot;result&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">expected_value</span>
+</code></pre></div>
+<h3 id="best-practices">Best Practices</h3>
+<ol>
+<li><strong>Use type hints</strong>: All test functions should have type annotations</li>
+<li><strong>Descriptive names</strong>: Test names should clearly describe what they test</li>
+<li><strong>One assertion per concept</strong>: Group related assertions, but test one concept per test</li>
+<li><strong>Use fixtures</strong>: Don't duplicate setup code, use fixtures</li>
+<li><strong>Isolation</strong>: Each test should be independent and runnable in isolation</li>
+<li><strong>Fast tests</strong>: Keep tests fast (&lt; 1 second when possible)</li>
+<li><strong>Deterministic</strong>: Tests should produce the same results every time</li>
+</ol>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="skipped-tests-brotli">Skipped Tests (Brotli)</h3>
+<p>Some compression tests are conditional on the optional <strong>brotli</strong> package:</p>
+<ul>
+<li><strong>When brotli is installed</strong> (default with <code>uv sync --extra dev</code>): Tests that require brotli run (compress/decompress, server brotli). A few tests that verify the "brotli unavailable" path are skipped (they run only in envs without brotli).</li>
+<li><strong>When brotli is not installed</strong>: The brotli-dependent tests are skipped; the "unavailable" tests run.</li>
+</ul>
+<p>To run all brotli-related tests, install dev dependencies (brotli is in <code>[project.optional-dependencies] dev</code>). The remaining skips are intentional: they assert behavior when brotli is missing.</p>
+<h3 id="tests-failing-with-http-429-rate-limit-exceeded">Tests Failing with HTTP 429 (Rate Limit Exceeded)</h3>
+<p><strong>Symptom</strong>: Tests fail with "429 Too Many Requests" even when not testing rate limiting.</p>
+<p><strong>Solution</strong>:
+1. Inherit from <code>NoRateLimitTestBase</code>:
+   <div class="highlight"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">TestMyFeature</span><span class="p">(</span><span class="n">NoRateLimitTestBase</span><span class="p">):</span>
+    <span class="k">pass</span>
+</code></pre></div></p>
+<ol>
+<li>Or use <code>replace_global_limiter</code> fixture:
+   <div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">test_something</span><span class="p">(</span><span class="n">replace_global_limiter</span><span class="p">):</span>
+    <span class="c1"># Rate limiting is now isolated</span>
+    <span class="k">pass</span>
+</code></pre></div></li>
+</ol>
+<h3 id="tests-interfering-with-each-other">Tests Interfering with Each Other</h3>
+<p><strong>Symptom</strong>: Tests pass individually but fail when run together.</p>
+<p><strong>Solution</strong>:
+1. Ensure tests use isolated fixtures (<code>isolated_limiter_factory</code>, <code>replace_global_limiter</code>)
+2. Run with pytest-xdist for process isolation: <code>pytest -n auto</code>
+3. Check that rate limiting tests are in <code>test_rate_limiting.py</code>
+4. Verify non-rate-limiting tests inherit from <code>NoRateLimitTestBase</code></p>
+<h3 id="slow-test-execution">Slow Test Execution</h3>
+<p><strong>Solution</strong>:
+1. Use parallel execution: <code>pytest -n auto</code>
+2. Run only relevant tests during development
+3. Use <code>pytest --lf</code> to run only failed tests from last run
+4. Use <code>pytest --ff</code> to run failed tests first, then others</p>
+<h2 id="ci-integration">CI Integration</h2>
+<p>CI (<code>.github/workflows/ci.yml</code>) runs tests and coverage in <strong>separate jobs</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Job</th>
+<th>Command</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>test</strong></td>
+<td><code>uv run pytest -n auto --tb=short</code></td>
+</tr>
+<tr>
+<td><strong>coverage</strong></td>
+<td><code>uv run pytest --tb=short --cov=asap --cov-report=xml --cov-fail-under=85</code></td>
+</tr>
+</tbody>
+</table>
+<p>Local pre-push mirrors the coverage job; use <code>-n auto</code> only for the fast test pass.</p>
+<p>See <code>.github/workflows/ci.yml</code> for linting, formatting, type checking, and security steps.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

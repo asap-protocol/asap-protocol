@@ -1,0 +1,6320 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A streamlined protocol for agent-to-agent communication">
+      
+      
+      
+        <link rel="canonical" href="https://asap-protocol.github.io/asap-protocol/migration/">
+      
+      
+        <link rel="prev" href="../metrics/">
+      
+      
+        <link rel="next" href="../testing/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Migration - ASAP Protocol</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#migration-guide" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="ASAP Protocol" class="md-header__button md-logo" aria-label="ASAP Protocol" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ASAP Protocol
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Migration
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/asap-protocol/asap-protocol" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    asap-protocol/asap-protocol
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="ASAP Protocol" class="md-nav__button md-logo" aria-label="ASAP Protocol" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    ASAP Protocol
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/asap-protocol/asap-protocol" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    asap-protocol/asap-protocol
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SDKs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    SDKs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sdks/typescript/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TypeScript client
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integrations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Integrations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../integrations/mastra/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mastra
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../integrations/openai-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAI Agents SDK
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../integrations/workflow-connectors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflow connectors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../integrations/microsoft-agent-framework/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Microsoft Agent Framework
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../integrations/nemo-agent-toolkit/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NeMo Agent Toolkit
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adapters
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Adapters
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adapters/openapi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adapters/mcp-auth-bridge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Auth Bridge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/first-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Building Your First Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/stateful-workflows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stateful Workflows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/multi-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Orchestration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/resilience/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Building Resilient Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/production-checklist/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Production Deployment Checklist
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture Decision Records
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture Decision Records
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Index
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-001-ulid-for-id-generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-001 ULID for ID Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-002-async-first-api-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-002 Async-First API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-003-jsonrpc20-binding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-003 JSON-RPC 2.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-004-pydantic-for-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-004 Pydantic for Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-005-state-machine-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-005 State Machine
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-006-security-defaults/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-006 Security Defaults
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-007-fastapi-for-server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-007 FastAPI for Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-008-httpx-for-client/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-008 httpx for Client
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-009-snapshot-vs-event-sourced/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-009 Snapshot vs Event-Sourced
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-010-python-313-requirement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-010 Python 3.13+
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-011-per-sender-rate-limiting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-011 Per-Sender Rate Limiting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-012-error-taxonomy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-012 Error Taxonomy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-013-mcp-integration-approach/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-013 MCP Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-014-testing-strategy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-014 Testing Strategy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-015-observability-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-015 Observability Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-016-versioning-policy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-016 Versioning Policy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-017-failure-injection-strategy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-017 Failure Injection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/build-for-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build for agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/identity-signing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Identity Signing (v1.2)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/compliance-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compliance Testing (v1.2)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/migration-v1.1-to-v1.2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migration v1.1 → v1.2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../registry/auto-registration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lite Registry auto-registration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/automation-connector-security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Automation connector security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../state-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../transport/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transport
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migration
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Overview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#protocol-comparison" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Protocol Comparison
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#envelope-and-payload-mapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Envelope and Payload Mapping
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Envelope and Payload Mapping">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a2a-to-asap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A2A to ASAP
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="A2A to ASAP">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a2a-message-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A2A Message Structure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#asap-envelope-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ASAP Envelope Structure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-differences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Differences
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mcp-to-asap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCP to ASAP
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="MCP to ASAP">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mcp-tool-call" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCP Tool Call
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#asap-mcp-tool-call" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ASAP MCP Tool Call
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-differences_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Differences
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#agent-card-to-manifest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agent Card to Manifest
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Agent Card to Manifest">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a2a-agent-card" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A2A Agent Card
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#asap-manifest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ASAP Manifest
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-improvements-in-asap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Improvements in ASAP
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#payload-type-mapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Payload Type Mapping
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Payload Type Mapping">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#task-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task Operations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mcp-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCP Operations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#message-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Message Operations
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migration-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration Checklist
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Migration Checklist">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-preparation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1: Preparation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-manifest-creation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2: Manifest Creation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-message-conversion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3: Message Conversion
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4-state-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4: State Management
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-5-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 5: Testing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-6-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 6: Deployment
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-migration-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Migration Patterns
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common Migration Patterns">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pattern-1-dual-protocol-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pattern 1: Dual-Protocol Support
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pattern-2-mcp-tool-wrapper" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pattern 2: MCP Tool Wrapper
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pattern-3-state-migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pattern 3: State Migration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upgrading-asap-protocol-versions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading ASAP Protocol Versions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Upgrading ASAP Protocol Versions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#version-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Version History
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrading-from-v010-or-v030-to-v050" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading from v0.1.0 or v0.3.0 to v0.5.0
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Upgrading from v0.1.0 or v0.3.0 to v0.5.0">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#whats-new-in-v050" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What's New in v0.5.0
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrade-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backward-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backward Compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#migration-checklist_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration Checklist
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-changed-between-versions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Changed Between Versions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#need-help" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Need Help?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrading-from-v21x-to-v220" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading from v2.1.x to v2.2.0
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Upgrading from v2.1.x to v2.2.0">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#whats-new-in-v220" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What's New in v2.2.0
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrade-steps_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backward-compatibility_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backward Compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#migration-checklist_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration Checklist
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrading-from-v220-to-v221" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading from v2.2.0 to v2.2.1
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Upgrading from v2.2.0 to v2.2.1">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#optional-extra" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional extra
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#default-behavior-unchanged-without-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Default behavior (unchanged without configuration)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#production-recommendation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Production recommendation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrading-from-v241-to-v250" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading from v2.4.1 to v2.5.0
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Upgrading from v2.4.1 to v2.5.0">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-changed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrade-steps_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backward-compatibility_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backward compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrading-from-v250-to-v251" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading from v2.5.0 to v2.5.1
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Upgrading from v2.5.0 to v2.5.1">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-changed_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#operator-action-oauth2-only-websocket-deployments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operator action: OAuth2-only WebSocket deployments
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrade-steps_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backward-compatibility_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backward compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrading-from-v251-to-v252" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading from v2.5.1 to v2.5.2
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Upgrading from v2.5.1 to v2.5.2">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cli-legacy-import-paths-242" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI legacy import paths (#242)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#opt-in-operator-api-auth-209" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Opt-in operator API auth (#209)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ingress-validation-taskrequestconfig-and-commonmetadata-209" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ingress validation: TaskRequestConfig and CommonMetadata (#209)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#redis-backed-jti-replay-cache-209" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Redis-backed JTI replay cache (#209)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#web-app-distributed-rate-limits-209" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Web app distributed rate limits (#209)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other-v252-correctness-fixes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Other v2.5.2 correctness fixes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backward-compatibility_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backward compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#migration-checklist_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration checklist
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#troubleshooting-v252" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting (v2.5.2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrading-from-v253-to-v254" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading from v2.5.3 to v2.5.4
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Upgrading from v2.5.3 to v2.5.4">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-lands-in-v254" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What lands in v2.5.4
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrade-steps_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backward-compatibility_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backward compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrading-from-v252-to-v253" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading from v2.5.2 to v2.5.3
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Upgrading from v2.5.2 to v2.5.3">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-lands-in-v253" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What lands in v2.5.3
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrade-steps_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backward-compatibility_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backward compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrading-from-v240-to-v241" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading from v2.4.0 to v2.4.1
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Upgrading from v2.4.0 to v2.4.1">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-changed_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrade-steps_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backward-compatibility_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backward compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrading-from-v23x-to-v240" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading from v2.3.x to v2.4.0
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Upgrading from v2.3.x to v2.4.0">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-is-new" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is new
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrade-steps_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backward-compatibility_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backward compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrading-from-v230-to-v231" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading from v2.3.0 to v2.3.1
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Upgrading from v2.3.0 to v2.3.1">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-is-new_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is new
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrade-steps_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backward-compatibility_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backward compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrading-from-v22x-to-v230" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading from v2.2.x to v2.3.0
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Upgrading from v2.2.x to v2.3.0">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-is-new_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is new
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrade-steps_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backward-compatibility_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backward compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#common-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Issues
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related Documentation
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deployment/kubernetes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment (Kubernetes)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_8_1" id="__nav_8_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Models
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Models
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/models/entities.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Entities
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/models/payloads.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Payloads
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/models/parts.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Parts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/transport.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transport
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/state.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../error-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error Handling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Overview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#protocol-comparison" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Protocol Comparison
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#envelope-and-payload-mapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Envelope and Payload Mapping
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Envelope and Payload Mapping">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a2a-to-asap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A2A to ASAP
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="A2A to ASAP">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a2a-message-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A2A Message Structure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#asap-envelope-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ASAP Envelope Structure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-differences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Differences
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mcp-to-asap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCP to ASAP
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="MCP to ASAP">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mcp-tool-call" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCP Tool Call
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#asap-mcp-tool-call" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ASAP MCP Tool Call
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-differences_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Differences
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#agent-card-to-manifest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agent Card to Manifest
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Agent Card to Manifest">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a2a-agent-card" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A2A Agent Card
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#asap-manifest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ASAP Manifest
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-improvements-in-asap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Improvements in ASAP
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#payload-type-mapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Payload Type Mapping
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Payload Type Mapping">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#task-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task Operations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mcp-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCP Operations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#message-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Message Operations
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migration-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration Checklist
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Migration Checklist">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-preparation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1: Preparation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-manifest-creation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2: Manifest Creation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-message-conversion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3: Message Conversion
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4-state-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4: State Management
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-5-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 5: Testing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-6-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 6: Deployment
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-migration-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Migration Patterns
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common Migration Patterns">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pattern-1-dual-protocol-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pattern 1: Dual-Protocol Support
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pattern-2-mcp-tool-wrapper" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pattern 2: MCP Tool Wrapper
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pattern-3-state-migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pattern 3: State Migration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upgrading-asap-protocol-versions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading ASAP Protocol Versions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Upgrading ASAP Protocol Versions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#version-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Version History
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrading-from-v010-or-v030-to-v050" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading from v0.1.0 or v0.3.0 to v0.5.0
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Upgrading from v0.1.0 or v0.3.0 to v0.5.0">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#whats-new-in-v050" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What's New in v0.5.0
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrade-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backward-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backward Compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#migration-checklist_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration Checklist
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-changed-between-versions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Changed Between Versions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#need-help" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Need Help?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrading-from-v21x-to-v220" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading from v2.1.x to v2.2.0
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Upgrading from v2.1.x to v2.2.0">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#whats-new-in-v220" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What's New in v2.2.0
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrade-steps_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backward-compatibility_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backward Compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#migration-checklist_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration Checklist
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrading-from-v220-to-v221" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading from v2.2.0 to v2.2.1
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Upgrading from v2.2.0 to v2.2.1">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#optional-extra" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional extra
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#default-behavior-unchanged-without-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Default behavior (unchanged without configuration)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#production-recommendation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Production recommendation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrading-from-v241-to-v250" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading from v2.4.1 to v2.5.0
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Upgrading from v2.4.1 to v2.5.0">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-changed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrade-steps_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backward-compatibility_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backward compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrading-from-v250-to-v251" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading from v2.5.0 to v2.5.1
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Upgrading from v2.5.0 to v2.5.1">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-changed_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#operator-action-oauth2-only-websocket-deployments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operator action: OAuth2-only WebSocket deployments
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrade-steps_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backward-compatibility_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backward compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrading-from-v251-to-v252" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading from v2.5.1 to v2.5.2
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Upgrading from v2.5.1 to v2.5.2">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cli-legacy-import-paths-242" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI legacy import paths (#242)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#opt-in-operator-api-auth-209" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Opt-in operator API auth (#209)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ingress-validation-taskrequestconfig-and-commonmetadata-209" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ingress validation: TaskRequestConfig and CommonMetadata (#209)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#redis-backed-jti-replay-cache-209" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Redis-backed JTI replay cache (#209)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#web-app-distributed-rate-limits-209" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Web app distributed rate limits (#209)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other-v252-correctness-fixes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Other v2.5.2 correctness fixes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backward-compatibility_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backward compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#migration-checklist_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration checklist
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#troubleshooting-v252" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting (v2.5.2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrading-from-v253-to-v254" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading from v2.5.3 to v2.5.4
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Upgrading from v2.5.3 to v2.5.4">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-lands-in-v254" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What lands in v2.5.4
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrade-steps_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backward-compatibility_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backward compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrading-from-v252-to-v253" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading from v2.5.2 to v2.5.3
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Upgrading from v2.5.2 to v2.5.3">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-lands-in-v253" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What lands in v2.5.3
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrade-steps_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backward-compatibility_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backward compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrading-from-v240-to-v241" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading from v2.4.0 to v2.4.1
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Upgrading from v2.4.0 to v2.4.1">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-changed_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrade-steps_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backward-compatibility_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backward compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrading-from-v23x-to-v240" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading from v2.3.x to v2.4.0
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Upgrading from v2.3.x to v2.4.0">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-is-new" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is new
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrade-steps_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backward-compatibility_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backward compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrading-from-v230-to-v231" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading from v2.3.0 to v2.3.1
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Upgrading from v2.3.0 to v2.3.1">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-is-new_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is new
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrade-steps_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backward-compatibility_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backward compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrading-from-v22x-to-v230" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading from v2.2.x to v2.3.0
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Upgrading from v2.2.x to v2.3.0">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-is-new_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is new
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrade-steps_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backward-compatibility_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backward compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#common-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Issues
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related Documentation
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="migration-guide">Migration Guide</h1>
+<blockquote>
+<p>Migrating from A2A (Agent-to-Agent) and MCP (Model Context Protocol) to ASAP.</p>
+</blockquote>
+<hr />
+<h2 id="overview">Overview</h2>
+<p>ASAP (Agent State and Action Protocol) builds upon concepts from both A2A and MCP, providing a unified protocol for agent-to-agent communication. This guide helps developers migrate existing agents to ASAP.</p>
+<h3 id="protocol-comparison">Protocol Comparison</h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>A2A</th>
+<th>MCP</th>
+<th>ASAP</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Focus</strong></td>
+<td>Agent communication</td>
+<td>Tool/resource access</td>
+<td>Unified agent protocol</td>
+</tr>
+<tr>
+<td><strong>State Management</strong></td>
+<td>Limited</td>
+<td>None</td>
+<td>First-class snapshots</td>
+</tr>
+<tr>
+<td><strong>Message Format</strong></td>
+<td>JSON</td>
+<td>JSON-RPC</td>
+<td>JSON-RPC + Envelope</td>
+</tr>
+<tr>
+<td><strong>Discovery</strong></td>
+<td>Agent Card</td>
+<td>Server info</td>
+<td>Manifest</td>
+</tr>
+<tr>
+<td><strong>Task Lifecycle</strong></td>
+<td>Basic</td>
+<td>N/A</td>
+<td>Full state machine</td>
+</tr>
+<tr>
+<td><strong>Streaming</strong></td>
+<td>SSE + WebSocket (<code>/asap/stream</code>, <code>/asap/ws</code>)</td>
+<td>Stdio/SSE</td>
+<td>SSE + WebSocket</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="envelope-and-payload-mapping">Envelope and Payload Mapping</h2>
+<h3 id="a2a-to-asap">A2A to ASAP</h3>
+<h4 id="a2a-message-structure">A2A Message Structure</h4>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;task&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;task-123&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;from&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;agent-a&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;to&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;agent-b&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;content&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;action&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;research&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;input&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;query&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AI trends&quot;</span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<h4 id="asap-envelope-structure">ASAP Envelope Structure</h4>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;env_01HX5K4P...&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;asap_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;0.1&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2024-01-15T10:30:00Z&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;sender&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;urn:asap:agent:agent-a&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;recipient&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;urn:asap:agent:agent-b&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;payload_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;task.request&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;payload&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;conversation_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;conv_01HX5K3M...&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;skill_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;research&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;input&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;query&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AI trends&quot;</span><span class="p">}</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">&quot;trace_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;trace_01HX5K...&quot;</span>
+<span class="p">}</span>
+</code></pre></div>
+<h4 id="key-differences">Key Differences</h4>
+<table>
+<thead>
+<tr>
+<th>A2A Field</th>
+<th>ASAP Field</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>type</code></td>
+<td><code>payload_type</code></td>
+<td>More specific typing</td>
+</tr>
+<tr>
+<td><code>id</code></td>
+<td><code>id</code></td>
+<td>ULID format in ASAP</td>
+</tr>
+<tr>
+<td><code>from</code></td>
+<td><code>sender</code></td>
+<td>URN format required</td>
+</tr>
+<tr>
+<td><code>to</code></td>
+<td><code>recipient</code></td>
+<td>URN format required</td>
+</tr>
+<tr>
+<td><code>content</code></td>
+<td><code>payload</code></td>
+<td>Structured per payload type</td>
+</tr>
+<tr>
+<td><em>(none)</em></td>
+<td><code>asap_version</code></td>
+<td>Protocol versioning</td>
+</tr>
+<tr>
+<td><em>(none)</em></td>
+<td><code>timestamp</code></td>
+<td>Auto-generated</td>
+</tr>
+<tr>
+<td><em>(none)</em></td>
+<td><code>trace_id</code></td>
+<td>Distributed tracing</td>
+</tr>
+<tr>
+<td><em>(none)</em></td>
+<td><code>correlation_id</code></td>
+<td>Request/response pairing</td>
+</tr>
+</tbody>
+</table>
+<h3 id="mcp-to-asap">MCP to ASAP</h3>
+<h4 id="mcp-tool-call">MCP Tool Call</h4>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;jsonrpc&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2.0&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;method&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;tools/call&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;web_search&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;arguments&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;query&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AI trends&quot;</span><span class="p">}</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
+<span class="p">}</span>
+</code></pre></div>
+<h4 id="asap-mcp-tool-call">ASAP MCP Tool Call</h4>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;jsonrpc&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2.0&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;method&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;asap.send&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;envelope&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;asap_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;0.1&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;sender&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;urn:asap:agent:coordinator&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;recipient&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;urn:asap:agent:tools-agent&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;payload_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mcp.tool_call&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;payload&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;request_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;req_01HX5K...&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;tool_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;web_search&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;arguments&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;query&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AI trends&quot;</span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;mcp_context&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{}</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;req-1&quot;</span>
+<span class="p">}</span>
+</code></pre></div>
+<h4 id="key-differences_1">Key Differences</h4>
+<table>
+<thead>
+<tr>
+<th>MCP Field</th>
+<th>ASAP Field</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>method</code></td>
+<td><code>payload_type</code></td>
+<td><code>mcp.tool_call</code> for tools</td>
+</tr>
+<tr>
+<td><code>params.name</code></td>
+<td><code>payload.tool_name</code></td>
+<td>Tool identifier</td>
+</tr>
+<tr>
+<td><code>params.arguments</code></td>
+<td><code>payload.arguments</code></td>
+<td>Same structure</td>
+</tr>
+<tr>
+<td><em>(none)</em></td>
+<td><code>sender</code>/<code>recipient</code></td>
+<td>Agent identity</td>
+</tr>
+<tr>
+<td><em>(none)</em></td>
+<td><code>mcp_context</code></td>
+<td>Additional context</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="agent-card-to-manifest">Agent Card to Manifest</h2>
+<h3 id="a2a-agent-card">A2A Agent Card</h3>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Research Agent&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Performs web research&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;url&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;https://agent.example.com&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;capabilities&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;research&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;summarize&quot;</span><span class="p">],</span>
+<span class="w">  </span><span class="nt">&quot;authentication&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bearer&quot;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="asap-manifest">ASAP Manifest</h3>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;urn:asap:agent:research-v1&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Research Agent&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1.0.0&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Performs web research&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;capabilities&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;asap_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;0.1&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;skills&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">      </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;research&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Search and analyze information&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;input_schema&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;object&quot;</span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;output_schema&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;object&quot;</span><span class="p">}</span>
+<span class="w">      </span><span class="p">},</span>
+<span class="w">      </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;summarize&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Summarize content&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;input_schema&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;object&quot;</span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;output_schema&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;object&quot;</span><span class="p">}</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">    </span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;state_persistence&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;streaming&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;mcp_tools&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">&quot;endpoints&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;asap&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;https://agent.example.com/asap&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;events&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">&quot;auth&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;schemes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;bearer&quot;</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;oauth2&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="key-improvements-in-asap">Key Improvements in ASAP</h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>A2A Agent Card</th>
+<th>ASAP Manifest</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Identity</strong></td>
+<td>URL-based</td>
+<td>URN-based (<code>urn:asap:agent:*</code>)</td>
+</tr>
+<tr>
+<td><strong>Versioning</strong></td>
+<td>None</td>
+<td>Semantic versioning</td>
+</tr>
+<tr>
+<td><strong>Skills</strong></td>
+<td>String list</td>
+<td>Structured with schemas</td>
+</tr>
+<tr>
+<td><strong>State</strong></td>
+<td>Not specified</td>
+<td><code>state_persistence</code> flag</td>
+</tr>
+<tr>
+<td><strong>Endpoints</strong></td>
+<td>Single URL</td>
+<td>Multiple endpoints</td>
+</tr>
+<tr>
+<td><strong>Validation</strong></td>
+<td>None</td>
+<td>JSON Schema for I/O</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="payload-type-mapping">Payload Type Mapping</h2>
+<h3 id="task-operations">Task Operations</h3>
+<table>
+<thead>
+<tr>
+<th>A2A Action</th>
+<th>MCP Method</th>
+<th>ASAP Payload Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>task.create</code></td>
+<td>N/A</td>
+<td><code>task.request</code></td>
+</tr>
+<tr>
+<td><code>task.status</code></td>
+<td>N/A</td>
+<td><code>task.response</code></td>
+</tr>
+<tr>
+<td><code>task.update</code></td>
+<td>N/A</td>
+<td><code>task.update</code></td>
+</tr>
+<tr>
+<td><code>task.cancel</code></td>
+<td>N/A</td>
+<td><code>task.cancel</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="mcp-operations">MCP Operations</h3>
+<table>
+<thead>
+<tr>
+<th>MCP Method</th>
+<th>ASAP Payload Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tools/call</code></td>
+<td><code>mcp.tool_call</code></td>
+</tr>
+<tr>
+<td><code>tools/call</code> (response)</td>
+<td><code>mcp.tool_result</code></td>
+</tr>
+<tr>
+<td><code>resources/read</code></td>
+<td><code>mcp.resource_fetch</code></td>
+</tr>
+<tr>
+<td><code>resources/read</code> (response)</td>
+<td><code>mcp.resource_data</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="message-operations">Message Operations</h3>
+<table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>ASAP Payload Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Send message</td>
+<td><code>message.send</code></td>
+</tr>
+<tr>
+<td>Query state</td>
+<td><code>state.query</code></td>
+</tr>
+<tr>
+<td>Restore state</td>
+<td><code>state.restore</code></td>
+</tr>
+<tr>
+<td>Notify artifact</td>
+<td><code>artifact.notify</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="migration-checklist">Migration Checklist</h2>
+<h3 id="phase-1-preparation">Phase 1: Preparation</h3>
+<ul>
+<li>[ ] <strong>Review current protocol usage</strong></li>
+<li>Document all A2A/MCP endpoints in use</li>
+<li>List all message types and payloads</li>
+<li>
+<p>Identify state management patterns</p>
+</li>
+<li>
+<p>[ ] <strong>Plan agent identity</strong></p>
+</li>
+<li>Define URN format: <code>urn:asap:agent:{agent-name}</code></li>
+<li>Plan versioning strategy (semantic versioning)</li>
+<li>
+<p>Document skill definitions</p>
+</li>
+<li>
+<p>[ ] <strong>Set up ASAP dependencies</strong>
+  <div class="highlight"><pre><span></span><code><span class="c1"># Install ASAP protocol library</span>
+pip<span class="w"> </span>install<span class="w"> </span>asap-protocol
+<span class="c1"># Or with uv</span>
+uv<span class="w"> </span>add<span class="w"> </span>asap-protocol
+</code></pre></div></p>
+</li>
+</ul>
+<h3 id="phase-2-manifest-creation">Phase 2: Manifest Creation</h3>
+<ul>
+<li>
+<p>[ ] <strong>Create agent manifest</strong>
+  <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">asap.models.entities</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Manifest</span><span class="p">,</span> <span class="n">Capability</span><span class="p">,</span> <span class="n">Endpoint</span><span class="p">,</span> <span class="n">Skill</span><span class="p">,</span> <span class="n">AuthScheme</span>
+<span class="p">)</span>
+
+<span class="n">manifest</span> <span class="o">=</span> <span class="n">Manifest</span><span class="p">(</span>
+    <span class="nb">id</span><span class="o">=</span><span class="s2">&quot;urn:asap:agent:my-agent&quot;</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;My Agent&quot;</span><span class="p">,</span>
+    <span class="n">version</span><span class="o">=</span><span class="s2">&quot;1.0.0&quot;</span><span class="p">,</span>
+    <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Migrated from A2A/MCP&quot;</span><span class="p">,</span>
+    <span class="n">capabilities</span><span class="o">=</span><span class="n">Capability</span><span class="p">(</span>
+        <span class="n">asap_version</span><span class="o">=</span><span class="s2">&quot;0.1&quot;</span><span class="p">,</span>
+        <span class="n">skills</span><span class="o">=</span><span class="p">[</span>
+            <span class="n">Skill</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s2">&quot;skill1&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;...&quot;</span><span class="p">),</span>
+            <span class="c1"># Add all skills</span>
+        <span class="p">],</span>
+        <span class="n">state_persistence</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># Enable if needed</span>
+        <span class="n">streaming</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">mcp_tools</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;tool1&quot;</span><span class="p">,</span> <span class="s2">&quot;tool2&quot;</span><span class="p">],</span>  <span class="c1"># MCP tools</span>
+    <span class="p">),</span>
+    <span class="n">endpoints</span><span class="o">=</span><span class="n">Endpoint</span><span class="p">(</span><span class="n">asap</span><span class="o">=</span><span class="s2">&quot;https://my-agent.example.com/asap&quot;</span><span class="p">),</span>
+    <span class="n">auth</span><span class="o">=</span><span class="n">AuthScheme</span><span class="p">(</span><span class="n">schemes</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;bearer&quot;</span><span class="p">]),</span>
+<span class="p">)</span>
+</code></pre></div></p>
+</li>
+<li>
+<p>[ ] <strong>Expose manifest endpoint</strong>
+  <div class="highlight"><pre><span></span><code><span class="c1"># Manifest will be available at:</span>
+<span class="c1"># GET /.well-known/asap/manifest.json</span>
+</code></pre></div></p>
+</li>
+</ul>
+<h3 id="phase-3-message-conversion">Phase 3: Message Conversion</h3>
+<ul>
+<li>
+<p>[ ] <strong>Update message sending</strong>
+  <div class="highlight"><pre><span></span><code><span class="c1"># Before (A2A style)</span>
+<span class="n">message</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;task&quot;</span><span class="p">,</span> <span class="s2">&quot;from&quot;</span><span class="p">:</span> <span class="s2">&quot;agent-a&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">}</span>
+<span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="n">message</span><span class="p">)</span>
+
+<span class="c1"># After (ASAP)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.transport.client</span><span class="w"> </span><span class="kn">import</span> <span class="n">ASAPClient</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.models.envelope</span><span class="w"> </span><span class="kn">import</span> <span class="n">Envelope</span>
+
+<span class="n">envelope</span> <span class="o">=</span> <span class="n">Envelope</span><span class="p">(</span>
+    <span class="n">asap_version</span><span class="o">=</span><span class="s2">&quot;0.1&quot;</span><span class="p">,</span>
+    <span class="n">sender</span><span class="o">=</span><span class="s2">&quot;urn:asap:agent:agent-a&quot;</span><span class="p">,</span>
+    <span class="n">recipient</span><span class="o">=</span><span class="s2">&quot;urn:asap:agent:agent-b&quot;</span><span class="p">,</span>
+    <span class="n">payload_type</span><span class="o">=</span><span class="s2">&quot;task.request&quot;</span><span class="p">,</span>
+    <span class="n">payload</span><span class="o">=</span><span class="p">{</span><span class="o">...</span><span class="p">}</span>
+<span class="p">)</span>
+
+<span class="k">async</span> <span class="k">with</span> <span class="n">ASAPClient</span><span class="p">(</span><span class="n">base_url</span><span class="o">=</span><span class="n">url</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+    <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">envelope</span><span class="p">)</span>
+</code></pre></div></p>
+</li>
+<li>
+<p>[ ] <strong>Update message receiving</strong>
+  <div class="highlight"><pre><span></span><code><span class="c1"># Use ASAP server with handler registry</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.transport.server</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_app</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.transport.handlers</span><span class="w"> </span><span class="kn">import</span> <span class="n">HandlerRegistry</span>
+
+<span class="n">registry</span> <span class="o">=</span> <span class="n">HandlerRegistry</span><span class="p">()</span>
+<span class="n">registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">&quot;task.request&quot;</span><span class="p">,</span> <span class="n">handle_task_request</span><span class="p">)</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">create_app</span><span class="p">(</span><span class="n">manifest</span><span class="p">,</span> <span class="n">registry</span><span class="p">)</span>
+</code></pre></div></p>
+</li>
+</ul>
+<h3 id="phase-4-state-management">Phase 4: State Management</h3>
+<ul>
+<li>
+<p>[ ] <strong>Implement state snapshots</strong> (if using state persistence)
+  <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">asap.state.snapshot</span><span class="w"> </span><span class="kn">import</span> <span class="n">InMemorySnapshotStore</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.models.entities</span><span class="w"> </span><span class="kn">import</span> <span class="n">StateSnapshot</span>
+
+<span class="n">store</span> <span class="o">=</span> <span class="n">InMemorySnapshotStore</span><span class="p">()</span>
+
+<span class="c1"># Save state</span>
+<span class="n">snapshot</span> <span class="o">=</span> <span class="n">StateSnapshot</span><span class="p">(</span>
+    <span class="nb">id</span><span class="o">=</span><span class="n">generate_id</span><span class="p">(),</span>
+    <span class="n">task_id</span><span class="o">=</span><span class="n">task</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+    <span class="n">version</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">data</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;current_state&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span><span class="p">},</span>
+    <span class="n">checkpoint</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">created_at</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">),</span>
+<span class="p">)</span>
+<span class="n">store</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">snapshot</span><span class="p">)</span>
+
+<span class="c1"># Restore state</span>
+<span class="n">restored</span> <span class="o">=</span> <span class="n">store</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">task_id</span><span class="p">)</span>
+</code></pre></div></p>
+</li>
+<li>
+<p>[ ] <strong>Use state machine for task lifecycle</strong>
+  <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">asap.state.machine</span><span class="w"> </span><span class="kn">import</span> <span class="n">transition</span><span class="p">,</span> <span class="n">can_transition</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.models.enums</span><span class="w"> </span><span class="kn">import</span> <span class="n">TaskStatus</span>
+
+<span class="c1"># Validate and perform transition</span>
+<span class="k">if</span> <span class="n">can_transition</span><span class="p">(</span><span class="n">task</span><span class="o">.</span><span class="n">status</span><span class="p">,</span> <span class="n">TaskStatus</span><span class="o">.</span><span class="n">COMPLETED</span><span class="p">):</span>
+    <span class="n">task</span> <span class="o">=</span> <span class="n">transition</span><span class="p">(</span><span class="n">task</span><span class="p">,</span> <span class="n">TaskStatus</span><span class="o">.</span><span class="n">COMPLETED</span><span class="p">)</span>
+</code></pre></div></p>
+</li>
+</ul>
+<h3 id="phase-5-testing">Phase 5: Testing</h3>
+<ul>
+<li>
+<p>[ ] <strong>Unit tests for new handlers</strong>
+  <div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">pytest</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.transport.server</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_app</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastapi.testclient</span><span class="w"> </span><span class="kn">import</span> <span class="n">TestClient</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_task_request</span><span class="p">():</span>
+    <span class="n">app</span> <span class="o">=</span> <span class="n">create_app</span><span class="p">(</span><span class="n">manifest</span><span class="p">)</span>
+    <span class="n">client</span> <span class="o">=</span> <span class="n">TestClient</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
+
+    <span class="n">response</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;/asap&quot;</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">&quot;jsonrpc&quot;</span><span class="p">:</span> <span class="s2">&quot;2.0&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;method&quot;</span><span class="p">:</span> <span class="s2">&quot;asap.send&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;envelope&quot;</span><span class="p">:</span> <span class="p">{</span><span class="o">...</span><span class="p">}},</span>
+        <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="s2">&quot;test-1&quot;</span>
+    <span class="p">})</span>
+
+    <span class="k">assert</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span>
+</code></pre></div></p>
+</li>
+<li>
+<p>[ ] <strong>Integration tests</strong>
+  <div class="highlight"><pre><span></span><code><span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">asyncio</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">test_full_flow</span><span class="p">():</span>
+    <span class="k">async</span> <span class="k">with</span> <span class="n">ASAPClient</span><span class="p">(</span><span class="n">base_url</span><span class="o">=</span><span class="s2">&quot;http://localhost:8000&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">envelope</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">response</span><span class="o">.</span><span class="n">payload_type</span> <span class="o">==</span> <span class="s2">&quot;task.response&quot;</span>
+</code></pre></div></p>
+</li>
+<li>
+<p>[ ] <strong>Verify manifest discovery</strong>
+  <div class="highlight"><pre><span></span><code>curl<span class="w"> </span>http://localhost:8000/.well-known/asap/manifest.json
+</code></pre></div></p>
+</li>
+</ul>
+<h3 id="phase-6-deployment">Phase 6: Deployment</h3>
+<ul>
+<li>[ ] <strong>Update API documentation</strong></li>
+<li>[ ] <strong>Configure monitoring</strong> (trace IDs, logging)</li>
+<li>[ ] <strong>Set up TLS</strong> (required for production)</li>
+<li>[ ] <strong>Configure authentication</strong></li>
+<li>[ ] <strong>Gradual rollout</strong></li>
+<li>Deploy ASAP endpoint alongside existing</li>
+<li>Route traffic gradually</li>
+<li>Monitor for errors</li>
+<li>Deprecate old endpoints</li>
+</ul>
+<hr />
+<h2 id="common-migration-patterns">Common Migration Patterns</h2>
+<h3 id="pattern-1-dual-protocol-support">Pattern 1: Dual-Protocol Support</h3>
+<p>Run both A2A/MCP and ASAP during transition:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastAPI</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">()</span>
+
+<span class="c1"># Legacy A2A endpoint</span>
+<span class="nd">@app</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;/a2a&quot;</span><span class="p">)</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">handle_a2a</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+    <span class="c1"># Convert to ASAP internally</span>
+    <span class="n">envelope</span> <span class="o">=</span> <span class="n">convert_a2a_to_asap</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
+    <span class="k">return</span> <span class="k">await</span> <span class="n">process_envelope</span><span class="p">(</span><span class="n">envelope</span><span class="p">)</span>
+
+<span class="c1"># New ASAP endpoint</span>
+<span class="nd">@app</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;/asap&quot;</span><span class="p">)</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">handle_asap</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+    <span class="k">return</span> <span class="k">await</span> <span class="n">process_envelope</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="pattern-2-mcp-tool-wrapper">Pattern 2: MCP Tool Wrapper</h3>
+<p>Wrap existing MCP tools for ASAP:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">asap.transport.handlers</span><span class="w"> </span><span class="kn">import</span> <span class="n">HandlerRegistry</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">create_mcp_handler</span><span class="p">(</span><span class="n">mcp_tool_function</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Wrap MCP tool as ASAP handler.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">handler</span><span class="p">(</span><span class="n">envelope</span><span class="p">,</span> <span class="n">manifest</span><span class="p">):</span>
+        <span class="n">tool_name</span> <span class="o">=</span> <span class="n">envelope</span><span class="o">.</span><span class="n">payload</span><span class="p">[</span><span class="s2">&quot;tool_name&quot;</span><span class="p">]</span>
+        <span class="n">arguments</span> <span class="o">=</span> <span class="n">envelope</span><span class="o">.</span><span class="n">payload</span><span class="p">[</span><span class="s2">&quot;arguments&quot;</span><span class="p">]</span>
+
+        <span class="c1"># Call original MCP tool</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">mcp_tool_function</span><span class="p">(</span><span class="n">tool_name</span><span class="p">,</span> <span class="n">arguments</span><span class="p">)</span>
+
+        <span class="c1"># Return ASAP response</span>
+        <span class="k">return</span> <span class="n">create_tool_result_envelope</span><span class="p">(</span><span class="n">envelope</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">handler</span>
+
+<span class="n">registry</span> <span class="o">=</span> <span class="n">HandlerRegistry</span><span class="p">()</span>
+<span class="n">registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">&quot;mcp.tool_call&quot;</span><span class="p">,</span> <span class="n">create_mcp_handler</span><span class="p">(</span><span class="n">call_mcp_tool</span><span class="p">))</span>
+</code></pre></div>
+<h3 id="pattern-3-state-migration">Pattern 3: State Migration</h3>
+<p>Migrate existing state to ASAP snapshots:</p>
+<div class="highlight"><pre><span></span><code><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">migrate_state</span><span class="p">(</span><span class="n">old_state_store</span><span class="p">,</span> <span class="n">new_snapshot_store</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Migrate state from old format to ASAP snapshots.&quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">task_id</span><span class="p">,</span> <span class="n">state</span> <span class="ow">in</span> <span class="n">old_state_store</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">snapshot</span> <span class="o">=</span> <span class="n">StateSnapshot</span><span class="p">(</span>
+            <span class="nb">id</span><span class="o">=</span><span class="n">generate_id</span><span class="p">(),</span>
+            <span class="n">task_id</span><span class="o">=</span><span class="n">task_id</span><span class="p">,</span>
+            <span class="n">version</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">state</span><span class="p">,</span>
+            <span class="n">checkpoint</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">created_at</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="n">new_snapshot_store</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">snapshot</span><span class="p">)</span>
+</code></pre></div>
+<hr />
+<h2 id="upgrading-asap-protocol-versions">Upgrading ASAP Protocol Versions</h2>
+<h3 id="version-history">Version History</h3>
+<p>ASAP Protocol has evolved through the following releases:
+- <strong>v0.1.0</strong> (2026-01-23): Initial alpha release with core models, state management, and HTTP transport
+- <strong>v0.3.0</strong> (2026-01-26): Test infrastructure refactoring and stability improvements
+- <strong>v0.5.0</strong> (2026-01-28): Security-hardened release with authentication, DoS protection, and comprehensive security features</p>
+<h3 id="upgrading-from-v010-or-v030-to-v050">Upgrading from v0.1.0 or v0.3.0 to v0.5.0</h3>
+<p>v0.5.0 is a <strong>security-hardened release</strong> with zero breaking changes. All existing code from v0.1.0 and v0.3.0 will work without modifications.</p>
+<p><strong>Upgrade Paths:</strong>
+- <strong>v0.1.0 → v0.5.0</strong>: Direct upgrade supported (tested and verified)
+- <strong>v0.3.0 → v0.5.0</strong>: Direct upgrade supported (tested and verified)
+- <strong>v0.1.0 → v0.3.0 → v0.5.0</strong>: Sequential upgrade also supported</p>
+<h4 id="whats-new-in-v050">What's New in v0.5.0</h4>
+<ul>
+<li><strong>Security Features</strong> (all opt-in):</li>
+<li>Bearer token authentication</li>
+<li>Timestamp validation (5-minute window)</li>
+<li>Optional nonce validation for replay attack prevention</li>
+<li>Rate limiting (100 req/min, configurable)</li>
+<li>Request size limits (10MB, configurable)</li>
+<li>HTTPS enforcement (client-side)</li>
+<li>
+<p>Secure logging (automatic sanitization)</p>
+</li>
+<li>
+<p><strong>Retry Logic</strong>:</p>
+</li>
+<li>Exponential backoff with jitter</li>
+<li>Circuit breaker pattern</li>
+<li>
+<p><code>Retry-After</code> header support</p>
+</li>
+<li>
+<p><strong>Code Quality</strong>:</p>
+</li>
+<li>Full mypy strict compliance</li>
+<li>Enhanced error handling</li>
+<li>Improved test coverage (95.90%)</li>
+</ul>
+<h4 id="upgrade-steps">Upgrade Steps</h4>
+<ol>
+<li>
+<p><strong>Update Dependencies</strong>:
+   <div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>--upgrade<span class="w"> </span>asap-protocol<span class="o">==</span><span class="m">0</span>.5.0
+<span class="c1"># or</span>
+uv<span class="w"> </span>add<span class="w"> </span>asap-protocol<span class="o">==</span><span class="m">0</span>.5.0
+</code></pre></div></p>
+</li>
+<li>
+<p><strong>Verify Compatibility</strong>:
+   Your existing code should work without changes:
+   <div class="highlight"><pre><span></span><code><span class="c1"># This code from v0.1.0/v0.3.0 still works in v0.5.0</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.models.entities</span><span class="w"> </span><span class="kn">import</span> <span class="n">Manifest</span><span class="p">,</span> <span class="n">Capability</span><span class="p">,</span> <span class="n">Endpoint</span><span class="p">,</span> <span class="n">Skill</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.transport.handlers</span><span class="w"> </span><span class="kn">import</span> <span class="n">HandlerRegistry</span><span class="p">,</span> <span class="n">create_echo_handler</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.transport.server</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_app</span>
+
+<span class="n">manifest</span> <span class="o">=</span> <span class="n">Manifest</span><span class="p">(</span>
+    <span class="nb">id</span><span class="o">=</span><span class="s2">&quot;urn:asap:agent:my-agent&quot;</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;My Agent&quot;</span><span class="p">,</span>
+    <span class="n">version</span><span class="o">=</span><span class="s2">&quot;1.0.0&quot;</span><span class="p">,</span>
+    <span class="n">description</span><span class="o">=</span><span class="s2">&quot;My agent&quot;</span><span class="p">,</span>
+    <span class="n">capabilities</span><span class="o">=</span><span class="n">Capability</span><span class="p">(</span>
+        <span class="n">asap_version</span><span class="o">=</span><span class="s2">&quot;0.1&quot;</span><span class="p">,</span>
+        <span class="n">skills</span><span class="o">=</span><span class="p">[</span><span class="n">Skill</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s2">&quot;echo&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Echo skill&quot;</span><span class="p">)],</span>
+        <span class="n">state_persistence</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="n">endpoints</span><span class="o">=</span><span class="n">Endpoint</span><span class="p">(</span><span class="n">asap</span><span class="o">=</span><span class="s2">&quot;http://127.0.0.1:8000/asap&quot;</span><span class="p">),</span>
+<span class="p">)</span>
+
+<span class="n">registry</span> <span class="o">=</span> <span class="n">HandlerRegistry</span><span class="p">()</span>
+<span class="n">registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">&quot;task.request&quot;</span><span class="p">,</span> <span class="n">create_echo_handler</span><span class="p">())</span>
+<span class="n">app</span> <span class="o">=</span> <span class="n">create_app</span><span class="p">(</span><span class="n">manifest</span><span class="p">,</span> <span class="n">registry</span><span class="p">)</span>
+</code></pre></div></p>
+</li>
+<li>
+<p><strong>Opt-in to Security Features</strong> (optional):
+   <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">asap.models.entities</span><span class="w"> </span><span class="kn">import</span> <span class="n">AuthScheme</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.transport.middleware</span><span class="w"> </span><span class="kn">import</span> <span class="n">BearerTokenValidator</span>
+
+<span class="c1"># Add authentication (optional)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">validate_token</span><span class="p">(</span><span class="n">token</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">token</span> <span class="o">==</span> <span class="s2">&quot;my-secret-token&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;urn:asap:agent:client&quot;</span>
+    <span class="k">return</span> <span class="kc">None</span>
+
+<span class="n">manifest</span> <span class="o">=</span> <span class="n">Manifest</span><span class="p">(</span>
+    <span class="c1"># ... existing manifest ...</span>
+    <span class="n">auth</span><span class="o">=</span><span class="n">AuthScheme</span><span class="p">(</span><span class="n">schemes</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;bearer&quot;</span><span class="p">])</span>  <span class="c1"># Enable authentication</span>
+<span class="p">)</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">create_app</span><span class="p">(</span>
+    <span class="n">manifest</span><span class="p">,</span>
+    <span class="n">registry</span><span class="p">,</span>
+    <span class="n">token_validator</span><span class="o">=</span><span class="n">validate_token</span><span class="p">,</span>  <span class="c1"># Add token validator</span>
+    <span class="n">rate_limit</span><span class="o">=</span><span class="s2">&quot;10/second;100/minute&quot;</span><span class="p">,</span> <span class="c1"># Burst + sustained rate limiting</span>
+    <span class="n">require_nonce</span><span class="o">=</span><span class="kc">True</span>                <span class="c1"># Enable nonce validation</span>
+<span class="p">)</span>
+</code></pre></div></p>
+</li>
+<li>
+<p><strong>Test Your Upgrade</strong>:
+   <div class="highlight"><pre><span></span><code><span class="c1"># Run compatibility tests</span>
+uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>tests/compatibility/<span class="w"> </span>-v
+</code></pre></div></p>
+</li>
+</ol>
+<h4 id="backward-compatibility">Backward Compatibility</h4>
+<ul>
+<li>✅ <strong>No breaking changes</strong>: All v0.1.0 and v0.3.0 APIs remain unchanged</li>
+<li>✅ <strong>Security features are opt-in</strong>: Existing deployments continue to work</li>
+<li>✅ <strong>Default behavior unchanged</strong>: Rate limiting and size limits have safe defaults</li>
+<li>✅ <strong>Examples still work</strong>: All example code from previous versions is compatible</li>
+</ul>
+<h4 id="migration-checklist_1">Migration Checklist</h4>
+<ul>
+<li>[ ] Update <code>asap-protocol</code> to v0.5.0</li>
+<li>[ ] Run existing tests to verify compatibility</li>
+<li>[ ] Review security features and opt-in as needed</li>
+<li>[ ] Update documentation if using new security features</li>
+<li>[ ] Test in staging environment before production deployment</li>
+</ul>
+<h4 id="what-changed-between-versions">What Changed Between Versions</h4>
+<p><strong>v0.1.0 → v0.3.0</strong> (2026-01-26):
+- Test infrastructure refactoring
+- Improved test stability and isolation
+- Fixed rate limiter initialization issues
+- Enhanced test organization (unit/integration/E2E separation)</p>
+<p><strong>v0.3.0 → v0.5.0</strong> (2026-01-28):
+- Security hardening (authentication, DoS protection, replay prevention)
+- Retry logic with exponential backoff
+- Secure logging with automatic sanitization
+- Enhanced code quality (mypy strict compliance)
+- Improved test coverage (95.90%)</p>
+<h4 id="need-help">Need Help?</h4>
+<ul>
+<li>See <a href="../security/">Security Guide</a> for authentication setup</li>
+<li>See <a href="../transport/">Transport Guide</a> for retry configuration</li>
+<li>Run compatibility tests: <code>tests/compatibility/test_v0_1_0_compatibility.py</code></li>
+<li>Guide for migrating from A2A, MCP, or older ASAP versions. See <a href="../CHANGELOG.md">CHANGELOG</a> for version history.</li>
+</ul>
+<h3 id="upgrading-from-v21x-to-v220">Upgrading from v2.1.x to v2.2.0</h3>
+<p>v2.2.0 is a <strong>Protocol Hardening</strong> release. All features are additive — existing v2.1.x deployments will work without changes.</p>
+<h4 id="whats-new-in-v220">What's New in v2.2.0</h4>
+<ul>
+<li><strong>Per-Runtime Agent Identity</strong> (optional): Ed25519-based Host/Agent JWT identity with registration, revocation, and key rotation endpoints</li>
+<li><strong>Capability-Based Authorization</strong> (optional): Define capabilities with constraints, grant/deny per agent, enforce at runtime</li>
+<li><strong>Agent Lifecycle</strong>: Session TTL, expiry checks, reactivation</li>
+<li><strong>Approval Flows</strong>: Device Authorization (RFC 8628) and CIBA-style approval for sensitive operations</li>
+<li><strong>Self-Auth Prevention</strong>: Fresh session windows and optional WebAuthn for high-risk registrations</li>
+<li><strong>SSE Streaming</strong>: <code>POST /asap/stream</code> endpoint with <code>TaskStream</code> payload and client-side <code>stream()</code> method</li>
+<li><strong>Error Taxonomy</strong>: <code>RecoverableError</code> / <code>FatalError</code> hierarchy with JSON-RPC codes (-32000 to -32059) and recovery hints</li>
+<li><strong>ASAP-Version Header</strong>: Wire-level version negotiation on <code>/asap</code> and <code>/asap/stream</code></li>
+<li><strong>Async State Stores</strong>: <code>AsyncSnapshotStore</code> and <code>AsyncMeteringStore</code> protocols (sync variants deprecated)</li>
+</ul>
+<h4 id="upgrade-steps_1">Upgrade Steps</h4>
+<ol>
+<li>
+<p><strong>Update dependency</strong>:
+   <div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>--upgrade<span class="w"> </span>asap-protocol<span class="o">==</span><span class="m">2</span>.2.0
+<span class="c1"># or</span>
+uv<span class="w"> </span>add<span class="w"> </span>asap-protocol<span class="o">==</span><span class="m">2</span>.2.0
+</code></pre></div></p>
+</li>
+<li>
+<p><strong>Adopt ASAP-Version header</strong> (recommended):
+   The server now includes <code>ASAPVersionMiddleware</code> by default. Clients sending requests to <code>/asap</code> or <code>/asap/stream</code> should include the <code>ASAP-Version</code> header. The client does this automatically:
+   <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">asap.transport.client</span><span class="w"> </span><span class="kn">import</span> <span class="n">ASAPClient</span>
+
+<span class="k">async</span> <span class="k">with</span> <span class="n">ASAPClient</span><span class="p">(</span><span class="s2">&quot;https://agent.example.com&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+    <span class="c1"># ASAP-Version header sent automatically</span>
+    <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">envelope</span><span class="p">)</span>
+</code></pre></div></p>
+</li>
+<li>
+<p><strong>Migrate to AsyncSnapshotStore</strong> (recommended):
+   <div class="highlight"><pre><span></span><code><span class="c1"># Before (deprecated sync API)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.state.snapshot</span><span class="w"> </span><span class="kn">import</span> <span class="n">SnapshotStore</span>
+
+<span class="c1"># After (async API)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.state.snapshot</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncSnapshotStore</span><span class="p">,</span> <span class="n">create_async_snapshot_store</span>
+
+<span class="n">store</span> <span class="o">=</span> <span class="n">create_async_snapshot_store</span><span class="p">(</span><span class="s2">&quot;sqlite:///data.db&quot;</span><span class="p">)</span>
+<span class="k">await</span> <span class="n">store</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">snapshot</span><span class="p">)</span>
+<span class="n">snapshot</span> <span class="o">=</span> <span class="k">await</span> <span class="n">store</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">task_id</span><span class="p">)</span>
+</code></pre></div></p>
+</li>
+<li>
+<p><strong>Adopt per-agent identity</strong> (optional):
+   <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">asap.auth.identity</span><span class="w"> </span><span class="kn">import</span> <span class="n">InMemoryHostStore</span><span class="p">,</span> <span class="n">InMemoryAgentStore</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.auth.agent_jwt</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_host_jwt</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.transport.server</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_app</span>
+
+<span class="n">host_store</span> <span class="o">=</span> <span class="n">InMemoryHostStore</span><span class="p">()</span>
+<span class="n">agent_store</span> <span class="o">=</span> <span class="n">InMemoryAgentStore</span><span class="p">()</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">create_app</span><span class="p">(</span>
+    <span class="n">manifest</span><span class="p">,</span>
+    <span class="n">registry</span><span class="p">,</span>
+    <span class="n">identity_host_store</span><span class="o">=</span><span class="n">host_store</span><span class="p">,</span>
+    <span class="n">identity_agent_store</span><span class="o">=</span><span class="n">agent_store</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div></p>
+</li>
+<li>
+<p><strong>Define capabilities</strong> (optional):
+   <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">asap.auth.capabilities</span><span class="w"> </span><span class="kn">import</span> <span class="n">CapabilityDefinition</span><span class="p">,</span> <span class="n">CapabilityRegistry</span>
+
+<span class="n">registry</span> <span class="o">=</span> <span class="n">CapabilityRegistry</span><span class="p">()</span>
+<span class="n">registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">CapabilityDefinition</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;task.execute&quot;</span><span class="p">,</span>
+    <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Execute tasks&quot;</span><span class="p">,</span>
+    <span class="n">constraints_schema</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;max_concurrent&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;integer&quot;</span><span class="p">}},</span>
+<span class="p">))</span>
+</code></pre></div></p>
+</li>
+<li>
+<p><strong>Use streaming</strong> (optional):
+   <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">asap.transport.client</span><span class="w"> </span><span class="kn">import</span> <span class="n">ASAPClient</span>
+
+<span class="k">async</span> <span class="k">with</span> <span class="n">ASAPClient</span><span class="p">(</span><span class="s2">&quot;https://agent.example.com&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+    <span class="k">async</span> <span class="k">for</span> <span class="n">envelope</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">stream</span><span class="p">(</span><span class="n">request_envelope</span><span class="p">):</span>
+        <span class="n">chunk</span> <span class="o">=</span> <span class="n">envelope</span><span class="o">.</span><span class="n">payload</span>  <span class="c1"># TaskStream with progress info</span>
+        <span class="k">if</span> <span class="n">chunk</span><span class="o">.</span><span class="n">final</span><span class="p">:</span>
+            <span class="k">break</span>
+</code></pre></div></p>
+</li>
+</ol>
+<h4 id="backward-compatibility_1">Backward Compatibility</h4>
+<ul>
+<li>✅ <strong>No breaking changes</strong>: All v2.1.x APIs remain functional</li>
+<li>✅ <strong>Identity is opt-in</strong>: Existing agents work without Host/Agent JWT</li>
+<li>✅ <strong>Version negotiation is backward compatible</strong>: Servers accept both <code>2.1</code> and <code>2.2</code></li>
+<li>✅ <strong>Async stores coexist</strong>: Sync <code>SnapshotStore</code> still works (deprecated, removal in v2.3)</li>
+</ul>
+<h4 id="migration-checklist_2">Migration Checklist</h4>
+<ul>
+<li>[ ] Update <code>asap-protocol</code> to v2.2.0</li>
+<li>[ ] Run existing tests to verify compatibility</li>
+<li>[ ] Migrate <code>SnapshotStore</code> → <code>AsyncSnapshotStore</code> (recommended)</li>
+<li>[ ] Add <code>ASAP-Version</code> header handling (automatic with ASAPClient)</li>
+<li>[ ] Evaluate per-agent identity for your use case (optional)</li>
+<li>[ ] Define capability grants if using multi-agent authorization (optional)</li>
+<li>[ ] Adopt <code>RecoverableError</code> / <code>FatalError</code> in custom error handling (recommended)</li>
+<li>[ ] Use <code>ASAPClient.batch()</code> for multi-request flows (optional)</li>
+<li>[ ] Enable <code>audit_store</code> in <code>create_app()</code> for tamper-evident logging (optional)</li>
+<li>[ ] Run <code>run_compliance_harness_v2(app)</code> to validate your server (recommended)</li>
+</ul>
+<h3 id="upgrading-from-v220-to-v221">Upgrading from v2.2.0 to v2.2.1</h3>
+<p>v2.2.1 adds an <strong>optional</strong> WebAuthn stack for real proof-of-possession on
+high-risk registration paths. If you do nothing, behavior stays the same as
+v2.2.0.</p>
+<h4 id="optional-extra">Optional extra</h4>
+<p>Install the PyPI extra so the <code>webauthn</code> library is available:</p>
+<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">&#39;asap-protocol[webauthn]&#39;</span>
+<span class="c1"># or</span>
+uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>webauthn
+</code></pre></div>
+<h4 id="default-behavior-unchanged-without-configuration">Default behavior (unchanged without configuration)</h4>
+<p><code>create_app</code> still uses <code>default_webauthn_verifier()</code> from
+<code>asap.auth.self_auth</code>. That returns <code>PlaceholderWebAuthnVerifier</code> when:</p>
+<ul>
+<li>the <code>webauthn</code> package is not installed, <strong>or</strong></li>
+<li><code>ASAP_WEBAUTHN_RP_ID</code> or <code>ASAP_WEBAUTHN_ORIGIN</code> is not set.</li>
+</ul>
+<p>In that case, WebAuthn checks in the reference server <strong>do not</strong> perform
+cryptographic verification (same as v2.2.0).</p>
+<h4 id="production-recommendation">Production recommendation</h4>
+<p>For deployments that enforce self-authorization prevention with real passkeys:</p>
+<ol>
+<li>Install <code>asap-protocol[webauthn]</code>.</li>
+<li>Set <code>ASAP_WEBAUTHN_RP_ID</code> (no scheme; e.g. <code>app.example.com</code>) and
+   <code>ASAP_WEBAUTHN_ORIGIN</code> (full origin; e.g. <code>https://app.example.com</code>).</li>
+<li>Optionally pass a durable <code>WebAuthnCredentialStore</code> (see
+   <code>asap.auth.webauthn</code>) via a custom <code>identity_webauthn_verifier</code> instead of
+   the in-memory default.</li>
+</ol>
+<p>See <a href="../security/self-authorization-prevention/">Self-authorization prevention</a>
+(<strong>Real WebAuthn</strong>) for the threat model and ceremony flow.</p>
+<h3 id="upgrading-from-v241-to-v250">Upgrading from v2.4.1 to v2.5.0</h3>
+<p>v2.5.0 is an <strong>additive, backward-compatible</strong> minor release. JSON-RPC envelopes,
+OAuth2, capability grants, and existing manifests are unchanged. MCP servers
+without <code>protect_server</code> behave exactly as in v2.4.1.</p>
+<h4 id="what-changed">What changed</h4>
+<ul>
+<li><strong>MCP Auth Bridge (opt-in)</strong>: <code>asap.mcp.auth.protect_server</code> wraps a native
+  stdio <code>MCPServer</code> with Agent JWT verification and capability enforcement on
+  <code>tools/call</code>. Unprotected MCP usage remains valid (MCP-DOC-004).</li>
+<li><strong>Compliance</strong>: <code>asap-compliance</code> adds an <code>mcp-auth-bridge</code> profile for stdio
+  MCP auth, grants, constraints, and manifest alignment.</li>
+<li><strong>Deferred</strong>: <code>initialize</code> session-token handshake, <code>hide_unauthorized_tools</code>
+  (MAP-004), and <code>@asap-protocol/mcp-auth</code> HTTP/SSE middleware (v2.5.0.1).</li>
+</ul>
+<h4 id="upgrade-steps_2">Upgrade steps</h4>
+<ol>
+<li>
+<p><strong>Bump Python dependency</strong>:
+   <div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>--upgrade<span class="w"> </span>asap-protocol<span class="o">==</span><span class="m">2</span>.5.0
+<span class="c1"># or</span>
+uv<span class="w"> </span>add<span class="w"> </span>asap-protocol<span class="o">==</span><span class="m">2</span>.5.0
+</code></pre></div>
+   TypeScript consumers: no npm bump required for v2.5.0 — <code>@asap-protocol/*</code>
+   packages remain at <strong>2.4.1</strong> until the v2.5.0.1 middleware release.</p>
+</li>
+<li>
+<p><strong>Optional — protect an MCP server</strong>: See
+   <a href="../adapters/mcp-auth-bridge/">MCP Auth Bridge adapter</a> and
+   <code>examples/mcp_auth_bridge/server.py</code>.</p>
+</li>
+<li>
+<p><strong>Re-run Compliance Harness v2</strong> if you ship MCP tools
+   (<code>asap compliance-check --exit-on-fail</code>).</p>
+</li>
+</ol>
+<h4 id="backward-compatibility_2">Backward compatibility</h4>
+<ul>
+<li><strong>Wire protocol</strong>: Unchanged from v2.4.1.</li>
+<li><strong>Breaking changes</strong>: None. <code>protect_server</code> is opt-in.</li>
+</ul>
+<hr />
+<h3 id="upgrading-from-v250-to-v251">Upgrading from v2.5.0 to v2.5.1</h3>
+<p>v2.5.1 is a <strong>code quality patch</strong>. JSON-RPC envelopes, OAuth2, capability grants,
+manifests, and the MCP Auth Bridge are unchanged. Most deployments upgrade with no
+code changes; the one operator-relevant case is WebSocket in OAuth2-only
+deployments (see below).</p>
+<h4 id="what-changed_1">What changed</h4>
+<ul>
+<li><strong>Behavior-preserving refactors</strong>: transport (<code>server</code>/<code>client</code>/<code>websocket</code> split
+  into packages), SQLite storage consolidated onto a shared <code>AsyncSqliteRepository</code>,
+  <code>auth/</code> module reorg, and shared integration plumbing. Public import paths are
+  preserved via re-export shims.</li>
+<li><strong>Six fixes</strong>: atomic <code>revoke_cascade</code>; canonical <code>usage_events</code> DDL; unified
+  Host-JWT verifier (revoked host → 403); <strong>WebSocket now enforces OAuth2</strong>; OpenAPI
+  handler import/constructor cleanup; client-side <code>correlation_id</code> binding.</li>
+<li><strong>Deprecated import paths</strong> (removed in v2.6.0): <code>asap.transport.websocket</code>,
+  <code>asap.adapters.mcp</code>, <code>RemoteFatalRPCError</code>/<code>RemoteRecoverableRPCError</code>,
+  <code>metering_storage_adapter</code>, <code>FRAME_ENCODING_BINARY</code>.</li>
+</ul>
+<h4 id="operator-action-oauth2-only-websocket-deployments">Operator action: OAuth2-only WebSocket deployments</h4>
+<p>If you run <code>OAuth2Middleware</code> <strong>without</strong> <code>manifest.auth</code> / <code>token_validator</code>
+(OAuth2-only), the WebSocket endpoint <code>/asap/ws</code> was previously unauthenticated — it
+skipped the Starlette middleware stack. It now requires a Bearer JWT in the
+handshake <code>Authorization</code> header and rejects with close code <strong>4401</strong> when absent or
+invalid. Connect your WS clients with a Bearer token. Deployments without an OAuth2
+IdP are unchanged.</p>
+<h4 id="upgrade-steps_3">Upgrade steps</h4>
+<ol>
+<li>
+<p><strong>Bump dependency</strong>:
+   <div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>--upgrade<span class="w"> </span>asap-protocol<span class="o">==</span><span class="m">2</span>.5.1
+<span class="c1"># or</span>
+uv<span class="w"> </span>add<span class="w"> </span>asap-protocol<span class="o">==</span><span class="m">2</span>.5.1
+</code></pre></div>
+   TypeScript consumers: no npm bump required — <code>@asap-protocol/*</code> stays at <strong>2.4.1</strong>.</p>
+</li>
+<li>
+<p><strong>Migrate deprecated imports</strong> at your convenience (removed in v2.6.0):
+   <div class="highlight"><pre><span></span><code><span class="c1"># Before</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.transport.websocket</span><span class="w"> </span><span class="kn">import</span> <span class="n">WebSocketTransport</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.adapters.mcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">protect_server</span><span class="p">,</span> <span class="n">MCPAuthConfig</span>
+
+<span class="c1"># After</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.transport.ws</span><span class="w"> </span><span class="kn">import</span> <span class="n">WebSocketTransport</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.mcp.auth</span><span class="w"> </span><span class="kn">import</span> <span class="n">protect_server</span><span class="p">,</span> <span class="n">MCPAuthConfig</span>
+</code></pre></div>
+   <code>from asap.transport.client import ASAPClient</code> and
+   <code>from asap.transport.server import create_app</code> are unchanged.</p>
+</li>
+<li>
+<p><strong>OAuth2-only WS operators</strong>: pass a Bearer JWT on the WS handshake (see above).</p>
+</li>
+<li>
+<p><strong>Re-run Compliance Harness v2</strong> after upgrading production agents
+   (<code>asap compliance-check --exit-on-fail</code>).</p>
+</li>
+</ol>
+<h4 id="backward-compatibility_3">Backward compatibility</h4>
+<ul>
+<li><strong>Wire protocol</strong>: Unchanged from v2.5.0.</li>
+<li><strong>Breaking changes</strong>: None. Deprecated imports keep working via shims until v2.6.0.</li>
+<li><strong>Behavior change</strong>: WebSocket OAuth2 enforcement (above) closes an authentication
+  gap; only OAuth2-only WS deployments are affected.</li>
+</ul>
+<hr />
+<h3 id="upgrading-from-v251-to-v252">Upgrading from v2.5.1 to v2.5.2</h3>
+<p><strong>v2.5.2</strong> is a security &amp; correctness follow-up (<a href="../product/prd/prd-v2.5.2-security-follow-up.md">PRD</a>).
+It may include small CLI surface trims and tighter ingress validation (e.g. rejecting
+unknown <code>config</code> / <code>metadata</code> keys) without changing the JSON-RPC envelope wire format.</p>
+<h4 id="cli-legacy-import-paths-242">CLI legacy import paths (#242)</h4>
+<p>The v2.5.1 S3 CLI split moved command groups into submodules but kept three
+legacy names on <code>asap.cli</code> root for compatibility. Those root re-exports are
+removed; use <code>asap.cli._compat</code> or canonical modules until <strong>v2.6.0</strong>
+(<a href="https://github.com/asap-protocol/asap-protocol/issues/275">#275</a>):</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Before (no longer works)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.cli</span><span class="w"> </span><span class="kn">import</span> <span class="n">DEFAULT_SCHEMAS_DIR</span><span class="p">,</span> <span class="n">export_all_schemas</span><span class="p">,</span> <span class="n">_repl_namespace</span>
+
+<span class="c1"># After — shim (removed in v2.6.0)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.cli._compat</span><span class="w"> </span><span class="kn">import</span> <span class="n">DEFAULT_SCHEMAS_DIR</span><span class="p">,</span> <span class="n">export_all_schemas</span><span class="p">,</span> <span class="n">_repl_namespace</span>
+
+<span class="c1"># After — canonical (preferred)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.cli.schemas</span><span class="w"> </span><span class="kn">import</span> <span class="n">DEFAULT_SCHEMAS_DIR</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.schemas</span><span class="w"> </span><span class="kn">import</span> <span class="n">export_all_schemas</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.cli.repl</span><span class="w"> </span><span class="kn">import</span> <span class="n">_repl_namespace</span>
+</code></pre></div>
+<p><code>asap = "asap.cli:main"</code> and <code>from asap.cli import app, main</code> are unchanged.</p>
+<h4 id="opt-in-operator-api-auth-209">Opt-in operator API auth (#209)</h4>
+<p><code>/usage</code>, <code>/sla</code>, and <code>/audit</code> remain <strong>open by default</strong> (local/operator ergonomics).
+To require OAuth2 when exposing them beyond localhost:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">asap.auth</span><span class="w"> </span><span class="kn">import</span> <span class="n">OAuth2Config</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.transport.server</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_app</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">create_app</span><span class="p">(</span>
+    <span class="n">manifest</span><span class="p">,</span>
+    <span class="n">oauth2_config</span><span class="o">=</span><span class="n">OAuth2Config</span><span class="p">(</span><span class="n">jwks_uri</span><span class="o">=</span><span class="s2">&quot;https://idp.example.com/jwks.json&quot;</span><span class="p">),</span>
+    <span class="n">metering_storage</span><span class="o">=...</span><span class="p">,</span>
+    <span class="n">sla_storage</span><span class="o">=...</span><span class="p">,</span>
+    <span class="n">audit_store</span><span class="o">=...</span><span class="p">,</span>
+    <span class="n">require_operator_auth</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="c1"># Bearer JWT must include scope asap:admin AND pass identity binding</span>
+    <span class="c1"># (custom claim = manifest.id, or sub in ASAP_AUTH_SUBJECT_MAP).</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>Issue tokens from your IdP with <strong>both</strong> scope and identity binding — a common
+first-deploy mistake is <code>asap:admin</code> without the custom claim (403 identity mismatch):</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Example JWT claims for an operator / dashboard token</span>
+<span class="p">{</span>
+    <span class="s2">&quot;sub&quot;</span><span class="p">:</span> <span class="s2">&quot;urn:asap:agent:operator&quot;</span><span class="p">,</span>  <span class="c1"># or auth0|... / human IdP subject</span>
+    <span class="s2">&quot;scope&quot;</span><span class="p">:</span> <span class="s2">&quot;asap:admin&quot;</span><span class="p">,</span>
+    <span class="c1"># Default claim key (override with ASAP_AUTH_CUSTOM_CLAIM):</span>
+    <span class="s2">&quot;https://github.com/adriannoes/asap-protocol/agent_id&quot;</span><span class="p">:</span> <span class="n">manifest</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>If the IdP cannot emit custom claims, map <code>sub</code> via <code>ASAP_AUTH_SUBJECT_MAP</code>
+instead. See <a href="../security/v1.1-security-model/#configuring-custom-claims">Configuring Custom Claims</a>
+and <a href="../security/v1.1-security-model/#option-2-allowlist-fallback">Allowlist fallback</a>.</p>
+<p><code>require_operator_auth=True</code> without <code>oauth2_config</code> raises <code>ValueError</code> at
+startup. Operator tokens must:</p>
+<ul>
+<li>carry scope <code>asap:admin</code> (<code>asap:execute</code> alone yields 403); and</li>
+<li>satisfy identity binding — the JWT custom claim (<code>ASAP_AUTH_CUSTOM_CLAIM</code>,
+  default <code>agent_id</code>) must equal the server <code>manifest.id</code>, or the subject must be
+  listed in <code>ASAP_AUTH_SUBJECT_MAP</code>. Human/operator IdP tokens without this claim
+  get <strong>403 identity mismatch</strong> (same rule already applied to <code>/asap</code>).</li>
+</ul>
+<p>If you set <code>OAuth2Config.required_scope</code> for <code>/asap</code> tasks, it is <strong>not</strong> applied
+to <code>/usage</code>, <code>/sla</code>, or <code>/audit</code>: those enforce only <code>asap:admin</code> via the route
+dependency, so an admin-only token is accepted regardless of the global scope.</p>
+<h4 id="ingress-validation-taskrequestconfig-and-commonmetadata-209">Ingress validation: <code>TaskRequestConfig</code> and <code>CommonMetadata</code> (#209)</h4>
+<p><code>TaskRequest.config</code> and <code>Conversation.metadata</code> now reject unknown keys
+(<code>extra="forbid"</code>). Custom extension data that previously rode in ad-hoc
+<code>config</code> or <code>metadata</code> properties must move to <code>TaskRequest.input</code> or envelope
+<code>extensions</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Before (accepted arbitrary keys)</span>
+<span class="n">TaskRequest</span><span class="p">(</span>
+    <span class="n">conversation_id</span><span class="o">=</span><span class="s2">&quot;conv_1&quot;</span><span class="p">,</span>
+    <span class="n">skill_id</span><span class="o">=</span><span class="s2">&quot;research&quot;</span><span class="p">,</span>
+    <span class="nb">input</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;query&quot;</span><span class="p">:</span> <span class="s2">&quot;AI&quot;</span><span class="p">},</span>
+    <span class="n">config</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;timeout_seconds&quot;</span><span class="p">:</span> <span class="mi">60</span><span class="p">,</span> <span class="s2">&quot;custom_flag&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
+<span class="p">)</span>
+
+<span class="c1"># After — drop unknown config keys or relocate them</span>
+<span class="n">TaskRequest</span><span class="p">(</span>
+    <span class="n">conversation_id</span><span class="o">=</span><span class="s2">&quot;conv_1&quot;</span><span class="p">,</span>
+    <span class="n">skill_id</span><span class="o">=</span><span class="s2">&quot;research&quot;</span><span class="p">,</span>
+    <span class="nb">input</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;query&quot;</span><span class="p">:</span> <span class="s2">&quot;AI&quot;</span><span class="p">,</span> <span class="s2">&quot;custom_flag&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
+    <span class="n">config</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;timeout_seconds&quot;</span><span class="p">:</span> <span class="mi">60</span><span class="p">},</span>
+<span class="p">)</span>
+</code></pre></div>
+<p><code>TaskResponse.metrics</code> still allows extra fields (unchanged in this release).</p>
+<h4 id="redis-backed-jti-replay-cache-209">Redis-backed JTI replay cache (#209)</h4>
+<p>Single-process deployments keep the default in-memory
+:class:<code>~asap.auth.agent_jwt.JtiReplayCache</code>. Multi-worker or multi-instance
+hosts should share replay state via
+:class:<code>~asap.auth.jti_replay_cache.RedisJtiReplayCache</code> (requires
+<code>pip install 'asap-protocol[redis]'</code>):</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">asap.auth.jti_replay_cache</span><span class="w"> </span><span class="kn">import</span> <span class="n">RedisJtiReplayCache</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.transport.server</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_app</span>
+
+<span class="n">jti_cache</span> <span class="o">=</span> <span class="n">RedisJtiReplayCache</span><span class="o">.</span><span class="n">from_url</span><span class="p">(</span><span class="s2">&quot;redis://localhost:6379/0&quot;</span><span class="p">)</span>
+<span class="n">app</span> <span class="o">=</span> <span class="n">create_app</span><span class="p">(</span><span class="n">manifest</span><span class="p">,</span> <span class="n">identity_jti_cache</span><span class="o">=</span><span class="n">jti_cache</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+</code></pre></div>
+<p>MCP Auth Bridge deployments can pass the same instance through
+<code>MCPAuthConfig(jti_replay_cache=jti_cache)</code>.</p>
+<h4 id="web-app-distributed-rate-limits-209">Web app distributed rate limits (#209)</h4>
+<p>Self-hosted or multi-instance <code>apps/web</code> deployments can share dashboard and
+proxy rate-limit counters across replicas by configuring Upstash Redis REST
+credentials (or Vercel KV, which uses the same client):</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Upstash Redis</span>
+<span class="nv">UPSTASH_REDIS_REST_URL</span><span class="o">=</span>https://....upstash.io
+<span class="nv">UPSTASH_REDIS_REST_TOKEN</span><span class="o">=</span>...
+
+<span class="c1"># Vercel KV (when linked to the project)</span>
+<span class="c1"># KV_REST_API_URL=...</span>
+<span class="c1"># KV_REST_API_TOKEN=...</span>
+</code></pre></div>
+<p>When these variables are unset, behavior is unchanged from v2.5.1: per-instance
+in-memory limits in <code>apps/web/src/lib/rate-limit.ts</code>. No code changes are
+required for local development.</p>
+<p>The Redis backend uses a <strong>fixed window</strong> aligned with the in-memory fallback.
+If Redis is unreachable, the app falls back to per-instance in-memory limits
+(weaker on multi-instance deploys); set both URL and token from the same
+provider family (Upstash <strong>or</strong> Vercel KV) to avoid misconfiguration.</p>
+<h4 id="other-v252-correctness-fixes">Other v2.5.2 correctness fixes</h4>
+<table>
+<thead>
+<tr>
+<th>Fix</th>
+<th>Impact</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Streaming correlation (#247)</strong></td>
+<td>SSE/WebSocket <code>TaskStream</code> chunks must set <code>correlation_id</code> to the <strong>request envelope <code>id</code></strong>. Mismatched or missing binding raises client-side <code>ProtocolCorrelationError</code>.</td>
+</tr>
+<tr>
+<td><strong>Agent status JTI (#249)</strong></td>
+<td><code>GET /asap/agent/status</code> rejects Host JWTs whose <code>jti</code> was already consumed by register/revoke/rotate-key (read-only replay check; polling may still reuse a fresh token).</td>
+</tr>
+<tr>
+<td><strong>Registry signed envelopes (#224)</strong></td>
+<td>Auto-registration accepts <code>{manifest, signature}</code> envelopes and unwraps before validation.</td>
+</tr>
+<tr>
+<td><strong>Registry validation → 400 (#227)</strong></td>
+<td><code>ManifestValidationError</code> maps to HTTP <strong>400</strong> (was 500).</td>
+</tr>
+<tr>
+<td><strong>SQLite write lock (#245)</strong></td>
+<td>Shared <code>asyncio.Lock</code> on <code>AsyncSqliteRepository.execute()</code> for concurrent writers.</td>
+</tr>
+</tbody>
+</table>
+<p>Allowed <code>TaskRequest.config</code> fields (unknown keys rejected):
+<code>timeout_seconds</code>, <code>priority</code>, <code>idempotency_key</code>, <code>streaming</code>, <code>persist_state</code>,
+<code>model</code>, <code>temperature</code>.</p>
+<p>Allowed <code>CommonMetadata</code> fields: <code>purpose</code>, <code>ttl_hours</code>, <code>source</code>, <code>timestamp</code>,
+<code>tags</code>.</p>
+<h4 id="backward-compatibility_4">Backward compatibility</h4>
+<ul>
+<li><strong>Opt-in</strong>: operator auth, Redis JTI, web distributed rate limits — unchanged
+  defaults when you do nothing.</li>
+<li><strong>Breaking for clients</strong>: unknown keys on <code>TaskRequest.config</code> /
+  <code>Conversation.metadata</code> now fail validation.</li>
+<li><strong>Wire protocol / manifest schema</strong>: otherwise unchanged.</li>
+<li><strong>CLI</strong>: root re-exports of three legacy names removed; use <code>_compat</code> or
+  canonical modules (shim removed in v2.6.0).</li>
+</ul>
+<h4 id="migration-checklist_3">Migration checklist</h4>
+<ul>
+<li>[ ] Bump to <code>asap-protocol&gt;=2.5.2</code></li>
+<li>[ ] Scan clients for unknown <code>config</code> / <code>metadata</code> keys; move extensions to
+      <code>TaskRequest.input</code> or envelope <code>extensions</code></li>
+<li>[ ] If exposing <code>/usage</code>, <code>/sla</code>, or <code>/audit</code> beyond localhost: set
+      <code>require_operator_auth=True</code> + <code>oauth2_config</code> and mint <code>asap:admin</code>
+      tokens with identity binding</li>
+<li>[ ] Multi-worker HTTP: <code>identity_jti_cache=RedisJtiReplayCache.from_url(...)</code>
+      and <code>ASAP_RATE_LIMIT_BACKEND=redis://...</code></li>
+<li>[ ] Multi-worker MCP Auth Bridge: same cache via <code>MCPAuthConfig.jti_replay_cache</code></li>
+<li>[ ] Multi-instance <code>apps/web</code>: set Upstash or Vercel KV REST URL + token</li>
+<li>[ ] Custom stream handlers: ensure <code>TaskStream.correlation_id == request.id</code></li>
+<li>[ ] Registry integrators: expect HTTP 400 on manifest validation failures;
+      signed envelope JSON is accepted</li>
+<li>[ ] Re-run compliance harness / CI gate after upgrade</li>
+</ul>
+<h4 id="troubleshooting-v252">Troubleshooting (v2.5.2)</h4>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Likely cause</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pydantic <code>ValidationError</code> on <code>config</code> / <code>metadata</code></td>
+<td>Unknown keys (<code>extra="forbid"</code>)</td>
+<td>Use allowed fields only; nest custom data under <code>input</code> / <code>extensions</code></td>
+</tr>
+<tr>
+<td>Operator API <strong>401</strong></td>
+<td>Missing/invalid Bearer JWT</td>
+<td>Configure IdP JWKS; send <code>Authorization: Bearer ...</code></td>
+</tr>
+<tr>
+<td>Operator API <strong>403</strong> with <code>asap:admin</code></td>
+<td>Identity binding failed, or scope missing</td>
+<td>Set custom claim = <code>manifest.id</code> or map <code>sub</code> via <code>ASAP_AUTH_SUBJECT_MAP</code></td>
+</tr>
+<tr>
+<td><code>ProtocolCorrelationError</code> on stream</td>
+<td>Chunk <code>correlation_id</code> ≠ request envelope <code>id</code></td>
+<td>Echo <code>request_envelope.id</code> on every streamed chunk</td>
+</tr>
+<tr>
+<td>Host JWT rejected on <code>/asap/agent/status</code></td>
+<td><code>jti</code> already recorded by a mutating route</td>
+<td>Mint a new Host JWT for polling after register/revoke/rotate</td>
+</tr>
+<tr>
+<td>Redis JTI / rate-limit errors on HTTP</td>
+<td>Redis unreachable</td>
+<td>Redis errors <strong>propagate</strong> for JTI and transport rate limits — monitor Redis health</td>
+</tr>
+</tbody>
+</table>
+<p>See also <a href="../troubleshooting/">Troubleshooting Guide</a> and
+<a href="../security/#operator-rest-apis-v252">Security — Operator REST APIs</a>.</p>
+<hr />
+<h3 id="upgrading-from-v253-to-v254">Upgrading from v2.5.3 to v2.5.4</h3>
+<p><strong>v2.5.4 (Distribution Loop)</strong> — <strong>shipped</strong> (<a href="https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.4">tag <code>v2.5.4</code></a>,
+<a href="https://github.com/asap-protocol/asap-protocol/pull/294">#294</a>) —
+turns adoption surfaces into a repeatable loop: homepage routing, thin starters,
+Build for agents guide, and maintainer telemetry ops. There are <strong>no breaking
+changes</strong> for envelope, JWT, or capability grant semantics relative to v2.5.3.
+Scope: <a href="../product/prd/prd-v2.5.4-distribution-loop.md">prd-v2.5.4-distribution-loop.md</a>.</p>
+<h4 id="what-lands-in-v254">What lands in v2.5.4</h4>
+<ul>
+<li><strong>Thin starters</strong> — <code>examples/starters/openapi-provider/</code>,
+  <code>typescript-consumer/</code>, and <code>mcp-auth-bridge/</code> (wrappers over existing examples).</li>
+<li><strong>Build for agents</strong> — <a href="../guides/build-for-agents/">guide</a> as the agent-first
+  onboarding path into those starters.</li>
+<li><strong>Homepage</strong> — agent-first hero / CTA routing to docs, starters, and examples
+  (marketplace browse/register remain secondary).</li>
+<li><strong>Telemetry ops</strong> — npm collectors cover ≥3 scoped packages; PyPI aggregate
+  covers <code>asap-protocol</code> + <code>asap-compliance</code>; maintainer runbook; <strong>no</strong> public
+  live metrics UI.</li>
+</ul>
+<h4 id="upgrade-steps_4">Upgrade steps</h4>
+<ol>
+<li>Bump with <code>pip install 'asap-protocol==2.5.4'</code> (or <code>uv add asap-protocol</code>).</li>
+<li>No code changes required for existing v2.5.3 agents unless you adopt the new
+   starters or guide.</li>
+<li>TypeScript <code>@asap-protocol/*</code> packages remain at <strong>2.4.1</strong>;
+   <code>@asap-protocol/mcp-auth</code> HTTP/SSE middleware remains deferred.</li>
+<li>Optional: start from <a href="../guides/build-for-agents/">Build for agents</a> and run
+   one starter smoke from <code>examples/starters/README.md</code>.</li>
+<li>If you use the optional <code>[mcp]</code> extra, bump to <code>mcp&gt;=1.28.1</code> (security floor
+   for CVE-2026-52869 / CVE-2026-52870 / CVE-2026-59950).</li>
+</ol>
+<h4 id="backward-compatibility_5">Backward compatibility</h4>
+<ul>
+<li><strong>Wire protocol</strong>: Unchanged from v2.5.3.</li>
+<li><strong>Breaking changes</strong>: None for Distribution Loop scope (docs / starters /
+  homepage / maintainer telemetry).</li>
+</ul>
+<hr />
+<h3 id="upgrading-from-v252-to-v253">Upgrading from v2.5.2 to v2.5.3</h3>
+<p><strong>v2.5.3 (Adapter Lab II)</strong> — <strong>shipped</strong> (<a href="https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.3">tag <code>v2.5.3</code></a>,
+<a href="https://github.com/asap-protocol/asap-protocol/pull/291">#291</a>) — is primarily <strong>documentation
+and examples</strong>, plus small DX / correctness fixes. There are <strong>no breaking changes</strong>
+for envelope, JWT, or capability grant semantics relative to v2.5.2.</p>
+<h4 id="what-lands-in-v253">What lands in v2.5.3</h4>
+<ul>
+<li><strong>Workflow connectors</strong> — OpenAPI → ASAP skills for n8n / Activepieces-style
+  workflow HTTP APIs (<a href="../integrations/workflow-connectors/">guide</a>,
+  <code>examples/workflow_asap_connector/</code>).</li>
+<li><strong>Automation connector security</strong> — production baseline for OpenAPI-backed
+  connectors (<a href="../guides/automation-connector-security/">guide</a>).</li>
+<li><strong>Microsoft Agent Framework</strong> — research / experimental interop guide only
+  (<a href="../integrations/microsoft-agent-framework/">guide</a>); no .NET SDK / NuGet.</li>
+<li><strong>NeMo Agent Toolkit</strong> — experimental Path A demo
+  (<a href="../integrations/nemo-agent-toolkit/">guide</a>,
+  <code>examples/nemo_agent_toolkit_asap/</code>); Path C third-party plugin remains deferred.</li>
+<li><strong>MkDocs / web</strong> — Adapters + Lab II nav; marketplace WhatsNew ribbon for Lab II.</li>
+<li><strong>Fixes</strong>: JSON-safe invalid-envelope <code>-32602</code>; MCP Auth Bridge example client
+  self-captures child JWT; <code>health_check()</code> defaults to the client base URL;
+  <code>setuptools&gt;=83</code> override for <strong>PYSEC-2026-3447</strong>.</li>
+</ul>
+<h4 id="upgrade-steps_5">Upgrade steps</h4>
+<ol>
+<li>Bump with <code>pip install 'asap-protocol==2.5.3'</code> (or <code>uv add asap-protocol</code>).</li>
+<li>No code changes required for existing v2.5.2 agents unless you adopt the new
+   examples or guides.</li>
+<li>TypeScript <code>@asap-protocol/*</code> packages remain at <strong>2.4.1</strong>;
+   <code>@asap-protocol/mcp-auth</code> HTTP/SSE middleware remains deferred.</li>
+<li>Optional: re-run <code>examples/mcp_auth_bridge/client.py</code> without pasting a JWT —
+   the client now captures the demo token from its own child stderr.</li>
+</ol>
+<h4 id="backward-compatibility_6">Backward compatibility</h4>
+<ul>
+<li><strong>Wire protocol</strong>: Unchanged from v2.5.2.</li>
+<li><strong>Breaking changes</strong>: None for Lab II scope (docs / examples / DX).</li>
+</ul>
+<hr />
+<h3 id="upgrading-from-v240-to-v241">Upgrading from v2.4.0 to v2.4.1</h3>
+<p>v2.4.1 is a <strong>security-hardening patch</strong>. JSON-RPC envelopes, capability grants,
+and manifest schemas are unchanged from v2.4.0. Most deployments upgrade without
+code changes.</p>
+<h4 id="what-changed_2">What changed</h4>
+<ul>
+<li><strong>OAuth2 JWT validation (opt-in)</strong>: When <code>ASAP_AUTH_ISSUER</code> and/or
+  <code>ASAP_AUTH_AUDIENCE</code> are set (or <code>OAuth2Config.expected_issuer</code> /
+  <code>expected_audience</code>), the OAuth2 middleware validates JWT <code>iss</code> and <code>aud</code> via
+  <code>validate_jwt()</code> in <code>asap.auth.jwks</code>. Tokens with a mismatched issuer or
+  audience are rejected.</li>
+<li><strong>Identity binding (fail-closed)</strong>: When <code>manifest_id</code> is configured on
+  <code>OAuth2Config</code>, requests whose JWT subject does not match the custom claim
+  (<code>ASAP_AUTH_CUSTOM_CLAIM</code>) or <code>ASAP_AUTH_SUBJECT_MAP</code> allowlist now receive
+  <strong>403</strong> instead of warn-and-pass.</li>
+<li><strong>Web app (<code>apps/web</code>)</strong>: Hardened against open redirects on E2E fixture login
+  routes (<code>resolveRedirectUrl</code>), SSRF on <code>/api/health-check</code> (127.0.0.0/8, DNS
+  resolve4/6), and strict Zod validation on public API query params (unknown keys
+  return 400). Default marketplace deployments pick up these fixes on rebuild —
+  <strong>no operator configuration required</strong>.</li>
+<li><strong>Dependencies</strong>: Raised <code>fastapi</code> floor to <code>&gt;=0.136.1</code> (pulls
+  <code>starlette&gt;=1.0.1</code>, resolves <strong>PYSEC-2026-161</strong>); bumped transitive pins for
+  <code>langchain-core</code>, <code>langsmith</code>, <code>python-multipart</code>, <code>urllib3</code>, <code>pip</code>, and
+  <code>smolagents</code>. See <a href="../SECURITY.md">SECURITY.md</a>.</li>
+</ul>
+<h4 id="upgrade-steps_6">Upgrade steps</h4>
+<ol>
+<li>
+<p><strong>Bump dependencies</strong>:
+   <div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>--upgrade<span class="w"> </span>asap-protocol<span class="o">==</span><span class="m">2</span>.4.1
+<span class="c1"># or</span>
+uv<span class="w"> </span>add<span class="w"> </span>asap-protocol<span class="o">==</span><span class="m">2</span>.4.1
+</code></pre></div>
+   TypeScript consumers: <code>npm install @asap-protocol/client@2.4.1</code>.</p>
+</li>
+<li>
+<p><strong>OAuth2 operators</strong>: If you already set <code>ASAP_AUTH_ISSUER</code> /
+   <code>ASAP_AUTH_AUDIENCE</code>, ensure your IdP issues tokens with matching <code>iss</code> and
+   <code>aud</code>. If unset, behavior is unchanged from v2.4.0.</p>
+</li>
+<li>
+<p><strong>Identity binding</strong>: If <code>manifest_id</code> is set, verify
+   <code>ASAP_AUTH_CUSTOM_CLAIM</code> or <code>ASAP_AUTH_SUBJECT_MAP</code> covers every legitimate
+   caller — otherwise those callers will now receive 403.</p>
+</li>
+<li>
+<p><strong>Web app</strong>: Rebuild/redeploy <code>apps/web</code> if you self-host the marketplace
+   (fixes ship in the image; no new env vars).</p>
+</li>
+<li>
+<p><strong>Re-run Compliance Harness v2</strong> after upgrading production agents
+   (<code>asap compliance-check --exit-on-fail</code>).</p>
+</li>
+</ol>
+<h4 id="backward-compatibility_7">Backward compatibility</h4>
+<ul>
+<li><strong>Wire protocol</strong>: Unchanged from v2.4.0.</li>
+<li><strong>Breaking changes</strong>: None when <code>ASAP_AUTH_ISSUER</code>, <code>ASAP_AUTH_AUDIENCE</code>, and
+  <code>manifest_id</code> identity binding were already configured correctly. Fail-closed
+  identity binding is a behavior change only for misconfigured deployments that
+  previously passed with warnings.</li>
+</ul>
+<hr />
+<h3 id="upgrading-from-v23x-to-v240">Upgrading from v2.3.x to v2.4.0</h3>
+<p>v2.4.0 is an <strong>additive, backward-compatible</strong> minor release. JSON-RPC envelopes,
+OAuth2, capability grants, and existing manifests <strong>without</strong> <code>capabilities.hardware</code>
+or <code>capabilities.inference</code> remain valid.</p>
+<h4 id="what-is-new">What is new</h4>
+<ul>
+<li><strong>Optional manifest fields</strong>: <code>capabilities.hardware</code> (<code>class</code>, <code>model</code>, <code>io</code>)
+  and <code>capabilities.inference</code> (<code>modes</code>, <code>local_models</code>) with closed enums.
+  See <a href="../transport/#hardware-and-inference-capabilities-v24">Transport — hardware and inference</a>.</li>
+<li><strong>Lite Registry mirror</strong>: <code>hardware_class</code>, <code>inference_modes</code>, <code>hardware_io</code>
+  on <code>RegistryEntry</code>, derived at auto-registration or IssueOps when a manifest
+  URL is loaded — do not duplicate these in the registration JSON body.</li>
+<li><strong>Discovery helpers</strong> (Python): <code>find_by_hardware_class</code>, <code>find_by_inference_mode</code>,
+  <code>find_by_io</code> in <code>asap.discovery.registry</code>.</li>
+<li><strong>Marketplace (web)</strong>: Browse filters and agent detail blocks for edge-AI fields.</li>
+<li><strong>TypeScript SDK</strong>: <code>@asap-protocol/client@2.4.0</code> — optional hardware fields on
+  <code>RegistryEntry</code> in <code>discovery.ts</code>.</li>
+<li><strong>ShellClaw onboarding</strong>: <a href="../guides/shellclaw-registry/">ShellClaw registry guide</a>
+  for static manifest URLs and <code>online_check: false</code>.</li>
+</ul>
+<h4 id="upgrade-steps_7">Upgrade steps</h4>
+<ol>
+<li><strong>No action required</strong> if you do not advertise edge hardware or inference modes.</li>
+<li><strong>Python</strong>: <code>pip install --upgrade asap-protocol==2.4.0</code> (or <code>uv add asap-protocol</code>).</li>
+<li><strong>TypeScript</strong>: <code>npm install @asap-protocol/client@2.4.0</code> when using registry
+   discovery types with hardware fields.</li>
+<li><strong>Registrants (optional)</strong>: Add structured <code>hardware</code> / <code>inference</code> to your manifest;
+   keep existing <code>tags</code> (e.g. <code>jetson</code>, <code>cuda</code>) as supplements until you migrate.</li>
+<li><strong>Re-run Compliance Harness v2</strong> after changing manifest or registry-facing fields.</li>
+</ol>
+<h4 id="backward-compatibility_8">Backward compatibility</h4>
+<ul>
+<li><strong>Wire protocol</strong>: Unchanged from v2.3.x.</li>
+<li><strong>Breaking changes</strong>: None.</li>
+<li><strong>Community feedback</strong>: Enum extensions tracked on <a href="https://github.com/asap-protocol/asap-protocol/issues/176">#176</a>.</li>
+</ul>
+<hr />
+<h3 id="upgrading-from-v230-to-v231">Upgrading from v2.3.0 to v2.3.1</h3>
+<p>v2.3.1 is an <strong>additive, TypeScript-only</strong> patch. The Python <code>asap-protocol</code>
+package, JSON-RPC wire format, and envelope schemas are <strong>unchanged</strong>. Existing
+v2.3.0 Python and TypeScript deployments continue to work without code changes.</p>
+<h4 id="what-is-new_1">What is new</h4>
+<ul>
+<li><strong><code>@asap-protocol/mastra@2.3.1</code></strong>: Mastra <code>createTool</code> integration. See
+  <a href="../integrations/mastra/">Mastra integration</a>.</li>
+<li><strong><code>@asap-protocol/openai-agents@2.3.1</code></strong>: OpenAI Agents SDK <code>tool()</code> integration.
+  See <a href="../integrations/openai-agents/">OpenAI Agents integration</a>.</li>
+<li><strong><code>@asap-protocol/client@2.3.1</code></strong>: Optional patch bump with additive adapter
+  exports (<code>adapters/shared</code>, output-schema helpers). Stay on <code>@2.3.0</code> if you do
+  not use the new packages.</li>
+</ul>
+<h4 id="upgrade-steps_8">Upgrade steps</h4>
+<ol>
+<li><strong>No action required</strong> for Python-only or existing <code>@asap-protocol/client@2.3.0</code>
+   consumers.</li>
+<li><strong>To adopt a new adapter</strong>, install the package and its peers:
+   <div class="highlight"><pre><span></span><code>npm<span class="w"> </span>install<span class="w"> </span>@asap-protocol/mastra<span class="w"> </span>@asap-protocol/client<span class="w"> </span>@mastra/core<span class="w"> </span>zod
+<span class="c1"># or</span>
+npm<span class="w"> </span>install<span class="w"> </span>@asap-protocol/openai-agents<span class="w"> </span>@asap-protocol/client<span class="w"> </span>@openai/agents<span class="w"> </span>zod
+</code></pre></div></li>
+<li><strong>Re-run Compliance Harness v2</strong> if you add a new adapter-backed agent to
+   production (<code>asap compliance-check --exit-on-fail</code>).</li>
+</ol>
+<h4 id="backward-compatibility_9">Backward compatibility</h4>
+<ul>
+<li><strong>Wire protocol</strong>: Unchanged from v2.3.0.</li>
+<li><strong>Breaking changes</strong>: None.</li>
+</ul>
+<hr />
+<h3 id="upgrading-from-v22x-to-v230">Upgrading from v2.2.x to v2.3.0</h3>
+<p>v2.3.0 is an <strong>Adoption Multiplier</strong> release. JSON-RPC envelopes, batching, and
+<code>ASAP-Version</code> negotiation are unchanged; new surfaces are <strong>opt-in</strong> behind
+explicit <code>create_app</code> flags and optional extras.</p>
+<h4 id="what-is-new_2">What is new</h4>
+<ul>
+<li><strong>OpenAPI Adapter</strong>: Install <code>asap-protocol[openapi]</code>, then use
+  <code>asap.create_from_openapi</code> (or <code>from asap import create_from_openapi</code>) to map
+  an OpenAPI 3.x document to ASAP capabilities. See
+  <a href="../adapters/openapi/">OpenAPI adapter</a>.</li>
+<li><strong>TypeScript client</strong>: Publish/consume via npm package
+  <code>@asap-protocol/client@2.3.0</code> (see repository <code>packages/typescript/client/</code>).</li>
+<li><strong>Auto-Registration</strong>: When <code>registry_auto_registration</code> is configured on
+  <code>create_app</code>, clients can call <code>POST /registry/agents</code> with a registration
+  token; Compliance Harness v2 gates merges. See
+  <a href="../registry/auto-registration/">Auto-registration</a>.</li>
+<li><strong>Capability escalation</strong>: Agents may call
+  <code>POST /asap/agent/request-capability</code> to request additional grants; Python
+  <code>ASAPClient.request_capability</code> and the TS client expose the same flow. See
+  <a href="../capabilities/escalation/">Capability escalation</a>.</li>
+<li><strong>ASAP challenge</strong>: Resource servers may attach
+  <code>WWW-Authenticate: ASAP discovery="&lt;manifest-url&gt;"</code> on selected 401/403
+  responses; enable via <code>create_app</code> challenge middleware when integrating
+  unknown callers. See <a href="../transport/asap-challenge/">ASAP challenge</a>.</li>
+</ul>
+<h4 id="upgrade-steps_9">Upgrade steps</h4>
+<ol>
+<li>
+<p><strong>Bump dependencies</strong>:
+   <div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>--upgrade<span class="w"> </span><span class="s1">&#39;asap-protocol[openapi]==2.3.0&#39;</span>
+<span class="c1"># or</span>
+uv<span class="w"> </span>add<span class="w"> </span><span class="s1">&#39;asap-protocol[openapi]==2.3.0&#39;</span>
+</code></pre></div>
+   TypeScript consumers: <code>npm install @asap-protocol/client@2.3.0</code>.</p>
+</li>
+<li>
+<p><strong>Adopt features incrementally</strong>: Add OpenAPI-derived agents, TS clients,
+   auto-registration, escalation, or challenge middleware only where your
+   deployment needs them — defaults preserve v2.2.x routing.</p>
+</li>
+<li>
+<p><strong>Re-run Compliance Harness v2</strong> against every production agent base URL
+   after enabling new routes (<code>asap compliance-check --exit-on-fail</code>).</p>
+</li>
+</ol>
+<h4 id="backward-compatibility_10">Backward compatibility</h4>
+<ul>
+<li><strong>Wire protocol</strong>: Compatible with v2.2.x clients and servers when new routes
+  are not enabled.</li>
+<li><strong>Security posture</strong>: Treat auto-registration tokens, escalation approvals,
+  and discovery URLs as security-sensitive configuration (rate limits, HTTPS,
+  manifest integrity). See PRD
+  <a href="https://github.com/asap-protocol/asap-protocol/blob/main/product/prd/prd-v2.3-scale.md"><code>prd-v2.3-scale.md</code></a>.</li>
+</ul>
+<hr />
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="common-issues">Common Issues</h3>
+<table>
+<thead>
+<tr>
+<th>Issue</th>
+<th>Cause</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Invalid agent URN</code></td>
+<td>URN format incorrect</td>
+<td>Use <code>urn:asap:agent:{name}</code></td>
+</tr>
+<tr>
+<td><code>Missing correlation_id</code></td>
+<td>Response without correlation</td>
+<td>Add <code>correlation_id</code> to responses</td>
+</tr>
+<tr>
+<td><code>Method not found</code></td>
+<td>Wrong JSON-RPC method</td>
+<td>Use <code>asap.send</code></td>
+</tr>
+<tr>
+<td><code>Invalid envelope</code></td>
+<td>Missing required fields</td>
+<td>Check <code>sender</code>, <code>recipient</code>, <code>payload_type</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="validation">Validation</h3>
+<p>Use CLI to validate messages:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Export schemas for reference</span>
+asap<span class="w"> </span>export-schemas<span class="w"> </span>--output-dir<span class="w"> </span>./schemas
+
+<span class="c1"># List available schemas</span>
+asap<span class="w"> </span>list-schemas
+
+<span class="c1"># Show specific schema</span>
+asap<span class="w"> </span>show-schema<span class="w"> </span>Envelope
+</code></pre></div>
+<hr />
+<h2 id="related-documentation">Related Documentation</h2>
+<ul>
+<li><a href="../transport/">Transport</a> - HTTP/JSON-RPC details</li>
+<li><a href="../security/">Security</a> - Authentication setup</li>
+<li><a href="../state-management/">State Management</a> - Snapshots and lifecycle</li>
+<li><a href="../api-reference/">API Reference</a> - Complete API docs</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,2910 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A streamlined protocol for agent-to-agent communication">
+      
+      
+      
+        <link rel="canonical" href="https://asap-protocol.github.io/asap-protocol/best-practices/agent-failover-migration/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Best Practices: Agent Failover & Migration - ASAP Protocol</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#best-practices-agent-failover-migration" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="ASAP Protocol" class="md-header__button md-logo" aria-label="ASAP Protocol" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ASAP Protocol
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Best Practices: Agent Failover &amp; Migration
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/asap-protocol/asap-protocol" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    asap-protocol/asap-protocol
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="ASAP Protocol" class="md-nav__button md-logo" aria-label="ASAP Protocol" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    ASAP Protocol
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/asap-protocol/asap-protocol" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    asap-protocol/asap-protocol
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SDKs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    SDKs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sdks/typescript/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TypeScript client
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integrations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Integrations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/mastra/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mastra
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/openai-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAI Agents SDK
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/workflow-connectors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflow connectors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/microsoft-agent-framework/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Microsoft Agent Framework
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/nemo-agent-toolkit/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NeMo Agent Toolkit
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adapters
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Adapters
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adapters/openapi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adapters/mcp-auth-bridge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Auth Bridge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/first-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Building Your First Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/stateful-workflows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stateful Workflows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/multi-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Orchestration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/resilience/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Building Resilient Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/production-checklist/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Production Deployment Checklist
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture Decision Records
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture Decision Records
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Index
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-001-ulid-for-id-generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-001 ULID for ID Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-002-async-first-api-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-002 Async-First API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-003-jsonrpc20-binding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-003 JSON-RPC 2.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-004-pydantic-for-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-004 Pydantic for Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-005-state-machine-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-005 State Machine
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-006-security-defaults/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-006 Security Defaults
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-007-fastapi-for-server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-007 FastAPI for Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-008-httpx-for-client/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-008 httpx for Client
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-009-snapshot-vs-event-sourced/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-009 Snapshot vs Event-Sourced
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-010-python-313-requirement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-010 Python 3.13+
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-011-per-sender-rate-limiting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-011 Per-Sender Rate Limiting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-012-error-taxonomy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-012 Error Taxonomy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-013-mcp-integration-approach/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-013 MCP Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-014-testing-strategy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-014 Testing Strategy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-015-observability-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-015 Observability Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-016-versioning-policy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-016 Versioning Policy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-017-failure-injection-strategy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-017 Failure Injection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/build-for-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build for agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/identity-signing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Identity Signing (v1.2)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/compliance-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compliance Testing (v1.2)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/migration-v1.1-to-v1.2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migration v1.1 → v1.2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../registry/auto-registration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lite Registry auto-registration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/automation-connector-security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Automation connector security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../state-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transport
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../deployment/kubernetes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment (Kubernetes)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_8_1" id="__nav_8_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Models
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Models
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/models/entities.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Entities
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/models/payloads.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Payloads
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/models/parts.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Parts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/transport.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transport
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/state.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../error-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error Handling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-context-handover-pattern-statequery-staterestore" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Context Handover Pattern (StateQuery → StateRestore)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Context Handover Pattern (StateQuery → StateRestore)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#envelope-construction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Envelope construction
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-failover-scenario-primary-fails-backup-takes-over" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Failover Scenario (Primary Fails, Backup Takes Over)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Failover Scenario (Primary Fails, Backup Takes Over)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#coordinator-responsibilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Coordinator responsibilities
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-migration-scenario-different-host-or-version" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Migration Scenario (Different Host or Version)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Migration Scenario (Different Host or Version)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#version-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Version compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-artifact-portability-conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Artifact Portability Conventions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Artifact Portability Conventions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-uri-schemes-and-portability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 URI schemes and portability
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-what-happens-during-failover" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 What happens during failover
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-recommendation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 Recommendation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-state-export-convention" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. State Export Convention
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-code-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Code Examples
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Code Examples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61-moving-state-between-two-stores-in-process" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 Moving state between two stores (in-process)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-coordinator-detect-failure-and-trigger-handover" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 Coordinator: detect failure and trigger handover
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#63-worker-save-checkpoints-and-resume-from-store" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.3 Worker: save checkpoints and resume from store
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="best-practices-agent-failover-migration">Best Practices: Agent Failover &amp; Migration</h1>
+<blockquote>
+<p>Formal patterns for transferring task state between agents and recovering from failures.<br />
+<strong>Purpose</strong>: Ensure interoperability so all ASAP implementations handle handover and failover consistently.</p>
+</blockquote>
+<hr />
+<h2 id="overview">Overview</h2>
+<p>ASAP provides protocol primitives for state persistence and transfer:</p>
+<ul>
+<li><strong>StateSnapshot</strong>: Checkpoint of task state (versioned, JSON-portable).</li>
+<li><strong>StateQuery</strong>: Request to obtain a task's state snapshot from an agent.</li>
+<li><strong>StateRestore</strong>: Request to restore a task from a snapshot (by snapshot ID).</li>
+</ul>
+<p>Without a common approach, implementations diverge and failover/migration breaks across vendors. This document is <strong>prescriptive</strong>: follow these patterns for interoperable agent failover and migration.</p>
+<p><strong>Related</strong>: <a href="../../state-management/">State Management Guide</a>, <a href="../../src/asap/examples/state_migration.py">state_migration example</a>, <a href="../../src/asap/examples/agent_failover.py">agent_failover example</a>.</p>
+<hr />
+<h2 id="1-context-handover-pattern-statequery-staterestore">1. Context Handover Pattern (StateQuery → StateRestore)</h2>
+<p>Use this pattern whenever task ownership or location changes: handover, failover, or migration.</p>
+<h3 id="flow">Flow</h3>
+<ol>
+<li><strong>Obtain state</strong> from the current holder:</li>
+<li><strong>Option A (protocol)</strong>: Send a <code>StateQuery</code> envelope to the agent that holds the task. It responds with the snapshot (or you read from a shared store it uses).</li>
+<li><strong>Option B (shared storage)</strong>: If both agents use the same store (e.g. shared SQLite path or Redis), the coordinator (or new agent) reads the snapshot directly with <code>store.get(task_id, version)</code>.</li>
+<li><strong>Restore on the new agent</strong>:</li>
+<li><strong>Option A (protocol)</strong>: Ensure the snapshot is available to the target agent (e.g. save it to the target’s store or a shared store), then send a <code>StateRestore</code> envelope to the target with <code>task_id</code> and <code>snapshot_id</code>.</li>
+<li><strong>Option B (shared storage)</strong>: If the target uses the same store, it can load by <code>task_id</code>/version; no <code>StateRestore</code> needed if you only need to “point” the worker at the same store.</li>
+</ol>
+<p>For <strong>cross-process / cross-host</strong> handover, use the protocol: send <code>StateQuery</code> (or read from shared storage), then send <code>StateRestore</code> (or write snapshot to a store the target can read).</p>
+<h3 id="envelope-construction">Envelope construction</h3>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">asap.models.envelope</span><span class="w"> </span><span class="kn">import</span> <span class="n">Envelope</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.models.payloads</span><span class="w"> </span><span class="kn">import</span> <span class="n">StateQuery</span><span class="p">,</span> <span class="n">StateRestore</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.models.ids</span><span class="w"> </span><span class="kn">import</span> <span class="n">generate_id</span>
+
+<span class="c1"># Request state from Agent A (e.g. primary)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">build_state_query</span><span class="p">(</span><span class="n">task_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">version</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Envelope</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">Envelope</span><span class="p">(</span>
+        <span class="n">asap_version</span><span class="o">=</span><span class="s2">&quot;0.1&quot;</span><span class="p">,</span>
+        <span class="n">sender</span><span class="o">=</span><span class="s2">&quot;urn:asap:agent:coordinator&quot;</span><span class="p">,</span>
+        <span class="n">recipient</span><span class="o">=</span><span class="s2">&quot;urn:asap:agent:primary&quot;</span><span class="p">,</span>
+        <span class="n">payload_type</span><span class="o">=</span><span class="s2">&quot;state_query&quot;</span><span class="p">,</span>
+        <span class="n">payload</span><span class="o">=</span><span class="n">StateQuery</span><span class="p">(</span><span class="n">task_id</span><span class="o">=</span><span class="n">task_id</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="n">version</span><span class="p">)</span><span class="o">.</span><span class="n">model_dump</span><span class="p">(),</span>
+        <span class="n">trace_id</span><span class="o">=</span><span class="n">generate_id</span><span class="p">(),</span>
+    <span class="p">)</span>
+
+<span class="c1"># Tell Agent B (backup) to restore from a snapshot</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">build_state_restore</span><span class="p">(</span><span class="n">task_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">snapshot_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Envelope</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">Envelope</span><span class="p">(</span>
+        <span class="n">asap_version</span><span class="o">=</span><span class="s2">&quot;0.1&quot;</span><span class="p">,</span>
+        <span class="n">sender</span><span class="o">=</span><span class="s2">&quot;urn:asap:agent:coordinator&quot;</span><span class="p">,</span>
+        <span class="n">recipient</span><span class="o">=</span><span class="s2">&quot;urn:asap:agent:backup&quot;</span><span class="p">,</span>
+        <span class="n">payload_type</span><span class="o">=</span><span class="s2">&quot;state_restore&quot;</span><span class="p">,</span>
+        <span class="n">payload</span><span class="o">=</span><span class="n">StateRestore</span><span class="p">(</span><span class="n">task_id</span><span class="o">=</span><span class="n">task_id</span><span class="p">,</span> <span class="n">snapshot_id</span><span class="o">=</span><span class="n">snapshot_id</span><span class="p">)</span><span class="o">.</span><span class="n">model_dump</span><span class="p">(),</span>
+        <span class="n">trace_id</span><span class="o">=</span><span class="n">generate_id</span><span class="p">(),</span>
+    <span class="p">)</span>
+</code></pre></div>
+<p>The agent that receives <code>StateQuery</code> must respond with the snapshot (e.g. from its <code>SnapshotStore</code>). The agent that receives <code>StateRestore</code> must load the snapshot by <code>snapshot_id</code> from its store and resume the task from that state.</p>
+<hr />
+<h2 id="2-failover-scenario-primary-fails-backup-takes-over">2. Failover Scenario (Primary Fails, Backup Takes Over)</h2>
+<p><strong>Scenario</strong>: Agent A (primary) is processing a task; Agent A fails (crash, OOM, network). A coordinator or orchestrator must move the task to Agent B (backup) so work can resume.</p>
+<h3 id="steps">Steps</h3>
+<ol>
+<li>
+<p><strong>Detect failure</strong><br />
+   Use the ASAP health endpoint (e.g. <code>GET /.well-known/asap/health</code>) or your orchestration layer to detect that Agent A is unhealthy (SD-10).</p>
+</li>
+<li>
+<p><strong>Obtain latest state</strong>  </p>
+</li>
+<li>If Agent A is still reachable: send <code>StateQuery</code> to A, get the snapshot from the response.  </li>
+<li>
+<p>If Agent A is down but state is in <strong>shared storage</strong> (e.g. Redis, shared SQLite): read <code>store.get(task_id)</code> (latest) or <code>store.get(task_id, version=version)</code> from that store.</p>
+</li>
+<li>
+<p><strong>Make snapshot available to Agent B</strong>  </p>
+</li>
+<li>If B uses the same shared store and the snapshot is already there: no copy needed.  </li>
+<li>
+<p>Otherwise: push the snapshot to B’s store (e.g. via an API that accepts a snapshot, or by sending the snapshot in a message and B saves it), or write it to a store B can read.</p>
+</li>
+<li>
+<p><strong>Restore on Agent B</strong>  </p>
+</li>
+<li>Send <code>StateRestore(task_id=..., snapshot_id=...)</code> to B (so B loads that snapshot and continues), <strong>or</strong>  </li>
+<li>
+<p>If B reads from shared store, ensure B is told to resume <code>task_id</code> (and optionally which version). B then calls <code>store.get(task_id)</code> and resumes.</p>
+</li>
+<li>
+<p><strong>Route new work to B</strong><br />
+   Update routing so subsequent requests for that task (or conversation) go to Agent B.</p>
+</li>
+</ol>
+<h3 id="coordinator-responsibilities">Coordinator responsibilities</h3>
+<ul>
+<li>Poll or subscribe to health (e.g. <code>/.well-known/asap/health</code>).</li>
+<li>On primary failure, decide which task(s) to fail over.</li>
+<li>For each task: get snapshot (StateQuery or shared store), provide snapshot to backup (StateRestore or shared store), then route traffic to backup.</li>
+</ul>
+<hr />
+<h2 id="3-migration-scenario-different-host-or-version">3. Migration Scenario (Different Host or Version)</h2>
+<p><strong>Scenario</strong>: You are moving an agent to a new host or upgrading to a new version; you want to move in-flight task state to the new process.</p>
+<h3 id="steps_1">Steps</h3>
+<ol>
+<li>
+<p><strong>Drain / pause</strong><br />
+   Stop assigning new work to the old agent (or mark it draining). Let in-flight tasks reach a checkpoint if possible.</p>
+</li>
+<li>
+<p><strong>Export state</strong><br />
+   For each active task, get the latest snapshot:</p>
+</li>
+<li>From the old agent via <code>StateQuery</code>, or  </li>
+<li>
+<p>From the old agent’s store (e.g. read from its DB or shared store).</p>
+</li>
+<li>
+<p><strong>Import into new agent</strong>  </p>
+</li>
+<li>Write snapshots into the new agent’s store (or shared store the new agent uses).  </li>
+<li>
+<p>Optionally send <code>StateRestore</code> to the new agent for each task so it loads the snapshot and resumes.</p>
+</li>
+<li>
+<p><strong>Switch traffic</strong><br />
+   Point clients/coordinators to the new agent. Retire the old agent.</p>
+</li>
+</ol>
+<h3 id="version-compatibility">Version compatibility</h3>
+<ul>
+<li><code>StateSnapshot.data</code> is a JSON-serializable <code>dict</code>. Keep schema stable across versions so old snapshots can be restored by new code.</li>
+<li>Prefer adding optional fields and ignoring unknown fields when restoring.</li>
+</ul>
+<hr />
+<h2 id="4-artifact-portability-conventions">4. Artifact Portability Conventions</h2>
+<p>Task state (e.g. <code>StateSnapshot.data</code>) often references artifacts by URI (files, blobs, outputs). Whether those references remain valid after failover or migration depends on the URI scheme. Follow these conventions so artifacts behave correctly when the task moves to another agent.</p>
+<h3 id="41-uri-schemes-and-portability">4.1 URI schemes and portability</h3>
+<table>
+<thead>
+<tr>
+<th>Scheme</th>
+<th>Portable across agents?</th>
+<th>Use case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>https://</code></td>
+<td><strong>Yes</strong></td>
+<td>Shared object storage (S3, GCS, Azure Blob), CDN URLs, presigned URLs. Resolvable by any agent with network access. <strong>Use for any artifact that may need to survive failover.</strong></td>
+</tr>
+<tr>
+<td><code>asap://</code></td>
+<td><strong>No</strong> (agent-local)</td>
+<td>References local to a single agent instance (e.g. <code>asap://artifact/abc</code>). The new agent cannot resolve them after failover unless you copy the resource and expose it (e.g. via <code>https://</code>) or replicate it locally.</td>
+</tr>
+<tr>
+<td><code>data:</code></td>
+<td><strong>Yes</strong></td>
+<td>Inline small payloads (e.g. <code>data:application/json;base64,...</code>). No network or local storage required; always portable.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="42-what-happens-during-failover">4.2 What happens during failover</h3>
+<ul>
+<li><strong><code>https://</code></strong>: After failover, the backup agent (or any other agent) can fetch the artifact using the same URL. No extra step required as long as the URL remains valid (e.g. presigned URL not expired).</li>
+<li><strong><code>asap://</code></strong>: After failover, the URL points to the old (possibly dead) agent. The backup cannot resolve it. Either avoid <code>asap://</code> for state that may fail over, or ensure the coordinator (or old agent before shutdown) copies the artifact to shared storage and rewrites the reference to <code>https://</code> before handing over.</li>
+<li><strong><code>data:</code></strong>: The payload is embedded in the state; it moves with the snapshot. No change in behavior after failover.</li>
+</ul>
+<h3 id="43-recommendation">4.3 Recommendation</h3>
+<ul>
+<li>For tasks that might be failed over or migrated, <strong>store artifact references as <code>https://</code></strong> (or <code>data:</code> for small inline data).</li>
+<li><strong>Avoid relying on <code>asap://</code></strong> for any state that must move to another agent. Reserve <code>asap://</code> for agent-local references that will never be transferred (e.g. transient scratch paths).</li>
+<li>When generating artifact URIs in task handlers, prefer writing to object storage (or a shared volume) and storing the resulting <code>https://</code> (or presigned) URL in <code>StateSnapshot.data</code>, so that failover and migration work without extra copy steps.</li>
+</ul>
+<hr />
+<h2 id="5-state-export-convention">5. State Export Convention</h2>
+<p>To export <code>StateSnapshot</code> for external systems (backups, analytics, or another platform):</p>
+<ul>
+<li><strong>Format</strong>: JSON. Use <code>StateSnapshot.model_dump()</code> (Pydantic v2) for a dict, or <code>StateSnapshot.model_dump_json()</code> for a string.</li>
+<li><strong>Fields</strong>: <code>id</code>, <code>task_id</code>, <code>version</code>, <code>data</code>, <code>checkpoint</code>, <code>created_at</code>. All are JSON-serializable; <code>data</code> is already <code>dict[str, Any]</code>.</li>
+<li><strong>Idempotency</strong>: When re-importing, use the same <code>id</code> and <code>task_id</code>/<code>version</code> if you need to avoid duplicates. New IDs can be generated for “copy” migrations.</li>
+</ul>
+<p>Example:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">asap.models.entities</span><span class="w"> </span><span class="kn">import</span> <span class="n">StateSnapshot</span>
+
+<span class="n">snapshot</span><span class="p">:</span> <span class="n">StateSnapshot</span> <span class="o">=</span> <span class="n">store</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">task_id</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">snapshot</span><span class="p">:</span>
+    <span class="n">export_dict</span> <span class="o">=</span> <span class="n">snapshot</span><span class="o">.</span><span class="n">model_dump</span><span class="p">()</span>
+    <span class="c1"># Persist export_dict to file, blob store, or send over the wire</span>
+    <span class="n">snapshot</span> <span class="o">=</span> <span class="n">StateSnapshot</span><span class="o">.</span><span class="n">model_validate</span><span class="p">(</span><span class="n">export_dict</span><span class="p">)</span>
+    <span class="n">store</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">snapshot</span><span class="p">)</span>
+</code></pre></div>
+<hr />
+<h2 id="6-code-examples">6. Code Examples</h2>
+<h3 id="61-moving-state-between-two-stores-in-process">6.1 Moving state between two stores (in-process)</h3>
+<p>This mirrors the official <a href="../../src/asap/examples/state_migration.py">state_migration</a> example: export from one store, import into another (e.g. primary vs backup store).</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timezone</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.models.entities</span><span class="w"> </span><span class="kn">import</span> <span class="n">StateSnapshot</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.models.ids</span><span class="w"> </span><span class="kn">import</span> <span class="n">generate_id</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.state</span><span class="w"> </span><span class="kn">import</span> <span class="n">InMemorySnapshotStore</span><span class="p">,</span> <span class="n">SnapshotStore</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">move_state</span><span class="p">(</span>
+    <span class="n">source</span><span class="p">:</span> <span class="n">SnapshotStore</span><span class="p">,</span>
+    <span class="n">target</span><span class="p">:</span> <span class="n">SnapshotStore</span><span class="p">,</span>
+    <span class="n">task_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">version</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">new_task_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StateSnapshot</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">snapshot</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">task_id</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="n">version</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">snapshot</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">target_task_id</span> <span class="o">=</span> <span class="n">new_task_id</span> <span class="ow">or</span> <span class="n">task_id</span>
+    <span class="n">migrated</span> <span class="o">=</span> <span class="n">StateSnapshot</span><span class="p">(</span>
+        <span class="nb">id</span><span class="o">=</span><span class="n">generate_id</span><span class="p">(),</span>
+        <span class="n">task_id</span><span class="o">=</span><span class="n">target_task_id</span><span class="p">,</span>
+        <span class="n">version</span><span class="o">=</span><span class="n">snapshot</span><span class="o">.</span><span class="n">version</span><span class="p">,</span>
+        <span class="n">data</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">snapshot</span><span class="o">.</span><span class="n">data</span><span class="p">),</span>
+        <span class="n">checkpoint</span><span class="o">=</span><span class="n">snapshot</span><span class="o">.</span><span class="n">checkpoint</span><span class="p">,</span>
+        <span class="n">created_at</span><span class="o">=</span><span class="n">snapshot</span><span class="o">.</span><span class="n">created_at</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">target</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">migrated</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">migrated</span>
+</code></pre></div>
+<p>Run the full demo:</p>
+<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>asap.examples.state_migration
+</code></pre></div>
+<h3 id="62-coordinator-detect-failure-and-trigger-handover">6.2 Coordinator: detect failure and trigger handover</h3>
+<p>Pseudocode for a coordinator that uses health checks and shared storage (conceptual; adapt to your transport).</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># 1. Periodically check health</span>
+<span class="n">primary_healthy</span> <span class="o">=</span> <span class="k">await</span> <span class="n">check_health</span><span class="p">(</span><span class="n">primary_url</span><span class="p">)</span>  <span class="c1"># GET /.well-known/asap/health</span>
+
+<span class="c1"># 2. If primary unhealthy, for each in-flight task_id:</span>
+<span class="k">if</span> <span class="ow">not</span> <span class="n">primary_healthy</span><span class="p">:</span>
+    <span class="k">for</span> <span class="n">task_id</span> <span class="ow">in</span> <span class="n">in_flight_tasks</span><span class="p">:</span>
+        <span class="c1"># 3. Get snapshot from shared store (primary wrote there)</span>
+        <span class="n">snapshot</span> <span class="o">=</span> <span class="n">shared_store</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">task_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">snapshot</span><span class="p">:</span>
+            <span class="k">continue</span>  <span class="c1"># or try StateQuery to primary as last resort</span>
+        <span class="c1"># 4. Ensure backup has the snapshot (if different store)</span>
+        <span class="k">if</span> <span class="n">backup_store</span> <span class="o">!=</span> <span class="n">shared_store</span><span class="p">:</span>
+            <span class="n">backup_store</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">snapshot</span><span class="p">)</span>  <span class="c1"># or send snapshot to backup via API</span>
+        <span class="c1"># 5. Tell backup to restore</span>
+        <span class="k">await</span> <span class="n">send_envelope_to_agent</span><span class="p">(</span><span class="n">backup_url</span><span class="p">,</span> <span class="n">build_state_restore</span><span class="p">(</span><span class="n">task_id</span><span class="p">,</span> <span class="n">snapshot</span><span class="o">.</span><span class="n">id</span><span class="p">))</span>
+        <span class="c1"># 6. Update routing: task_id -&gt; backup</span>
+        <span class="n">routing</span><span class="p">[</span><span class="n">task_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">backup_url</span>
+</code></pre></div>
+<h3 id="63-worker-save-checkpoints-and-resume-from-store">6.3 Worker: save checkpoints and resume from store</h3>
+<p>Worker agents should save snapshots at checkpoints and, on startup or when receiving <code>StateRestore</code>, load from the store and resume.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">asap.models.entities</span><span class="w"> </span><span class="kn">import</span> <span class="n">StateSnapshot</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.state</span><span class="w"> </span><span class="kn">import</span> <span class="n">SnapshotStore</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">resume_or_start</span><span class="p">(</span><span class="n">store</span><span class="p">:</span> <span class="n">SnapshotStore</span><span class="p">,</span> <span class="n">task_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="n">snapshot</span> <span class="o">=</span> <span class="n">store</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">task_id</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">snapshot</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">snapshot</span><span class="o">.</span><span class="n">data</span>  <span class="c1"># Resume from this state</span>
+    <span class="k">return</span> <span class="p">{}</span>  <span class="c1"># Fresh start</span>
+
+<span class="c1"># In task handler: periodically</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">on_checkpoint</span><span class="p">(</span><span class="n">store</span><span class="p">:</span> <span class="n">SnapshotStore</span><span class="p">,</span> <span class="n">task_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">snapshot</span> <span class="o">=</span> <span class="n">StateSnapshot</span><span class="p">(</span>
+        <span class="nb">id</span><span class="o">=</span><span class="n">generate_id</span><span class="p">(),</span>
+        <span class="n">task_id</span><span class="o">=</span><span class="n">task_id</span><span class="p">,</span>
+        <span class="n">version</span><span class="o">=</span><span class="n">state</span><span class="p">[</span><span class="s2">&quot;step&quot;</span><span class="p">],</span>
+        <span class="n">data</span><span class="o">=</span><span class="n">state</span><span class="p">,</span>
+        <span class="n">checkpoint</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">created_at</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">store</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">snapshot</span><span class="p">)</span>
+</code></pre></div>
+<hr />
+<h2 id="summary">Summary</h2>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Obtain state</th>
+<th>Restore on new agent</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Failover</td>
+<td>StateQuery or shared store</td>
+<td>StateRestore or shared store</td>
+</tr>
+<tr>
+<td>Migration</td>
+<td>Export from old store</td>
+<td>Import into new store + StateRestore (optional)</td>
+</tr>
+<tr>
+<td>Handover</td>
+<td>StateQuery or shared store</td>
+<td>StateRestore or shared store</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Use <strong>StateQuery</strong> / <strong>StateRestore</strong> (or shared storage) so state transfer is consistent across implementations.</li>
+<li>Use <strong>https://</strong> (or <strong>data:</strong>) for artifact URIs that must survive failover.</li>
+<li>Export <strong>StateSnapshot</strong> as JSON via <code>model_dump()</code> / <code>model_dump_json()</code> for backups or external systems.</li>
+<li>Run the <a href="../../src/asap/examples/state_migration.py">state_migration</a> example to validate the pattern end-to-end.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

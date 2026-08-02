@@ -1,0 +1,3680 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A streamlined protocol for agent-to-agent communication">
+      
+      
+      
+        <link rel="canonical" href="https://asap-protocol.github.io/asap-protocol/troubleshooting/">
+      
+      
+        <link rel="prev" href="../deployment/kubernetes/">
+      
+      
+        <link rel="next" href="../observability/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Troubleshooting - ASAP Protocol</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#troubleshooting-guide" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="ASAP Protocol" class="md-header__button md-logo" aria-label="ASAP Protocol" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ASAP Protocol
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Troubleshooting
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/asap-protocol/asap-protocol" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    asap-protocol/asap-protocol
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="ASAP Protocol" class="md-nav__button md-logo" aria-label="ASAP Protocol" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    ASAP Protocol
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/asap-protocol/asap-protocol" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    asap-protocol/asap-protocol
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SDKs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    SDKs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sdks/typescript/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TypeScript client
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integrations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Integrations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../integrations/mastra/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mastra
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../integrations/openai-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAI Agents SDK
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../integrations/workflow-connectors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflow connectors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../integrations/microsoft-agent-framework/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Microsoft Agent Framework
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../integrations/nemo-agent-toolkit/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NeMo Agent Toolkit
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adapters
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Adapters
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adapters/openapi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adapters/mcp-auth-bridge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Auth Bridge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/first-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Building Your First Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/stateful-workflows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stateful Workflows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/multi-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Orchestration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/resilience/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Building Resilient Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/production-checklist/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Production Deployment Checklist
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture Decision Records
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture Decision Records
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Index
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-001-ulid-for-id-generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-001 ULID for ID Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-002-async-first-api-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-002 Async-First API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-003-jsonrpc20-binding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-003 JSON-RPC 2.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-004-pydantic-for-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-004 Pydantic for Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-005-state-machine-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-005 State Machine
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-006-security-defaults/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-006 Security Defaults
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-007-fastapi-for-server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-007 FastAPI for Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-008-httpx-for-client/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-008 httpx for Client
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-009-snapshot-vs-event-sourced/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-009 Snapshot vs Event-Sourced
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-010-python-313-requirement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-010 Python 3.13+
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-011-per-sender-rate-limiting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-011 Per-Sender Rate Limiting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-012-error-taxonomy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-012 Error Taxonomy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-013-mcp-integration-approach/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-013 MCP Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-014-testing-strategy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-014 Testing Strategy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-015-observability-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-015 Observability Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-016-versioning-policy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-016 Versioning Policy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-017-failure-injection-strategy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-017 Failure Injection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/build-for-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build for agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/identity-signing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Identity Signing (v1.2)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/compliance-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compliance Testing (v1.2)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/migration-v1.1-to-v1.2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migration v1.1 → v1.2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../registry/auto-registration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lite Registry auto-registration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/automation-connector-security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Automation connector security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../state-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../transport/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transport
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deployment/kubernetes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment (Kubernetes)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#common-errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Errors
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common Errors">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#error-cause-solution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error → Cause → Solution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#connector-auth-and-mcp-grant-denials" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connector auth and MCP grant denials
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-stack-traces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example stack traces
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#chaos-failure-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chaos Failure Modes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Chaos Failure Modes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scenarios-from-chaos-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scenarios from chaos tests
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#expected-logs-vs-actual-failures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Expected logs vs actual failures
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#is-it-the-network-or-the-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Is it the network or the agent?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#debugging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Debugging
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Debugging">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-by-step-debugging-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step-by-step debugging checklist
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tools
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-debugging-a-timeout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: debugging a timeout
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-debugging-connection-refused" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: debugging "Connection refused"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-debugging-invalidtransitionerror" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: debugging InvalidTransitionError
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#performance-tuning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Tuning
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Performance Tuning">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#connection-pools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connection pools
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#manifest-caching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manifest caching
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compression" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compression
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#batch-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Batch operations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#quick-reference-tuning-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick reference: tuning checklist
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#faq" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FAQ
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="FAQ">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Setup
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Config
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Errors
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Best practices
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_8_1" id="__nav_8_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Models
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Models
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/models/entities.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Entities
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/models/payloads.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Payloads
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/models/parts.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Parts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/transport.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transport
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/state.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../error-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error Handling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#common-errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Errors
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common Errors">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#error-cause-solution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error → Cause → Solution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#connector-auth-and-mcp-grant-denials" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connector auth and MCP grant denials
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-stack-traces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example stack traces
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#chaos-failure-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chaos Failure Modes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Chaos Failure Modes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scenarios-from-chaos-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scenarios from chaos tests
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#expected-logs-vs-actual-failures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Expected logs vs actual failures
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#is-it-the-network-or-the-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Is it the network or the agent?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#debugging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Debugging
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Debugging">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-by-step-debugging-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step-by-step debugging checklist
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tools
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-debugging-a-timeout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: debugging a timeout
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-debugging-connection-refused" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: debugging "Connection refused"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-debugging-invalidtransitionerror" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: debugging InvalidTransitionError
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#performance-tuning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Tuning
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Performance Tuning">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#connection-pools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connection pools
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#manifest-caching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manifest caching
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compression" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compression
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#batch-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Batch operations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#quick-reference-tuning-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick reference: tuning checklist
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#faq" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FAQ
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="FAQ">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Setup
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Config
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Errors
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Best practices
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="troubleshooting-guide">Troubleshooting Guide</h1>
+<p>This guide helps you diagnose and fix common issues when running ASAP agents in development or production. Use it together with <a href="../error-handling/">Error Handling</a>, <a href="../observability/">Observability</a>, and <a href="../deployment/kubernetes/">Deployment (Kubernetes)</a>.</p>
+<hr />
+<h2 id="common-errors">Common Errors</h2>
+<p>This section lists the most frequent errors you may encounter, with cause and solution. For the full error taxonomy, see <a href="../error-handling/">Error Handling</a>. All ASAP protocol errors use the code format <code>asap:&lt;domain&gt;/&lt;error&gt;</code>.</p>
+<h3 id="error-cause-solution">Error → Cause → Solution</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Error</th>
+<th>Cause</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><strong>InvalidTransitionError</strong> (<code>asap:protocol/invalid_state</code>)</td>
+<td>Task state transition not allowed by the state machine (e.g. <code>submitted</code> → <code>completed</code> without <code>running</code>).</td>
+<td>Ensure transitions follow the defined state machine; use <code>running</code> before <code>completed</code>/<code>failed</code>.</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>MalformedEnvelopeError</strong> (<code>asap:protocol/malformed_envelope</code>)</td>
+<td>Envelope missing required fields, wrong types, or invalid structure.</td>
+<td>Validate envelope with Pydantic before sending; check <code>task_id</code>, <code>sender</code>, <code>payload</code>, timestamps.</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>TaskNotFoundError</strong> (<code>asap:task/not_found</code>)</td>
+<td>Requested task ID does not exist or was never created.</td>
+<td>Verify <code>task_id</code> is correct and the task was created on the target agent; check for typos or wrong agent.</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>TaskAlreadyCompletedError</strong> (<code>asap:task/already_completed</code>)</td>
+<td>Update attempted on a task already in a terminal state (<code>completed</code> or <code>failed</code>).</td>
+<td>Do not send updates for completed tasks; create a new task if you need a new unit of work.</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>ThreadPoolExhaustedError</strong> (<code>asap:transport/thread_pool_exhausted</code>)</td>
+<td>All worker threads are busy; server cannot accept more synchronous handler work.</td>
+<td>Increase <code>max_threads</code> in server config (or <code>ASAP_MAX_THREADS</code>), optimize slow handlers, or use async handlers.</td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>InvalidTimestampError</strong> (<code>asap:protocol/invalid_timestamp</code>)</td>
+<td>Envelope timestamp too old (replay) or too far in the future (clock skew).</td>
+<td>Sync clocks (NTP); ensure envelope is sent within the allowed time window (see server config).</td>
+</tr>
+<tr>
+<td>7</td>
+<td><strong>InvalidNonceError</strong> (<code>asap:protocol/invalid_nonce</code>)</td>
+<td>Duplicate or invalid nonce (replay attack prevention).</td>
+<td>Generate a unique nonce per envelope; do not reuse nonces within the TTL window.</td>
+</tr>
+<tr>
+<td>8</td>
+<td><strong>CircuitOpenError</strong> (<code>asap:transport/circuit_open</code>)</td>
+<td>Circuit breaker opened after consecutive failures; requests are rejected.</td>
+<td>Wait for circuit timeout or fix remote service; check connectivity and remote agent health.</td>
+</tr>
+<tr>
+<td>9</td>
+<td><strong>UnsupportedAuthSchemeError</strong> (<code>asap:auth/unsupported_scheme</code>)</td>
+<td>Manifest specifies an auth scheme the client does not support.</td>
+<td>Use a supported scheme (e.g. <code>Bearer</code>) or extend the client to support the required scheme.</td>
+</tr>
+<tr>
+<td>10</td>
+<td><strong>ASAPConnectionError</strong></td>
+<td>HTTP connection failed: agent down, wrong URL, network/firewall, or TLS issues.</td>
+<td>Verify agent is running, URL scheme and port, network/firewall, and SSL certificates.</td>
+</tr>
+<tr>
+<td>11</td>
+<td><strong>ASAPTimeoutError</strong></td>
+<td>Request exceeded the configured timeout.</td>
+<td>Increase client <code>timeout</code>; optimize slow handlers or network; consider smaller payloads or streaming.</td>
+</tr>
+<tr>
+<td>12</td>
+<td><strong>ASAPRemoteError</strong></td>
+<td>Remote agent returned a JSON-RPC error (code, message, data).</td>
+<td>Inspect <code>code</code> and <code>data</code>; fix request (envelope/params) or fix the remote agent implementation.</td>
+</tr>
+<tr>
+<td>13</td>
+<td><strong>HandlerNotFoundError</strong> (<code>asap:transport/handler_not_found</code>)</td>
+<td>No handler registered for the payload type (e.g. <code>task.request</code>).</td>
+<td>Register a handler for that payload type in <code>HandlerRegistry</code> before processing requests.</td>
+</tr>
+<tr>
+<td>14</td>
+<td><strong>JSON-RPC INVALID_REQUEST</strong> (-32600)</td>
+<td>Malformed JSON-RPC request (invalid JSON or missing <code>jsonrpc</code>/<code>method</code>/<code>id</code>).</td>
+<td>Ensure request is valid JSON-RPC 2.0; include <code>jsonrpc</code>, <code>method</code>, <code>id</code>, and <code>params</code> where required.</td>
+</tr>
+<tr>
+<td>15</td>
+<td><strong>JSON-RPC INVALID_PARAMS</strong> (-32602)</td>
+<td>Invalid <code>params</code> (e.g. envelope validation failed).</td>
+<td>Validate envelope structure and types before sending; check server logs for validation details.</td>
+</tr>
+<tr>
+<td>16</td>
+<td><strong>JSON-RPC METHOD_NOT_FOUND</strong> (-32601)</td>
+<td>Unknown method or payload type.</td>
+<td>Use a supported method/payload type; ensure client and server versions and APIs are compatible.</td>
+</tr>
+<tr>
+<td>17</td>
+<td><strong>JSON-RPC INTERNAL_ERROR</strong> (-32603)</td>
+<td>Unexpected server-side exception.</td>
+<td>Check server logs and traces; fix bug in handler or server code; report if persistent.</td>
+</tr>
+<tr>
+<td>18</td>
+<td><strong>Pydantic ValidationError</strong></td>
+<td>Envelope or model validation failed when building/serializing.</td>
+<td>Fix field types and required fields; use <code>model_dump()</code>/<code>model_validate()</code> and handle validation in code.</td>
+</tr>
+<tr>
+<td>19</td>
+<td><strong>Connection refused / OSError</strong></td>
+<td>TCP connection to host:port failed (e.g. nothing listening).</td>
+<td>Start the agent; confirm host and port; check firewall and security groups.</td>
+</tr>
+<tr>
+<td>20</td>
+<td><strong>Path traversal / security</strong></td>
+<td>Invalid or suspicious <code>FilePart</code> URI (e.g. <code>../</code> outside allowed base).</td>
+<td>Use only allowed URIs; ensure server validates paths and rejects traversal attempts.</td>
+</tr>
+<tr>
+<td>21</td>
+<td><strong>Unknown <code>config</code> / <code>metadata</code> key</strong></td>
+<td><code>TaskRequest.config</code> or <code>CommonMetadata</code> rejects extra fields (<code>extra="forbid"</code>, v2.5.2).</td>
+<td>Use allowed fields only; move extensions to <code>TaskRequest.input</code> or envelope <code>extensions</code>.</td>
+</tr>
+<tr>
+<td>22</td>
+<td><strong>Operator API 401/403</strong></td>
+<td><code>/usage</code>, <code>/sla</code>, or <code>/audit</code> with <code>require_operator_auth=True</code>.</td>
+<td>Send Bearer JWT with <code>asap:admin</code> <strong>and</strong> identity binding (custom claim = <code>manifest.id</code>).</td>
+</tr>
+<tr>
+<td>23</td>
+<td><strong>ProtocolCorrelationError</strong></td>
+<td>Stream/response <code>correlation_id</code> ≠ request envelope <code>id</code>.</td>
+<td>Echo <code>request_envelope.id</code> on every <code>TaskStream</code> / response chunk.</td>
+</tr>
+<tr>
+<td>24</td>
+<td><strong>Host JWT jti replay on status</strong></td>
+<td>Token already consumed by register/revoke/rotate-key.</td>
+<td>Mint a new Host JWT for <code>/asap/agent/status</code> polling after mutating routes.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="connector-auth-and-mcp-grant-denials">Connector auth and MCP grant denials</h3>
+<p>When using <strong>OpenAPI workflow connectors</strong> or <strong>MCP Auth Bridge</strong> (Mode A):</p>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Likely cause</th>
+<th>What to check</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Upstream <strong>401 / 403</strong> from the workflow host</td>
+<td>Missing or wrong Bearer / API token in <code>resolve_headers</code> / env</td>
+<td><a href="../integrations/workflow-connectors/">Workflow connectors</a> troubleshooting; secrets only in env — <a href="../guides/automation-connector-security/">Automation connector security</a></td>
+</tr>
+<tr>
+<td>MCP <code>tools/call</code> rejected / grant denied</td>
+<td>Agent JWT missing, expired, or skill not in grant</td>
+<td><a href="../adapters/mcp-auth-bridge/">MCP Auth Bridge</a>; Path A demo notes in <a href="../integrations/nemo-agent-toolkit/">NeMo Agent Toolkit</a></td>
+</tr>
+<tr>
+<td>Env JWT works locally but must not ship</td>
+<td><code>allow_env_jwt_fallback=True</code></td>
+<td>Dev-only — prefer <code>_meta.asap_agent_jwt</code>; see automation security § Mode A</td>
+</tr>
+</tbody>
+</table>
+<h3 id="example-stack-traces">Example stack traces</h3>
+<p><strong>InvalidTransitionError</strong> (state machine):</p>
+<div class="highlight"><pre><span></span><code>asap.errors.InvalidTransitionError: Invalid transition from &#39;submitted&#39; to &#39;completed&#39;
+
+  details: {&quot;from_state&quot;: &quot;submitted&quot;, &quot;to_state&quot;: &quot;completed&quot;}
+  code: asap:protocol/invalid_state
+</code></pre></div>
+<p>Fix: Transition through <code>running</code> (e.g. <code>submitted</code> → <code>running</code> → <code>completed</code>).</p>
+<p><strong>ASAPConnectionError</strong> (agent unreachable):</p>
+<div class="highlight"><pre><span></span><code>asap.transport.client.ASAPConnectionError: Connection failed to http://localhost:8000.
+Troubleshooting: Connection failed to http://localhost:8000. Verify the agent is running...
+  url: http://localhost:8000
+  cause: [Errno 61] Connection refused
+</code></pre></div>
+<p>Fix: Start the agent on the given URL or correct the URL/port.</p>
+<hr />
+<h2 id="chaos-failure-modes">Chaos Failure Modes</h2>
+<p>This section describes failure modes validated by chaos testing (Sprint 8). It helps you tell <strong>network vs agent</strong> issues and what to expect in logs. See <a href="../adr/ADR-017-failure-injection-strategy/">ADR-017 Failure Injection</a> and <a href="../tutorials/resilience/">Building Resilient Agents</a>.</p>
+<h3 id="scenarios-from-chaos-tests">Scenarios from chaos tests</h3>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>What is simulated</th>
+<th>Expected client behavior</th>
+<th>Typical error / log</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Message loss</strong></td>
+<td>Response never arrives (black hole, dropped response)</td>
+<td>Retries up to <code>max_retries</code>, then raises <code>ASAPTimeoutError</code></td>
+<td><code>Request to ... timed out after N seconds</code></td>
+</tr>
+<tr>
+<td><strong>Intermittent loss</strong></td>
+<td>Some requests succeed, some time out</td>
+<td>Retries; eventual success or <code>ASAPTimeoutError</code> after retries</td>
+<td>Mix of success logs and timeout on final attempt</td>
+</tr>
+<tr>
+<td><strong>Network partition</strong></td>
+<td>Connection refused or unreachable</td>
+<td>Retries with backoff, then <code>ASAPConnectionError</code></td>
+<td><code>Connection failed to ... Connection refused</code></td>
+</tr>
+<tr>
+<td><strong>Circuit open</strong></td>
+<td>Many consecutive failures</td>
+<td>Client stops sending, raises <code>CircuitOpenError</code></td>
+<td><code>Circuit breaker is OPEN for ... Too many consecutive failures</code></td>
+</tr>
+<tr>
+<td><strong>Clock skew (old)</strong></td>
+<td>Envelope timestamp too old</td>
+<td>Server rejects with <code>InvalidTimestampError</code></td>
+<td><code>asap:protocol/invalid_timestamp</code>, <code>age_seconds</code> in details</td>
+</tr>
+<tr>
+<td><strong>Clock skew (future)</strong></td>
+<td>Envelope timestamp in the future</td>
+<td>Server rejects with <code>InvalidTimestampError</code></td>
+<td><code>asap:protocol/invalid_timestamp</code>, <code>future_offset_seconds</code> in details</td>
+</tr>
+<tr>
+<td><strong>Server crash</strong></td>
+<td>Server dies mid-request (connection reset)</td>
+<td>Retries, then <code>ASAPConnectionError</code> (e.g. "Connection reset by peer")</td>
+<td><code>Connection reset by peer</code> or <code>Connection failed</code></td>
+</tr>
+<tr>
+<td><strong>Server 503</strong></td>
+<td>Server shutting down or overloaded</td>
+<td>Retries; may eventually get response or timeout/connection error</td>
+<td>HTTP 503 in logs; client retries then may raise <code>ASAPConnectionError</code> or succeed</td>
+</tr>
+</tbody>
+</table>
+<h3 id="expected-logs-vs-actual-failures">Expected logs vs actual failures</h3>
+<p><strong>When the network drops the response (message loss):</strong></p>
+<ul>
+<li><strong>Expected:</strong> Client logs retries, then a single final timeout.</li>
+<li><strong>Actual failure:</strong> You see <code>ASAPTimeoutError</code> with <code>timeout</code> set; no response body. Server logs may show the request as received and processed—so the <strong>agent is fine</strong>, the <strong>network or path back to the client</strong> dropped the response.</li>
+</ul>
+<p><strong>When the agent is down or unreachable (partition/crash):</strong></p>
+<ul>
+<li><strong>Expected:</strong> Connection errors, possibly retries then <code>ASAPConnectionError</code> or <code>CircuitOpenError</code>.</li>
+<li><strong>Actual failure:</strong> <code>ASAPConnectionError</code> with cause like "Connection refused" or "Connection reset by peer". Server logs may show nothing (crashed) or "connection closed". So the <strong>network path or the agent</strong> is the problem.</li>
+</ul>
+<p><strong>When clocks are wrong (clock skew):</strong></p>
+<ul>
+<li><strong>Expected:</strong> Server rejects envelope with <code>InvalidTimestampError</code>; client gets <code>ASAPRemoteError</code> with code/data indicating <code>asap:protocol/invalid_timestamp</code>.</li>
+<li><strong>Actual failure:</strong> No retry will fix this; <strong>agent logic is fine</strong>, <strong>clock sync</strong> (NTP, container time) is wrong on sender or receiver.</li>
+</ul>
+<h3 id="is-it-the-network-or-the-agent">Is it the network or the agent?</h3>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Likely cause</th>
+<th>What to check</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ASAPTimeoutError</code> after retries, server log shows "request received"</td>
+<td><strong>Network</strong> (response path): response lost or very slow</td>
+<td>Client/server network path, load balancer timeouts, proxy.</td>
+</tr>
+<tr>
+<td><code>ASAPConnectionError</code> (refused, reset, unreachable)</td>
+<td><strong>Network or agent</strong>: server down, partition, or crash</td>
+<td>Agent process up? Port open? Firewall? Restart/crash logs on server.</td>
+</tr>
+<tr>
+<td><code>CircuitOpenError</code></td>
+<td><strong>Network or agent</strong>: many consecutive failures</td>
+<td>Check why each request failed (timeout vs connection vs 5xx). Fix agent or network, then wait for circuit to half-open.</td>
+</tr>
+<tr>
+<td><code>InvalidTimestampError</code> / <code>InvalidNonceError</code></td>
+<td><strong>Agent/config</strong>: bad clock or duplicate nonce</td>
+<td>NTP on both sides; single source of nonces per sender.</td>
+</tr>
+<tr>
+<td><code>ASAPRemoteError</code> with <code>asap:task/not_found</code> or <code>asap:protocol/...</code></td>
+<td><strong>Agent</strong>: business or protocol error on server</td>
+<td>Server logs and error <code>data</code>; fix handler or request.</td>
+</tr>
+<tr>
+<td><code>HandlerNotFoundError</code> or JSON-RPC <code>METHOD_NOT_FOUND</code></td>
+<td><strong>Agent</strong>: payload type not registered or wrong method</td>
+<td>Register handler for that payload type or fix client method/params.</td>
+</tr>
+</tbody>
+</table>
+<p>Use <strong>trace_id</strong> and <strong>correlation_id</strong> in logs on both client and server to match a single request across the path and see whether the server saw it and how it responded.</p>
+<hr />
+<h2 id="debugging">Debugging</h2>
+<p>Use this checklist and the tools below to debug ASAP issues systematically. See <a href="../observability/">Observability</a> and <a href="../metrics/">Metrics</a> for configuration details.</p>
+<h3 id="step-by-step-debugging-checklist">Step-by-step debugging checklist</h3>
+<ol>
+<li><strong>Reproduce the issue</strong></li>
+<li>Note the exact operation (e.g. <code>client.send(envelope)</code>, specific payload type).</li>
+<li>Capture the full error message, exception type, and stack trace.</li>
+<li>
+<p>If intermittent, try to reproduce under load or with the same sequence of requests.</p>
+</li>
+<li>
+<p><strong>Check server and client logs</strong></p>
+</li>
+<li>Enable structured logs (JSON in production) and set <code>ASAP_LOG_LEVEL=DEBUG</code> if needed.</li>
+<li>Look for <code>asap.request.received</code>, <code>asap.request.processed</code>, and any <code>error</code> or <code>exception</code> entries.</li>
+<li>
+<p>Match requests across services using <code>trace_id</code> and <code>correlation_id</code> (see <a href="../observability/">Observability</a>).</p>
+</li>
+<li>
+<p><strong>Correlate with trace_id / correlation_id</strong></p>
+</li>
+<li>Extract <code>trace_id</code> from the failing request (envelope or log line).</li>
+<li>Search server logs for the same <code>trace_id</code> to see if the request arrived and how it was processed.</li>
+<li>
+<p>If the server never logged the request, the failure is likely <strong>network or client-side</strong>. If the server logged an error, focus on <strong>agent/handler logic</strong>.</p>
+</li>
+<li>
+<p><strong>Inspect metrics</strong></p>
+</li>
+<li>Query <code>/asap/metrics</code> on the agent: <code>curl http://&lt;agent&gt;:8000/asap/metrics</code>.</li>
+<li>Check <code>asap_requests_error_total</code> by <code>error_type</code> and <code>payload_type</code>.</li>
+<li>Check <code>asap_request_duration_seconds</code> for latency spikes or timeouts.</li>
+<li>
+<p>Compare with <a href="#chaos-failure-modes">Chaos Failure Modes</a> to see if the pattern matches network vs agent.</p>
+</li>
+<li>
+<p><strong>Visualize request flow (trace command)</strong></p>
+</li>
+<li>If logs are in ASAP JSON format, use the CLI to visualize a single trace:</li>
+<li><code>asap trace &lt;trace-id&gt; [--log-file asap.log] [--format ascii|json]</code></li>
+<li>
+<p>This shows request flow and latency per hop (e.g. <code>agent_a -&gt; agent_b (15ms) -&gt; agent_c (23ms)</code>).</p>
+</li>
+<li>
+<p><strong>Classify the failure</strong></p>
+</li>
+<li>Use the table <a href="#is-it-the-network-or-the-agent">Is it the network or the agent?</a> in Chaos Failure Modes.</li>
+<li>Apply the suggested checks (URL, firewall, handler registration, clock sync, etc.).</li>
+</ol>
+<h3 id="tools">Tools</h3>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Purpose</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Structured logs</strong></td>
+<td>Request/response events, errors, trace context</td>
+<td><a href="../observability/">Observability</a>; <code>ASAP_LOG_LEVEL</code>, <code>ASAP_LOG_FORMAT</code></td>
+</tr>
+<tr>
+<td><strong>trace_id / correlation_id</strong></td>
+<td>Correlate a request across client and server</td>
+<td><a href="../observability/">Observability</a>; bind in logs and search by ID</td>
+</tr>
+<tr>
+<td><strong>asap trace</strong> (CLI)</td>
+<td>Visualize request flow and latency from JSON logs</td>
+<td><code>asap trace &lt;trace-id&gt; --log-file asap.log</code></td>
+</tr>
+<tr>
+<td><strong>Metrics</strong></td>
+<td>Counts and latency histograms per payload type and error type</td>
+<td><a href="../metrics/">Metrics</a>; <code>GET /asap/metrics</code></td>
+</tr>
+<tr>
+<td><strong>Health endpoints</strong></td>
+<td>Agent liveness and readiness</td>
+<td><code>GET /health</code>, <code>GET /ready</code>; see <a href="../deployment/kubernetes/">Deployment (Kubernetes)</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="example-debugging-a-timeout">Example: debugging a timeout</h3>
+<p><strong>Symptom:</strong> Client raises <code>ASAPTimeoutError</code> after 30 seconds.</p>
+<ol>
+<li><strong>Reproduce:</strong> Same envelope, same agent URL; happens every time (or only under load).</li>
+<li><strong>Logs:</strong> Client log shows retries and final timeout. Search server logs for the client’s <code>trace_id</code>.</li>
+<li><strong>If server log has the request:</strong> Server received it; slow handler or overload. Check <code>asap_request_duration_seconds</code> and handler code. Consider increasing timeout or optimizing the handler.</li>
+<li><strong>If server log has no request:</strong> Request never reached the server (network, LB, or wrong URL). Check URL, firewall, and agent reachability.</li>
+<li><strong>Metrics:</strong> High <code>asap_request_duration_seconds</code> or many timeouts in <code>asap_requests_error_total</code> suggest server-side slowness or overload.</li>
+</ol>
+<h3 id="example-debugging-connection-refused">Example: debugging "Connection refused"</h3>
+<p><strong>Symptom:</strong> <code>ASAPConnectionError</code> with "Connection refused".</p>
+<ol>
+<li><strong>Reproduce:</strong> Note the exact URL (host and port).</li>
+<li><strong>Check agent:</strong> Is the process running? <code>curl -I http://&lt;host&gt;:&lt;port&gt;/health</code>. If 200, the agent is up; then check path (e.g. correct port and no typo in URL).</li>
+<li><strong>Check network:</strong> From the client host, <code>curl http://&lt;host&gt;:&lt;port&gt;/health</code>. If this fails, the issue is network or firewall, not application code.</li>
+<li><strong>Logs:</strong> Server may have no log for the request (connection never established). Fix connectivity or URL, then retry.</li>
+</ol>
+<h3 id="example-debugging-invalidtransitionerror">Example: debugging InvalidTransitionError</h3>
+<p><strong>Symptom:</strong> <code>InvalidTransitionError: Invalid transition from 'submitted' to 'completed'</code>.</p>
+<ol>
+<li><strong>Reproduce:</strong> Same sequence of payloads (e.g. sending a task update without a prior "running" update).</li>
+<li><strong>Classify:</strong> This is an <strong>agent/protocol</strong> error: the state machine disallows that transition.</li>
+<li><strong>Fix:</strong> Ensure state transitions follow the model (e.g. <code>submitted</code> → <code>running</code> → <code>completed</code>). Check client or orchestrator logic that sends status updates.</li>
+<li><strong>Logs:</strong> Server log should show the invalid transition; use <code>trace_id</code> to find the exact request and payload.</li>
+</ol>
+<hr />
+<h2 id="performance-tuning">Performance Tuning</h2>
+<p>This section covers connection pools, manifest caching, compression, and batch operations. For full benchmark results, see <a href="https://github.com/asap-protocol/asap-protocol/blob/main/benchmarks/RESULTS.md">benchmarks/RESULTS.md</a> in the repository, or run <code>uv run pytest benchmarks/benchmark_transport.py --benchmark-only -v</code>.</p>
+<h3 id="connection-pools">Connection pools</h3>
+<p>The ASAP client uses httpx connection pooling. Tuning pool size improves throughput when you have many concurrent requests to the same agent.</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>When to increase</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>pool_connections</strong></td>
+<td>100</td>
+<td>More idle keep-alive connections; use 200–500 for small clusters.</td>
+</tr>
+<tr>
+<td><strong>pool_maxsize</strong></td>
+<td>100</td>
+<td>More concurrent connections; use 500–1000 for large clusters if OS limits allow.</td>
+</tr>
+<tr>
+<td><strong>pool_timeout</strong></td>
+<td>5.0</td>
+<td>Increase if you see pool timeout errors under load (e.g. 30.0).</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Before/after:</strong> With default <code>pool_maxsize=100</code>, the client supports <strong>1000+ concurrent requests</strong> to the same host via connection reuse (benchmark: 1000 concurrent <code>send()</code> all succeed). Without pooling, each request would open a new connection and latency would increase under load.</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Higher concurrency (e.g. many workers calling same agent)</span>
+<span class="k">async</span> <span class="k">with</span> <span class="n">ASAPClient</span><span class="p">(</span>
+    <span class="n">base_url</span><span class="o">=</span><span class="s2">&quot;https://api.example.com&quot;</span><span class="p">,</span>
+    <span class="n">pool_connections</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span>
+    <span class="n">pool_maxsize</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span>
+    <span class="n">pool_timeout</span><span class="o">=</span><span class="mf">30.0</span><span class="p">,</span>
+<span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+    <span class="o">...</span>
+</code></pre></div>
+<p>Keep <strong>HTTP/2</strong> enabled (default) for multiplexing; it improves batch throughput.</p>
+<h3 id="manifest-caching">Manifest caching</h3>
+<p>The client caches agent manifests in memory with a TTL to avoid repeated GETs to <code>/.well-known/asap/manifest.json</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Default</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>default_ttl</strong></td>
+<td>300 s (5 min)</td>
+<td>Longer TTL = fewer manifest requests, slightly staler manifest.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Before/after:</strong> With caching, repeated <code>get_manifest()</code> calls for the same URL yield <strong>&gt;90% cache hit rate</strong> (benchmark: 99% with 100 requests). Without cache, every call would trigger an HTTP GET.</p>
+<p>Increase TTL if agents change manifest rarely; shorten it if you need quick reflection of manifest changes.</p>
+<h3 id="compression">Compression</h3>
+<p>Requests and responses can be compressed (gzip or Brotli) when the payload exceeds <strong>1 KB</strong> (configurable). This reduces bandwidth and can help on slow or costly links.</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Default</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>COMPRESSION_THRESHOLD</strong></td>
+<td>1024 (1 KB)</td>
+<td>Payloads smaller than this are sent uncompressed.</td>
+</tr>
+<tr>
+<td><strong>Algorithm</strong></td>
+<td>gzip (br if available)</td>
+<td>Brotli typically gives 10–20% better ratio than gzip for JSON.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Before/after (benchmarks):</strong></p>
+<ul>
+<li><strong>1 MB JSON payload:</strong> gzip achieves <strong>~70% size reduction</strong> (compressed ≤30% of original); Brotli often 10–20% better.</li>
+<li><strong>Large envelopes:</strong> End-to-end compress → decompress → deserialize is benchmarked; enable compression for large payloads to cut bandwidth.</li>
+</ul>
+<p>Ensure the server supports <code>Content-Encoding: gzip</code> (or <code>br</code>); the ASAP server decompresses automatically.</p>
+<h3 id="batch-operations">Batch operations</h3>
+<p>Use <code>send_batch()</code> instead of sequential <code>send()</code> when you have many envelopes for the same or multiple agents.</p>
+<p><strong>Before/after:</strong> With real HTTP/2, <strong>batch send</strong> gives roughly <strong>10x throughput</strong> vs sequential <code>send()</code> (benchmark target). With in-process or mock transport the speedup is lower; the gain is largest when network latency is significant.</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Prefer batch when sending many envelopes</span>
+<span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">send_batch</span><span class="p">(</span><span class="n">envelopes</span><span class="p">)</span>  <span class="c1"># parallel over HTTP/2</span>
+</code></pre></div>
+<h3 id="quick-reference-tuning-checklist">Quick reference: tuning checklist</h3>
+<table>
+<thead>
+<tr>
+<th>Goal</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Higher throughput to one agent</td>
+<td>Increase <code>pool_maxsize</code>; keep HTTP/2 on; use <code>send_batch()</code> where applicable.</td>
+</tr>
+<tr>
+<td>Fewer manifest round-trips</td>
+<td>Rely on default cache (5 min TTL); increase TTL if manifests change rarely.</td>
+</tr>
+<tr>
+<td>Lower bandwidth</td>
+<td>Use default compression (auto for payloads &gt;1 KB); install <code>brotli</code> for better ratio.</td>
+</tr>
+<tr>
+<td>Lower latency under load</td>
+<td>Horizontal scaling (multiple server instances); see <a href="../deployment/kubernetes/">Deployment (Kubernetes)</a>.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="faq">FAQ</h2>
+<p>Frequently asked questions grouped by category. For more detail, see the linked guides.</p>
+<h3 id="setup">Setup</h3>
+<p><strong>Q: How do I install ASAP?</strong><br />
+A: <code>uv add asap-protocol</code> or <code>pip install asap-protocol</code>. See <a href="../">index</a>.</p>
+<p><strong>Q: What Python version is required?</strong><br />
+A: Python 3.13+. See <a href="../adr/ADR-010-python-313-requirement/">ADR-010 Python 3.13+</a>.</p>
+<p><strong>Q: How do I run my first agent?</strong><br />
+A: Follow <a href="../tutorials/first-agent/">Building Your First Agent</a>: create a server with a handler, then use <code>ASAPClient</code> to send envelopes.</p>
+<p><strong>Q: How do I start the ASAP server?</strong><br />
+A: <code>uv run uvicorn asap.transport.server:app --host 0.0.0.0 --port 8000</code>. Or use <code>create_app()</code> and mount it in your own ASGI app.</p>
+<p><strong>Q: Can I use ASAP over HTTP (not HTTPS)?</strong><br />
+A: Yes for local development. Set <code>require_https=False</code> on the client. In production use HTTPS; see <a href="../security/">Security</a>.</p>
+<p><strong>Q: How do I deploy ASAP in Kubernetes?</strong><br />
+A: See <a href="../deployment/kubernetes/">Deployment (Kubernetes)</a>: Dockerfile, k8s manifests, Helm chart, health checks.</p>
+<p><strong>Q: Where is the agent manifest?</strong><br />
+A: <code>GET /.well-known/asap/manifest.json</code> on the agent base URL. The client uses it for discovery.</p>
+<p><strong>Q: How do I register a handler for a payload type?</strong><br />
+A: Use <code>HandlerRegistry.register(payload_type, handler)</code> before starting the server. Unregistered types raise <code>HandlerNotFoundError</code>.</p>
+<p><strong>Q: Can I use ASAP with FastAPI/Starlette?</strong><br />
+A: Yes. The ASAP server is FastAPI-based; you can mount it or reuse its <code>create_app()</code> and add your own routes.</p>
+<p><strong>Q: How do I run the CLI?</strong><br />
+A: <code>asap --version</code>, <code>asap list-schemas</code>, <code>asap trace &lt;trace-id&gt; [--log-file PATH]</code>. See <a href="../">index</a>.</p>
+<h3 id="config">Config</h3>
+<p><strong>Q: What environment variables does ASAP use?</strong><br />
+A: Server: <code>ASAP_RATE_LIMIT</code>, <code>ASAP_MAX_REQUEST_SIZE</code>, <code>ASAP_MAX_THREADS</code>, <code>ASAP_HOT_RELOAD</code>, <code>ASAP_DEBUG</code>. Logging: <code>ASAP_LOG_LEVEL</code>, <code>ASAP_LOG_FORMAT</code>, <code>ASAP_SERVICE_NAME</code>, <code>ASAP_DEBUG</code>, <code>ASAP_DEBUG_LOG</code>. See <a href="../observability/">Observability</a> and server docstrings.</p>
+<p><strong>Q: How do I increase the rate limit?</strong><br />
+A: Set <code>ASAP_RATE_LIMIT</code> (e.g. <code>100/second;1000/minute</code>) or pass <code>rate_limit</code> to <code>create_app()</code>. See <a href="../security/">Security</a>.</p>
+<p><strong>Q: How do I enable debug logging?</strong><br />
+A: <code>ASAP_LOG_LEVEL=DEBUG</code>. For full request/response bodies use <code>ASAP_DEBUG_LOG=true</code> (development only). For full data and stack traces use <code>ASAP_DEBUG=true</code>.</p>
+<p><strong>Q: How do I increase the request size limit?</strong><br />
+A: Set <code>ASAP_MAX_REQUEST_SIZE</code> (bytes) or pass <code>max_request_size</code> to <code>create_app()</code>. Default is 10 MB.</p>
+<p><strong>Q: How do I increase the number of worker threads?</strong><br />
+A: Set <code>ASAP_MAX_THREADS</code> or pass <code>max_threads</code> to <code>create_app()</code>. Default is <code>min(32, cpu_count + 4)</code>.</p>
+<p><strong>Q: How do I tune the connection pool?</strong><br />
+A: Pass <code>pool_connections</code>, <code>pool_maxsize</code>, <code>pool_timeout</code> to <code>ASAPClient</code>. See <a href="#performance-tuning">Performance Tuning</a> above.</p>
+<p><strong>Q: How do I change the client timeout?</strong><br />
+A: Pass <code>timeout=&lt;seconds&gt;</code> to <code>ASAPClient</code>. Default is 60.0.</p>
+<p><strong>Q: How do I configure retries?</strong><br />
+A: Use <code>RetryConfig</code> and pass it to <code>ASAPClient(retry_config=...)</code>. See <a href="../tutorials/resilience/">Building Resilient Agents</a>.</p>
+<p><strong>Q: How do I enable or disable the circuit breaker?</strong><br />
+A: Pass <code>circuit_breaker_enabled=True/False</code> to <code>ASAPClient</code>. You can also set threshold and timeout.</p>
+<p><strong>Q: How long is the manifest cached?</strong><br />
+A: Default TTL is 5 minutes (300 s). The client uses an in-memory cache; TTL is configurable on the cache.</p>
+<p><strong>Q: How do I allow HTTP in production?</strong><br />
+A: Not recommended. Use HTTPS. For local-only agents you can set <code>require_https=False</code> on the client.</p>
+<h3 id="errors">Errors</h3>
+<p><strong>Q: What does InvalidTransitionError mean?</strong><br />
+A: You tried an invalid task state transition (e.g. <code>submitted</code> → <code>completed</code>). Use allowed transitions (e.g. <code>submitted</code> → <code>running</code> → <code>completed</code>). See <a href="#common-errors">Common Errors</a>.</p>
+<p><strong>Q: What does MalformedEnvelopeError mean?</strong><br />
+A: The envelope is invalid (missing fields, wrong types). Validate with Pydantic before sending.</p>
+<p><strong>Q: What does TaskNotFoundError mean?</strong><br />
+A: The requested task ID does not exist on the agent. Check <code>task_id</code> and that the task was created on the right agent.</p>
+<p><strong>Q: What does ASAPConnectionError mean?</strong><br />
+A: The HTTP connection failed (agent down, wrong URL, network/firewall). See <a href="../error-handling/">Error Handling</a> and <a href="#common-errors">Common Errors</a>.</p>
+<p><strong>Q: What does ASAPTimeoutError mean?</strong><br />
+A: The request took longer than the client timeout. Increase <code>timeout</code> or optimize the handler/network.</p>
+<p><strong>Q: What does CircuitOpenError mean?</strong><br />
+A: The circuit breaker opened after consecutive failures. Wait for the timeout or fix the remote service; see <a href="#chaos-failure-modes">Chaos Failure Modes</a>.</p>
+<p><strong>Q: What does InvalidTimestampError mean?</strong><br />
+A: Envelope timestamp is too old (replay) or too far in the future (clock skew). Sync clocks (NTP) and stay within the allowed window.</p>
+<p><strong>Q: What does InvalidNonceError mean?</strong><br />
+A: Duplicate or invalid nonce (replay protection). Use a unique nonce per envelope; do not reuse within the TTL window.</p>
+<p><strong>Q: What does HandlerNotFoundError mean?</strong><br />
+A: No handler is registered for that payload type. Register one with <code>HandlerRegistry.register(payload_type, handler)</code>.</p>
+<p><strong>Q: What does ThreadPoolExhaustedError mean?</strong><br />
+A: All server worker threads are busy. Increase <code>max_threads</code> or optimize/use async handlers.</p>
+<p><strong>Q: What does ProtocolCorrelationError mean?</strong><br />
+A: A response or <code>TaskStream</code> chunk’s <code>correlation_id</code> did not equal the request envelope <code>id</code>. Fix the server handler to echo the request id. See <a href="../error-handling/#protocolcorrelationerror">Error Handling</a>.</p>
+<p><strong>Q: Why does <code>/usage</code> (or <code>/sla</code> / <code>/audit</code>) return 403 with a valid admin token?</strong><br />
+A: Operator routes need both scope <code>asap:admin</code> and identity binding (custom claim = server <code>manifest.id</code>, or <code>sub</code> in <code>ASAP_AUTH_SUBJECT_MAP</code>). See <a href="../migration/#opt-in-operator-api-auth-209">migration</a>.</p>
+<p><strong>Q: How do I know if the failure is network or agent?</strong><br />
+A: Use the table <a href="#is-it-the-network-or-the-agent">Is it the network or the agent?</a> in Chaos Failure Modes and correlate logs with <code>trace_id</code>/<code>correlation_id</code>.</p>
+<p><strong>Q: Why do I get JSON-RPC INVALID_PARAMS?</strong><br />
+A: The server rejected the envelope (validation failed). Check envelope structure and server logs for details.</p>
+<h3 id="best-practices">Best practices</h3>
+<p><strong>Q: Should I set trace_id and correlation_id?</strong><br />
+A: Yes. They help correlate requests across client and server. Bind them in logs; see <a href="../observability/">Observability</a>.</p>
+<p><strong>Q: Should I use retries?</strong><br />
+A: Yes for transient failures. Use <code>RetryConfig</code> and optionally a circuit breaker. See <a href="../tutorials/resilience/">Building Resilient Agents</a>.</p>
+<p><strong>Q: When should I use send_batch()?</strong><br />
+A: When sending many envelopes to one or more agents; it improves throughput with HTTP/2. See <a href="#performance-tuning">Performance Tuning</a>.</p>
+<p><strong>Q: When is compression used?</strong><br />
+A: Automatically for payloads larger than 1 KB (configurable). Use default settings for large payloads to reduce bandwidth.</p>
+<p><strong>Q: How do I secure tokens in logs?</strong><br />
+A: Do not set <code>ASAP_DEBUG</code>/<code>ASAP_DEBUG_LOG</code> in production; sensitive fields are redacted unless debug is on. See <a href="../observability/">Observability</a>.</p>
+<p><strong>Q: What rate limit should I use in production?</strong><br />
+A: Depends on load. Default <code>10/second;100/minute</code> allows bursts; for high throughput use a higher limit (e.g. from benchmarks). See <a href="../security/">Security</a>.</p>
+<p><strong>Q: How do I monitor ASAP in production?</strong><br />
+A: Use <code>/asap/metrics</code> (Prometheus), <code>/health</code> and <code>/ready</code>, and structured logs with trace_id. See <a href="../metrics/">Metrics</a> and <a href="../deployment/kubernetes/">Deployment</a>.</p>
+<p><strong>Q: Where can I find a production checklist?</strong><br />
+A: See <a href="../tutorials/production-checklist/">Production Deployment Checklist</a>.</p>
+<p><strong>Q: How do I test resilience?</strong><br />
+A: Use retries, circuit breaker, and timeouts; run chaos tests. See <a href="../tutorials/resilience/">Building Resilient Agents</a> and <a href="../testing/">Testing</a>.</p>
+<p><strong>Q: What state transitions are allowed for tasks?</strong><br />
+A: Follow the task state machine (e.g. submitted → running → completed/failed). See <a href="../state-management/">State Management</a> and <a href="../adr/ADR-005-state-machine-design/">ADR-005</a>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
