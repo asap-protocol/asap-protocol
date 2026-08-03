@@ -377,7 +377,23 @@ async def verify_agent_jwt(
     if expiry_status == "expired":
         return JwtVerifyResult(ok=False, error="agent_expired")
 
-    agent = extend_session(agent)
+    # Re-read before persisting to avoid TOCTOU: concurrent revoke or key rotation
+    # must not be overwritten by a stale snapshot (LIFE-005 sliding window).
+    current = await agent_store.get(agent.agent_id)
+    if current is None:
+        return JwtVerifyResult(ok=False, error="unknown agent")
+    if current.status in ("revoked", "expired", "pending", "rejected"):
+        return JwtVerifyResult(ok=False, error=f"agent session not usable: {current.status}")
+    if current.public_key != agent.public_key:
+        return JwtVerifyResult(ok=False, error="agent key changed during verification")
+
+    expiry_status = check_agent_expiry(current)
+    if expiry_status == "revoked":
+        return JwtVerifyResult(ok=False, error="agent_revoked")
+    if expiry_status == "expired":
+        return JwtVerifyResult(ok=False, error="agent_expired")
+
+    agent = extend_session(current)
     await agent_store.save(agent)
 
     return JwtVerifyResult(ok=True, claims=claims, host=host, agent=agent)

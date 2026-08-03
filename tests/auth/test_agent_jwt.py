@@ -341,6 +341,59 @@ async def test_verify_agent_jwt_persists_extended_session() -> None:
     assert stored.last_used_at > stale_last_used
 
 
+class _RevokeOnSecondGetAgentStore(InMemoryAgentStore):
+    """Simulates a concurrent revoke between verify's initial and pre-save reads."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._get_calls = 0
+
+    async def get(self, agent_id: str) -> AgentSession | None:
+        self._get_calls += 1
+        if self._get_calls >= 2:
+            await self.revoke(agent_id)
+        return await super().get(agent_id)
+
+
+@pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
+async def test_verify_agent_jwt_does_not_resurrect_revoked_agent() -> None:
+    """Pre-save re-read must reject when revoke wins the race over session extension."""
+    now = datetime.now(timezone.utc)
+    host_sk = Ed25519PrivateKey.generate()
+    host_pub = _public_jwk_dict(host_sk)
+    host_tp = jwk_thumbprint_sha256(host_pub)
+    agent_sk = Ed25519PrivateKey.generate()
+    agent_pub = _public_jwk_dict(agent_sk)
+
+    hosts = InMemoryHostStore()
+    agents = _RevokeOnSecondGetAgentStore()
+    await hosts.save(
+        HostIdentity(
+            host_id="h1",
+            public_key=host_pub,
+            status="active",
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    await agents.save(
+        AgentSession(
+            agent_id="a1",
+            host_id="h1",
+            public_key=agent_pub,
+            mode="delegated",
+            status="active",
+            created_at=now,
+        )
+    )
+    token = create_agent_jwt(agent_sk, host_thumbprint=host_tp, agent_id="a1", aud="aud")
+    res = await verify_agent_jwt(token, hosts, agents)
+    assert not res.ok
+    assert res.error is not None and "not usable" in res.error
+    stored = await agents.get("a1")
+    assert stored is not None and stored.status == "revoked"
+
+
 @pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
 async def test_verify_agent_jwt_audience_mismatch() -> None:
     """``expected_audience`` rejects tokens minted for another consumer."""
