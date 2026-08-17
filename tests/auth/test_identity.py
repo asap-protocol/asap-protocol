@@ -547,4 +547,3 @@ async def test_save_agent_unless_revoked_allows_revoked_noop_update() -> None:
     assert row is not None
     await save_agent_unless_revoked(store, row)
     assert (await store.get("a1")) is not None
-

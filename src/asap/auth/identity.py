@@ -237,10 +237,7 @@ async def save_agent_unless_revoked(agent_store: AgentStore, agent: AgentSession
     """
     current = await agent_store.get(agent.agent_id)
     if current is not None and current.status == "revoked" and agent.status != "revoked":
-        msg = (
-            f"refusing to overwrite revoked agent {agent.agent_id!r} "
-            f"with status {agent.status!r}"
-        )
+        msg = f"refusing to overwrite revoked agent {agent.agent_id!r} with status {agent.status!r}"
         raise ValueError(msg)
     await agent_store.save(agent)
 
