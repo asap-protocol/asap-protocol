@@ -7,6 +7,7 @@ revocation, and key rotation.  All endpoints authenticate via Host JWT
 
 from __future__ import annotations
 
+from contextlib import suppress
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any, cast
 
@@ -47,6 +48,7 @@ from asap.auth.identity import (
     HostStore,
     host_urn_from_thumbprint,
     jwk_thumbprint_sha256,
+    save_agent_unless_revoked,
 )
 from asap.models.base import ASAPBaseModel
 from asap.models.ids import generate_id
@@ -574,23 +576,32 @@ async def _handle_agent_status(request: Request, agent_id: str) -> JSONResponse:
             appr = None
 
     if session.status == "pending" and appr is not None:
+        # Re-read before pending→active/rejected so concurrent revoke cannot be
+        # overwritten by a stale full-row save (same class as LIFE-005 TOCTOU).
         if appr.status == "approved":
-            if registry is not None and appr.capability_specs:
-                apply_capability_specs_to_registry(
-                    registry,
-                    agent_id,
-                    host_id,
-                    appr.capability_specs,
+            fresh = await agent_store.get(agent_id)
+            if fresh is not None and fresh.status == "pending":
+                activated = fresh.model_copy(
+                    update={
+                        "status": "active",
+                        "activated_at": datetime.now(timezone.utc),
+                    },
                 )
-            activated = session.model_copy(
-                update={"status": "active", "activated_at": datetime.now(timezone.utc)},
-            )
-            await agent_store.save(activated)
-            session = activated
+                with suppress(ValueError):
+                    await save_agent_unless_revoked(agent_store, activated)
+                    if registry is not None and appr.capability_specs:
+                        apply_capability_specs_to_registry(
+                            registry,
+                            agent_id,
+                            host_id,
+                            appr.capability_specs,
+                        )
         elif appr.status == "denied":
-            rejected = session.model_copy(update={"status": "rejected"})
-            await agent_store.save(rejected)
-            session = rejected
+            fresh = await agent_store.get(agent_id)
+            if fresh is not None and fresh.status == "pending":
+                rejected = fresh.model_copy(update={"status": "rejected"})
+                with suppress(ValueError):
+                    await save_agent_unless_revoked(agent_store, rejected)
 
     refreshed = await agent_store.get(agent_id)
     if refreshed is not None:
@@ -703,8 +714,25 @@ async def _handle_agent_rotate_key(request: Request, body: AgentRotateKeyBody) -
                 content={"detail": "another agent under this host already uses this public key"},
             )
 
-    rotated = session.model_copy(update={"public_key": new_pub})
-    await agent_store.save(rotated)
+    # Re-read before save so concurrent revoke cannot be overwritten by a stale
+    # active/pending snapshot that still carries the new public key.
+    fresh = await agent_store.get(body.agent_id)
+    if fresh is None:
+        return JSONResponse(status_code=404, content={"detail": "unknown agent_id"})
+    if fresh.status == "revoked":
+        return JSONResponse(
+            status_code=400,
+            content={"detail": "cannot rotate key for revoked agent"},
+        )
+
+    rotated = fresh.model_copy(update={"public_key": new_pub})
+    try:
+        await save_agent_unless_revoked(agent_store, rotated)
+    except ValueError:
+        return JSONResponse(
+            status_code=400,
+            content={"detail": "cannot rotate key for revoked agent"},
+        )
     logger.info(
         "asap.identity.agent_rotate_key",
         action="rotate_key",

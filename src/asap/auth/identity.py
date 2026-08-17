@@ -189,12 +189,23 @@ class InMemoryHostStore:
 
 
 class InMemoryAgentStore:
-    """In-memory `AgentStore` for development and tests."""
+    """In-memory `AgentStore` for development and tests.
+
+    ``save`` refuses to replace a ``revoked`` row with a non-revoked snapshot so
+    stale get→mutate→full-row-save races cannot resurrect revoked agents.
+    """
 
     def __init__(self) -> None:
         self._agents: dict[str, AgentSession] = {}
 
     async def save(self, agent: AgentSession) -> None:
+        existing = self._agents.get(agent.agent_id)
+        if existing is not None and existing.status == "revoked" and agent.status != "revoked":
+            msg = (
+                f"refusing to overwrite revoked agent {agent.agent_id!r} "
+                f"with status {agent.status!r}"
+            )
+            raise ValueError(msg)
         self._agents[agent.agent_id] = agent
 
     async def get(self, agent_id: str) -> AgentSession | None:
@@ -215,6 +226,23 @@ class InMemoryAgentStore:
     async def revoke_by_host(self, host_id: str) -> None:
         for aid in [a.agent_id for a in self._agents.values() if a.host_id == host_id]:
             await self.revoke(aid)
+
+
+async def save_agent_unless_revoked(agent_store: AgentStore, agent: AgentSession) -> None:
+    """Persist *agent* only when the store row is not permanently revoked.
+
+    Call sites that load a session, mutate it, then ``save`` the full row must
+    use this helper (or equivalent) so a concurrent ``revoke`` cannot be
+    overwritten by a stale non-revoked snapshot.
+    """
+    current = await agent_store.get(agent.agent_id)
+    if current is not None and current.status == "revoked" and agent.status != "revoked":
+        msg = (
+            f"refusing to overwrite revoked agent {agent.agent_id!r} "
+            f"with status {agent.status!r}"
+        )
+        raise ValueError(msg)
+    await agent_store.save(agent)
 
 
 # ---------------------------------------------------------------------------
