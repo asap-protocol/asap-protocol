@@ -4,7 +4,7 @@ Covers:
 - ``GET  /asap/capability/list``   — no-auth, Agent JWT, query/cursor/limit
 - ``GET  /asap/capability/describe`` — found, not found (404)
 - ``POST /asap/capability/execute``  — success, no grant, constraint violation, bad body
-- ``POST /asap/agent/reactivate``    — success, revoked, absolute exceeded, wrong host
+- ``POST /asap/agent/reactivate``    — success, revoked, rejected, pending, absolute exceeded, wrong host
 - ``POST /asap/agent/register``      — with capabilities (partial approval)
 """
 
@@ -592,6 +592,56 @@ class TestAgentReactivate:
         )
         assert r.status_code == 403
         assert "revoked" in r.json()["detail"].lower()
+
+    async def test_reactivate_rejected_agent_returns_403(
+        self,
+        sample_manifest: Manifest,
+        isolated_rate_limiter: ASAPRateLimiter | None,
+    ) -> None:
+        """Denied registration must not be flipped to active via reactivate."""
+        app, agent_store, _, _ = _setup(sample_manifest, isolated_rate_limiter)
+        client = TestClient(app)
+        host_sk = Ed25519PrivateKey.generate()
+        agent_sk = Ed25519PrivateKey.generate()
+        aid = await _register_and_activate(
+            client, app, agent_store, host_sk, agent_sk, status="rejected"
+        )
+
+        token = _host_jwt(host_sk)
+        r = client.post(
+            "/asap/agent/reactivate",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"agent_id": aid},
+        )
+        assert r.status_code == 403
+        assert "rejected" in r.json()["detail"].lower()
+        stored = await agent_store.get(aid)
+        assert stored is not None and stored.status == "rejected"
+
+    async def test_reactivate_pending_agent_returns_403(
+        self,
+        sample_manifest: Manifest,
+        isolated_rate_limiter: ASAPRateLimiter | None,
+    ) -> None:
+        """Pending approval must not be skipped by POST /asap/agent/reactivate."""
+        app, agent_store, _, _ = _setup(sample_manifest, isolated_rate_limiter)
+        client = TestClient(app)
+        host_sk = Ed25519PrivateKey.generate()
+        agent_sk = Ed25519PrivateKey.generate()
+        aid = await _register_and_activate(
+            client, app, agent_store, host_sk, agent_sk, status="pending"
+        )
+
+        token = _host_jwt(host_sk)
+        r = client.post(
+            "/asap/agent/reactivate",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"agent_id": aid},
+        )
+        assert r.status_code == 403
+        assert "pending" in r.json()["detail"].lower()
+        stored = await agent_store.get(aid)
+        assert stored is not None and stored.status == "pending"
 
     async def test_reactivate_revoked_host_returns_403(
         self,
