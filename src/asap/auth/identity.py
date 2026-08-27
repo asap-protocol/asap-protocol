@@ -267,16 +267,35 @@ def reactivate_agent(
     agent: AgentSession,
     _host: HostIdentity,
 ) -> AgentSession:
-    """Reset activation and last-used time; fail if revoked or past absolute lifetime.
+    """Reset activation and last-used time for an expired (or already-active) session.
+
+    LIFE-004 scopes reactivation to expired agents (capability decay checkpoint).
+    Already-active sessions may refresh clocks. ``pending`` / ``rejected`` sessions
+    must not become ``active`` here — that would bypass registration approval
+    (including an explicit user denial).
 
     Raises:
-        ValueError: If the agent is permanently revoked or has exceeded its
-            absolute lifetime (reactivation is not possible in either case).
+        ValueError: If the agent is permanently revoked, still awaiting or denied
+            approval, or has exceeded its absolute lifetime.
     """
     now = _utc_now()
 
     if agent.status == "revoked":
         msg = f"Agent {agent.agent_id} is permanently revoked"
+        raise ValueError(msg)
+
+    if agent.status == "pending":
+        msg = (
+            f"Agent {agent.agent_id} is still pending approval; "
+            "cannot reactivate until registration is approved"
+        )
+        raise ValueError(msg)
+
+    if agent.status == "rejected":
+        msg = (
+            f"Agent {agent.agent_id} was rejected during registration; "
+            "re-register instead of reactivating"
+        )
         raise ValueError(msg)
 
     if agent.absolute_lifetime is not None and now - agent.created_at > agent.absolute_lifetime:
