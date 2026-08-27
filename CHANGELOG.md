@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security (deps)
+
+- Raise `cryptography` to `>=50.0.0,<51` for **PYSEC-2026-3552** (PKCS7
+  Bleichenbacher; 49.0.0 already covered PYSEC-2026-3553/3554). Pair with
+  `pyopenssl>=26.4.0` so `[webauthn]` stays importable.
+- Raise `aiohttp` override to `>=3.14.3,<4` for **PYSEC-2026-3545/3546/3547**.
+- Add `h2>=4.4.1` override for **PYSEC-2026-3628**.
+- Raise `pip` floor to `>=26.2` for **PYSEC-2026-3721**.
+- Raise optional `[pydanticai]` floor to `pydantic-ai>=1.106.0,<2` for
+  **PYSEC-2026-3692/3693**.
+- `apps/web` npm overrides: `fast-uri@^3.1.5`, `nanoid@^3.3.18`,
+  `postcss@^8.5.23`, `brace-expansion@^5.0.9`, `ip-address@^10.3.1`,
+  `js-yaml@^4.3.1`, and `undici@^7.29.0` so production moderate+ and
+  full-graph high+ audits stay clean.
+
 ### Fixed
 
 - **Agent JWT session sliding (LIFE-005)** — Successful
