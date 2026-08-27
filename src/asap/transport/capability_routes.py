@@ -17,7 +17,13 @@ from asap.auth.jti_replay_cache import JtiReplayCacheProtocol
 from pydantic import ValidationError
 
 from asap.auth.capabilities import CapabilityGrant, CapabilityRegistry
-from asap.auth.identity import AgentStore, HostStore, reactivate_agent, save_agent_unless_revoked
+from asap.auth.identity import (
+    AgentStore,
+    HostStore,
+    RevokedAgentOverwriteError,
+    reactivate_agent,
+    save_agent_unless_revoked,
+)
 from asap.models.base import ASAPBaseModel
 from asap.observability import get_logger
 from asap.transport._auth_helpers import bearer_token_from_request, verify_host_bearer
@@ -298,7 +304,7 @@ async def _handle_agent_reactivate(request: Request) -> JSONResponse:
         return JSONResponse(status_code=403, content={"detail": str(e)})
     try:
         await save_agent_unless_revoked(agent_store, reactivated)
-    except ValueError:
+    except RevokedAgentOverwriteError:
         return JSONResponse(
             status_code=403,
             content={"detail": f"Agent {body.agent_id} is permanently revoked"},

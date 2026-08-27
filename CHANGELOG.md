@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Agent revocation permanence** — Concurrent ``POST /asap/agent/rotate-key``,
+  ``POST /asap/agent/reactivate``, and ``GET /asap/agent/status``
+  (pending→active or pending→rejected) can no longer resurrect a revoked agent
+  via a stale get→mutate→full-row ``save``. ``AgentStore.save`` implementations
+  MUST atomically refuse replacing a ``revoked`` row with a non-revoked snapshot
+  and raise ``RevokedAgentOverwriteError``. ``InMemoryAgentStore.save`` enforces
+  this (check and dict write with no await). ``save_agent_unless_revoked`` is a
+  named wrapper around ``save`` and does not re-get.
+
 ### Security (deps)
 
 - Raise `cryptography` to `>=50.0.0,<51` for **PYSEC-2026-3552** (PKCS7

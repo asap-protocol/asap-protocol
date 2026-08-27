@@ -7,7 +7,6 @@ revocation, and key rotation.  All endpoints authenticate via Host JWT
 
 from __future__ import annotations
 
-from contextlib import suppress
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any, cast
 
@@ -46,6 +45,7 @@ from asap.auth.identity import (
     AgentStore,
     HostIdentity,
     HostStore,
+    RevokedAgentOverwriteError,
     host_urn_from_thumbprint,
     jwk_thumbprint_sha256,
     save_agent_unless_revoked,
@@ -273,6 +273,44 @@ def _agent_lifecycle_json(session: AgentSession) -> dict[str, Any]:
     }
 
 
+async def _persist_pending_approval_activation(
+    agent_store: AgentStore,
+    agent_id: str,
+    *,
+    registry: CapabilityRegistry | None,
+    host_id: str,
+    capability_specs: list[dict[str, Any]] | None,
+) -> None:
+    """Activate a pending agent after approval; skip write if concurrently revoked."""
+    fresh = await agent_store.get(agent_id)
+    if fresh is None or fresh.status != "pending":
+        return
+    activated = fresh.model_copy(
+        update={
+            "status": "active",
+            "activated_at": datetime.now(timezone.utc),
+        },
+    )
+    try:
+        await save_agent_unless_revoked(agent_store, activated)
+    except RevokedAgentOverwriteError:
+        return
+    if registry is not None and capability_specs:
+        apply_capability_specs_to_registry(registry, agent_id, host_id, capability_specs)
+
+
+async def _persist_pending_approval_rejection(agent_store: AgentStore, agent_id: str) -> None:
+    """Mark a pending agent rejected; skip write if concurrently revoked."""
+    fresh = await agent_store.get(agent_id)
+    if fresh is None or fresh.status != "pending":
+        return
+    rejected = fresh.model_copy(update={"status": "rejected"})
+    try:
+        await save_agent_unless_revoked(agent_store, rejected)
+    except RevokedAgentOverwriteError:
+        return
+
+
 # ---------------------------------------------------------------------------
 # Handler implementations
 # ---------------------------------------------------------------------------
@@ -416,6 +454,14 @@ async def _handle_agent_register(
     await agent_store.save(session)
 
     if not needs:
+        activated = session.model_copy(update={"status": "active", "activated_at": now})
+        try:
+            await agent_store.save(activated)
+        except RevokedAgentOverwriteError:
+            return JSONResponse(
+                status_code=400,
+                content={"detail": f"cannot activate revoked agent {agent_id!r}"},
+            )
         capability_grants: list[dict[str, Any]] = []
         if registry is not None and capability_specs:
             capability_grants = apply_capability_specs_to_registry(
@@ -424,8 +470,6 @@ async def _handle_agent_register(
                 host_id,
                 capability_specs,
             )
-        activated = session.model_copy(update={"status": "active", "activated_at": now})
-        await agent_store.save(activated)
         logger.info(
             "asap.identity.agent_register",
             action="register",
@@ -579,29 +623,15 @@ async def _handle_agent_status(request: Request, agent_id: str) -> JSONResponse:
         # Re-read before pending→active/rejected so concurrent revoke cannot be
         # overwritten by a stale full-row save (same class as LIFE-005 TOCTOU).
         if appr.status == "approved":
-            fresh = await agent_store.get(agent_id)
-            if fresh is not None and fresh.status == "pending":
-                activated = fresh.model_copy(
-                    update={
-                        "status": "active",
-                        "activated_at": datetime.now(timezone.utc),
-                    },
-                )
-                with suppress(ValueError):
-                    await save_agent_unless_revoked(agent_store, activated)
-                    if registry is not None and appr.capability_specs:
-                        apply_capability_specs_to_registry(
-                            registry,
-                            agent_id,
-                            host_id,
-                            appr.capability_specs,
-                        )
+            await _persist_pending_approval_activation(
+                agent_store,
+                agent_id,
+                registry=registry,
+                host_id=host_id,
+                capability_specs=appr.capability_specs,
+            )
         elif appr.status == "denied":
-            fresh = await agent_store.get(agent_id)
-            if fresh is not None and fresh.status == "pending":
-                rejected = fresh.model_copy(update={"status": "rejected"})
-                with suppress(ValueError):
-                    await save_agent_unless_revoked(agent_store, rejected)
+            await _persist_pending_approval_rejection(agent_store, agent_id)
 
     refreshed = await agent_store.get(agent_id)
     if refreshed is not None:
@@ -728,7 +758,7 @@ async def _handle_agent_rotate_key(request: Request, body: AgentRotateKeyBody) -
     rotated = fresh.model_copy(update={"public_key": new_pub})
     try:
         await save_agent_unless_revoked(agent_store, rotated)
-    except ValueError:
+    except RevokedAgentOverwriteError:
         return JSONResponse(
             status_code=400,
             content={"detail": "cannot rotate key for revoked agent"},

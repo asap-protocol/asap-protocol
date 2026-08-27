@@ -1169,6 +1169,32 @@ Install the optional extra with `pip install 'asap-protocol[redis]'` (or
 nonce store when running more than one worker. See
 [migration — Redis JTI](migration.md#redis-backed-jti-replay-cache-209).
 
+### Custom AgentStore (revocation permanence)
+
+Injectable `AgentStore` implementations (`identity_agent_store`, MCP Auth
+Bridge `agent_store`) must treat revocation as a hard kill switch. `save`
+MUST atomically refuse to replace a `revoked` row with a non-revoked snapshot
+and raise `RevokedAgentOverwriteError`. Do not re-get then save in the caller
+— that is the same TOCTOU class as a split `is_used` / `mark_used` nonce API.
+Call `raise_if_revoked_agent_overwrite(existing, incoming)` after an atomic
+read and before the write, with no `await` between those steps.
+
+```python
+from asap.auth.identity import AgentSession, raise_if_revoked_agent_overwrite
+
+class RedisAgentStore:
+    async def save(self, agent: AgentSession) -> None:
+        # One Redis round-trip (Lua / WATCH+MULTI). After the atomic read,
+        # call raise_if_revoked_agent_overwrite before the write with no await
+        # between those two steps — same as InMemoryAgentStore (dict check then assign).
+        await self._compare_and_set_unless_revoked(agent)
+```
+
+`InMemoryAgentStore.save` already does this (dict check then assign, no await).
+`verify_agent_jwt` slides idle timeout via ``touch_if_current`` (PR #323) and
+never full-row ``save``s a verify-time snapshot. Rotate/reactivate/status
+map ``RevokedAgentOverwriteError`` to a lifecycle HTTP error instead of 500.
+
 ---
 
 ## Operator REST APIs (v2.5.2)

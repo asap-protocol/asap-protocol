@@ -181,7 +181,7 @@ For single-agent local testing, set `allow_env_jwt_fallback=True` on `MCPAuthCon
 | Field | Type | Default | Description |
 |:------|:-----|:--------|:------------|
 | `host_store` | `HostStore` | *(required)* | Host identity store for `verify_agent_jwt`. |
-| `agent_store` | `AgentStore` | *(required)* | Agent session store for `verify_agent_jwt`. |
+| `agent_store` | `AgentStore` | *(required)* | Agent session store for `verify_agent_jwt`. `save` MUST atomically refuse replacing a `revoked` row with a non-revoked snapshot (`RevokedAgentOverwriteError`; see [Custom AgentStore](../security.md#custom-agentstore-revocation-permanence)). |
 | `capability_registry` | `CapabilityRegistry` | *(required)* | Shared capability definitions and grants; used by `check_grant`. |
 | `tool_capability_map` | `dict[str, str]` | `{}` | Runtime override: MCP tool name → ASAP capability name (MCP-MAP-001). Checked first. |
 | `public_tools` | `frozenset[str]` | `frozenset()` | Tool names that skip JWT verification entirely. |

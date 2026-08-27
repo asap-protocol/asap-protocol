@@ -33,6 +33,7 @@ from asap.auth.identity import (
     AgentStore,
     HostIdentity,
     HostStore,
+    RevokedAgentOverwriteError,
     jwk_thumbprint_sha256,
 )
 from asap.auth.introspection import TokenInfo, TokenIntrospector
@@ -45,6 +46,7 @@ from asap.auth.scopes import SCOPE_ADMIN, SCOPE_EXECUTE, SCOPE_READ, require_sco
 __all__ = [
     "AgentSession",
     "AgentStore",
+    "HOST_REVOKED_ERROR",
     "HostIdentity",
     "HostStore",
     "JWKSValidator",
@@ -54,10 +56,10 @@ __all__ = [
     "OAuth2ClientCredentials",
     "OAuth2Config",
     "OAuth2Middleware",
+    "RevokedAgentOverwriteError",
     "SCOPE_ADMIN",
     "SCOPE_EXECUTE",
     "SCOPE_READ",
-    "HOST_REVOKED_ERROR",
     "Token",
     "TokenInfo",
     "TokenIntrospector",
