@@ -7,16 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security (deps)
+
+- Raise `cryptography` to `>=50.0.0,<51` for **PYSEC-2026-3552** (PKCS7
+  Bleichenbacher; 49.0.0 already covered PYSEC-2026-3553/3554). Pair with
+  `pyopenssl>=26.4.0` so `[webauthn]` stays importable.
+- Raise `aiohttp` override to `>=3.14.3,<4` for **PYSEC-2026-3545/3546/3547**.
+- Add `h2>=4.4.1` override for **PYSEC-2026-3628**.
+- Raise `pip` floor to `>=26.2` for **PYSEC-2026-3721**.
+- Raise optional `[pydanticai]` floor to `pydantic-ai>=1.106.0,<2` for
+  **PYSEC-2026-3692/3693**.
+- `apps/web` npm overrides: `fast-uri@^3.1.5`, `nanoid@^3.3.18`,
+  `postcss@^8.5.23`, `brace-expansion@^5.0.9`, `ip-address@^10.3.1`,
+  `js-yaml@^4.3.1`, and `undici@^7.29.0` so production moderate+ and
+  full-graph high+ audits stay clean.
+
 ### Fixed
 
 - **Agent JWT session sliding (LIFE-005)** — Successful
   :func:`~asap.auth.agent_jwt.verify_agent_jwt` always persists the extended
-  session via ``agent_store.save`` after ``extend_session`` (restores the
-  pre-S3 “verifier writes” contract; callers must not assume they alone persist
-  ``last_used_at``). Side effect: authenticated ``GET /asap/capability/list``
-  with an Agent JWT now slides idle timeout the same as other verify paths —
-  list traffic keeps sessions warm. Custom ``AgentStore`` implementers should
-  expect a write on every successful verify.
+  ``last_used_at`` after a verified Agent JWT (restores the pre-S3 “verifier
+  writes” contract; callers must not assume they alone persist idle timeout).
+  Side effect: authenticated ``GET /asap/capability/list`` with an Agent JWT
+  now slides idle timeout the same as other verify paths — list traffic keeps
+  sessions warm.
+- **Agent JWT verify vs concurrent revoke/rotate** — Session extension no
+  longer uses full-row ``AgentStore.save`` of a verify-time snapshot (that
+  TOCTOU could resurrect a revoked agent or undo ``rotate-key``). Persist goes
+  through ``AgentStore.touch_if_current`` (atomic ``UPDATE ... WHERE status =
+  'active'`` plus matching ``host_id`` and RFC 7638 public-key thumbprint).
+  Custom store authors must implement that method; get→mutate→save is not
+  sufficient.
 
 ### Follow-up (planned v2.5.5+)
 
