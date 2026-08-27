@@ -4,7 +4,7 @@ name: CI
 
 on:
   push:
-    branches: [main, release/2.5.0]
+    branches: [main, development, release/2.5.0]
     paths:
       - 'src/**'
       - 'scripts/**'
@@ -20,7 +20,7 @@ on:
       - '.github/workflows/**'
       - '.github/actions/**'
   pull_request:
-    branches: [main, release/2.5.0]
+    branches: [main, development, release/2.5.0]
     paths:
       - 'src/**'
       - 'scripts/**'
