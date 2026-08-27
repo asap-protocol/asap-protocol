@@ -1098,6 +1098,36 @@ nonce_store = RedisNonceStore(redis_client)
 # Pass to server handler (requires custom handler setup)
 ```
 
+#### Custom Agent Store
+
+LIFE-005 session sliding must not clobber a concurrent revoke or key rotation.
+`AgentStore.save` is still the full-row persist for register / rotate / revoke.
+`verify_agent_jwt` persists idle timeout only through `touch_if_current` — the
+same atomic check-and-act idea as `NonceStore.check_and_mark`.
+
+```python
+from datetime import datetime
+from asap.auth.identity import AgentSession, AgentStore, jwk_thumbprint_sha256
+
+class SqlAgentStore:
+    """Agent store whose verify-path touch is a single UPDATE ... WHERE."""
+
+    async def touch_if_current(
+        self,
+        agent_id: str,
+        expected_public_key: dict,
+        last_used_at: datetime,
+        *,
+        expected_host_id: str,
+    ) -> AgentSession | None:
+        thumb = jwk_thumbprint_sha256(expected_public_key)
+        # UPDATE agents SET last_used_at = :ts
+        #  WHERE agent_id = :id AND status = 'active' AND host_id = :host
+        #    AND rfc7638(public_key) = :thumb
+        # RETURNING *  — or None if rowcount == 0
+        ...
+```
+
 ### Best Practices
 
 1. **Always Use Timestamps**: Timestamp validation is automatic and always enabled

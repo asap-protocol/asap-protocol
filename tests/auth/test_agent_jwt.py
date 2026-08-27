@@ -355,18 +355,98 @@ class _RevokeOnSecondGetAgentStore(InMemoryAgentStore):
         return await super().get(agent_id)
 
 
-@pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
-async def test_verify_agent_jwt_does_not_resurrect_revoked_agent() -> None:
-    """Pre-save re-read must reject when revoke wins the race over session extension."""
+class _RotateOnSecondGetAgentStore(InMemoryAgentStore):
+    """Simulates a concurrent key rotation between verify's initial and pre-touch reads."""
+
+    def __init__(self, rotated_key: dict[str, Any]) -> None:
+        super().__init__()
+        self._get_calls = 0
+        self._rotated_key = rotated_key
+
+    async def get(self, agent_id: str) -> AgentSession | None:
+        self._get_calls += 1
+        if self._get_calls >= 2:
+            current = self._agents.get(agent_id)
+            if current is not None:
+                self._agents[agent_id] = current.model_copy(
+                    update={"public_key": self._rotated_key}
+                )
+        return await super().get(agent_id)
+
+
+class _RehostOnSecondGetAgentStore(InMemoryAgentStore):
+    """Simulates host_id changing between verify's initial and pre-touch reads."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._get_calls = 0
+
+    async def get(self, agent_id: str) -> AgentSession | None:
+        self._get_calls += 1
+        if self._get_calls >= 2:
+            current = self._agents.get(agent_id)
+            if current is not None:
+                self._agents[agent_id] = current.model_copy(update={"host_id": "other-host"})
+        return await super().get(agent_id)
+
+
+class _RevokeAtTouchStartAgentStore(InMemoryAgentStore):
+    """Revokes at the start of touch so a full-row save would resurrect the session."""
+
+    async def touch_if_current(
+        self,
+        agent_id: str,
+        expected_public_key: dict[str, Any],
+        last_used_at: datetime,
+        *,
+        expected_host_id: str,
+    ) -> AgentSession | None:
+        await self.revoke(agent_id)
+        return await super().touch_if_current(
+            agent_id,
+            expected_public_key,
+            last_used_at,
+            expected_host_id=expected_host_id,
+        )
+
+
+class _RotateAtTouchStartAgentStore(InMemoryAgentStore):
+    """Rotates at the start of touch so a full-row save would roll back the new key."""
+
+    def __init__(self, rotated_key: dict[str, Any]) -> None:
+        super().__init__()
+        self._rotated_key = rotated_key
+
+    async def touch_if_current(
+        self,
+        agent_id: str,
+        expected_public_key: dict[str, Any],
+        last_used_at: datetime,
+        *,
+        expected_host_id: str,
+    ) -> AgentSession | None:
+        current = self._agents.get(agent_id)
+        if current is not None:
+            self._agents[agent_id] = current.model_copy(update={"public_key": self._rotated_key})
+        return await super().touch_if_current(
+            agent_id,
+            expected_public_key,
+            last_used_at,
+            expected_host_id=expected_host_id,
+        )
+
+
+async def _seed_verify_agent_jwt(
+    agents: InMemoryAgentStore,
+) -> tuple[InMemoryHostStore, str, dict[str, Any]]:
+    """Persist h1/a1 and return hosts, token, and the agent's public JWK."""
     now = datetime.now(timezone.utc)
     host_sk = Ed25519PrivateKey.generate()
     host_pub = _public_jwk_dict(host_sk)
     host_tp = jwk_thumbprint_sha256(host_pub)
     agent_sk = Ed25519PrivateKey.generate()
     agent_pub = _public_jwk_dict(agent_sk)
-
     hosts = InMemoryHostStore()
-    agents = _RevokeOnSecondGetAgentStore()
     await hosts.save(
         HostIdentity(
             host_id="h1",
@@ -387,11 +467,73 @@ async def test_verify_agent_jwt_does_not_resurrect_revoked_agent() -> None:
         )
     )
     token = create_agent_jwt(agent_sk, host_thumbprint=host_tp, agent_id="a1", aud="aud")
+    return hosts, token, agent_pub
+
+
+@pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
+async def test_verify_agent_jwt_does_not_resurrect_revoked_agent() -> None:
+    """Pre-touch re-read must reject when revoke wins the race over session extension."""
+    agents = _RevokeOnSecondGetAgentStore()
+    hosts, token, _agent_pub = await _seed_verify_agent_jwt(agents)
     res = await verify_agent_jwt(token, hosts, agents)
     assert not res.ok
     assert res.error is not None and "not usable" in res.error
     stored = await agents.get("a1")
     assert stored is not None and stored.status == "revoked"
+
+
+@pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
+async def test_verify_agent_jwt_rejects_key_rotation_on_re_read() -> None:
+    """Pre-touch re-read must reject when rotate-key wins before persist."""
+    rotated = _public_jwk_dict(Ed25519PrivateKey.generate())
+    agents = _RotateOnSecondGetAgentStore(rotated)
+    hosts, token, original = await _seed_verify_agent_jwt(agents)
+    res = await verify_agent_jwt(token, hosts, agents)
+    assert not res.ok
+    assert res.error == "agent key changed during verification"
+    stored = await agents.get("a1")
+    assert stored is not None
+    assert stored.public_key == rotated
+    assert stored.public_key != original
+
+
+@pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
+async def test_verify_agent_jwt_rejects_host_id_change_on_re_read() -> None:
+    """Pre-touch re-read must reject when host_id no longer matches the verified row."""
+    agents = _RehostOnSecondGetAgentStore()
+    hosts, token, _agent_pub = await _seed_verify_agent_jwt(agents)
+    res = await verify_agent_jwt(token, hosts, agents)
+    assert not res.ok
+    assert res.error == "agent host_id changed during verification"
+    stored = await agents.get("a1")
+    assert stored is not None and stored.host_id == "other-host"
+
+
+@pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
+async def test_verify_agent_jwt_touch_does_not_resurrect_after_save_time_revoke() -> None:
+    """Revoke at touch start must stick; a full-row save would resurrect the session."""
+    agents = _RevokeAtTouchStartAgentStore()
+    hosts, token, _agent_pub = await _seed_verify_agent_jwt(agents)
+    res = await verify_agent_jwt(token, hosts, agents)
+    assert not res.ok
+    assert res.error == "agent session changed during verification"
+    stored = await agents.get("a1")
+    assert stored is not None and stored.status == "revoked"
+
+
+@pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
+async def test_verify_agent_jwt_touch_does_not_undo_save_time_key_rotation() -> None:
+    """Rotate at touch start must stick; a full-row save would restore the old JWK."""
+    rotated = _public_jwk_dict(Ed25519PrivateKey.generate())
+    agents = _RotateAtTouchStartAgentStore(rotated)
+    hosts, token, original = await _seed_verify_agent_jwt(agents)
+    res = await verify_agent_jwt(token, hosts, agents)
+    assert not res.ok
+    assert res.error == "agent session changed during verification"
+    stored = await agents.get("a1")
+    assert stored is not None
+    assert stored.public_key == rotated
+    assert jwk_thumbprint_sha256(stored.public_key) != jwk_thumbprint_sha256(original)
 
 
 @pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")

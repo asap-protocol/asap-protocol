@@ -21,13 +21,16 @@ from joserfc.jwk import OKPKey
 from joserfc.jws import extract_compact as _jws_extract_compact
 
 from asap.auth.jwks import audience_matches_expected as _audience_matches_expected
+from asap.auth.agent_jwt_session import (
+    expired_agent_error,
+    slide_session_if_still_current,
+    unusable_agent_error,
+)
 from asap.auth.identity import (
     AgentSession,
     AgentStore,
     HostIdentity,
     HostStore,
-    check_agent_expiry,
-    extend_session,
     jwk_thumbprint_sha256,
 )
 from asap.auth.jti_replay_cache import JtiReplayCacheProtocol
@@ -314,10 +317,11 @@ async def verify_agent_jwt(
 
     When ``expected_audience`` is set, ``aud`` must match (RFC 7519 §4.1.3).
 
-    On success, extends the session and persists via ``agent_store.save`` (LIFE-005
-    sliding ``last_used_at``). Callers — including ``GET /asap/capability/list`` —
-    therefore keep idle sessions warm on every authenticated verify; do not assume
-    a separate “caller persists” step.
+    On success, slides idle timeout via ``agent_store.touch_if_current`` (LIFE-005
+    ``last_used_at``). That persist is conditional: it refuses if status, host, or
+    key changed, and never writes a full-row snapshot through ``save``. Callers —
+    including ``GET /asap/capability/list`` — therefore keep idle sessions warm on
+    every authenticated verify; do not assume a separate “caller persists” step.
     """
     try:
         header, unverified_payload = _unverified_header_and_payload(token)
@@ -335,8 +339,8 @@ async def verify_agent_jwt(
     if agent is None:
         return JwtVerifyResult(ok=False, error="unknown agent")
 
-    if agent.status in ("revoked", "expired", "pending", "rejected"):
-        return JwtVerifyResult(ok=False, error=f"agent session not usable: {agent.status}")
+    if (unusable := unusable_agent_error(agent)) is not None:
+        return JwtVerifyResult(ok=False, error=unusable)
 
     try:
         okp = _okp_from_public_jwk(dict(agent.public_key))
@@ -371,32 +375,14 @@ async def verify_agent_jwt(
         if not jti_replay_cache.check_and_record(agent.agent_id, jti):
             return JwtVerifyResult(ok=False, error="jti replay detected")
 
-    expiry_status = check_agent_expiry(agent)
-    if expiry_status == "revoked":
-        return JwtVerifyResult(ok=False, error="agent_revoked")
-    if expiry_status == "expired":
-        return JwtVerifyResult(ok=False, error="agent_expired")
+    if (expired := expired_agent_error(agent)) is not None:
+        return JwtVerifyResult(ok=False, error=expired)
 
-    # Re-read before persisting to avoid TOCTOU: concurrent revoke or key rotation
-    # must not be overwritten by a stale snapshot (LIFE-005 sliding window).
-    current = await agent_store.get(agent.agent_id)
-    if current is None:
-        return JwtVerifyResult(ok=False, error="unknown agent")
-    if current.status in ("revoked", "expired", "pending", "rejected"):
-        return JwtVerifyResult(ok=False, error=f"agent session not usable: {current.status}")
-    if current.public_key != agent.public_key:
-        return JwtVerifyResult(ok=False, error="agent key changed during verification")
+    slid = await slide_session_if_still_current(agent_store, agent)
+    if isinstance(slid, str):
+        return JwtVerifyResult(ok=False, error=slid)
 
-    expiry_status = check_agent_expiry(current)
-    if expiry_status == "revoked":
-        return JwtVerifyResult(ok=False, error="agent_revoked")
-    if expiry_status == "expired":
-        return JwtVerifyResult(ok=False, error="agent_expired")
-
-    agent = extend_session(current)
-    await agent_store.save(agent)
-
-    return JwtVerifyResult(ok=True, claims=claims, host=host, agent=agent)
+    return JwtVerifyResult(ok=True, claims=claims, host=host, agent=slid)
 
 
 def _b64url(data: bytes) -> str:

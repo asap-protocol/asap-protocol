@@ -90,6 +90,40 @@ class AgentStore(Protocol):
         """Persist or replace an agent session."""
         ...
 
+    async def touch_if_current(
+        self,
+        agent_id: str,
+        expected_public_key: dict[str, Any],
+        last_used_at: datetime,
+        *,
+        expected_host_id: str,
+    ) -> AgentSession | None:
+        """Atomically slide ``last_used_at`` if this is still the same live session.
+
+        Must be one compare-and-set, equivalent to::
+
+            UPDATE agents
+               SET last_used_at = :ts
+             WHERE agent_id = :id
+               AND status = 'active'
+               AND host_id = :host
+               AND public_key thumbprint = RFC 7638(:expected)
+
+        Return the updated row, or ``None`` when the predicate fails (missing,
+        unusable, expired, re-hosted, or rotated). Do **not** implement this as
+        get → mutate → :meth:`save` of a verify-time snapshot: that TOCTOU can
+        resurrect a revoked agent or undo key rotation (LIFE-005). Same class as
+        ``NonceStore.check_and_mark``.
+
+        Example:
+            >>> updated = await store.touch_if_current(
+            ...     agent_id, jwk, now, expected_host_id=host_id
+            ... )
+            >>> if updated is None:
+            ...     raise RuntimeError("session changed during verify")
+        """
+        ...
+
     async def get(self, agent_id: str) -> AgentSession | None:
         """Return the session by agent id, or None if missing."""
         ...
@@ -196,6 +230,34 @@ class InMemoryAgentStore:
 
     async def save(self, agent: AgentSession) -> None:
         self._agents[agent.agent_id] = agent
+
+    async def touch_if_current(
+        self,
+        agent_id: str,
+        expected_public_key: dict[str, Any],
+        last_used_at: datetime,
+        *,
+        expected_host_id: str,
+    ) -> AgentSession | None:
+        # Read-and-assign with no await so a single event loop cannot interleave
+        # revoke/rotate between the predicate and the last_used_at write.
+        current = self._agents.get(agent_id)
+        if current is None or current.status != "active":
+            return None
+        if current.host_id != expected_host_id:
+            return None
+        try:
+            expected_tp = jwk_thumbprint_sha256(expected_public_key)
+            current_tp = jwk_thumbprint_sha256(current.public_key)
+        except (KeyError, TypeError, ValueError):
+            return None
+        if current_tp != expected_tp:
+            return None
+        if check_agent_expiry(current) != "active":
+            return None
+        updated = current.model_copy(update={"last_used_at": last_used_at})
+        self._agents[agent_id] = updated
+        return updated
 
     async def get(self, agent_id: str) -> AgentSession | None:
         return self._agents.get(agent_id)
