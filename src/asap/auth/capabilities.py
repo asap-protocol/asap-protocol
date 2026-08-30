@@ -268,11 +268,45 @@ def escalation_requires_user_consent(
     return not set(requested_capability_names).issubset(defaults)
 
 
+def auto_grant_would_replace_existing_grant(
+    existing: CapabilityGrant | None,
+    requested_constraints: object | None,
+) -> bool:
+    """Return True when auto-grant would overwrite a non-identical existing grant.
+
+    ``host.default_capabilities`` is name-only. Without this check, an Agent JWT can
+    POST ``/asap/agent/request-capability`` with the same name and omit (or weaken)
+    constraints, replacing a host-imposed allowlist.
+
+    Example:
+        existing = CapabilityGrant(
+            capability="file:read",
+            constraints={"path": {"in": ["/tmp"]}},
+        )
+        auto_grant_would_replace_existing_grant(existing, None)  # True
+    """
+    if existing is None:
+        return False
+    return existing.status != "active" or existing.constraints != requested_constraints
+
+
 def partition_escalation_capability_specs(
     host: HostIdentity,
     capability_specs: list[dict[str, Any]],
+    *,
+    existing_grants: list[CapabilityGrant] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Split capability specs into (needs_user_consent, auto_grant) buckets per host policy."""
+    """Split specs into (needs_user_consent, auto_grant) using host policy and current grants.
+
+    Names in ``host.default_capabilities`` auto-grant only when that would not replace
+    a different existing grant (clearing/changing constraints or flipping status).
+
+    Example:
+        needs, auto = partition_escalation_capability_specs(
+            host, specs, existing_grants=registry.get_grants(agent_id)
+        )
+    """
+    grant_by_name = {g.capability: g for g in existing_grants or ()}
     needs_consent: list[dict[str, Any]] = []
     auto_grant: list[dict[str, Any]] = []
     for spec in capability_specs:
@@ -282,10 +316,15 @@ def partition_escalation_capability_specs(
         name = raw_name.strip() if isinstance(raw_name, str) else ""
         if not name:
             continue
-        if escalation_requires_user_consent(host, [name]):
-            needs_consent.append(dict(spec))
+        copied = dict(spec)
+        replace_existing = auto_grant_would_replace_existing_grant(
+            grant_by_name.get(name),
+            spec.get("constraints"),
+        )
+        if escalation_requires_user_consent(host, [name]) or replace_existing:
+            needs_consent.append(copied)
         else:
-            auto_grant.append(dict(spec))
+            auto_grant.append(copied)
     return needs_consent, auto_grant
 
 

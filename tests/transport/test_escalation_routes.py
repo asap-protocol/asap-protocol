@@ -538,3 +538,128 @@ class TestEscalationRoutesErrorsAndBranches:
         )
         assert r.status_code == 401
         assert r.json()["detail"] == "Invalid agent token"
+
+
+@pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
+class TestEscalationConstraintOverwrite:
+    """Auto-grant must not clear or weaken an existing constrained default grant."""
+
+    async def test_clearing_path_constraint_requires_consent(
+        self,
+        sample_manifest: Manifest,
+        isolated_rate_limiter: ASAPRateLimiter | None,
+    ) -> None:
+        caps = [CapabilityDefinition(name="file:read", description="r")]
+        app, agent_store, host_store, registry = _setup(
+            sample_manifest, isolated_rate_limiter, capabilities=caps
+        )
+        host_sk = Ed25519PrivateKey.generate()
+        agent_sk = Ed25519PrivateKey.generate()
+        client = TestClient(app)
+        aid = await _register_and_activate(client, app, agent_store, host_sk, agent_sk)
+        await _activate_host_with_defaults(
+            host_store, agent_store, aid, default_capabilities=["file:read"]
+        )
+        sess = await agent_store.get(aid)
+        assert sess is not None
+        path_constraint: dict[str, object] = {"path": {"in": ["/tmp"]}}
+        registry.grant(
+            aid,
+            "file:read",
+            granted_by=sess.host_id,
+            constraints=path_constraint,
+        )
+        blocked = registry.check_grant(aid, "file:read", {"path": "/etc"})
+        assert blocked.allowed is False
+        tok = _agent_token(agent_sk, host_sk, aid)
+        r = client.post(
+            "/asap/agent/request-capability",
+            headers={"Authorization": f"Bearer {tok}"},
+            json={"capabilities": [{"name": "file:read"}]},
+        )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["status"] == "pending"
+        assert "approval" in body
+        still_blocked = registry.check_grant(aid, "file:read", {"path": "/etc"})
+        assert still_blocked.allowed is False
+        grants = registry.get_grants(aid)
+        assert len(grants) == 1
+        assert grants[0].constraints == path_constraint
+
+    async def test_weaker_in_list_requires_consent(
+        self,
+        sample_manifest: Manifest,
+        isolated_rate_limiter: ASAPRateLimiter | None,
+    ) -> None:
+        caps = [CapabilityDefinition(name="file:read", description="r")]
+        app, agent_store, host_store, registry = _setup(
+            sample_manifest, isolated_rate_limiter, capabilities=caps
+        )
+        host_sk = Ed25519PrivateKey.generate()
+        agent_sk = Ed25519PrivateKey.generate()
+        client = TestClient(app)
+        aid = await _register_and_activate(client, app, agent_store, host_sk, agent_sk)
+        await _activate_host_with_defaults(
+            host_store, agent_store, aid, default_capabilities=["file:read"]
+        )
+        sess = await agent_store.get(aid)
+        assert sess is not None
+        registry.grant(
+            aid,
+            "file:read",
+            granted_by=sess.host_id,
+            constraints={"path": {"in": ["/tmp"]}},
+        )
+        tok = _agent_token(agent_sk, host_sk, aid)
+        r = client.post(
+            "/asap/agent/request-capability",
+            headers={"Authorization": f"Bearer {tok}"},
+            json={
+                "capabilities": [
+                    {"name": "file:read", "constraints": {"path": {"in": ["/tmp", "/etc"]}}},
+                ]
+            },
+        )
+        assert r.status_code == 200
+        assert r.json()["status"] == "pending"
+        still_blocked = registry.check_grant(aid, "file:read", {"path": "/etc"})
+        assert still_blocked.allowed is False
+
+    async def test_identical_constraints_remain_auto_grant(
+        self,
+        sample_manifest: Manifest,
+        isolated_rate_limiter: ASAPRateLimiter | None,
+    ) -> None:
+        caps = [CapabilityDefinition(name="file:read", description="r")]
+        app, agent_store, host_store, registry = _setup(
+            sample_manifest, isolated_rate_limiter, capabilities=caps
+        )
+        host_sk = Ed25519PrivateKey.generate()
+        agent_sk = Ed25519PrivateKey.generate()
+        client = TestClient(app)
+        aid = await _register_and_activate(client, app, agent_store, host_sk, agent_sk)
+        await _activate_host_with_defaults(
+            host_store, agent_store, aid, default_capabilities=["file:read"]
+        )
+        sess = await agent_store.get(aid)
+        assert sess is not None
+        constraints: dict[str, object] = {"path": {"in": ["/tmp"]}}
+        registry.grant(
+            aid,
+            "file:read",
+            granted_by=sess.host_id,
+            constraints=constraints,
+        )
+        tok = _agent_token(agent_sk, host_sk, aid)
+        r = client.post(
+            "/asap/agent/request-capability",
+            headers={"Authorization": f"Bearer {tok}"},
+            json={"capabilities": [{"name": "file:read", "constraints": constraints}]},
+        )
+        assert r.status_code == 200
+        assert r.json()["status"] == "active"
+        allowed_tmp = registry.check_grant(aid, "file:read", {"path": "/tmp"})
+        assert allowed_tmp.allowed is True
+        blocked_etc = registry.check_grant(aid, "file:read", {"path": "/etc"})
+        assert blocked_etc.allowed is False
