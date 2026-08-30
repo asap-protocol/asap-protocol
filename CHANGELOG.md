@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Capability escalation constraint overwrite** —
+  ``POST /asap/agent/request-capability`` no longer auto-applies a name in
+  ``host.default_capabilities`` when that would clear, weaken, or otherwise
+  replace an existing registry grant. Constraint changes require the same
+  Device Auth / CIBA consent path as non-default capability names.
+
 ### Security (deps)
 
 - Raise `cryptography` to `>=50.0.0,<51` for **PYSEC-2026-3552** (PKCS7

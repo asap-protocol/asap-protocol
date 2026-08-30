@@ -14,6 +14,7 @@ from asap.auth.capabilities import (
     CapabilityRegistry,
     ConstraintViolation,
     GrantStatus,
+    auto_grant_would_replace_existing_grant,
     escalation_requires_user_consent,
     map_scopes_to_capabilities,
     partition_escalation_capability_specs,
@@ -450,3 +451,95 @@ class TestEscalationCapabilityHelpers:
         )
         assert needs == []
         assert autos == []
+
+    def test_auto_grant_replace_none_existing_is_false(self) -> None:
+        assert auto_grant_would_replace_existing_grant(None, None) is False
+        assert auto_grant_would_replace_existing_grant(None, {"path": "/tmp"}) is False
+
+    def test_auto_grant_replace_identical_active_grant_is_false(self) -> None:
+        constraints: dict[str, Any] = {"path": {"in": ["/tmp"]}}
+        existing = CapabilityGrant(
+            capability="file:read",
+            status="active",
+            constraints=constraints,
+        )
+        assert auto_grant_would_replace_existing_grant(existing, constraints) is False
+        unconstrained = CapabilityGrant(capability="file:read", status="active")
+        assert auto_grant_would_replace_existing_grant(unconstrained, None) is False
+
+    def test_auto_grant_replace_clears_or_changes_constraints(self) -> None:
+        existing = CapabilityGrant(
+            capability="file:read",
+            status="active",
+            constraints={"path": {"in": ["/tmp"]}},
+        )
+        assert auto_grant_would_replace_existing_grant(existing, None) is True
+        weaker: dict[str, Any] = {"path": {"in": ["/tmp", "/etc"]}}
+        assert auto_grant_would_replace_existing_grant(existing, weaker) is True
+
+    def test_auto_grant_replace_denied_grant_requires_consent(self) -> None:
+        denied = CapabilityGrant(capability="file:read", status="denied")
+        assert auto_grant_would_replace_existing_grant(denied, None) is True
+
+    def test_partition_sends_constraint_clear_to_consent(self) -> None:
+        host = self._host(default_capabilities=["file:read"])
+        existing = [
+            CapabilityGrant(
+                capability="file:read",
+                status="active",
+                constraints={"path": {"in": ["/tmp"]}},
+            ),
+        ]
+        needs, autos = partition_escalation_capability_specs(
+            host,
+            [{"name": "file:read"}],
+            existing_grants=existing,
+        )
+        assert [s["name"] for s in needs] == ["file:read"]
+        assert autos == []
+
+    def test_partition_auto_grants_identical_constrained_rerun(self) -> None:
+        host = self._host(default_capabilities=["file:read"])
+        constraints: dict[str, Any] = {"path": {"in": ["/tmp"]}}
+        existing = [
+            CapabilityGrant(
+                capability="file:read",
+                status="active",
+                constraints=constraints,
+            ),
+        ]
+        needs, autos = partition_escalation_capability_specs(
+            host,
+            [{"name": "file:read", "constraints": constraints}],
+            existing_grants=existing,
+        )
+        assert needs == []
+        assert [s["name"] for s in autos] == ["file:read"]
+
+    def test_partition_still_auto_grants_new_default_name(self) -> None:
+        host = self._host(default_capabilities=["file:read", "file:write"])
+        existing = [CapabilityGrant(capability="file:read", status="active")]
+        needs, autos = partition_escalation_capability_specs(
+            host,
+            [{"name": "file:write"}],
+            existing_grants=existing,
+        )
+        assert needs == []
+        assert [s["name"] for s in autos] == ["file:write"]
+
+    def test_partition_mixed_constraint_clear_and_new_default(self) -> None:
+        host = self._host(default_capabilities=["file:read", "file:write"])
+        existing = [
+            CapabilityGrant(
+                capability="file:read",
+                status="active",
+                constraints={"path": {"in": ["/tmp"]}},
+            ),
+        ]
+        needs, autos = partition_escalation_capability_specs(
+            host,
+            [{"name": "file:read"}, {"name": "file:write"}],
+            existing_grants=existing,
+        )
+        assert [s["name"] for s in needs] == ["file:read"]
+        assert [s["name"] for s in autos] == ["file:write"]

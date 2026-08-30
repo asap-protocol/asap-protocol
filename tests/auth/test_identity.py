@@ -419,8 +419,7 @@ async def test_touch_if_current_slides_last_used_at_without_clobbering_key() -> 
 
 
 async def test_touch_if_current_refuses_revoked_rotated_or_rehosted_row() -> None:
-    """Predicate fails closed so a later save cannot resurrect or undo rotate."""
-    store = InMemoryAgentStore()
+    """Predicate fails closed; save also refuses to resurrect a revoked row."""
     now = _utc_now()
     public_key = make_ed25519_jwk()
     session = AgentSession(
@@ -431,23 +430,35 @@ async def test_touch_if_current_refuses_revoked_rotated_or_rehosted_row() -> Non
         status="active",
         created_at=now,
     )
-    await store.save(session)
-    await store.revoke("a1")
-    assert (await store.touch_if_current("a1", public_key, now, expected_host_id="h1")) is None
-    revoked = await store.get("a1")
-    assert revoked is not None and revoked.status == "revoked"
 
-    await store.save(session)
+    revoked_store = InMemoryAgentStore()
+    await revoked_store.save(session)
+    await revoked_store.revoke("a1")
+    assert (
+        await revoked_store.touch_if_current("a1", public_key, now, expected_host_id="h1")
+    ) is None
+    revoked = await revoked_store.get("a1")
+    assert revoked is not None and revoked.status == "revoked"
+    with pytest.raises(ValueError, match="refusing to overwrite revoked agent"):
+        await revoked_store.save(session)
+
+    rotated_store = InMemoryAgentStore()
+    await rotated_store.save(session)
     rotated = make_ed25519_jwk()
-    await store.save(session.model_copy(update={"public_key": rotated}))
-    assert (await store.touch_if_current("a1", public_key, now, expected_host_id="h1")) is None
-    kept = await store.get("a1")
+    await rotated_store.save(session.model_copy(update={"public_key": rotated}))
+    assert (
+        await rotated_store.touch_if_current("a1", public_key, now, expected_host_id="h1")
+    ) is None
+    kept = await rotated_store.get("a1")
     assert kept is not None and kept.public_key == rotated
 
-    await store.save(session)
-    await store.save(session.model_copy(update={"host_id": "other-host"}))
-    assert (await store.touch_if_current("a1", public_key, now, expected_host_id="h1")) is None
-    rehosted = await store.get("a1")
+    rehost_store = InMemoryAgentStore()
+    await rehost_store.save(session)
+    await rehost_store.save(session.model_copy(update={"host_id": "other-host"}))
+    assert (
+        await rehost_store.touch_if_current("a1", public_key, now, expected_host_id="h1")
+    ) is None
+    rehosted = await rehost_store.get("a1")
     assert rehosted is not None and rehosted.host_id == "other-host"
 
 
