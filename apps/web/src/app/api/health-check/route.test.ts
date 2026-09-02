@@ -38,7 +38,11 @@ describe('GET /api/health-check', () => {
 
   it('returns 429 and Retry-After when rate limit blocks request', async () => {
     vi.mocked(checkProxyRateLimit).mockResolvedValue({ allowed: false, retryAfter: 12 });
-    const res = await GET(createRequest('https://example.com/health', { 'x-forwarded-for': '203.0.113.10, 198.51.100.1' }));
+    const res = await GET(
+      createRequest('https://example.com/health', {
+        'x-forwarded-for': '203.0.113.10, 198.51.100.1',
+      })
+    );
     expect(res.status).toBe(429);
     expect(res.headers.get('Retry-After')).toBe('12');
     const json = await res.json();
@@ -72,5 +76,25 @@ describe('GET /api/health-check', () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json).toEqual({ ok: false, status: 0 });
+  });
+
+  it('returns 400 when a 302 Location fails the allowlist', async () => {
+    vi.mocked(isAllowedExternalUrl).mockResolvedValueOnce({ valid: true }).mockResolvedValueOnce({
+      valid: false,
+      error: 'Internal/Private network addresses are not allowed.',
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(null, {
+          status: 302,
+          headers: { Location: 'http://127.0.0.1:8080/secret' },
+        })
+      )
+    );
+    const res = await GET(createRequest('https://example.com/health'));
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toContain('Internal/Private');
   });
 });
