@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { isAllowedProxyUrlAsync } from '@/lib/url-validator-server';
 import { checkProxyRateLimit } from '@/lib/rate-limit';
 import { ProxyCheckQuerySchema, parseSearchParams } from '@/lib/api-schemas';
+import { fetchAllowlistedUrl, isPinnedFetchBlocked } from '@/lib/fetch-pinned-url';
 
 const FETCH_TIMEOUT_MS = 3000;
 
@@ -34,16 +35,13 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: check.error ?? 'Invalid URL' }, { status: 400 });
     }
 
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-        const res = await fetch(url, {
-            method: 'GET',
-            signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-        return NextResponse.json({ ok: res.ok, status: res.status });
-    } catch {
-        return NextResponse.json({ ok: false, status: 0 });
+    const result = await fetchAllowlistedUrl(
+        url,
+        async (nextUrl) => (nextUrl === url ? check : isAllowedProxyUrlAsync(nextUrl)),
+        FETCH_TIMEOUT_MS
+    );
+    if (isPinnedFetchBlocked(result)) {
+        return NextResponse.json({ error: result.error }, { status: 400 });
     }
+    return NextResponse.json({ ok: result.ok, status: result.status });
 }
