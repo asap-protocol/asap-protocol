@@ -4,10 +4,11 @@
 Policy:
 - ``registry.json`` must already validate as :class:`~asap.discovery.registry.LiteRegistry`
   (run ``scripts/validate_registry.py`` first in CI).
-- **Self-signed path** (registry terms): no new or escalated **verified** marketplace badge.
+- **Add-only**: head may introduce new agent ids. It must not modify or delete ids that
+  already exist in the base revision (overwrites hijack traffic; deletions drop listings).
+- **Self-signed path** (registry terms): no new **verified** marketplace badge.
   New agents must not ship with ``verification.status == "verified"``.
-  Existing agents must not gain ``verified`` unless they were already verified in the base
-  revision (human review handles promotions).
+  Promotions stay on the manual verification flow.
 
 Exit code ``0`` = eligible for auto-merge; ``1`` = requires human review. Reason printed to
 stdout (and stderr on failure).
@@ -48,7 +49,12 @@ def _load(path: Path) -> LiteRegistry:
     return LiteRegistry.model_validate(cast(dict[str, object], raw))
 
 
+def _entry_payload(entry: RegistryEntry) -> dict[str, object]:
+    return entry.model_dump(mode="json")
+
+
 def evaluate(base_path: Path, head_path: Path) -> tuple[bool, str]:
+    """Return whether *head_path* is an add-only self-signed registry update."""
     try:
         base = _load(base_path)
         head = _load(head_path)
@@ -56,9 +62,9 @@ def evaluate(base_path: Path, head_path: Path) -> tuple[bool, str]:
         return False, f"Failed to parse registry JSON: {e}"
 
     base_by_id: dict[str, RegistryEntry] = {str(a.id): a for a in base.agents}
+    head_by_id: dict[str, RegistryEntry] = {str(a.id): a for a in head.agents}
 
-    for agent in head.agents:
-        aid = str(agent.id)
+    for aid, agent in head_by_id.items():
         prev = base_by_id.get(aid)
         if prev is None:
             if _is_verified(agent):
@@ -67,13 +73,21 @@ def evaluate(base_path: Path, head_path: Path) -> tuple[bool, str]:
                     f"New agent {aid} must not use verification.status=verified "
                     "(self-signed / auto-registration path only).",
                 )
-        elif _is_verified(agent) and not _is_verified(prev):
+            continue
+        if _entry_payload(prev) != _entry_payload(agent):
             return (
                 False,
-                f"Agent {aid} cannot be promoted to verified via auto-registration; "
-                "use the manual verification flow.",
+                f"Agent {aid} is already registered; auto-registration cannot "
+                "modify existing entries.",
             )
-    return True, "Auto-merge eligible: registry verification policy satisfied."
+
+    for aid in base_by_id:
+        if aid not in head_by_id:
+            return (
+                False,
+                f"Agent {aid} is missing from the PR; auto-registration cannot remove entries.",
+            )
+    return True, "Auto-merge eligible: add-only self-signed registration."
 
 
 def main() -> int:

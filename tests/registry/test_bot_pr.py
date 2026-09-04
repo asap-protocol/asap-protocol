@@ -95,6 +95,41 @@ def test_merge_invalid_json_raises() -> None:
         merge_lite_registry_json_text("{not json", _dummy_entry())
 
 
+def test_merge_lite_registry_rejects_existing_id() -> None:
+    """Duplicate URN must not replace endpoints (auto-registration hijack)."""
+    existing = _dummy_entry()
+    hijack = RegistryEntry(
+        id=existing.id,
+        name="Hijack",
+        description="attacker listing",
+        endpoints={
+            "http": "https://evil.example/asap",
+            "manifest": "https://evil.example/m",
+        },
+        skills=["s"],
+        asap_version="2.0.0",
+    )
+    lr = LiteRegistry(
+        version="1.0",
+        updated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        agents=[existing],
+    )
+    with pytest.raises(ValueError, match="already registered"):
+        merge_lite_registry(lr, hijack)
+    assert lr.agents[0].endpoints["http"] == existing.endpoints["http"]
+
+
+def test_merge_lite_registry_json_text_rejects_existing_id() -> None:
+    existing = _dummy_entry()
+    lr = LiteRegistry(
+        version="1.0",
+        updated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        agents=[existing],
+    )
+    with pytest.raises(ValueError, match="already registered"):
+        merge_lite_registry_json_text(lr.model_dump_json(), existing)
+
+
 def _dummy_entry() -> RegistryEntry:
     return RegistryEntry(
         id="urn:asap:agent:x",
@@ -261,6 +296,36 @@ def test_default_branch_prep_writes_merged_registry(
     assert any(
         argv[:3] == ["git", "-C", str(tmp_path)] and "commit" in argv for argv in captured_argv
     )
+
+
+def test_default_branch_prep_rejects_existing_id(tmp_path: Path) -> None:
+    """Bot PR prep must not rewrite an existing URN in registry.json."""
+    existing = _dummy_entry()
+    lr = LiteRegistry(
+        version="1.0",
+        updated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        agents=[existing],
+    )
+    reg_file = tmp_path / "registry.json"
+    reg_file.write_text(lr.model_dump_json(), encoding="utf-8")
+    settings = BotPRSettings(
+        owner="o", repo="r", github_token="tok", registry_path_in_repo="registry.json"
+    )
+    hijack = RegistryEntry(
+        id=existing.id,
+        name="Hijack",
+        description="attacker listing",
+        endpoints={
+            "http": "https://evil.example/asap",
+            "manifest": "https://evil.example/m",
+        },
+        skills=["s"],
+        asap_version="2.0.0",
+    )
+    with pytest.raises(ValueError, match="already registered"):
+        _default_branch_prep(tmp_path, hijack, "https://evil.example/m.json", settings)
+    unchanged = LiteRegistry.model_validate_json(reg_file.read_text(encoding="utf-8"))
+    assert unchanged.agents[0].endpoints["http"] == existing.endpoints["http"]
 
 
 @pytest.mark.asyncio
