@@ -376,13 +376,23 @@ async def verify_agent_jwt(
     if expiry_status == "expired":
         return JwtVerifyResult(ok=False, error="agent_expired")
 
-    # Persist only last_used_at via touch — a full save of the pre-verify snapshot
+    # Persist only last_used_at via touch. A full save of the pre-verify snapshot
     # would race revoke/rotate-key and resurrect revoked sessions or restore old keys.
     touched = await agent_store.touch(agent.agent_id)
     if touched is None:
         return JwtVerifyResult(
             ok=False,
-            error="agent session not usable after verify (revoked, rotated, or expired)",
+            error="agent session not usable after verify (revoked or expired)",
+        )
+    verified_tp = jwk_thumbprint_sha256(dict(agent.public_key))
+    live_tp = jwk_thumbprint_sha256(dict(touched.public_key))
+    if live_tp != verified_tp:
+        return JwtVerifyResult(
+            ok=False,
+            error=(
+                "agent public key rotated during verify: "
+                f"verified thumbprint {verified_tp!r}, live {live_tp!r}"
+            ),
         )
 
     return JwtVerifyResult(ok=True, claims=claims, host=host, agent=touched)

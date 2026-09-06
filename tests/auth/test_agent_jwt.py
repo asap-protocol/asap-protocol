@@ -344,7 +344,6 @@ async def test_verify_agent_jwt_persists_extended_session() -> None:
 
 
 @pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
-@pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
 async def test_verify_agent_jwt_does_not_resurrect_revoked_session() -> None:
     """Concurrent revoke must win over LIFE-005 touch (no full-record overwrite)."""
     now = datetime.now(timezone.utc)
@@ -389,7 +388,7 @@ async def test_verify_agent_jwt_does_not_resurrect_revoked_session() -> None:
             await asyncio.sleep(0.05)
         return session
 
-    agents.get = slow_get  # type: ignore[method-assign]
+    agents.get = slow_get
 
     async def revoke_after_get() -> None:
         await gate.wait()
@@ -399,7 +398,7 @@ async def test_verify_agent_jwt_does_not_resurrect_revoked_session() -> None:
         verify_agent_jwt(token, hosts, agents),
         revoke_after_get(),
     )
-    agents.get = orig_get  # type: ignore[method-assign]
+    agents.get = orig_get
 
     stored = await agents.get("a1")
     assert stored is not None
@@ -454,7 +453,7 @@ async def test_verify_agent_jwt_does_not_restore_rotated_public_key() -> None:
             await asyncio.sleep(0.05)
         return session
 
-    agents.get = slow_get  # type: ignore[method-assign]
+    agents.get = slow_get
 
     async def rotate_after_get() -> None:
         await gate.wait()
@@ -466,14 +465,13 @@ async def test_verify_agent_jwt_does_not_restore_rotated_public_key() -> None:
         verify_agent_jwt(token, hosts, agents),
         rotate_after_get(),
     )
-    agents.get = orig_get  # type: ignore[method-assign]
+    agents.get = orig_get
 
     stored = await agents.get("a1")
     assert stored is not None
     assert jwk_thumbprint_sha256(stored.public_key) == jwk_thumbprint_sha256(new_pub)
-    # Verify may succeed (in-flight JWT) or fail if touch races after rotate;
-    # the security property is that the store keeps the rotated key.
     assert stored.status == "active"
+    assert res.ok is False
 
 
 async def test_verify_agent_jwt_audience_mismatch() -> None:

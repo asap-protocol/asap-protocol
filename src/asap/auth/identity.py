@@ -114,6 +114,12 @@ class AgentStore(Protocol):
         copy. Returns the updated session, or ``None`` if missing, not
         ``active``, or past expiry (so concurrent revoke/rotate cannot be
         undone by JWT verification).
+
+        Example:
+            >>> import asyncio
+            >>> from asap.auth.identity import InMemoryAgentStore
+            >>> asyncio.run(InMemoryAgentStore().touch("missing-agent")) is None
+            True
         """
         ...
 
