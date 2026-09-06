@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import base64
 import time
 from datetime import datetime, timedelta, timezone
@@ -342,6 +344,138 @@ async def test_verify_agent_jwt_persists_extended_session() -> None:
 
 
 @pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
+@pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
+async def test_verify_agent_jwt_does_not_resurrect_revoked_session() -> None:
+    """Concurrent revoke must win over LIFE-005 touch (no full-record overwrite)."""
+    now = datetime.now(timezone.utc)
+    host_sk = Ed25519PrivateKey.generate()
+    host_pub = _public_jwk_dict(host_sk)
+    host_tp = jwk_thumbprint_sha256(host_pub)
+    agent_sk = Ed25519PrivateKey.generate()
+    agent_pub = _public_jwk_dict(agent_sk)
+
+    hosts = InMemoryHostStore()
+    agents = InMemoryAgentStore()
+    await hosts.save(
+        HostIdentity(
+            host_id="h1",
+            public_key=host_pub,
+            status="active",
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    await agents.save(
+        AgentSession(
+            agent_id="a1",
+            host_id="h1",
+            public_key=agent_pub,
+            mode="delegated",
+            status="active",
+            created_at=now,
+            session_ttl=timedelta(hours=1),
+            last_used_at=now,
+        )
+    )
+    token = create_agent_jwt(agent_sk, host_thumbprint=host_tp, agent_id="a1", aud="aud")
+
+    gate = asyncio.Event()
+    orig_get = agents.get
+
+    async def slow_get(agent_id: str) -> AgentSession | None:
+        session = await orig_get(agent_id)
+        if agent_id == "a1" and session is not None and session.status == "active":
+            gate.set()
+            await asyncio.sleep(0.05)
+        return session
+
+    agents.get = slow_get  # type: ignore[method-assign]
+
+    async def revoke_after_get() -> None:
+        await gate.wait()
+        await agents.revoke("a1")
+
+    res, _ = await asyncio.gather(
+        verify_agent_jwt(token, hosts, agents),
+        revoke_after_get(),
+    )
+    agents.get = orig_get  # type: ignore[method-assign]
+
+    stored = await agents.get("a1")
+    assert stored is not None
+    assert stored.status == "revoked"
+    assert res.ok is False
+
+
+@pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
+async def test_verify_agent_jwt_does_not_restore_rotated_public_key() -> None:
+    """Concurrent key rotation must not be undone by session extension persist."""
+    now = datetime.now(timezone.utc)
+    host_sk = Ed25519PrivateKey.generate()
+    host_pub = _public_jwk_dict(host_sk)
+    host_tp = jwk_thumbprint_sha256(host_pub)
+    agent_sk = Ed25519PrivateKey.generate()
+    agent_pub = _public_jwk_dict(agent_sk)
+    new_sk = Ed25519PrivateKey.generate()
+    new_pub = _public_jwk_dict(new_sk)
+
+    hosts = InMemoryHostStore()
+    agents = InMemoryAgentStore()
+    await hosts.save(
+        HostIdentity(
+            host_id="h1",
+            public_key=host_pub,
+            status="active",
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    await agents.save(
+        AgentSession(
+            agent_id="a1",
+            host_id="h1",
+            public_key=agent_pub,
+            mode="delegated",
+            status="active",
+            created_at=now,
+            session_ttl=timedelta(hours=1),
+            last_used_at=now,
+        )
+    )
+    token = create_agent_jwt(agent_sk, host_thumbprint=host_tp, agent_id="a1", aud="aud")
+
+    gate = asyncio.Event()
+    orig_get = agents.get
+
+    async def slow_get(agent_id: str) -> AgentSession | None:
+        session = await orig_get(agent_id)
+        if agent_id == "a1" and session is not None and session.public_key == agent_pub:
+            gate.set()
+            await asyncio.sleep(0.05)
+        return session
+
+    agents.get = slow_get  # type: ignore[method-assign]
+
+    async def rotate_after_get() -> None:
+        await gate.wait()
+        current = await orig_get("a1")
+        assert current is not None
+        await agents.save(current.model_copy(update={"public_key": new_pub}))
+
+    res, _ = await asyncio.gather(
+        verify_agent_jwt(token, hosts, agents),
+        rotate_after_get(),
+    )
+    agents.get = orig_get  # type: ignore[method-assign]
+
+    stored = await agents.get("a1")
+    assert stored is not None
+    assert jwk_thumbprint_sha256(stored.public_key) == jwk_thumbprint_sha256(new_pub)
+    # Verify may succeed (in-flight JWT) or fail if touch races after rotate;
+    # the security property is that the store keeps the rotated key.
+    assert stored.status == "active"
+
+
 async def test_verify_agent_jwt_audience_mismatch() -> None:
     """``expected_audience`` rejects tokens minted for another consumer."""
     now = datetime.now(timezone.utc)

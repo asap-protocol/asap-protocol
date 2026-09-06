@@ -238,6 +238,9 @@ class _StubAgentStore:
     async def revoke_by_host(self, host_id: str) -> None:
         return None
 
+    async def touch(self, agent_id: str) -> AgentSession | None:
+        return None
+
 
 class _IncompleteHostStore:
     """Missing protocol methods — should fail runtime isinstance."""
@@ -479,3 +482,75 @@ async def test_host_revoke_cascades_multiple_agents() -> None:
     for aid in ("a1", "a2", "a3"):
         row = await agents.get(aid)
         assert row is not None and row.status == "revoked"
+
+
+async def test_touch_extends_active_session() -> None:
+    """touch bumps last_used_at for an active session."""
+    store = InMemoryAgentStore()
+    now = _utc_now()
+    public_key = make_ed25519_jwk()
+    stale = now - timedelta(minutes=10)
+    await store.save(
+        AgentSession(
+            agent_id="a1",
+            host_id="h1",
+            public_key=public_key,
+            mode="delegated",
+            status="active",
+            created_at=now,
+            session_ttl=timedelta(hours=1),
+            last_used_at=stale,
+        )
+    )
+    touched = await store.touch("a1")
+    assert touched is not None
+    assert touched.last_used_at is not None
+    assert touched.last_used_at > stale
+
+
+async def test_touch_does_not_overwrite_revoked() -> None:
+    """touch must return None and leave a revoked session revoked."""
+    store = InMemoryAgentStore()
+    now = _utc_now()
+    public_key = make_ed25519_jwk()
+    await store.save(
+        AgentSession(
+            agent_id="a1",
+            host_id="h1",
+            public_key=public_key,
+            mode="delegated",
+            status="active",
+            created_at=now,
+            last_used_at=now,
+        )
+    )
+    await store.revoke("a1")
+    assert await store.touch("a1") is None
+    stored = await store.get("a1")
+    assert stored is not None
+    assert stored.status == "revoked"
+
+
+async def test_touch_preserves_rotated_public_key() -> None:
+    """touch only updates last_used_at; it must not restore a prior public_key."""
+    store = InMemoryAgentStore()
+    now = _utc_now()
+    old_key = make_ed25519_jwk()
+    new_key = make_ed25519_jwk()
+    await store.save(
+        AgentSession(
+            agent_id="a1",
+            host_id="h1",
+            public_key=old_key,
+            mode="delegated",
+            status="active",
+            created_at=now,
+            last_used_at=now,
+        )
+    )
+    current = await store.get("a1")
+    assert current is not None
+    await store.save(current.model_copy(update={"public_key": new_key}))
+    touched = await store.touch("a1")
+    assert touched is not None
+    assert jwk_thumbprint_sha256(touched.public_key) == jwk_thumbprint_sha256(new_key)

@@ -27,7 +27,6 @@ from asap.auth.identity import (
     HostIdentity,
     HostStore,
     check_agent_expiry,
-    extend_session,
     jwk_thumbprint_sha256,
 )
 from asap.auth.jti_replay_cache import JtiReplayCacheProtocol
@@ -314,7 +313,7 @@ async def verify_agent_jwt(
 
     When ``expected_audience`` is set, ``aud`` must match (RFC 7519 §4.1.3).
 
-    On success, extends the session and persists via ``agent_store.save`` (LIFE-005
+    On success, extends the session and persists via ``agent_store.touch`` (LIFE-005
     sliding ``last_used_at``). Callers — including ``GET /asap/capability/list`` —
     therefore keep idle sessions warm on every authenticated verify; do not assume
     a separate “caller persists” step.
@@ -377,10 +376,16 @@ async def verify_agent_jwt(
     if expiry_status == "expired":
         return JwtVerifyResult(ok=False, error="agent_expired")
 
-    agent = extend_session(agent)
-    await agent_store.save(agent)
+    # Persist only last_used_at via touch — a full save of the pre-verify snapshot
+    # would race revoke/rotate-key and resurrect revoked sessions or restore old keys.
+    touched = await agent_store.touch(agent.agent_id)
+    if touched is None:
+        return JwtVerifyResult(
+            ok=False,
+            error="agent session not usable after verify (revoked, rotated, or expired)",
+        )
 
-    return JwtVerifyResult(ok=True, claims=claims, host=host, agent=agent)
+    return JwtVerifyResult(ok=True, claims=claims, host=host, agent=touched)
 
 
 def _b64url(data: bytes) -> str:

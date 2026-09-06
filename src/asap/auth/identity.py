@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import json
@@ -106,6 +107,16 @@ class AgentStore(Protocol):
         """Revoke every agent session belonging to the host."""
         ...
 
+    async def touch(self, agent_id: str) -> AgentSession | None:
+        """Atomically bump ``last_used_at`` if the session is still usable.
+
+        Must not overwrite ``status`` or ``public_key`` from a stale in-memory
+        copy. Returns the updated session, or ``None`` if missing, not
+        ``active``, or past expiry (so concurrent revoke/rotate cannot be
+        undone by JWT verification).
+        """
+        ...
+
 
 def jwk_thumbprint_sha256(public_key: dict[str, Any]) -> str:
     """RFC 7638 JWK thumbprint using SHA-256 (base64url, no padding).
@@ -189,13 +200,19 @@ class InMemoryHostStore:
 
 
 class InMemoryAgentStore:
-    """In-memory `AgentStore` for development and tests."""
+    """In-memory `AgentStore` for development and tests.
+
+    Mutating methods share an :class:`asyncio.Lock` so ``touch`` cannot race
+    ``revoke`` / ``save`` and resurrect a revoked session or restore a rotated key.
+    """
 
     def __init__(self) -> None:
         self._agents: dict[str, AgentSession] = {}
+        self._lock = asyncio.Lock()
 
     async def save(self, agent: AgentSession) -> None:
-        self._agents[agent.agent_id] = agent
+        async with self._lock:
+            self._agents[agent.agent_id] = agent
 
     async def get(self, agent_id: str) -> AgentSession | None:
         return self._agents.get(agent_id)
@@ -207,14 +224,31 @@ class InMemoryAgentStore:
         )
 
     async def revoke(self, agent_id: str) -> None:
-        agent = self._agents.get(agent_id)
-        if agent is None or agent.status == "revoked":
-            return
-        self._agents[agent_id] = agent.model_copy(update={"status": "revoked"})
+        async with self._lock:
+            agent = self._agents.get(agent_id)
+            if agent is None or agent.status == "revoked":
+                return
+            self._agents[agent_id] = agent.model_copy(update={"status": "revoked"})
 
     async def revoke_by_host(self, host_id: str) -> None:
-        for aid in [a.agent_id for a in self._agents.values() if a.host_id == host_id]:
-            await self.revoke(aid)
+        async with self._lock:
+            for aid in [a.agent_id for a in self._agents.values() if a.host_id == host_id]:
+                agent = self._agents.get(aid)
+                if agent is None or agent.status == "revoked":
+                    continue
+                self._agents[aid] = agent.model_copy(update={"status": "revoked"})
+
+    async def touch(self, agent_id: str) -> AgentSession | None:
+        """Bump ``last_used_at`` only when the live row is still active and unexpired."""
+        async with self._lock:
+            agent = self._agents.get(agent_id)
+            if agent is None or agent.status != "active":
+                return None
+            if check_agent_expiry(agent) != "active":
+                return None
+            updated = extend_session(agent)
+            self._agents[agent_id] = updated
+            return updated
 
 
 # ---------------------------------------------------------------------------
