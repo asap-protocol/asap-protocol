@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import re
 from collections.abc import Callable, Iterable, Mapping
-from typing import Any, TypeAlias, cast
+from typing import Any, TypeAlias
 from urllib.parse import quote
 
 import httpx
@@ -42,6 +42,7 @@ _RESOLVE_HEADERS = "asap:adapters/openapi/resolve_headers"
 # Bound upstream HTTP error payloads copied into FatalError/RecoverableError details to
 # reduce accidental leakage of large or sensitive bodies (prefer server logs for triage).
 _UPSTREAM_CLIENT_ERROR_BODY_MAX_LEN = 200
+_DOT_PATH_SEGMENTS = frozenset({".", ".."})
 
 ResolveHeaders: TypeAlias = Callable[[object | None], dict[str, str]]
 
@@ -96,7 +97,8 @@ class OpenAPIPathParameterError(FatalError):
         elif inv:
             message = (
                 f"Invalid path parameter value(s) for template {path_template!r}: "
-                f"{', '.join(inv)} (must not be None, empty, or whitespace-only)."
+                f"{', '.join(inv)} (must not be None, empty, whitespace-only, "
+                f"or a '.'/'..' path segment)."
             )
             details = {"path_template": path_template, "invalid": inv}
         else:
@@ -123,7 +125,7 @@ class OpenAPIPathParameterError(FatalError):
 
     @classmethod
     def for_invalid(cls, path_template: str, invalid: list[str]) -> OpenAPIPathParameterError:
-        """Build an error for empty/None/whitespace path values (requires non-empty *invalid*)."""
+        """Build an error for empty/None/whitespace/dot-segment path values."""
         if not invalid:
             raise ValueError("for_invalid requires a non-empty invalid= list.")
         return cls(path_template=path_template, invalid=invalid)
@@ -302,24 +304,40 @@ def _headers_from_resolve_callback(
     return out
 
 
+def _is_invalid_path_param_value(value: object) -> bool:
+    """Return True when *value* is None, blank, or a URL dot-segment (`.` / `..`).
+
+    ``urllib.parse.quote(..., safe="")`` leaves RFC 3986 unreserved dots unencoded,
+    so ``petId=".."`` would otherwise become ``/pets/..`` and climb out of the
+    templated prefix (including a path on *base_url*).
+    """
+    if value is None:
+        return True
+    if isinstance(value, str) and value.strip() == "":
+        return True
+    return str(value) in _DOT_PATH_SEGMENTS
+
+
+def _filled_path_has_dot_segment(path: str) -> bool:
+    """Return True if *path* contains a `.` or `..` segment after substitution."""
+    return any(segment in _DOT_PATH_SEGMENTS for segment in path.split("/"))
+
+
 def _fill_path_template(path_template: str, path_params: Mapping[str, Any]) -> str:
     raw_names = re.findall(r"\{([^}]+)\}", path_template)
     names_order = list(dict.fromkeys(raw_names))
     missing = [n for n in names_order if n not in path_params]
     if missing:
         raise OpenAPIPathParameterError.for_missing(path_template, missing)
-    invalid_names = [
-        n
-        for n in names_order
-        if path_params[n] is None
-        or (isinstance(path_params[n], str) and cast(str, path_params[n]).strip() == "")
-    ]
+    invalid_names = [n for n in names_order if _is_invalid_path_param_value(path_params[n])]
     if invalid_names:
         raise OpenAPIPathParameterError.for_invalid(path_template, invalid_names)
     out = path_template
     for name in names_order:
         raw = path_params[name]
         out = out.replace("{" + name + "}", quote(str(raw), safe=""))
+    if _filled_path_has_dot_segment(out):
+        raise OpenAPIPathParameterError.for_invalid(path_template, names_order)
     return out
 
 
@@ -381,7 +399,7 @@ class OpenAPIUpstreamHandler:
             UnknownOpenAPICapabilityError: *capability_name* is not registered.
             OpenAPIInvocationError: *args* are inconsistent with the input schema.
             OpenAPIPathParameterError: Path placeholders unchanged, missing arguments,
-                or path values that are ``None`` / empty / whitespace-only strings.
+                or path values that are ``None`` / empty / whitespace-only / ``.`` / ``..``.
             RecoverableError: Network failure, HTTP 5xx from upstream, or *resolve_headers* failure.
             FatalError: HTTP 4xx from upstream.
         """
