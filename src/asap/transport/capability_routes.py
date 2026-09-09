@@ -17,7 +17,7 @@ from asap.auth.jti_replay_cache import JtiReplayCacheProtocol
 from pydantic import ValidationError
 
 from asap.auth.capabilities import CapabilityGrant, CapabilityRegistry
-from asap.auth.identity import AgentStore, HostStore, reactivate_agent
+from asap.auth.identity import AgentStore, HostStore, reactivate_agent, save_agent_unless_revoked
 from asap.models.base import ASAPBaseModel
 from asap.observability import get_logger
 from asap.transport._auth_helpers import bearer_token_from_request, verify_host_bearer
@@ -287,12 +287,22 @@ async def _handle_agent_reactivate(request: Request) -> JSONResponse:
             status_code=403, content={"detail": "agent does not belong to this host"}
         )
 
+    # Re-read before mutate+save so concurrent revoke cannot be overwritten by a
+    # stale reactivation snapshot (get→mutate→full-row save TOCTOU).
+    fresh = await agent_store.get(body.agent_id)
+    if fresh is None:
+        return JSONResponse(status_code=404, content={"detail": "unknown agent_id"})
     try:
-        reactivated = reactivate_agent(agent, host)
+        reactivated = reactivate_agent(fresh, host)
     except ValueError as e:
         return JSONResponse(status_code=403, content={"detail": str(e)})
-
-    await agent_store.save(reactivated)
+    try:
+        await save_agent_unless_revoked(agent_store, reactivated)
+    except ValueError:
+        return JSONResponse(
+            status_code=403,
+            content={"detail": f"Agent {body.agent_id} is permanently revoked"},
+        )
 
     # Capability decay: reset grants to host defaults
     registry = _registry(request)

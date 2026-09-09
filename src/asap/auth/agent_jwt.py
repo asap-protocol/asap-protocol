@@ -378,7 +378,14 @@ async def verify_agent_jwt(
         return JwtVerifyResult(ok=False, error="agent_expired")
 
     agent = extend_session(agent)
-    await agent_store.save(agent)
+    try:
+        await agent_store.save(agent)
+    except ValueError as exc:
+        # InMemoryAgentStore (and save_agent_unless_revoked) refuse to replace a
+        # revoked row; fail closed instead of resurrecting via LIFE-005 persist.
+        if "overwrite revoked" not in str(exc):
+            raise
+        return JwtVerifyResult(ok=False, error="agent session not usable: revoked")
 
     return JwtVerifyResult(ok=True, claims=claims, host=host, agent=agent)
 
