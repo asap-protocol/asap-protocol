@@ -19,6 +19,20 @@ AgentMode = Literal["delegated", "autonomous"]
 AgentSessionStatus = Literal["pending", "active", "expired", "revoked", "rejected"]
 
 
+class RevokedAgentOverwriteError(ValueError):
+    """Raised when ``save`` would replace a revoked row with a live snapshot.
+
+    Custom ``AgentStore.save`` implementations must raise this (or a subclass)
+    instead of a generic ``ValueError`` so HTTP handlers can distinguish
+    revoke races from validation errors.
+
+    Example:
+        >>> raise RevokedAgentOverwriteError(
+        ...     "refusing to overwrite revoked agent 'a1' with status 'active'"
+        ... )
+    """
+
+
 def validate_okp_public_key(value: dict[str, Any]) -> dict[str, Any]:
     """Validate that the dict represents a valid OKP (Ed25519) public JWK."""
     try:
@@ -87,7 +101,24 @@ class AgentStore(Protocol):
     """Persistence layer for agent sessions under a host."""
 
     async def save(self, agent: AgentSession) -> None:
-        """Persist or replace an agent session."""
+        """Persist or replace an agent session.
+
+        Must refuse replacing a ``revoked`` row with a non-revoked snapshot by
+        raising :class:`RevokedAgentOverwriteError`. The check and write must be
+        one compare-and-set, equivalent to::
+
+            UPDATE agents SET ... = :row
+             WHERE agent_id = :id AND status <> 'revoked'
+            -- reject when rowcount == 0 and the stored status is revoked
+
+        Do **not** implement this as get → await I/O → overwrite: that TOCTOU
+        can resurrect a revoked agent (#324 / LIFE-005). Same class as
+        ``NonceStore.check_and_mark``. Persisting an already-revoked snapshot
+        remains allowed.
+
+        Example:
+            >>> await store.save(session)
+        """
         ...
 
     async def touch_if_current(
@@ -233,13 +264,19 @@ class InMemoryAgentStore:
         self._agents: dict[str, AgentSession] = {}
 
     async def save(self, agent: AgentSession) -> None:
+        """Persist or replace a session; refuse revoked→non-revoked atomically.
+
+        Example:
+            >>> await store.save(session)
+        """
+        # No await between the revoked check and the write (LIFE-005 / #324).
         existing = self._agents.get(agent.agent_id)
         if existing is not None and existing.status == "revoked" and agent.status != "revoked":
             msg = (
                 f"refusing to overwrite revoked agent {agent.agent_id!r} "
                 f"with status {agent.status!r}"
             )
-            raise ValueError(msg)
+            raise RevokedAgentOverwriteError(msg)
         self._agents[agent.agent_id] = agent
 
     async def touch_if_current(
@@ -291,16 +328,16 @@ class InMemoryAgentStore:
 
 
 async def save_agent_unless_revoked(agent_store: AgentStore, agent: AgentSession) -> None:
-    """Persist *agent* only when the store row is not permanently revoked.
+    """Persist *agent* through :meth:`AgentStore.save` (refuse-revoked contract).
 
-    Call sites that load a session, mutate it, then ``save`` the full row must
-    use this helper (or equivalent) so a concurrent ``revoke`` cannot be
-    overwritten by a stale non-revoked snapshot.
+    Call sites that load a session, mutate it, then persist the full row should
+    use this helper so the intent is obvious. It does **not** add a get-then-save
+    window; atomic refuse-revoked belongs inside ``save`` (same class as
+    ``NonceStore.check_and_mark``).
+
+    Example:
+        >>> await save_agent_unless_revoked(store, rotated_session)
     """
-    current = await agent_store.get(agent.agent_id)
-    if current is not None and current.status == "revoked" and agent.status != "revoked":
-        msg = f"refusing to overwrite revoked agent {agent.agent_id!r} with status {agent.status!r}"
-        raise ValueError(msg)
     await agent_store.save(agent)
 
 

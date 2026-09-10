@@ -18,6 +18,7 @@ from asap.auth.identity import (
     HostStore,
     InMemoryAgentStore,
     InMemoryHostStore,
+    RevokedAgentOverwriteError,
     host_urn_from_thumbprint,
     jwk_thumbprint_sha256,
     save_agent_unless_revoked,
@@ -418,8 +419,8 @@ async def test_touch_if_current_slides_last_used_at_without_clobbering_key() -> 
     assert stored == updated
 
 
-async def test_touch_if_current_refuses_revoked_rotated_or_rehosted_row() -> None:
-    """Predicate fails closed so a later save cannot resurrect or undo rotate."""
+async def test_touch_if_current_refuses_revoked_row() -> None:
+    """Predicate fails on revoke; full-row save cannot resurrect the row."""
     store = InMemoryAgentStore()
     now = _utc_now()
     public_key = make_ed25519_jwk()
@@ -436,7 +437,25 @@ async def test_touch_if_current_refuses_revoked_rotated_or_rehosted_row() -> Non
     assert (await store.touch_if_current("a1", public_key, now, expected_host_id="h1")) is None
     revoked = await store.get("a1")
     assert revoked is not None and revoked.status == "revoked"
+    with pytest.raises(RevokedAgentOverwriteError, match="refusing to overwrite revoked"):
+        await store.save(session)
+    still = await store.get("a1")
+    assert still is not None and still.status == "revoked"
 
+
+async def test_touch_if_current_refuses_rotated_or_rehosted_row() -> None:
+    """Predicate fails closed when the stored key or host_id no longer match."""
+    store = InMemoryAgentStore()
+    now = _utc_now()
+    public_key = make_ed25519_jwk()
+    session = AgentSession(
+        agent_id="a1",
+        host_id="h1",
+        public_key=public_key,
+        mode="delegated",
+        status="active",
+        created_at=now,
+    )
     await store.save(session)
     rotated = make_ed25519_jwk()
     await store.save(session.model_copy(update={"public_key": rotated}))
@@ -444,10 +463,19 @@ async def test_touch_if_current_refuses_revoked_rotated_or_rehosted_row() -> Non
     kept = await store.get("a1")
     assert kept is not None and kept.public_key == rotated
 
-    await store.save(session)
-    await store.save(session.model_copy(update={"host_id": "other-host"}))
-    assert (await store.touch_if_current("a1", public_key, now, expected_host_id="h1")) is None
-    rehosted = await store.get("a1")
+    rehost_key = make_ed25519_jwk()
+    rehost_session = AgentSession(
+        agent_id="a2",
+        host_id="h1",
+        public_key=rehost_key,
+        mode="delegated",
+        status="active",
+        created_at=now,
+    )
+    await store.save(rehost_session)
+    await store.save(rehost_session.model_copy(update={"host_id": "other-host"}))
+    assert (await store.touch_if_current("a2", rehost_key, now, expected_host_id="h1")) is None
+    rehosted = await store.get("a2")
     assert rehosted is not None and rehosted.host_id == "other-host"
 
 
@@ -574,7 +602,7 @@ async def test_in_memory_agent_store_refuses_to_resurrect_revoked() -> None:
     assert stale is not None
     await store.revoke("a1")
     resurrected = stale.model_copy(update={"public_key": make_ed25519_jwk()})
-    with pytest.raises(ValueError, match="refusing to overwrite revoked"):
+    with pytest.raises(RevokedAgentOverwriteError, match="refusing to overwrite revoked"):
         await store.save(resurrected)
     row = await store.get("a1")
     assert row is not None and row.status == "revoked"
@@ -597,7 +625,7 @@ async def test_save_agent_unless_revoked_rejects_stale_active_snapshot() -> None
     stale = await store.get("a1")
     assert stale is not None
     await store.revoke("a1")
-    with pytest.raises(ValueError, match="refusing to overwrite revoked"):
+    with pytest.raises(RevokedAgentOverwriteError, match="refusing to overwrite revoked"):
         await save_agent_unless_revoked(store, stale.model_copy(update={"status": "active"}))
     row = await store.get("a1")
     assert row is not None and row.status == "revoked"
