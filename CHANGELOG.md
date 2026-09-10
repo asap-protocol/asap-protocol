@@ -19,8 +19,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **PYSEC-2026-3692/3693**.
 - `apps/web` npm overrides: `fast-uri@^3.1.5`, `nanoid@^3.3.18`,
   `postcss@^8.5.23`, `brace-expansion@^5.0.9`, `ip-address@^10.3.1`,
-  `js-yaml@^4.3.1`, and `undici@^7.29.0` so production moderate+ and
-  full-graph high+ audits stay clean.
+  `js-yaml@^4.3.1`, `undici@^7.29.0`, `fflate@^0.8.3`,
+  `baseline-browser-mapping@^2.11.0`, and `browserslist@^4.28.9` so
+  production moderate+ and full-graph high+ audits stay clean.
+- Raise `apps/web` `next` to **16.3.4** and `eslint-config-next` to match
+  (**GHSA-p293-qw3h-jr36**, **GHSA-2xp9-vwfh-vxw4**). Align `sharp` to
+  `^0.35.4` (**GHSA-rgj7-g3m4-5g8c** / libheif).
+- Raise `mkdocs-material` to `>=9.7.7` for **PYSEC-2026-3864** /
+  **CVE-2026-73295** (DOM XSS in `search.suggest`).
 
 ### Fixed
 
