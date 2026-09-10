@@ -379,10 +379,10 @@ async def verify_agent_jwt(
         return JwtVerifyResult(ok=False, error=expired)
 
     slid = await slide_session_if_still_current(agent_store, agent)
-    if isinstance(slid, str):
-        return JwtVerifyResult(ok=False, error=slid)
+    if slid.error is not None or slid.session is None:
+        return JwtVerifyResult(ok=False, error=slid.error)
 
-    return JwtVerifyResult(ok=True, claims=claims, host=host, agent=slid)
+    return JwtVerifyResult(ok=True, claims=claims, host=host, agent=slid.session)
 
 
 def _b64url(data: bytes) -> str:

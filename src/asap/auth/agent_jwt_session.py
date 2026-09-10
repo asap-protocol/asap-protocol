@@ -6,11 +6,31 @@ one compare-and-set (not full-row ``save`` of a snapshot).
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from asap.auth.identity import AgentSession, AgentStore, check_agent_expiry, jwk_thumbprint_sha256
 
 _UNUSABLE_AGENT_STATUSES = frozenset({"revoked", "expired", "pending", "rejected"})
+
+
+@dataclass(frozen=True, slots=True)
+class SessionSlideResult:
+    """Outcome of :func:`slide_session_if_still_current`.
+
+    Example:
+        >>> slid = SessionSlideResult(error="unknown agent")
+        >>> slid.ok
+        False
+    """
+
+    session: AgentSession | None = None
+    error: str | None = None
+
+    @property
+    def ok(self) -> bool:
+        """True when a persisted session is present and there is no error."""
+        return self.error is None and self.session is not None
 
 
 def unusable_agent_error(agent: AgentSession) -> str | None:
@@ -38,28 +58,28 @@ def agent_public_key_changed(current: AgentSession, verified: AgentSession) -> b
 async def slide_session_if_still_current(
     agent_store: AgentStore,
     verified: AgentSession,
-) -> AgentSession | str:
+) -> SessionSlideResult:
     """Re-read then atomically touch ``last_used_at``; never full-row ``save``.
 
-    Returns the persisted session, or an error string. The re-read yields
-    specific errors; ``touch_if_current`` closes the remaining check-then-act window.
+    Returns a :class:`SessionSlideResult`. The re-read yields specific errors;
+    ``touch_if_current`` closes the remaining check-then-act window.
 
     Example:
         >>> slid = await slide_session_if_still_current(store, agent)
-        >>> if isinstance(slid, str):
-        ...     return JwtVerifyResult(ok=False, error=slid)
+        >>> if not slid.ok:
+        ...     return JwtVerifyResult(ok=False, error=slid.error)
     """
     current = await agent_store.get(verified.agent_id)
     if current is None:
-        return "unknown agent"
+        return SessionSlideResult(error="unknown agent")
     if (unusable := unusable_agent_error(current)) is not None:
-        return unusable
+        return SessionSlideResult(error=unusable)
     if current.host_id != verified.host_id:
-        return "agent host_id changed during verification"
+        return SessionSlideResult(error="agent host_id changed during verification")
     if agent_public_key_changed(current, verified):
-        return "agent key changed during verification"
+        return SessionSlideResult(error="agent key changed during verification")
     if (expired := expired_agent_error(current)) is not None:
-        return expired
+        return SessionSlideResult(error=expired)
 
     touched = await agent_store.touch_if_current(
         verified.agent_id,
@@ -68,5 +88,5 @@ async def slide_session_if_still_current(
         expected_host_id=verified.host_id,
     )
     if touched is None:
-        return "agent session changed during verification"
-    return touched
+        return SessionSlideResult(error="agent session changed during verification")
+    return SessionSlideResult(session=touched)
