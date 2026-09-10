@@ -27,7 +27,8 @@ flowchart LR
 4. The PR is labeled **`auto-registration`**. GitHub Actions ([`.github/workflows/auto-merge-registry.yml`](https://github.com/asap-protocol/asap-protocol/blob/main/.github/workflows/auto-merge-registry.yml)) runs:
    - **Changed files**: only `registry.json` may differ from the base branch.
    - **Schema**: `scripts/validate_registry.py` must accept the head `registry.json`.
-   - **Self-signed path**: no new agent may ship with `verification.status: "verified"`, and no existing agent may be **promoted** to `verified` in the same PR (those changes require the manual verification process).
+   - **Add-only**: the PR may introduce new agent ids. It must not modify or delete ids that already exist on the base branch (IssueOps / human review handles updates and removals).
+   - **Self-signed path**: no new agent may ship with `verification.status: "verified"` (promotions require the manual verification process).
 5. If all checks pass and the PR is from the **same repository** (not a fork), the workflow enables **squash auto-merge**. Otherwise maintainers review and merge manually.
 
 Manifest **trust level** (`signature.trust_level` on the signed manifest: `self-signed` vs `verified`) is enforced at registration time by the handler; the **registry** uses the `verification` object for the marketplace badge. Auto-merge policy maps “self-signed registration” to **no verified badge** in `registry.json` on that PR.
@@ -86,6 +87,7 @@ A successful submission returns a **registration receipt** (Pydantic model `Regi
 | Manifest schema / signature validation failed | **400** | `ManifestValidationError` (v2.5.2 #227); signed `{manifest, signature}` envelopes are accepted (#224) |
 | Compliance Harness v2 **score < 1.0** | 422 | Response includes score and failed checks |
 | **Rate limit** (per token, e.g. 5/hour when enabled) | 429 | Retry after window |
+| Agent id already in `registry.json` | **400** | Auto-registration cannot overwrite an existing URN; use IssueOps / a human PR for updates |
 | Idempotent replay | 200 | Same `manifest_url` may return the same receipt |
 
 ## Upgrading to **Verified**

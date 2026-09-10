@@ -116,7 +116,7 @@ jobs:
           if [ "${{ steps.trust.outputs.eligible }}" != "true" ]; then
             comment "## Auto-registration merge policy
 
-          **Human review required** — verification policy failed (new or promoted \`verified\` entries are not allowed on the self-signed auto-registration path). See the **Check verification policy** step log."
+          **Human review required** — add-only / self-signed policy failed (existing entries must not be modified or removed, and new agents must not ship \`verified\`). See the **Check verification policy** step log."
             echo "enable=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -137,5 +137,5 @@ jobs:
 
           comment "## Auto-registration merge policy
 
-          **Squash auto-merge enabled** — only \`registry.json\` changed, schema is valid, and no \`verified\` badge was added or promoted. This PR will merge automatically when required checks pass."
+          **Squash auto-merge enabled** — only \`registry.json\` changed, schema is valid, the change is add-only, and no \`verified\` badge was added. This PR will merge automatically when required checks pass."
           echo "enable=true" >> "$GITHUB_OUTPUT"
