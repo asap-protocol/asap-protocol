@@ -41,7 +41,7 @@
     "framer-motion": "^12.43.0",
     "idb-keyval": "^6.3.0",
     "lucide-react": "^0.577.0",
-    "next": "16.2.12",
+    "next": "16.3.4",
     "next-auth": "5.0.0-beta.32",
     "next-themes": "^0.4.6",
     "octokit": "^5.0.5",
@@ -49,22 +49,28 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-hook-form": "^7.83.0",
-    "sharp": "^0.35.3",
+    "sharp": "^0.35.4",
     "swr": "^2.4.2",
     "tailwind-merge": "^3.6.0",
     "three": "^0.185.1",
     "zod": "^4.4.3"
   },
-  "overrides": {
+    "overrides": {
     "minimatch": "^10.2.1",
     "micromatch": {
       "picomatch": "^2.3.2"
     },
-    "next": {
-      "postcss": "^8.5.18"
-    },
-    "sharp": "^0.35.3",
-    "fast-uri": "^3.1.4"
+    "sharp": "^0.35.4",
+    "fast-uri": "^3.1.6",
+    "nanoid": "^3.3.18",
+    "postcss": "^8.5.23",
+    "brace-expansion": "^5.0.9",
+    "ip-address": "^10.3.1",
+    "js-yaml": "^4.3.1",
+    "undici": "^7.29.0",
+    "fflate": "^0.8.3",
+    "baseline-browser-mapping": "^2.11.0",
+    "browserslist": "^4.28.9"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.0",
@@ -77,7 +83,7 @@
     "@vitejs/plugin-react": "^5.2.0",
     "@vitest/coverage-v8": "^4.1.10",
     "eslint": "^9",
-    "eslint-config-next": "16.2.12",
+    "eslint-config-next": "16.3.4",
     "eslint-config-prettier": "^10.1.8",
     "jsdom": "^28.1.0",
     "json-schema-to-typescript": "^15.0.4",

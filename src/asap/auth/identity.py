@@ -19,6 +19,20 @@ AgentMode = Literal["delegated", "autonomous"]
 AgentSessionStatus = Literal["pending", "active", "expired", "revoked", "rejected"]
 
 
+class RevokedAgentOverwriteError(ValueError):
+    """Raised when ``save`` would replace a revoked row with a live snapshot.
+
+    Custom ``AgentStore.save`` implementations must raise this (or a subclass)
+    instead of a generic ``ValueError`` so HTTP handlers can distinguish
+    revoke races from validation errors.
+
+    Example:
+        >>> raise RevokedAgentOverwriteError(
+        ...     "refusing to overwrite revoked agent 'a1' with status 'active'"
+        ... )
+    """
+
+
 def validate_okp_public_key(value: dict[str, Any]) -> dict[str, Any]:
     """Validate that the dict represents a valid OKP (Ed25519) public JWK."""
     try:
@@ -87,7 +101,58 @@ class AgentStore(Protocol):
     """Persistence layer for agent sessions under a host."""
 
     async def save(self, agent: AgentSession) -> None:
-        """Persist or replace an agent session."""
+        """Persist or replace an agent session.
+
+        Must refuse replacing a ``revoked`` row with a non-revoked snapshot by
+        raising :class:`RevokedAgentOverwriteError`. The check and write must be
+        one compare-and-set, equivalent to::
+
+            UPDATE agents SET ... = :row
+             WHERE agent_id = :id AND status <> 'revoked'
+            -- reject when rowcount == 0 and the stored status is revoked
+
+        Do **not** implement this as get → await I/O → overwrite: that TOCTOU
+        can resurrect a revoked agent (#324 / LIFE-005). Same class as
+        ``NonceStore.check_and_mark``. Persisting an already-revoked snapshot
+        remains allowed.
+
+        Example:
+            >>> await store.save(session)
+        """
+        ...
+
+    async def touch_if_current(
+        self,
+        agent_id: str,
+        expected_public_key: dict[str, Any],
+        last_used_at: datetime,
+        *,
+        expected_host_id: str,
+    ) -> AgentSession | None:
+        """Atomically slide ``last_used_at`` if this is still the same live session.
+
+        Must be one compare-and-set, equivalent to::
+
+            UPDATE agents
+               SET last_used_at = :ts
+             WHERE agent_id = :id
+               AND status = 'active'
+               AND host_id = :host
+               AND public_key thumbprint = RFC 7638(:expected)
+
+        Return the updated row, or ``None`` when the predicate fails (missing,
+        unusable, expired, re-hosted, or rotated). Do **not** implement this as
+        get → mutate → :meth:`save` of a verify-time snapshot: that TOCTOU can
+        resurrect a revoked agent or undo key rotation (LIFE-005). Same class as
+        ``NonceStore.check_and_mark``.
+
+        Example:
+            >>> updated = await store.touch_if_current(
+            ...     agent_id, jwk, now, expected_host_id=host_id
+            ... )
+            >>> if updated is None:
+            ...     raise RuntimeError("session changed during verify")
+        """
         ...
 
     async def get(self, agent_id: str) -> AgentSession | None:
@@ -189,13 +254,58 @@ class InMemoryHostStore:
 
 
 class InMemoryAgentStore:
-    """In-memory `AgentStore` for development and tests."""
+    """In-memory `AgentStore` for development and tests.
+
+    ``save`` refuses to replace a ``revoked`` row with a non-revoked snapshot so
+    stale get→mutate→full-row-save races cannot resurrect revoked agents.
+    """
 
     def __init__(self) -> None:
         self._agents: dict[str, AgentSession] = {}
 
     async def save(self, agent: AgentSession) -> None:
+        """Persist or replace a session; refuse revoked→non-revoked atomically.
+
+        Example:
+            >>> await store.save(session)
+        """
+        # No await between the revoked check and the write (LIFE-005 / #324).
+        existing = self._agents.get(agent.agent_id)
+        if existing is not None and existing.status == "revoked" and agent.status != "revoked":
+            msg = (
+                f"refusing to overwrite revoked agent {agent.agent_id!r} "
+                f"with status {agent.status!r}"
+            )
+            raise RevokedAgentOverwriteError(msg)
         self._agents[agent.agent_id] = agent
+
+    async def touch_if_current(
+        self,
+        agent_id: str,
+        expected_public_key: dict[str, Any],
+        last_used_at: datetime,
+        *,
+        expected_host_id: str,
+    ) -> AgentSession | None:
+        # Read-and-assign with no await so a single event loop cannot interleave
+        # revoke/rotate between the predicate and the last_used_at write.
+        current = self._agents.get(agent_id)
+        if current is None or current.status != "active":
+            return None
+        if current.host_id != expected_host_id:
+            return None
+        try:
+            expected_tp = jwk_thumbprint_sha256(expected_public_key)
+            current_tp = jwk_thumbprint_sha256(current.public_key)
+        except (KeyError, TypeError, ValueError):
+            return None
+        if current_tp != expected_tp:
+            return None
+        if check_agent_expiry(current) != "active":
+            return None
+        updated = current.model_copy(update={"last_used_at": last_used_at})
+        self._agents[agent_id] = updated
+        return updated
 
     async def get(self, agent_id: str) -> AgentSession | None:
         return self._agents.get(agent_id)
@@ -215,6 +325,20 @@ class InMemoryAgentStore:
     async def revoke_by_host(self, host_id: str) -> None:
         for aid in [a.agent_id for a in self._agents.values() if a.host_id == host_id]:
             await self.revoke(aid)
+
+
+async def save_agent_unless_revoked(agent_store: AgentStore, agent: AgentSession) -> None:
+    """Persist *agent* through :meth:`AgentStore.save` (refuse-revoked contract).
+
+    Call sites that load a session, mutate it, then persist the full row should
+    use this helper so the intent is obvious. It does **not** add a get-then-save
+    window; atomic refuse-revoked belongs inside ``save`` (same class as
+    ``NonceStore.check_and_mark``).
+
+    Example:
+        >>> await save_agent_unless_revoked(store, rotated_session)
+    """
+    await agent_store.save(agent)
 
 
 # ---------------------------------------------------------------------------

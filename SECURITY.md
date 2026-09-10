@@ -105,16 +105,25 @@ npm audit --audit-level=high
 - **Production graph** (`--omit=dev`): moderate and above must be clean.
 - **Full graph** (including devDependencies): high and above must be clean.
 - Prefer range-compatible updates via `npm install` / `npm audit fix` (never `npm audit fix --force`).
-- Do **not** downgrade `next` to satisfy transitive advisories. For Next **16.2.12**, pin fixed transitive deps via npm overrides with an unscoped `next` key — a versioned key like `next@16.2.10` pins nested copies of `next` and breaks `npm ci` (ERESOLVE) on every Next bump:
+- Do **not** downgrade `next` to satisfy transitive advisories. For Next **16.3.4**, pin fixed transitive deps via npm overrides with an unscoped `next` key — a versioned key like `next@16.2.10` pins nested copies of `next` and breaks `npm ci` (ERESOLVE) on every Next bump:
 
 ```json
 "overrides": {
-  "next": { "postcss": "^8.5.18" },
-  "sharp": "^0.35.3"
+  "sharp": "^0.35.4",
+  "fast-uri": "^3.1.6",
+  "nanoid": "^3.3.18",
+  "postcss": "^8.5.23",
+  "brace-expansion": "^5.0.9",
+  "ip-address": "^10.3.1",
+  "js-yaml": "^4.3.1",
+  "undici": "^7.29.0",
+  "fflate": "^0.8.3",
+  "baseline-browser-mapping": "^2.11.0",
+  "browserslist": "^4.28.9"
 }
 ```
 
-The `sharp` override forces Next's nested `sharp@0.34.x` up to `>=0.35.0` (GHSA-f88m-g3jw-g9cj / libvips). Keep the direct `sharp` dependency aligned.
+The `sharp` override forces Next's nested `sharp` up to `>=0.35.4` (GHSA-rgj7-g3m4-5g8c / libheif). Keep the direct `sharp` dependency aligned. **16.3.4** is the August 2026 security line (GHSA-p293-qw3h-jr36, GHSA-2xp9-vwfh-vxw4); do not stay on 16.2.x. Nested `"next": { "postcss": "..." }` is unnecessary on 16.3.4 (Next already declares PostCSS 8.5.23+). The `fflate` override addresses **CVE-2026-45820**; `baseline-browser-mapping` addresses **CVE-2026-45819**.
 
 If a PostCSS or sharp override breaks `next build`, stop and report — do not silently adopt a preview/canary Next.
 
@@ -124,7 +133,7 @@ CI runs `pip-audit` after a sync that **excludes** the optional extras `crewai` 
 
 `uv sync --frozen --all-extras --dev --no-extra crewai --no-extra llamaindex` then `uv run pip-audit --ignore-vuln CVE-2026-4539 --ignore-vuln CVE-2026-4963 --ignore-vuln CVE-2026-2654 --ignore-vuln PYSEC-2024-271 --ignore-vuln PYSEC-2026-89 --ignore-vuln PYSEC-2025-183` (matches CI).
 
-Security floors live in `tool.uv.override-dependencies` (with per-CVE comments in `pyproject.toml`) so lock refreshes cannot regress them; recent additions: `pymdown-extensions>=11.0.1` (CVE-2026-61632) and `pyasn1>=0.6.4` (PYSEC-2026-3455/3456/3457).
+Security floors live in `tool.uv.override-dependencies` (with per-CVE comments in `pyproject.toml`) so lock refreshes cannot regress them; recent additions: `mkdocs-material>=9.7.7` (PYSEC-2026-3864 / CVE-2026-73295), `pymdown-extensions>=11.0.1` (CVE-2026-61632), `pyasn1>=0.6.4` (PYSEC-2026-3455/3456/3457), `aiohttp>=3.14.3` (PYSEC-2026-3545/3546/3547), and `h2>=4.4.1` (PYSEC-2026-3628).
 
 **CVE-2026-4539 (Pygments)**: CI uses `--ignore-vuln CVE-2026-4539` until a patched `pygments` release on PyPI resolves the advisory (`tool.uv.override-dependencies` prefers `pygments>=2.20.0` when resolvable).
 
@@ -132,7 +141,7 @@ Security floors live in `tool.uv.override-dependencies` (with per-CVE comments i
 
 **CVE-2026-53538–53540 (python-multipart, FastAPI stack)**: Resolved via override (`python-multipart>=0.0.31`).
 
-**GHSA-537c-gmf6-5ccf (cryptography)**: Resolved by raising the pin to `cryptography>=48.0.1,<49` (direct dependency and override).
+**GHSA-537c-gmf6-5ccf / PYSEC-2026-3552–3554 (cryptography)**: Resolved by raising the pin to `cryptography>=50.0.0,<51` (direct dependency and override). 49.0.0 covers PYSEC-2026-3553/3554; **PYSEC-2026-3552** (PKCS7 Bleichenbacher) requires 50.0.0. Pair with `pyopenssl>=26.4.0` so the optional `[webauthn]` extra stays importable. Ed25519 usage in `asap.crypto` is unchanged across 48→50.
 
 **CVE-2026-48990 (joserfc)**: Resolved by raising the pin to `joserfc>=1.6.7,<2` (direct dependency and override).
 
@@ -144,7 +153,7 @@ Security floors live in `tool.uv.override-dependencies` (with per-CVE comments i
 
 **PYSEC-2026-2253–2257 (pillow)**: Resolved via override (`pillow>=12.3.0`; prior floor was `>=12.2.0` for CVE-2026-40192) — transitive via pdf/vision stacks.
 
-**CVE-2026-46678 (pydantic-ai, optional `[pydanticai]` extra)**: Resolved via `[pydanticai]` extra floor `pydantic-ai>=1.99.0` (1.102.0 in lock as of 2026-06).
+**CVE-2026-46678 / PYSEC-2026-3692 / PYSEC-2026-3693 (pydantic-ai, optional `[pydanticai]` extra)**: Resolved via `[pydanticai]` extra floor `pydantic-ai>=1.106.0,<2` (prior floor `>=1.99.0`; 1.102.0 in lock as of 2026-06).
 
 **CVE-2026-4963 / CVE-2026-2654 (smolagents, optional `[smolagents]` extra)**: OSV reports these against current PyPI releases with **no `fix_versions`/`fixed` range** yet. CI ignores them until Hugging Face publishes patched `smolagents` wheels; remove the flags when `pip-audit` is clean without them. The reference package does not import smolagents unless that extra is installed.
 
@@ -154,13 +163,15 @@ Security floors live in `tool.uv.override-dependencies` (with per-CVE comments i
 
 **PYSEC-2026-89 (markdown, mkdocs stack)**: CI uses `--ignore-vuln PYSEC-2026-89` while OSV still lists **3.10.2** (latest on PyPI as of 2026-05) with no fixed release; override pins `markdown>=3.10.2`. Remove the flag when `pip-audit` passes without it.
 
+**PYSEC-2026-3864 / CVE-2026-73295 (mkdocs-material)**: Resolved via `[docs]` extra floor and override (`mkdocs-material>=9.7.7`) — DOM XSS in the optional `search.suggest` feature (`mkdocs.yml` enables it). Bumping the wheel does **not** patch GitHub Pages until the docs site is rebuilt and published (the `Docs` workflow on `main`).
+
 **PYSEC-2025-183 (pyjwt, transitive via `[mcp]`)**: CI uses `--ignore-vuln PYSEC-2025-183` — advisory is **disputed by the supplier** (minimum key length is application-defined); override already pins `pyjwt>=2.12.0,<3` for CVE-2026-32597.
 
 **CVE-2026-52869 / CVE-2026-52870 / CVE-2026-59950 (mcp, optional `[mcp]` extra)**: Resolved by raising the `[mcp]` floor to `mcp>=1.28.1` (lock 1.28.1 as of 2026-07-18).
 
 **PYSEC-2024-271 (flask-cors, transitive via `locust` in dev/benchmarks)**: CI uses `--ignore-vuln PYSEC-2024-271` — log-injection when debug logging is enabled; **6.0.2 is latest on PyPI** with no fixed release listed. Not on the runtime agent-server path.
 
-**pip**: `tool.uv.override-dependencies` requires `pip>=26.1` so **CVE-2026-3219** (GHSA affecting pip ≤26.0.1) no longer requires a `pip-audit` ignore.
+**pip**: `tool.uv.override-dependencies` requires `pip>=26.2` so **PYSEC-2026-3721** (and earlier **CVE-2026-3219** / **PYSEC-2026-196**) no longer require a `pip-audit` ignore.
 
 **PYSEC-2026-3447 (setuptools)**: Resolved via override (`setuptools>=83.0.0`) — transitive build/tooling path; `82.0.0` is the last vulnerable release listed by OSV.
 
@@ -183,7 +194,7 @@ We pin **upper bounds** on the security- and protocol-sensitive libraries listed
 
 | Package | Pin | Why |
 |---------|-----|-----|
-| `cryptography` | `>=48.0.1,<49` | GHSA-537c-gmf6-5ccf baseline; v47+ serialization API (Rust backend migration) |
+| `cryptography` | `>=50.0.0,<51` | PYSEC-2026-3552 baseline (PKCS7); v47+ serialization API (Rust backend migration) |
 | `authlib` | `>=1.6.11,<2` | GHSA-jj8c-mmj3-mmgv baseline; v2 reworks JWS header policy |
 | `joserfc` | `>=1.6.7,<2` | CVE-2026-48990 baseline; JWT / JWS / JWE primitives powering Host JWT verification |
 | `pyjwt` (override) | `>=2.12.0,<3` | CVE-2026-32597 baseline; v3 changes default `options` behavior for token introspection |

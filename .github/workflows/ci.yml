@@ -4,7 +4,7 @@ name: CI
 
 on:
   push:
-    branches: [main, release/2.5.0]
+    branches: [main, development, release/2.5.0]
     paths:
       - 'src/**'
       - 'scripts/**'
@@ -20,7 +20,7 @@ on:
       - '.github/workflows/**'
       - '.github/actions/**'
   pull_request:
-    branches: [main, release/2.5.0]
+    branches: [main, development, release/2.5.0]
     paths:
       - 'src/**'
       - 'scripts/**'
@@ -73,7 +73,7 @@ jobs:
   quality-web:
     name: quality (web)
     runs-on: ubuntu-latest
-    timeout-minutes: 14
+    timeout-minutes: 18
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -129,6 +129,14 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
         working-directory: apps/web
+      - name: Production build
+        run: npm run build
+        working-directory: apps/web
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+          # Compile-only placeholder: `src/auth.ts` throws if AUTH_SECRET is missing
+          # or shorter than 32 chars. Not used to sign tokens in this job.
+          AUTH_SECRET: ci-quality-web-build-placeholder-not-a-secret
       - name: npm audit (production, moderate+)
         run: npm audit --omit=dev --audit-level=moderate
         working-directory: apps/web
