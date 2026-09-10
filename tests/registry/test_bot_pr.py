@@ -27,7 +27,7 @@ from asap.registry.bot_pr import (
 )
 
 
-def test_merge_lite_registry_sorted_deduped() -> None:
+def test_merge_lite_registry_appends_and_sorts_by_id() -> None:
     existing = RegistryEntry(
         id="urn:asap:agent:b",
         name="B",

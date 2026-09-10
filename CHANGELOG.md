@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Lite Registry auto-registration** — `POST /registry/agents` and the
+  auto-merge policy cannot overwrite or delete existing agent URNs.
+  Duplicate ids in `registry.json` are rejected (marketplace lookup is
+  first-match). Updates and removals stay on IssueOps / human review.
+
 ### Security (deps)
 
 - Raise `cryptography` to `>=50.0.0,<51` for **PYSEC-2026-3552** (PKCS7

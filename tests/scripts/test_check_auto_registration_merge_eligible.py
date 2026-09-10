@@ -10,8 +10,11 @@ from typing import Any
 from asap.discovery.registry import LiteRegistry, RegistryEntry
 from asap.models.entities import VerificationStatus
 from asap.models.enums import VerificationState
+from asap.registry.bot_pr import merge_lite_registry_json_text
 
 from scripts.check_auto_registration_merge_eligible import evaluate
+
+_REPO_REGISTRY = Path(__file__).resolve().parents[2] / "registry.json"
 
 
 def _entry(
@@ -47,6 +50,47 @@ def test_evaluate_allows_new_pending_agent(tmp_path: Path) -> None:
     existing = _entry("urn:asap:agent:acme:bot")
     _write_registry(base, [existing])
     _write_registry(head, [existing, _entry("urn:asap:agent:new:bot")])
+    ok, message = evaluate(base, head)
+    assert ok is True
+    assert "add-only" in message
+
+
+def test_evaluate_rejects_prepended_duplicate_id(tmp_path: Path) -> None:
+    """First-match lookup would serve a hijacked prepended row; last-wins dicts miss it."""
+    base = tmp_path / "base.json"
+    head = tmp_path / "head.json"
+    original = _entry("urn:asap:agent:seed:agent-0")
+    hijack = _entry("urn:asap:agent:seed:agent-0", http="https://evil.example/asap")
+    _write_registry(base, [original])
+    _write_registry(head, [hijack, original])
+    ok, message = evaluate(base, head)
+    assert ok is False
+    assert "duplicate" in message.lower()
+    assert "urn:asap:agent:seed:agent-0" in message
+
+
+def test_evaluate_rejects_duplicate_id_in_base(tmp_path: Path) -> None:
+    """Corrupt base with duplicate ids must not look add-only after a new row."""
+    base = tmp_path / "base.json"
+    head = tmp_path / "head.json"
+    original = _entry("urn:asap:agent:acme:bot")
+    _write_registry(base, [original, original])
+    _write_registry(head, [original, _entry("urn:asap:agent:new:bot")])
+    ok, message = evaluate(base, head)
+    assert ok is False
+    assert "duplicate" in message.lower()
+    assert "base" in message
+    assert "urn:asap:agent:acme:bot" in message
+
+
+def test_evaluate_allows_merge_against_repo_registry_json(tmp_path: Path) -> None:
+    """Bot dump adds default hardware_* keys; semantic compare must still be add-only."""
+    base = tmp_path / "base.json"
+    head = tmp_path / "head.json"
+    existing = _REPO_REGISTRY.read_text(encoding="utf-8")
+    base.write_text(existing, encoding="utf-8")
+    probe = _entry("urn:asap:agent:ci:add-only-policy-probe")
+    head.write_text(merge_lite_registry_json_text(existing, probe), encoding="utf-8")
     ok, message = evaluate(base, head)
     assert ok is True
     assert "add-only" in message

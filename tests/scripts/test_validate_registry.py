@@ -70,6 +70,37 @@ def test_missing_required_field_in_entry(tmp_path: Path) -> None:
     assert any("agents[0]" in err and "description" in err for err in errors)
 
 
+def test_lite_registry_rejects_duplicate_agent_ids(tmp_path: Path) -> None:
+    """CI schema check must reject duplicate URNs (marketplace lookup is first-match)."""
+    entry_path = REGISTRY_FIXTURES_DIR / "shellclaw-v1.0-entry.json"
+    entry = json.loads(entry_path.read_text(encoding="utf-8"))
+    path = tmp_path / "dup-object.json"
+    path.write_text(
+        json.dumps(
+            {
+                "version": "1.0",
+                "updated_at": "2026-05-24T00:00:00Z",
+                "agents": [entry, entry],
+            }
+        ),
+        encoding="utf-8",
+    )
+    errors = validate_registry(path)
+    assert any("duplicate id" in error for error in errors)
+    assert any(entry["id"] in error for error in errors)
+
+
+def test_agents_array_rejects_duplicate_agent_ids(tmp_path: Path) -> None:
+    """Array-form registry must reject the same agent URN twice."""
+    entry_path = REGISTRY_FIXTURES_DIR / "shellclaw-v1.0-entry.json"
+    entry = json.loads(entry_path.read_text(encoding="utf-8"))
+    path = tmp_path / "dup-array.json"
+    path.write_text(json.dumps([entry, entry]), encoding="utf-8")
+    errors = validate_registry(path)
+    assert any("duplicate id" in error for error in errors)
+    assert any(entry["id"] in error for error in errors)
+
+
 def test_agents_list_invalid_urn(tmp_path: Path) -> None:
     """Malformed agent id in array format reports agents[i].id."""
     bad = [
