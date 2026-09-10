@@ -46,6 +46,7 @@ from asap.auth.identity import (
     AgentStore,
     HostIdentity,
     HostStore,
+    RevokedAgentOverwriteError,
     host_urn_from_thumbprint,
     jwk_thumbprint_sha256,
     save_agent_unless_revoked,
@@ -587,8 +588,11 @@ async def _handle_agent_status(request: Request, agent_id: str) -> JSONResponse:
                         "activated_at": datetime.now(timezone.utc),
                     },
                 )
-                with suppress(ValueError):
+                try:
                     await save_agent_unless_revoked(agent_store, activated)
+                except RevokedAgentOverwriteError:
+                    pass
+                else:
                     if registry is not None and appr.capability_specs:
                         apply_capability_specs_to_registry(
                             registry,
@@ -600,7 +604,7 @@ async def _handle_agent_status(request: Request, agent_id: str) -> JSONResponse:
             fresh = await agent_store.get(agent_id)
             if fresh is not None and fresh.status == "pending":
                 rejected = fresh.model_copy(update={"status": "rejected"})
-                with suppress(ValueError):
+                with suppress(RevokedAgentOverwriteError):
                     await save_agent_unless_revoked(agent_store, rejected)
 
     refreshed = await agent_store.get(agent_id)
@@ -728,7 +732,7 @@ async def _handle_agent_rotate_key(request: Request, body: AgentRotateKeyBody) -
     rotated = fresh.model_copy(update={"public_key": new_pub})
     try:
         await save_agent_unless_revoked(agent_store, rotated)
-    except ValueError:
+    except RevokedAgentOverwriteError:
         return JSONResponse(
             status_code=400,
             content={"detail": "cannot rotate key for revoked agent"},

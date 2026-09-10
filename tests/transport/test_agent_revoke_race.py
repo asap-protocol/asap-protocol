@@ -29,6 +29,24 @@ if TYPE_CHECKING:
 _HOST_JWT_AUDIENCE = "urn:asap:agent:test-server"
 
 
+def _auth_header(
+    host_sk: Ed25519PrivateKey,
+    *,
+    agent_sk: Ed25519PrivateKey | None = None,
+) -> dict[str, str]:
+    """Host JWT Authorization header for identity HTTP tests."""
+    if agent_sk is None:
+        token = create_host_jwt(host_sk, aud=_HOST_JWT_AUDIENCE, ttl_seconds=120)
+    else:
+        token = create_host_jwt(
+            host_sk,
+            aud=_HOST_JWT_AUDIENCE,
+            agent_public_key=ed25519_public_jwk(agent_sk),
+            ttl_seconds=120,
+        )
+    return {"Authorization": f"Bearer {token}"}
+
+
 class _RevokeOnNthGetAgentStore(InMemoryAgentStore):
     """Revokes the agent on the Nth ``get`` to simulate a concurrent revoke."""
 
@@ -42,6 +60,43 @@ class _RevokeOnNthGetAgentStore(InMemoryAgentStore):
         if self._get_calls == self._revoke_on_get:
             await self.revoke(agent_id)
         return await super().get(agent_id)
+
+
+class _RevokeOnArmedSaveAgentStore(InMemoryAgentStore):
+    """Revokes on the next non-revoked ``save`` so refuse is save-time, not get."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._armed = False
+
+    def arm_revoke_on_save(self) -> None:
+        """Revoke just before the next non-revoked persist."""
+        self._armed = True
+
+    async def save(self, agent: AgentSession) -> None:
+        if self._armed and agent.status != "revoked":
+            await self.revoke(agent.agent_id)
+            self._armed = False
+        await super().save(agent)
+
+
+class _SaveRaisesGenericValueError(InMemoryAgentStore):
+    """Raises a non-revoke ``ValueError`` on the next ``save`` after arming."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._fail_next_save = False
+
+    def arm_generic_save_error(self) -> None:
+        """Fail the next persist with a validation-style ``ValueError``."""
+        self._fail_next_save = True
+
+    async def save(self, agent: AgentSession) -> None:
+        if self._fail_next_save:
+            self._fail_next_save = False
+            msg = f"disk full while saving agent {agent.agent_id!r}, expected writable session"
+            raise ValueError(msg)
+        await super().save(agent)
 
 
 def _app_with_store(
@@ -191,3 +246,119 @@ class TestAgentRevokeResurrectionRaces:
         assert st.json()["status"] == "revoked"
         stored = await agent_store.get(aid)
         assert stored is not None and stored.status == "revoked"
+
+    async def test_rotate_key_save_time_revoke_is_not_resurrected(
+        self,
+        sample_manifest: Manifest,
+        isolated_rate_limiter: ASAPRateLimiter | None,
+    ) -> None:
+        """InMemory ``save`` refuse-revoked must hold when revoke races the write."""
+        agent_store = _RevokeOnArmedSaveAgentStore()
+        app = _app_with_store(sample_manifest, isolated_rate_limiter, agent_store)
+        host_sk = Ed25519PrivateKey.generate()
+        agent_sk = Ed25519PrivateKey.generate()
+        new_sk = Ed25519PrivateKey.generate()
+        client = TestClient(app)
+        aid = client.post(
+            "/asap/agent/register",
+            headers=_auth_header(host_sk, agent_sk=agent_sk),
+        ).json()["agent_id"]
+        sess = await agent_store.get(aid)
+        assert sess is not None
+        await agent_store.save(sess.model_copy(update={"status": "active"}))
+        agent_store.arm_revoke_on_save()
+        rot = client.post(
+            "/asap/agent/rotate-key",
+            headers=_auth_header(host_sk),
+            json={"agent_id": aid, "new_public_key": ed25519_public_jwk(new_sk)},
+        )
+        assert rot.status_code == 400
+        assert "revoked" in rot.json()["detail"]
+        stored = await agent_store.get(aid)
+        assert stored is not None and stored.status == "revoked"
+
+    async def test_reactivate_save_time_revoke_is_not_resurrected(
+        self,
+        sample_manifest: Manifest,
+        isolated_rate_limiter: ASAPRateLimiter | None,
+    ) -> None:
+        """Reactivate persist must keep a revoke that lands inside ``save``."""
+        agent_store = _RevokeOnArmedSaveAgentStore()
+        app = _app_with_store(sample_manifest, isolated_rate_limiter, agent_store)
+        host_sk = Ed25519PrivateKey.generate()
+        agent_sk = Ed25519PrivateKey.generate()
+        client = TestClient(app)
+        aid = client.post(
+            "/asap/agent/register",
+            headers=_auth_header(host_sk, agent_sk=agent_sk),
+        ).json()["agent_id"]
+        sess = await agent_store.get(aid)
+        assert sess is not None
+        await agent_store.save(sess.model_copy(update={"status": "expired"}))
+        agent_store.arm_revoke_on_save()
+        resp = client.post(
+            "/asap/agent/reactivate",
+            headers=_auth_header(host_sk),
+            json={"agent_id": aid},
+        )
+        assert resp.status_code == 403
+        assert "revoked" in resp.json()["detail"]
+        stored = await agent_store.get(aid)
+        assert stored is not None and stored.status == "revoked"
+
+    async def test_status_save_time_revoke_is_not_activated(
+        self,
+        sample_manifest: Manifest,
+        isolated_rate_limiter: ASAPRateLimiter | None,
+    ) -> None:
+        """Approved status poll must not activate when ``save`` refuses revoke."""
+        agent_store = _RevokeOnArmedSaveAgentStore()
+        app = _app_with_store(sample_manifest, isolated_rate_limiter, agent_store)
+        host_sk = Ed25519PrivateKey.generate()
+        agent_sk = Ed25519PrivateKey.generate()
+        client = TestClient(app)
+        reg = client.post(
+            "/asap/agent/register",
+            headers=_auth_header(host_sk, agent_sk=agent_sk),
+            json={"capabilities": ["file:read"]},
+        )
+        aid = reg.json()["agent_id"]
+        await app.state.identity_approval_store.approve(aid, "user-1")
+        agent_store.arm_revoke_on_save()
+        st = client.get(
+            f"/asap/agent/status?agent_id={aid}",
+            headers=_auth_header(host_sk),
+        )
+        assert st.status_code == 200
+        assert st.json()["status"] == "revoked"
+        stored = await agent_store.get(aid)
+        assert stored is not None and stored.status == "revoked"
+
+    async def test_rotate_key_does_not_map_generic_save_valueerror_to_revoke(
+        self,
+        sample_manifest: Manifest,
+        isolated_rate_limiter: ASAPRateLimiter | None,
+    ) -> None:
+        """A custom store ``ValueError`` on save must not be reported as revoke."""
+        agent_store = _SaveRaisesGenericValueError()
+        app = _app_with_store(sample_manifest, isolated_rate_limiter, agent_store)
+        host_sk = Ed25519PrivateKey.generate()
+        agent_sk = Ed25519PrivateKey.generate()
+        new_sk = Ed25519PrivateKey.generate()
+        client = TestClient(app)
+        aid = client.post(
+            "/asap/agent/register",
+            headers=_auth_header(host_sk, agent_sk=agent_sk),
+        ).json()["agent_id"]
+        sess = await agent_store.get(aid)
+        assert sess is not None
+        await agent_store.save(sess.model_copy(update={"status": "active"}))
+        agent_store.arm_generic_save_error()
+        with pytest.raises(ValueError, match="disk full"):
+            client.post(
+                "/asap/agent/rotate-key",
+                headers=_auth_header(host_sk),
+                json={"agent_id": aid, "new_public_key": ed25519_public_jwk(new_sk)},
+            )
+        stored = await agent_store.get(aid)
+        assert stored is not None and stored.status != "revoked"
