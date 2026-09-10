@@ -17,16 +17,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Raise `pip` floor to `>=26.2` for **PYSEC-2026-3721**.
 - Raise optional `[pydanticai]` floor to `pydantic-ai>=1.106.0,<2` for
   **PYSEC-2026-3692/3693**.
-- `apps/web` npm overrides: `fast-uri@^3.1.5`, `nanoid@^3.3.18`,
+- `apps/web` npm overrides: `fast-uri@^3.1.6`, `nanoid@^3.3.18`,
   `postcss@^8.5.23`, `brace-expansion@^5.0.9`, `ip-address@^10.3.1`,
-  `js-yaml@^4.3.1`, `undici@^7.29.0`, `fflate@^0.8.3`,
-  `baseline-browser-mapping@^2.11.0`, and `browserslist@^4.28.9` so
+  `js-yaml@^4.3.1`, `undici@^7.29.0`, `fflate@^0.8.3`
+  (**CVE-2026-45820**), `baseline-browser-mapping@^2.11.0`
+  (**CVE-2026-45819**), and `browserslist@^4.28.9` so
   production moderate+ and full-graph high+ audits stay clean.
 - Raise `apps/web` `next` to **16.3.4** and `eslint-config-next` to match
   (**GHSA-p293-qw3h-jr36**, **GHSA-2xp9-vwfh-vxw4**). Align `sharp` to
   `^0.35.4` (**GHSA-rgj7-g3m4-5g8c** / libheif).
 - Raise `mkdocs-material` to `>=9.7.7` for **PYSEC-2026-3864** /
-  **CVE-2026-73295** (DOM XSS in `search.suggest`).
+  **CVE-2026-73295** (DOM XSS in `search.suggest`). The wheel bump does not
+  patch GitHub Pages until the docs site is rebuilt and published (`Docs`
+  workflow on `main`).
 
 ### Fixed
 
@@ -44,6 +47,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   'active'`` plus matching ``host_id`` and RFC 7638 public-key thumbprint).
   Custom store authors must implement that method; get→mutate→save is not
   sufficient.
+- **Rotate-key / reactivate / status vs concurrent revoke** — Those handlers
+  re-read then persist through ``save_agent_unless_revoked``. ``AgentStore.save``
+  must reject replacing a ``revoked`` row with a non-revoked snapshot
+  (``InMemoryAgentStore`` raises ``RevokedAgentOverwriteError``). Custom stores
+  that await I/O inside ``save`` must make that check atomic
+  (``UPDATE ... WHERE status <> 'revoked'``).
 
 ### Follow-up (planned v2.5.5+)
 

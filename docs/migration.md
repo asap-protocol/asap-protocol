@@ -1117,6 +1117,17 @@ Scope: [prd-v2.5.4-distribution-loop.md](../product/prd/prd-v2.5.4-distribution-
 - **Breaking changes**: None for Distribution Loop scope (docs / starters /
   homepage / maintainer telemetry).
 
+### Unreleased (after v2.5.4) — custom AgentStore
+
+Custom ``AgentStore`` authors on git ``main`` / the next release must:
+
+1. Implement ``touch_if_current``. ``verify_agent_jwt`` no longer full-row
+   ``save``s a verify-time snapshot. Missing the method is ``AttributeError`` on
+   the next Agent JWT verify. See [Custom Agent Store](security.md#custom-agent-store).
+2. Make ``save`` refuse revoked→non-revoked (raise
+   ``RevokedAgentOverwriteError``). A get-then-overwrite that awaits I/O can
+   resurrect a concurrent ``revoke``.
+
 ---
 
 ### Upgrading from v2.5.2 to v2.5.3

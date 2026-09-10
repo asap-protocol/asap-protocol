@@ -109,9 +109,8 @@ npm audit --audit-level=high
 
 ```json
 "overrides": {
-  "next": { "postcss": "^8.5.23" },
   "sharp": "^0.35.4",
-  "fast-uri": "^3.1.5",
+  "fast-uri": "^3.1.6",
   "nanoid": "^3.3.18",
   "postcss": "^8.5.23",
   "brace-expansion": "^5.0.9",
@@ -124,7 +123,7 @@ npm audit --audit-level=high
 }
 ```
 
-The `sharp` override forces Next's nested `sharp` up to `>=0.35.4` (GHSA-rgj7-g3m4-5g8c / libheif). Keep the direct `sharp` dependency aligned. **16.3.4** is the August 2026 security line (GHSA-p293-qw3h-jr36, GHSA-2xp9-vwfh-vxw4); do not stay on 16.2.x.
+The `sharp` override forces Next's nested `sharp` up to `>=0.35.4` (GHSA-rgj7-g3m4-5g8c / libheif). Keep the direct `sharp` dependency aligned. **16.3.4** is the August 2026 security line (GHSA-p293-qw3h-jr36, GHSA-2xp9-vwfh-vxw4); do not stay on 16.2.x. Nested `"next": { "postcss": "..." }` is unnecessary on 16.3.4 (Next already declares PostCSS 8.5.23+). The `fflate` override addresses **CVE-2026-45820**; `baseline-browser-mapping` addresses **CVE-2026-45819**.
 
 If a PostCSS or sharp override breaks `next build`, stop and report — do not silently adopt a preview/canary Next.
 
@@ -164,7 +163,7 @@ Security floors live in `tool.uv.override-dependencies` (with per-CVE comments i
 
 **PYSEC-2026-89 (markdown, mkdocs stack)**: CI uses `--ignore-vuln PYSEC-2026-89` while OSV still lists **3.10.2** (latest on PyPI as of 2026-05) with no fixed release; override pins `markdown>=3.10.2`. Remove the flag when `pip-audit` passes without it.
 
-**PYSEC-2026-3864 / CVE-2026-73295 (mkdocs-material)**: Resolved via `[docs]` extra floor and override (`mkdocs-material>=9.7.7`) — DOM XSS in the optional `search.suggest` feature.
+**PYSEC-2026-3864 / CVE-2026-73295 (mkdocs-material)**: Resolved via `[docs]` extra floor and override (`mkdocs-material>=9.7.7`) — DOM XSS in the optional `search.suggest` feature (`mkdocs.yml` enables it). Bumping the wheel does **not** patch GitHub Pages until the docs site is rebuilt and published (the `Docs` workflow on `main`).
 
 **PYSEC-2025-183 (pyjwt, transitive via `[mcp]`)**: CI uses `--ignore-vuln PYSEC-2025-183` — advisory is **disputed by the supplier** (minimum key length is application-defined); override already pins `pyjwt>=2.12.0,<3` for CVE-2026-32597.
 

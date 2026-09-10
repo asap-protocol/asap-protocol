@@ -1104,6 +1104,10 @@ LIFE-005 session sliding must not clobber a concurrent revoke or key rotation.
 `AgentStore.save` is still the full-row persist for register / rotate / revoke.
 `verify_agent_jwt` persists idle timeout only through `touch_if_current` — the
 same atomic check-and-act idea as `NonceStore.check_and_mark`.
+`AgentStore.save` (register / rotate / reactivate / status) must refuse
+replacing a `revoked` row with a non-revoked snapshot
+(`RevokedAgentOverwriteError`), as one compare-and-set — not get → await I/O →
+overwrite.
 
 ```python
 from datetime import datetime
@@ -1111,6 +1115,12 @@ from asap.auth.identity import AgentSession, AgentStore, jwk_thumbprint_sha256
 
 class SqlAgentStore:
     """Agent store whose verify-path touch is a single UPDATE ... WHERE."""
+
+    async def save(self, agent: AgentSession) -> None:
+        # UPDATE agents SET ... = :row
+        #  WHERE agent_id = :id AND status <> 'revoked'
+        # Raise RevokedAgentOverwriteError when the row is revoked.
+        ...
 
     async def touch_if_current(
         self,
