@@ -73,7 +73,7 @@ jobs:
   quality-web:
     name: quality (web)
     runs-on: ubuntu-latest
-    timeout-minutes: 14
+    timeout-minutes: 18
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -129,6 +129,11 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
         working-directory: apps/web
+      - name: Production build
+        run: npm run build
+        working-directory: apps/web
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
       - name: npm audit (production, moderate+)
         run: npm audit --omit=dev --audit-level=moderate
         working-directory: apps/web
