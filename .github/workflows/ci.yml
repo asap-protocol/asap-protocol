@@ -134,6 +134,9 @@ jobs:
         working-directory: apps/web
         env:
           NEXT_TELEMETRY_DISABLED: "1"
+          # Compile-only placeholder: `src/auth.ts` throws if AUTH_SECRET is missing
+          # or shorter than 32 chars. Not used to sign tokens in this job.
+          AUTH_SECRET: ci-quality-web-build-placeholder-not-a-secret
       - name: npm audit (production, moderate+)
         run: npm audit --omit=dev --audit-level=moderate
         working-directory: apps/web
