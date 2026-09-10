@@ -2,7 +2,8 @@
 """Validate registry.json against the Pydantic Lite Registry schema.
 
 Used by CI (validate-registry.yml) to ensure manual edits to registry.json
-do not break the Next.js ISR build or Python discovery client.
+do not break the Next.js ISR build or Python discovery client. Agent ids must
+be unique (marketplace lookup is first-match).
 
 Accepts:
   - Root array: list of RegistryEntry (e.g. [] or [{ id, name, ... }, ...])
@@ -29,6 +30,21 @@ from pydantic import ValidationError  # noqa: E402
 from asap.discovery.registry import LiteRegistry, RegistryEntry  # noqa: E402
 
 
+def _duplicate_agent_id_errors(ids_by_index: list[tuple[int, str]]) -> list[str]:
+    """Return errors when the same agent URN appears more than once."""
+    first_index: dict[str, int] = {}
+    errors: list[str] = []
+    for index, agent_id in ids_by_index:
+        seen_at = first_index.get(agent_id)
+        if seen_at is None:
+            first_index[agent_id] = index
+            continue
+        errors.append(
+            f"agents[{index}].id: duplicate id {agent_id!r} (first seen at agents[{seen_at}])"
+        )
+    return errors
+
+
 def validate_registry(path: Path) -> list[str]:
     if not path.exists():
         return [f"File not found: {path}"]
@@ -50,25 +66,32 @@ def validate_registry(path: Path) -> list[str]:
 
 def _validate_agents_list(agents: list[object]) -> list[str]:
     errors: list[str] = []
+    ids_by_index: list[tuple[int, str]] = []
     for i, item in enumerate(agents):
         if not isinstance(item, dict):
             errors.append(f"agents[{i}]: must be an object")
             continue
+        raw_id = item.get("id")
+        if isinstance(raw_id, str):
+            ids_by_index.append((i, raw_id))
         try:
             RegistryEntry.model_validate(item)
         except ValidationError as e:
             for err in e.errors():
                 loc = ".".join(str(x) for x in err["loc"])
                 errors.append(f"agents[{i}].{loc}: {err['msg']}")
+    errors.extend(_duplicate_agent_id_errors(ids_by_index))
     return errors
 
 
 def _validate_lite_registry(data: dict[str, object]) -> list[str]:
     try:
-        LiteRegistry.model_validate(data)
-        return []
+        registry = LiteRegistry.model_validate(data)
     except ValidationError as e:
         return [f"{'.'.join(str(x) for x in err['loc'])}: {err['msg']}" for err in e.errors()]
+    return _duplicate_agent_id_errors(
+        [(i, str(agent.id)) for i, agent in enumerate(registry.agents)]
+    )
 
 
 def main() -> int:
