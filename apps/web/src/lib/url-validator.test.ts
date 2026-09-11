@@ -28,13 +28,13 @@ describe('isAllowedExternalUrl', () => {
 
     it('allows valid external URLs when DNS resolves to public IP', async () => {
         resolve4Spy.mockResolvedValue(['93.184.216.34']);
-        expect(await isAllowedExternalUrl('https://example.com/manifest')).toEqual({ valid: true });
-        expect(await isAllowedExternalUrl('https://api.myagent.io')).toEqual({ valid: true });
+        expect(await isAllowedExternalUrl('https://example.com/manifest')).toMatchObject({ valid: true, ips: expect.any(Array) });
+        expect(await isAllowedExternalUrl('https://api.myagent.io')).toMatchObject({ valid: true, ips: expect.any(Array) });
     });
 
     it('allows http scheme when DNS resolves to public IP', async () => {
         resolve4Spy.mockResolvedValue(['93.184.216.34']);
-        expect(await isAllowedExternalUrl('http://example.com')).toEqual({ valid: true });
+        expect(await isAllowedExternalUrl('http://example.com')).toMatchObject({ valid: true, ips: expect.any(Array) });
     });
 
     it('blocks localhost', async () => {

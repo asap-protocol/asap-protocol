@@ -6,6 +6,8 @@ import { isBlockedHostOrIp } from './url-validator-ip';
 export interface AllowedUrlResult {
     valid: boolean;
     error?: string;
+    /** Public IPs from the allowlist DNS lookup; pin connect() to these against DNS rebinding. */
+    ips?: string[];
 }
 
 export async function isAllowedExternalUrl(url: string): Promise<AllowedUrlResult> {
@@ -41,7 +43,7 @@ export async function isAllowedExternalUrl(url: string): Promise<AllowedUrlResul
             }
         }
 
-        return { valid: true };
+        return { valid: true, ips };
     } catch {
         return { valid: false, error: 'Invalid URL.' };
     }

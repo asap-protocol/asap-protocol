@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { isAllowedExternalUrl } from '@/lib/url-validator';
 import { checkProxyRateLimit } from '@/lib/rate-limit';
 import { HealthCheckQuerySchema, parseSearchParams } from '@/lib/api-schemas';
+import { fetchAllowlistedUrl, isPinnedFetchBlocked } from '@/lib/fetch-pinned-url';
 
 function getClientIp(request: NextRequest): string {
     const forwarded = request.headers.get('x-forwarded-for');
@@ -32,16 +33,13 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: check.error ?? 'Invalid URL' }, { status: 400 });
     }
 
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
-        const res = await fetch(url, {
-            method: 'GET',
-            signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-        return NextResponse.json({ ok: res.ok, status: res.status });
-    } catch {
-        return NextResponse.json({ ok: false, status: 0 });
+    const result = await fetchAllowlistedUrl(
+        url,
+        async (nextUrl) => (nextUrl === url ? check : isAllowedExternalUrl(nextUrl)),
+        3000
+    );
+    if (isPinnedFetchBlocked(result)) {
+        return NextResponse.json({ error: result.error }, { status: 400 });
     }
+    return NextResponse.json({ ok: result.ok, status: result.status });
 }

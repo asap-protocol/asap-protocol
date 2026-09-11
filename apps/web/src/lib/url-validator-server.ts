@@ -29,7 +29,7 @@ export async function isAllowedProxyUrlAsync(url: string): Promise<AllowedUrlRes
                 return { valid: false, error: 'Internal/Private network addresses are not allowed.' };
             }
         }
-        return { valid: true };
+        return { valid: true, ips };
     } catch {
         return { valid: false, error: 'Invalid URL.' };
     }
