@@ -11,6 +11,11 @@ describe('isBlockedHostOrIp', () => {
     expect(isBlockedHostOrIp('127.1.0.1')).toBe(true);
   });
 
+  it('blocks IPv6 unspecified :: like IPv4 0.0.0.0/8', () => {
+    expect(isBlockedHostOrIp('::')).toBe(true);
+    expect(isBlockedHostOrIp('[::]')).toBe(true);
+  });
+
   it('blocks IPv6 link-local as fe80::/10, not only fe80::/16', () => {
     expect(isBlockedHostOrIp('fe80::1')).toBe(true);
     expect(isBlockedHostOrIp('fea0::1')).toBe(true);

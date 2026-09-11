@@ -244,9 +244,15 @@ async def background_a2h_resolve(
     *,
     context: str,
     principal_id: str,
+    expected_capability_specs: list[dict[str, Any]] | None = None,
 ) -> None:
     try:
-        await channel.resolve_via_a2h(agent_id, context=context, principal_id=principal_id)
+        await channel.resolve_via_a2h(
+            agent_id,
+            context=context,
+            principal_id=principal_id,
+            expected_capability_specs=expected_capability_specs,
+        )
     except Exception:
         logger.exception(
             "asap.identity.a2h_resolve_failed",
@@ -500,6 +506,7 @@ async def _handle_agent_register(
             agent_id,
             context=f"ASAP agent registration {agent_id} for host {host_id}",
             principal_id=principal,
+            expected_capability_specs=capability_specs,
         )
 
     logger.info(

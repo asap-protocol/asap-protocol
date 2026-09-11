@@ -41,12 +41,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   headers). Static templates that already contain ``.`` / ``..`` raise
   ``OpenAPIPathParameterError`` instead of ``ValueError``.
 - **Marketplace IPv6 SSRF ranges** — ``isBlockedIPv6`` treats link-local
-  as ``fe80::/10`` (not ``fe80:`` /16) and applies the IPv4 blocklist to
-  NAT64 ``64:ff9b::/96`` embeddings.
+  as ``fe80::/10`` (not ``fe80:`` /16), blocks unspecified ``::``, and
+  applies the IPv4 blocklist to NAT64 ``64:ff9b::/96`` embeddings.
 - **Pending Device Auth / CIBA spec reuse** — a later escalation request
-  merges ``capability_specs`` into the existing pending row (same
-  ``user_code`` / URIs). The human approves the latest payload, not the
-  first request's stale specs.
+  merges ``capability_specs`` and rotates to a new challenge. A2H
+  approve/deny is ignored when the store payload no longer matches the
+  prompt, so a stale consent cannot grant a wider set.
 
 ### Security (deps)
 

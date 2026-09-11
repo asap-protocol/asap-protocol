@@ -175,6 +175,8 @@ async def _handle_request_capability(
             approval_kind="escalation",
         )
 
+    pending = await approval_store.get(agent_id)
+    consent_specs = pending.capability_specs if pending is not None else needs_specs
     ch = getattr(request.app.state, "identity_approval_a2h_channel", None)
     if ch is not None:
         principal = host.user_id if host.user_id else host_id
@@ -188,8 +190,9 @@ async def _handle_request_capability(
             background_a2h_resolve,
             ch,
             agent_id,
-            context=_escalation_a2h_context(agent_id, host_id, needs_specs),
+            context=_escalation_a2h_context(agent_id, host_id, consent_specs),
             principal_id=str(principal),
+            expected_capability_specs=consent_specs,
         )
 
     logger.info(

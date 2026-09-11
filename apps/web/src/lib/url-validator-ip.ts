@@ -2,6 +2,7 @@ export const BLOCKED_HOSTNAMES = new Set([
   'localhost',
   '127.0.0.1',
   '::1',
+  '::',
   '0.0.0.0',
   'metadata.google.internal',
   'metadata.aws.internal',
@@ -112,6 +113,7 @@ export function isBlockedIPv6(ip: string): boolean {
     }
     return false;
   }
+  if (groups.every((g) => g === 0)) return true; // ::
   if (groups.every((g, i) => (i === 7 ? g === 1 : g === 0))) return true; // ::1
   if ((groups[0] & 0xffc0) === 0xfe80) return true; // fe80::/10
   if ((groups[0] & 0xfe00) === 0xfc00) return true; // fc00::/7

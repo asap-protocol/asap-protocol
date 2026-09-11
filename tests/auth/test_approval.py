@@ -328,7 +328,7 @@ async def test_pending_escalation_merges_later_capability_specs() -> None:
         capability_specs=[{"name": "file:write", "constraints": {"path": "/var"}}],
         approval_kind="escalation",
     )
-    assert second.user_code == first.user_code
+    assert second.user_code != first.user_code
     state = await store.get("esc-merge")
     assert state is not None
     assert [spec["name"] for spec in state.capability_specs] == ["file:read", "file:write"]
@@ -377,6 +377,36 @@ async def test_pending_ciba_merges_later_capability_specs() -> None:
     state = await store.get("ciba-merge")
     assert state is not None
     assert [spec["name"] for spec in state.capability_specs] == ["read", "write"]
+
+
+@pytest.mark.asyncio
+async def test_stale_a2h_approve_does_not_grant_rotated_specs() -> None:
+    store = InMemoryApprovalStore()
+    first_specs: list[dict[str, Any]] = [{"name": "file:read", "constraints": {"path": "/tmp"}}]
+    await create_device_authorization(
+        store,
+        "esc-stale",
+        ["file:read"],
+        capability_specs=first_specs,
+        approval_kind="escalation",
+    )
+    later_specs: list[dict[str, Any]] = [{"name": "file:write", "constraints": {"path": "/var"}}]
+    await create_device_authorization(
+        store,
+        "esc-stale",
+        ["file:write"],
+        capability_specs=later_specs,
+        approval_kind="escalation",
+    )
+    provider = _StubHumanApproval(ApprovalResult(decision=ApprovalDecision.APPROVE, data={}))
+    ch = A2HApprovalChannel(provider, store)
+    await ch.resolve_via_a2h(
+        "esc-stale",
+        context="narrow",
+        principal_id="human-1",
+        expected_capability_specs=first_specs,
+    )
+    assert await check_approval_status(store, "esc-stale") == "pending"
 
 
 @pytest.mark.asyncio
