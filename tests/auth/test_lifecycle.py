@@ -231,6 +231,18 @@ class TestReactivateAgent:
         with pytest.raises(ValueError, match="permanently revoked"):
             reactivate_agent(a, _host())
 
+    def test_rejected_agent_raises(self) -> None:
+        """Rejected registration must not be force-activated via reactivate (LIFE-004)."""
+        a = _agent(status="rejected")
+        with pytest.raises(ValueError, match="rejected"):
+            reactivate_agent(a, _host())
+
+    def test_pending_agent_raises(self) -> None:
+        """Pending approval must not be skipped by reactivate (approval bypass)."""
+        a = _agent(status="pending")
+        with pytest.raises(ValueError, match="pending approval"):
+            reactivate_agent(a, _host())
+
     def test_active_agent_reactivation_succeeds(self) -> None:
         """Reactivating an already-active agent is a no-op refresh."""
         a = _agent(status="active")
