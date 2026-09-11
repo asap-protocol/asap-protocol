@@ -1,6 +1,6 @@
 [project]
 name = "asap-protocol"
-version = "2.5.4"
+version = "2.5.5"
 description = "Async Simple Agent Protocol - A streamlined protocol for agent-to-agent communication"
 authors = [
     {name = "ASAP Protocol Contributors"}
