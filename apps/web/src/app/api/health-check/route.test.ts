@@ -14,7 +14,8 @@ vi.mock('@/lib/rate-limit', () => ({
 }));
 
 vi.mock('@/lib/fetch-pinned-url', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/fetch-pinned-url')>('@/lib/fetch-pinned-url');
+  const actual =
+    await vi.importActual<typeof import('@/lib/fetch-pinned-url')>('@/lib/fetch-pinned-url');
   return {
     ...actual,
     fetchAllowlistedUrl: vi.fn(),
@@ -49,7 +50,9 @@ describe('GET /api/health-check', () => {
   it('returns 429 and Retry-After when rate limit blocks request', async () => {
     vi.mocked(checkProxyRateLimit).mockResolvedValue({ allowed: false, retryAfter: 12 });
     const res = await GET(
-      createRequest('https://example.com/health', { 'x-forwarded-for': '203.0.113.10, 198.51.100.1' })
+      createRequest('https://example.com/health', {
+        'x-forwarded-for': '203.0.113.10, 198.51.100.1',
+      })
     );
     expect(res.status).toBe(429);
     expect(res.headers.get('Retry-After')).toBe('12');

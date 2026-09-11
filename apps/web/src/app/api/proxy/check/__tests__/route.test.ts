@@ -10,7 +10,8 @@ vi.mock('@/lib/rate-limit', () => ({
   checkProxyRateLimit: vi.fn(),
 }));
 vi.mock('@/lib/fetch-pinned-url', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/fetch-pinned-url')>('@/lib/fetch-pinned-url');
+  const actual =
+    await vi.importActual<typeof import('@/lib/fetch-pinned-url')>('@/lib/fetch-pinned-url');
   return {
     ...actual,
     fetchAllowlistedUrl: vi.fn(),
@@ -18,10 +19,10 @@ vi.mock('@/lib/fetch-pinned-url', async () => {
 });
 
 function createRequest(targetUrl: string, headers?: Record<string, string>): NextRequest {
-  return new NextRequest(
-    `http://localhost/api/proxy/check?url=${encodeURIComponent(targetUrl)}`,
-    { method: 'GET', headers: headers ?? {} }
-  );
+  return new NextRequest(`http://localhost/api/proxy/check?url=${encodeURIComponent(targetUrl)}`, {
+    method: 'GET',
+    headers: headers ?? {},
+  });
 }
 
 describe('GET /api/proxy/check', () => {
