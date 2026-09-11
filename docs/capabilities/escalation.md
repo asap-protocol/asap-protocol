@@ -5,8 +5,9 @@ Long-running agents sometimes need **additional capabilities** after registratio
 ## Flow
 
 1. The active agent calls `POST /asap/agent/request-capability` with an **Agent JWT** and body `{ "capabilities": [{ "name": "...", "constraints": { ... }? }] }`.
-2. For each requested capability, the server compares the name to the host’s `default_capabilities`:
-   - **Inside defaults** → grant is applied immediately (`active` in the registry).
+2. For each requested capability, the server compares the name to the host’s `default_capabilities` **and** any existing registry grant for that name:
+   - **Inside defaults**, and either no existing grant or an identical active grant → grant is applied immediately (`active` in the registry).
+   - **Inside defaults**, but the request would clear, weaken, or otherwise replace an existing grant (constraints or status) → treated as needing consent (same approval path as non-default names).
    - **Outside defaults** → an `ApprovalObject` is created (`pending`) using the configured approval method.
 3. The human approves (or denies) via the same UX as registration.
 4. The operator (or automation) polls `GET /asap/agent/status` with a **Host JWT**; when the escalation approval is `approved`, the server applies the new grants and clears the escalation approval record. The agent session remains **active** throughout.

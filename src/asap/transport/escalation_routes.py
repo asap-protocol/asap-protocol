@@ -96,7 +96,11 @@ async def _handle_request_capability(
             status_code=500, content={"detail": "capability registry not configured"}
         )
 
-    needs_specs, auto_specs = partition_escalation_capability_specs(host, capability_specs)
+    needs_specs, auto_specs = partition_escalation_capability_specs(
+        host,
+        capability_specs,
+        existing_grants=registry.get_grants(agent.agent_id),
+    )
     host_id = host.host_id
     agent_id = agent.agent_id
 
