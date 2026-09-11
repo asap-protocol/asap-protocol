@@ -1117,16 +1117,63 @@ Scope: [prd-v2.5.4-distribution-loop.md](../product/prd/prd-v2.5.4-distribution-
 - **Breaking changes**: None for Distribution Loop scope (docs / starters /
   homepage / maintainer telemetry).
 
-### Unreleased (after v2.5.4) — custom AgentStore
+---
 
-Custom ``AgentStore`` authors on git ``main`` / the next release must:
+### Upgrading from v2.5.4 to v2.5.5
 
-1. Implement ``touch_if_current``. ``verify_agent_jwt`` no longer full-row
-   ``save``s a verify-time snapshot. Missing the method is ``AttributeError`` on
-   the next Agent JWT verify. See [Custom Agent Store](security.md#custom-agent-store).
-2. Make ``save`` refuse revoked→non-revoked (raise
-   ``RevokedAgentOverwriteError``). A get-then-overwrite that awaits I/O can
-   resurrect a concurrent ``revoke``.
+**v2.5.5 (security & quality patch)** — **shipped**
+([tag `v2.5.5`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.5)) —
+hardens OpenAPI path filling, Lite Registry add-only policy, marketplace
+allowlisted fetch, capability-replace consent, and fail-closed reactivate,
+plus Agent JWT persist/revoke races already on ``main``. This is **not**
+Formal Spec & Interop. There are **no wire-protocol or manifest schema**
+breaking changes relative to v2.5.4.
+
+#### What lands in v2.5.5
+
+- **OpenAPI** — ``_fill_path_template`` rejects ``.`` / ``..`` path params
+  ([#344](https://github.com/asap-protocol/asap-protocol/pull/344)).
+- **Lite Registry** — auto-registration cannot overwrite existing URNs;
+  duplicate ids in ``registry.json`` are rejected
+  ([#345](https://github.com/asap-protocol/asap-protocol/pull/345)).
+- **Marketplace fetch** — DNS pin + redirect-hop re-validation
+  ([#346](https://github.com/asap-protocol/asap-protocol/pull/346)); IPv6
+  unspecified ``::`` / NAT64 embeddings blocked
+  ([#350](https://github.com/asap-protocol/asap-protocol/pull/350)).
+- **Capabilities** — replacing grants (including host ``expires_at``)
+  requires Device Auth / CIBA consent
+  ([#347](https://github.com/asap-protocol/asap-protocol/pull/347)).
+- **Reactivate** — only ``active`` / ``expired``; pending/rejected fail closed
+  ([#348](https://github.com/asap-protocol/asap-protocol/pull/348)).
+- **Custom ``AgentStore``** — see below.
+- **npm / compliance** — `@asap-protocol/*` remain **2.4.1**;
+  `asap-compliance` remains **1.3.0**.
+
+#### Upgrade steps
+
+1. Bump with `pip install 'asap-protocol==2.5.5'` (or `uv add asap-protocol`).
+2. Custom ``AgentStore`` authors must:
+
+   1. Implement ``touch_if_current``. ``verify_agent_jwt`` no longer full-row
+      ``save``s a verify-time snapshot. Missing the method is ``AttributeError``
+      on the next Agent JWT verify. See
+      [Custom Agent Store](security.md#custom-agent-store).
+   2. Make ``save`` refuse revoked→non-revoked (raise
+      ``RevokedAgentOverwriteError``). A get-then-overwrite that awaits I/O
+      can resurrect a concurrent ``revoke``.
+3. TypeScript `@asap-protocol/*` packages remain at **2.4.1**;
+   `@asap-protocol/mcp-auth` HTTP/SSE middleware remains deferred.
+4. Hosts that auto-apply ``host.default_capabilities`` should expect consent
+   when the request would replace constraints or ``expires_at``.
+5. OpenAPI adapter callers: path params of ``.`` / ``..`` now raise
+   ``OpenAPIPathParameterError``.
+
+#### Backward compatibility
+
+- **Wire protocol**: Unchanged from v2.5.4.
+- **Breaking changes**: None for typical deployments. Custom store
+  implementations that only implemented get→mutate→save must add the two
+  methods above.
 
 ---
 

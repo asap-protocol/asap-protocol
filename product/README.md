@@ -48,11 +48,12 @@ product/
 | **v2.5.2 — Security follow-up** | **✅ Released (2026-07-08)** | `prd-v2.5.2-security-follow-up.md` | #209 + CR #245–#249 + registry fixes (ex planned v2.5.4); tag [`v2.5.2`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.2) |
 | **v2.5.3 — Adapter Lab II** | **✅ Released (2026-07-16)** | `prd-v2.5.3-adapter-lab-ii.md` + [tasks](../engineering/tasks/v2.5.3/tasks-v2.5.3-roadmap.md) | Workflow connectors, automation security, experimental MAF / NAT; tag [`v2.5.3`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.3) |
 | **v2.5.4 — Distribution Loop** | **✅ Released (2026-07-18)** | `prd-v2.5.4-distribution-loop.md` + [tasks](../engineering/tasks/v2.5.4/tasks-v2.5.4-roadmap.md) | Homepage, starters, Build for agents, telemetry ops; tag [`v2.5.4`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.4) |
-| v2.5.5 — Formal Spec & Interop | 🔭 **Next** (kickoff) | `prd-v2.5.5-formal-spec-interop.md` | RFC spec, introspection, privacy, cross-protocol (Dist soft inputs shipped) |
+| **v2.5.5 — Security & quality patch** | **✅ Released (2026-09-11)** | `CHANGELOG.md` `[2.5.5]` (no Formal Spec PRD) | OpenAPI climb, registry URN guard, marketplace SSRF pin, capability-replace consent, fail-closed reactivate; tag [`v2.5.5`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.5) |
+| Formal Spec & Interop | 🔭 **Next** (kickoff) | `prd-v2.5.5-formal-spec-interop.md` | RFC spec, introspection, privacy, cross-protocol (library **2.5.5** is the patch above, not this train) |
 | v2.5.x train index | Active | `prd-v2.5-roadmap.md` | Full schedule + orphan owners + rescope log |
 | v3.0 — Economy | 🔭 Long-term (triggers) | `prd-v3.0-economy.md` | Settlement, billing; ADR-21 free badge until launch |
 
-> **Strategic note**: Registry API Backend (PostgreSQL), Intent-Based Search, Orchestration Primitives, Delegated/Autonomous Mode formalization, and DeepEval remain deferred until their triggers materialize. **Adoption continuation through Distribution Loop is shipped (v2.5.4).** Next public train work: **Formal Spec → v2.5.5**. Local strategy hub (when present): [strategy/roadmap.md](./strategy/roadmap.md). Public train: [prd/README.md](./prd/README.md).
+> **Strategic note**: Registry API Backend (PostgreSQL), Intent-Based Search, Orchestration Primitives, Delegated/Autonomous Mode formalization, and DeepEval remain deferred until their triggers materialize. **Library v2.5.5** is a security/quality patch. Dist Loop (v2.5.4) remains shipped. Next public train work: **Formal Spec** ([prd-v2.5.5-formal-spec-interop.md](./prd/prd-v2.5.5-formal-spec-interop.md)). Local strategy hub (when present): [strategy/roadmap.md](./strategy/roadmap.md). Public train: [prd/README.md](./prd/README.md).
 
 ## Key entrypoints
 
