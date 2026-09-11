@@ -5,7 +5,7 @@
 > **Version**: 2.5.x
 > **Status**: ACTIVE
 > **Created**: 2026-06-22
-> **Last Updated**: 2026-07-18
+> **Last Updated**: 2026-09-11
 >
 > **Predecessor**: [prd-v2.4.1-security-hardening.md](./prd-v2.4.1-security-hardening.md) (✅ shipped 2026-06-14)
 > **Successor (long-term)**: [prd-v3.0-economy.md](./prd-v3.0-economy.md)
@@ -31,6 +31,7 @@ Between **v2.4.1** (security patch) and **v3.0** (economy), the project needs a 
 | Spec formal + introspection + privacy | **v2.5.3** → **v2.5.5** | Standards track após adoption loop |
 | v2.4.1 §8 security follow-ups | **v2.5.4** (optional) → **v2.5.2** | Absorbed into next ship after v2.5.1 (2026-07-08) |
 | Code quality patch | **v2.5.1** | Behavior-preserving refactor + P0 fixes (2026-06-26) |
+| Library security/quality patch | **v2.5.5** (2026-09-11) | Reused the 2.5.5 number; Formal Spec PRD filename stays `prd-v2.5.5-formal-spec-interop.md` |
 
 ---
 
@@ -43,9 +44,10 @@ Between **v2.4.1** (security patch) and **v3.0** (economy), the project needs a 
 | **v2.5.2** | Security & correctness follow-up | #209 (operator auth, `extra="forbid"`, Redis JTI, web rate limits) + CR #245–#249 + registry fixes | [prd-v2.5.2-security-follow-up.md](./prd-v2.5.2-security-follow-up.md) | **✅ Shipped** 2026-07-08 — tag [`v2.5.2`](https://github.com/adriannoes/asap-protocol/releases/tag/v2.5.2) |
 | **v2.5.3** | Adapter Lab II | Enterprise/workflow adapters (ex v2.3.2) | [prd-v2.5.3-adapter-lab-ii.md](./prd-v2.5.3-adapter-lab-ii.md) | **✅ Shipped** 2026-07-16 — tag [`v2.5.3`](https://github.com/adriannoes/asap-protocol/releases/tag/v2.5.3) · [tasks](../../engineering/tasks/v2.5.3/tasks-v2.5.3-roadmap.md) |
 | **v2.5.4** | Distribution Loop | Homepage, starters, métricas (ex v2.3.3) | [prd-v2.5.4-distribution-loop.md](./prd-v2.5.4-distribution-loop.md) · [tasks](../../engineering/tasks/v2.5.4/tasks-v2.5.4-roadmap.md) | **✅ Shipped** 2026-07-18 — tag [`v2.5.4`](https://github.com/adriannoes/asap-protocol/releases/tag/v2.5.4) |
-| **v2.5.5** | Formal Spec & Interop | RFC spec, introspection, privacy, cross-protocol | [prd-v2.5.5-formal-spec-interop.md](./prd-v2.5.5-formal-spec-interop.md) | **Next** (soft Dist inputs available; create `engineering/tasks/v2.5.5/` at kickoff) |
+| **v2.5.5** | Security & quality patch | OpenAPI climb, registry URN guard, marketplace SSRF pin, capability-replace consent, fail-closed reactivate | `CHANGELOG.md` `[2.5.5]` (no Formal Spec PRD) | **✅ Shipped** 2026-09-11 — tag [`v2.5.5`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.5) |
+| Formal Spec & Interop | Formal Spec & Interop | RFC spec, introspection, privacy, cross-protocol | [prd-v2.5.5-formal-spec-interop.md](./prd-v2.5.5-formal-spec-interop.md) | **Next** (post-2.5.5; filename historical — create `engineering/tasks/v2.5.5/` at kickoff) |
 
-**Execution rule:** **v2.5.0–v2.5.4** shipped. **Next:** Formal Spec → **v2.5.5**. **v3.0** remains trigger-gated ([prd-v3.0-economy.md](./prd-v3.0-economy.md)).
+**Execution rule:** **v2.5.0–v2.5.5** shipped (library **2.5.5** is the security/quality patch). **Next:** Formal Spec ([prd-v2.5.5-formal-spec-interop.md](./prd-v2.5.5-formal-spec-interop.md); filename historical, not this library tag). **v3.0** remains trigger-gated ([prd-v3.0-economy.md](./prd-v3.0-economy.md)).
 
 **Patch tags (not minor releases):** [`v2.5.0.1`](https://github.com/adriannoes/asap-protocol/releases/tag/v2.5.0.1) republished **`asap-compliance` 1.3.0** only; `pyproject.toml` remained **2.5.0**. **`@asap-protocol/mcp-auth`** (npm) is still deferred — future npm patch TBD (do not confuse with tag `v2.5.0.1`).
 
@@ -121,6 +123,7 @@ Narrativa pública: **ASAP não substitui MCP** — fornece a camada de identida
 
 | Date | Change |
 |------|--------|
+| 2026-09-11 | **Library 2.5.5 shipped** — security/quality patch (tag `v2.5.5`); Formal Spec stays **next** under historical filename `prd-v2.5.5-formal-spec-interop.md` |
 | 2026-07-18 | **v2.5.4 shipped** — tag `v2.5.4`; PyPI 2.5.4; next → Formal Spec **v2.5.5** |
 | 2026-07-18 | v2.5.4 status → **Active** (tasks ACTIVE; S0–S2 producer done) |
 | 2026-07-18 | Parked/orphan owners table; Dist→Spec→Economy handoff pointer; v2.5.5 soft-block clarified |
