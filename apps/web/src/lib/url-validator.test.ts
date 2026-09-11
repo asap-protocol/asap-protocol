@@ -10,6 +10,22 @@ describe('isBlockedHostOrIp', () => {
     expect(isBlockedHostOrIp('127.0.0.2')).toBe(true);
     expect(isBlockedHostOrIp('127.1.0.1')).toBe(true);
   });
+
+  it('blocks IPv6 link-local as fe80::/10, not only fe80::/16', () => {
+    expect(isBlockedHostOrIp('fe80::1')).toBe(true);
+    expect(isBlockedHostOrIp('fea0::1')).toBe(true);
+    expect(isBlockedHostOrIp('feb0::1')).toBe(true);
+    expect(isBlockedHostOrIp('febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff')).toBe(true);
+    expect(isBlockedHostOrIp('fec0::1')).toBe(false);
+  });
+
+  it('blocks NAT64 64:ff9b::/96 when the embedded IPv4 is private', () => {
+    expect(isBlockedHostOrIp('64:ff9b::10.0.0.1')).toBe(true);
+    expect(isBlockedHostOrIp('64:ff9b::192.168.1.1')).toBe(true);
+    expect(isBlockedHostOrIp('64:ff9b:0:0:0:0:c0a8:1')).toBe(true);
+    expect(isBlockedHostOrIp('64:ff9b::8.8.8.8')).toBe(false);
+    expect(isBlockedHostOrIp('64:ff9b:1::10.0.0.1')).toBe(false);
+  });
 });
 
 describe('isAllowedExternalUrl', () => {

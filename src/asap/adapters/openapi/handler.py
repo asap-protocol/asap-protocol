@@ -130,6 +130,14 @@ class OpenAPIPathParameterError(FatalError):
             raise ValueError("for_invalid requires a non-empty invalid= list.")
         return cls(path_template=path_template, invalid=invalid)
 
+    @classmethod
+    def for_static_dot_segment(cls, path_template: str) -> OpenAPIPathParameterError:
+        """Build an error when the template itself contains a `.` / `..` segment.
+
+        Used when there are no placeholders to name in :meth:`for_invalid`.
+        """
+        return cls(path_template=path_template, invalid=[path_template])
+
 
 def index_capabilities(caps: Iterable[OpenAPICapability]) -> dict[str, OpenAPICapability]:
     """Index capabilities by skill id, detecting duplicates early."""
@@ -337,7 +345,9 @@ def _fill_path_template(path_template: str, path_params: Mapping[str, Any]) -> s
         raw = path_params[name]
         out = out.replace("{" + name + "}", quote(str(raw), safe=""))
     if _filled_path_has_dot_segment(out):
-        raise OpenAPIPathParameterError.for_invalid(path_template, names_order)
+        if names_order:
+            raise OpenAPIPathParameterError.for_invalid(path_template, names_order)
+        raise OpenAPIPathParameterError.for_static_dot_segment(path_template)
     return out
 
 

@@ -204,6 +204,16 @@ class ApprovalStore(Protocol):
         """Mark the request denied with a short ``reason``."""
         ...
 
+    async def update_pending_capabilities(
+        self,
+        agent_id: str,
+        *,
+        capabilities: list[str],
+        capability_specs: list[dict[str, Any]],
+    ) -> None:
+        """Replace capabilities/specs on a pending request; keep codes and ``created_at``."""
+        ...
+
 
 class InMemoryApprovalStore:
     """Process-local approval store for tests and simple deployments."""
@@ -296,6 +306,78 @@ class InMemoryApprovalStore:
                 update={"status": "denied", "deny_reason": reason},
             )
 
+    async def update_pending_capabilities(
+        self,
+        agent_id: str,
+        *,
+        capabilities: list[str],
+        capability_specs: list[dict[str, Any]],
+    ) -> None:
+        """Replace capabilities/specs on a pending request; keep codes and ``created_at``."""
+        async with self._lock:
+            raw = self._by_agent.get(agent_id)
+            if raw is None:
+                msg = f"No approval request for agent_id={agent_id}"
+                raise KeyError(msg)
+            current = _refresh_expired(raw)
+            if current.status == "expired":
+                self._by_agent[agent_id] = current
+                msg = "Approval request expired"
+                raise ValueError(msg)
+            if current.status != "pending":
+                msg = f"Cannot update request in status {current.status!r}"
+                raise ValueError(msg)
+            self._by_agent[agent_id] = current.model_copy(
+                update={
+                    "capabilities": list(capabilities),
+                    "capability_specs": [dict(spec) for spec in capability_specs],
+                },
+            )
+
+
+def _spec_name(spec: dict[str, Any]) -> str:
+    return str(spec.get("name", ""))
+
+
+def _merge_capability_specs(
+    existing: list[dict[str, Any]],
+    incoming: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Union specs by ``name``; a later request replaces the same name."""
+    by_name: dict[str, dict[str, Any]] = {}
+    order: list[str] = []
+    for spec in [*existing, *incoming]:
+        name = _spec_name(spec)
+        if name not in by_name:
+            order.append(name)
+        by_name[name] = dict(spec)
+    return [by_name[name] for name in order]
+
+
+async def _reuse_or_merge_pending(
+    store: ApprovalStore,
+    existing: ApprovalRequestState,
+    *,
+    capabilities: list[str],
+    capability_specs: list[dict[str, Any]] | None,
+) -> ApprovalObject:
+    """Keep the pending Device/CIBA challenge; merge later capability payloads."""
+    incoming = [dict(spec) for spec in capability_specs] if capability_specs else []
+    merged_specs = _merge_capability_specs(existing.capability_specs, incoming)
+    merged_caps = list(dict.fromkeys([*existing.capabilities, *capabilities]))
+    if merged_specs == existing.capability_specs and merged_caps == list(existing.capabilities):
+        return _state_to_approval_object(existing)
+    await store.update_pending_capabilities(
+        existing.agent_id,
+        capabilities=merged_caps,
+        capability_specs=merged_specs,
+    )
+    fresh = await store.get(existing.agent_id)
+    if fresh is None:
+        msg = "Internal error: approval request missing after merge"
+        raise RuntimeError(msg)
+    return _state_to_approval_object(fresh)
+
 
 async def create_device_authorization(
     store: ApprovalStore,
@@ -311,7 +393,9 @@ async def create_device_authorization(
     """Start or reuse a Device Authorization (RFC 8628) approval for an agent.
 
     If a **pending**, non-expired request already exists for ``agent_id``, returns
-    the same ``user_code`` and URIs (idempotent re-registration).
+    the same ``user_code`` and URIs (idempotent re-registration). A later request
+    with additional or replaced ``capability_specs`` is merged into that pending
+    row so the human does not approve a stale payload.
     """
     base_uri = verification_uri or DEFAULT_DEVICE_VERIFICATION_URI
     existing = await store.get(agent_id)
@@ -321,7 +405,12 @@ async def create_device_authorization(
         and existing.status == "pending"
         and existing.approval_kind == approval_kind
     ):
-        return _state_to_approval_object(existing)
+        return await _reuse_or_merge_pending(
+            store,
+            existing,
+            capabilities=capabilities,
+            capability_specs=capability_specs,
+        )
 
     user_code = _generate_user_code()
     verification_uri_complete = f"{base_uri}?user_code={user_code}"
@@ -364,7 +453,12 @@ async def create_ciba_approval(
         and existing.status == "pending"
         and existing.approval_kind == approval_kind
     ):
-        return _state_to_approval_object(existing)
+        return await _reuse_or_merge_pending(
+            store,
+            existing,
+            capabilities=capabilities,
+            capability_specs=capability_specs,
+        )
 
     await store.create(
         agent_id,

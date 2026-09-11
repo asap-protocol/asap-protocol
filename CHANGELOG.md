@@ -38,7 +38,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``quote(..., safe="")`` leaves RFC 3986 dots unencoded, so a granted
   skill for ``/v1/{resource}/{id}`` with both params ``..`` would climb
   out of a path-prefixed ``base_url`` (confused deputy with OA-009
-  headers).
+  headers). Static templates that already contain ``.`` / ``..`` raise
+  ``OpenAPIPathParameterError`` instead of ``ValueError``.
+- **Marketplace IPv6 SSRF ranges** — ``isBlockedIPv6`` treats link-local
+  as ``fe80::/10`` (not ``fe80:`` /16) and applies the IPv4 blocklist to
+  NAT64 ``64:ff9b::/96`` embeddings.
+- **Pending Device Auth / CIBA spec reuse** — a later escalation request
+  merges ``capability_specs`` into the existing pending row (same
+  ``user_code`` / URIs). The human approves the latest payload, not the
+  first request's stale specs.
 
 ### Security (deps)
 

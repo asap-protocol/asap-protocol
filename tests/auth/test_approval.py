@@ -312,6 +312,74 @@ async def test_a2h_channel_decline_updates_store() -> None:
 
 
 @pytest.mark.asyncio
+async def test_pending_escalation_merges_later_capability_specs() -> None:
+    store = InMemoryApprovalStore()
+    first = await create_device_authorization(
+        store,
+        "esc-merge",
+        ["file:read"],
+        capability_specs=[{"name": "file:read", "constraints": {"path": "/tmp"}}],
+        approval_kind="escalation",
+    )
+    second = await create_device_authorization(
+        store,
+        "esc-merge",
+        ["file:write"],
+        capability_specs=[{"name": "file:write", "constraints": {"path": "/var"}}],
+        approval_kind="escalation",
+    )
+    assert second.user_code == first.user_code
+    state = await store.get("esc-merge")
+    assert state is not None
+    assert [spec["name"] for spec in state.capability_specs] == ["file:read", "file:write"]
+    assert state.capabilities == ["file:read", "file:write"]
+
+
+@pytest.mark.asyncio
+async def test_pending_escalation_later_spec_replaces_same_name() -> None:
+    store = InMemoryApprovalStore()
+    await create_device_authorization(
+        store,
+        "esc-replace",
+        ["cap:x"],
+        capability_specs=[{"name": "cap:x", "constraints": {"max": 1}}],
+        approval_kind="escalation",
+    )
+    await create_device_authorization(
+        store,
+        "esc-replace",
+        ["cap:x"],
+        capability_specs=[{"name": "cap:x", "constraints": {"max": 99}}],
+        approval_kind="escalation",
+    )
+    state = await store.get("esc-replace")
+    assert state is not None
+    assert state.capability_specs == [{"name": "cap:x", "constraints": {"max": 99}}]
+
+
+@pytest.mark.asyncio
+async def test_pending_ciba_merges_later_capability_specs() -> None:
+    store = InMemoryApprovalStore()
+    await create_ciba_approval(
+        store,
+        "ciba-merge",
+        ["read"],
+        capability_specs=[{"name": "read"}],
+        approval_kind="escalation",
+    )
+    await create_ciba_approval(
+        store,
+        "ciba-merge",
+        ["write"],
+        capability_specs=[{"name": "write"}],
+        approval_kind="escalation",
+    )
+    state = await store.get("ciba-merge")
+    assert state is not None
+    assert [spec["name"] for spec in state.capability_specs] == ["read", "write"]
+
+
+@pytest.mark.asyncio
 async def test_capability_specs_round_trip_on_store() -> None:
     store = InMemoryApprovalStore()
     specs: list[dict[str, Any]] = [{"name": "cap:x", "constraints": {"max": 1}}]
