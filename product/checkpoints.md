@@ -3,7 +3,7 @@
 > **Purpose**: Formal review points to update documentation with learnings (product follow-up after releases).
 > **Location**: Lives under **`product/`** because it drives PRD updates and retros, not day-to-day engineering execution.
 > **Created**: 2026-02-06
-> **Updated**: 2026-07-18 — **v2.5.4** Distribution Loop **shipped** (tag [`v2.5.4`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.4); PyPI **2.5.4**; [#294](https://github.com/asap-protocol/asap-protocol/pull/294)). Soft successor = **v2.5.5** Formal Spec; long-term = **v3.0** Economy (trigger-gated).
+> **Updated**: 2026-09-11 — **v2.5.5** security/quality patch **shipped** (tag [`v2.5.5`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.5); PyPI **2.5.5**; [#351](https://github.com/asap-protocol/asap-protocol/pull/351)). Formal Spec remains **next** ([prd-v2.5.5-formal-spec-interop.md](./prd/prd-v2.5.5-formal-spec-interop.md) — filename historical, not this library tag). Long-term = **v3.0** Economy (trigger-gated).
 
 ---
 
@@ -12,9 +12,10 @@
 Use this section first; the checkpoint sections below add detail or archive.
 
 **Evidence snapshot** (refresh with `git log` and [`pyproject.toml`](../pyproject.toml)):
-- **Shipped on `main` (2026-07-08):** `pyproject.toml` was **`2.5.2`**. Tag [`v2.5.2`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.2) (security & correctness follow-up, merge [#281](https://github.com/asap-protocol/asap-protocol/pull/281)); PyPI `asap-protocol` **2.5.2**. Umbrella [#209](https://github.com/asap-protocol/asap-protocol/issues/209) closed. Scope: [prd-v2.5.2-security-follow-up.md](./prd/prd-v2.5.2-security-follow-up.md).
-- **Shipped (2026-07-16):** `pyproject.toml` **`version = "2.5.3"`** on `main` (Adapter Lab II). Tag [`v2.5.3`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.3); PyPI `asap-protocol==2.5.3`; merge [#291](https://github.com/asap-protocol/asap-protocol/pull/291). Scope: [prd-v2.5.3-adapter-lab-ii.md](./prd/prd-v2.5.3-adapter-lab-ii.md).
+- **Shipped (2026-09-11):** `pyproject.toml` **`version = "2.5.5"`** on `main` (security/quality patch — **not** Formal Spec). Tag [`v2.5.5`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.5); merge [#351](https://github.com/asap-protocol/asap-protocol/pull/351). Scope: `CHANGELOG.md` `[2.5.5]`.
 - **Shipped (2026-07-18):** `pyproject.toml` **`version = "2.5.4"`** on `main` (Distribution Loop). Tag [`v2.5.4`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.4); PyPI `asap-protocol==2.5.4`; merge [#294](https://github.com/asap-protocol/asap-protocol/pull/294). Scope: [prd-v2.5.4-distribution-loop.md](./prd/prd-v2.5.4-distribution-loop.md).
+- **Shipped (2026-07-16):** `pyproject.toml` **`version = "2.5.3"`** on `main` (Adapter Lab II). Tag [`v2.5.3`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.3); PyPI `asap-protocol==2.5.3`; merge [#291](https://github.com/asap-protocol/asap-protocol/pull/291). Scope: [prd-v2.5.3-adapter-lab-ii.md](./prd/prd-v2.5.3-adapter-lab-ii.md).
+- **Shipped on `main` (2026-07-08):** `pyproject.toml` was **`2.5.2`**. Tag [`v2.5.2`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.2) (security & correctness follow-up, merge [#281](https://github.com/asap-protocol/asap-protocol/pull/281)); PyPI `asap-protocol` **2.5.2**. Umbrella [#209](https://github.com/asap-protocol/asap-protocol/issues/209) closed. Scope: [prd-v2.5.2-security-follow-up.md](./prd/prd-v2.5.2-security-follow-up.md).
 - **Prior:** [`v2.5.1`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.1) code quality patch (2026-06-26); [`v2.5.0`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.0) MCP Auth Bridge; [`v2.5.0.1`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.0.1) compliance-only → `asap-compliance` **1.3.0**. npm `@asap-protocol/*` **2.4.1**.
 - **v2.4.1** security hardening patch shipped **2026-06-14** (tag [`v2.4.1`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.4.1)).
 - **v2.4.0** edge-AI discovery shipped **2026-05-24** ([`CHANGELOG.md`](../CHANGELOG.md#240---2026-05-24)).
@@ -33,9 +34,10 @@ Use this section first; the checkpoint sections below add detail or archive.
 | **v2.5.2 — Security follow-up** | **Released** **2026-07-08** — #209 (operator auth, `extra="forbid"`, Redis JTI, web rate limits) + CR #245–#249 + registry #224/#227 + deps #258. PR [#281](https://github.com/asap-protocol/asap-protocol/pull/281); tag **v2.5.2**; PyPI **2.5.2**. [PRD](./prd/prd-v2.5.2-security-follow-up.md), [`CHANGELOG`](../CHANGELOG.md#252---2026-07-08), [migration](../docs/migration.md#upgrading-from-v251). | CP-7 for 2.5.2. |
 | **v2.5.3 — Adapter Lab II** | **Released** **2026-07-16** — workflow connectors, automation security, experimental MAF / NAT guides, DX fixes. Tag [`v2.5.3`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.3); PyPI **2.5.3**; PR [#291](https://github.com/asap-protocol/asap-protocol/pull/291). [PRD](./prd/prd-v2.5.3-adapter-lab-ii.md), [`CHANGELOG`](../CHANGELOG.md#253---2026-07-14), [migration](../docs/migration.md#upgrading-from-v252-to-v253); tasks [tasks-v2.5.3-roadmap.md](../engineering/tasks/v2.5.3/tasks-v2.5.3-roadmap.md). | Optional Lab II retro; fourth starter not required. |
 | **v2.5.4 — Distribution Loop** | **Released** **2026-07-18** — thin starters, Build for agents guide, homepage agent-first CTAs, telemetry ops. Tag [`v2.5.4`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.4); PyPI **2.5.4**; PR [#294](https://github.com/asap-protocol/asap-protocol/pull/294). [PRD](./prd/prd-v2.5.4-distribution-loop.md), [`CHANGELOG`](../CHANGELOG.md#254---2026-07-18), [migration](../docs/migration.md#upgrading-from-v253-to-v254); tasks [tasks-v2.5.4-roadmap.md](../engineering/tasks/v2.5.4/tasks-v2.5.4-roadmap.md). | Handoff → Spec §11; optional Dist metrics → v3.0 proxies. |
-| **After Dist Loop** | Soft: Formal Spec → **v2.5.5**. Long-term: Economy → **v3.0** (triggers). | Create `engineering/tasks/v2.5.5/` at Spec kickoff; do not start Economy without triggers. |
+| **v2.5.5 — Security & quality patch** | **Released** **2026-09-11** — OpenAPI path-param climb, registry URN overwrite guard, marketplace SSRF DNS pin, capability-replace consent, fail-closed reactivate, Agent JWT persist/revoke races. PR [#351](https://github.com/asap-protocol/asap-protocol/pull/351); tag [`v2.5.5`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.5). [`CHANGELOG`](../CHANGELOG.md#255---2026-09-11), [migration](../docs/migration.md#upgrading-from-v254-to-v255). **Not** Formal Spec. | Formal Spec remains next (historical PRD filename). |
+| **After library 2.5.5** | Soft: Formal Spec ([prd-v2.5.5-formal-spec-interop.md](./prd/prd-v2.5.5-formal-spec-interop.md) — filename historical). Long-term: Economy → **v3.0** (triggers). | Create `engineering/tasks/v2.5.5/` at Spec kickoff; do not start Economy without triggers. |
 
-**Sources of truth for current execution**: [prd-v2.5-roadmap.md](./prd/prd-v2.5-roadmap.md), [prd-v2.5.5-formal-spec-interop.md](./prd/prd-v2.5.5-formal-spec-interop.md) (next), shipped Dist artifacts in [prd-v2.5.4-distribution-loop.md](./prd/prd-v2.5.4-distribution-loop.md) / [tasks-v2.5.4-roadmap.md](../engineering/tasks/v2.5.4/tasks-v2.5.4-roadmap.md), [AGENTS.md](../AGENTS.md).
+**Sources of truth for current execution**: [prd-v2.5-roadmap.md](./prd/prd-v2.5-roadmap.md), [prd-v2.5.5-formal-spec-interop.md](./prd/prd-v2.5.5-formal-spec-interop.md) (next; filename historical), shipped Dist artifacts in [prd-v2.5.4-distribution-loop.md](./prd/prd-v2.5.4-distribution-loop.md) / [tasks-v2.5.4-roadmap.md](../engineering/tasks/v2.5.4/tasks-v2.5.4-roadmap.md), [AGENTS.md](../AGENTS.md).
 
 ---
 
@@ -249,7 +251,7 @@ Track actual vs estimated to improve future planning:
 
 - [PRD v2.5.x train](./prd/prd-v2.5-roadmap.md)
 - [PRD v2.5.4 — Distribution Loop](./prd/prd-v2.5.4-distribution-loop.md) · [tasks](../engineering/tasks/v2.5.4/tasks-v2.5.4-roadmap.md)
-- [PRD v2.5.5 — Formal Spec](./prd/prd-v2.5.5-formal-spec-interop.md)
+- [PRD Formal Spec (filename `prd-v2.5.5-formal-spec-interop.md`)](./prd/prd-v2.5.5-formal-spec-interop.md)
 - [PRD v3.0 — Economy](./prd/prd-v3.0-economy.md)
 - [PRD v2.5.0 — MCP Auth Bridge](./prd/prd-v2.5.0-mcp-auth-bridge.md)
 - [PRD v2.3 — Adoption multiplier](./prd/prd-v2.3-scale.md)
@@ -279,5 +281,6 @@ Track actual vs estimated to improve future planning:
 | 2026-07-08 | **v2.5.2 ship**: tag [`v2.5.2`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.2); PyPI **2.5.2**; [#209](https://github.com/asap-protocol/asap-protocol/issues/209) closed; status roll-up flipped to Released. |
 | 2026-07-18 | **Pre–v2.5.4 kickoff sync**: roll-up v2.5.3 → Released; v2.5.4 Ready + tasks; sources of truth → Dist Loop; Dist→Spec→Economy handoff documented in PRDs |
 | 2026-07-18 | **S5 prep**: `pyproject.toml` / `__version__` → **2.5.4**; CHANGELOG + migration `#upgrading-from-v253-to-v254`; version strings updated (pending tag/PyPI) |
+| 2026-09-11 | **Library 2.5.5 ship**: security/quality patch (tag [`v2.5.5`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.5); [#351](https://github.com/asap-protocol/asap-protocol/pull/351)); Formal Spec stays next under historical PRD filename |
 | 2026-07-18 | **v2.5.4 ship**: tag [`v2.5.4`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.4); PyPI **2.5.4**; [#294](https://github.com/asap-protocol/asap-protocol/pull/294); post-publish swap; next → Spec |
 | 2026-07-11 | **v2.5.3 task plan**: [tasks-v2.5.3-roadmap.md](../engineering/tasks/v2.5.3/tasks-v2.5.3-roadmap.md) + PRD READY FOR KICKOFF (D1–D6). |

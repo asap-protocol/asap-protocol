@@ -11,7 +11,7 @@ Index of versioned PRDs. **Shipped** releases have retrospective PRDs; **planned
 | Version | File | Status |
 |---------|------|--------|
 | **v2.5.x train** | [prd-v2.5-roadmap.md](./prd-v2.5-roadmap.md) | Index |
-| v2.5.5 Formal Spec & Interop | [prd-v2.5.5-formal-spec-interop.md](./prd-v2.5.5-formal-spec-interop.md) | **Next** (Dist soft inputs shipped; create `engineering/tasks/v2.5.5/` at kickoff) |
+| Formal Spec & Interop | [prd-v2.5.5-formal-spec-interop.md](./prd-v2.5.5-formal-spec-interop.md) | **Next** (post-2.5.5; filename is historical — library **2.5.5** is the security/quality patch below) |
 | v3.0 Economy | [prd-v3.0-economy.md](./prd-v3.0-economy.md) | Vision draft (trigger-gated; Dist metrics = proxies) |
 
 ---
@@ -20,6 +20,7 @@ Index of versioned PRDs. **Shipped** releases have retrospective PRDs; **planned
 
 | Version | File | Shipped |
 |---------|------|---------|
+| v2.5.5 | *(security/quality patch — not Formal Spec; see `CHANGELOG.md` `[2.5.5]`)* | 2026-09-11 — tag [`v2.5.5`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.5) |
 | v2.5.4 | [prd-v2.5.4-distribution-loop.md](./prd-v2.5.4-distribution-loop.md) · [tasks](../../engineering/tasks/v2.5.4/tasks-v2.5.4-roadmap.md) | 2026-07-18 — tag [`v2.5.4`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.4) |
 | v2.5.3 | [prd-v2.5.3-adapter-lab-ii.md](./prd-v2.5.3-adapter-lab-ii.md) · [tasks](../../engineering/tasks/v2.5.3/tasks-v2.5.3-roadmap.md) | 2026-07-16 — tag [`v2.5.3`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.3) |
 | v2.5.2 | [prd-v2.5.2-security-follow-up.md](./prd-v2.5.2-security-follow-up.md) | 2026-07-08 |
