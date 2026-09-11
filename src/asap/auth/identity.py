@@ -17,6 +17,9 @@ from asap.models.base import ASAPBaseModel
 HostStatus = Literal["active", "pending", "revoked"]
 AgentMode = Literal["delegated", "autonomous"]
 AgentSessionStatus = Literal["pending", "active", "expired", "revoked", "rejected"]
+# LIFE-004: only idle/expired rows may refresh to active. A deny-list of
+# pending/rejected/revoked fails open if a sixth status is added.
+_REACTIVATABLE_AGENT_STATUSES: frozenset[str] = frozenset({"active", "expired"})
 
 
 class RevokedAgentOverwriteError(ValueError):
@@ -387,6 +390,28 @@ def extend_session(agent: AgentSession) -> AgentSession:
     return agent.model_copy(update={"last_used_at": _utc_now()})
 
 
+def _reactivate_refusal_message(agent_id: str, status: str) -> str:
+    """Explain why ``status`` cannot be reactivated (allow-list fail-closed)."""
+    reasons: dict[str, str] = {
+        "revoked": f"Agent {agent_id} is permanently revoked",
+        "pending": (
+            f"Agent {agent_id} is still pending approval; "
+            "cannot reactivate until registration is approved"
+        ),
+        "rejected": (
+            f"Agent {agent_id} was rejected during registration; "
+            "re-register instead of reactivating"
+        ),
+    }
+    known = reasons.get(status)
+    if known is not None:
+        return known
+    return (
+        f"Agent {agent_id} cannot be reactivated from status {status!r}; "
+        "expected 'active' or 'expired'"
+    )
+
+
 def reactivate_agent(
     agent: AgentSession,
     _host: HostIdentity,
@@ -394,13 +419,13 @@ def reactivate_agent(
     """Reset activation and last-used time for an expired (or already-active) session.
 
     LIFE-004 scopes reactivation to expired agents (capability decay checkpoint).
-    Already-active sessions may refresh clocks. ``pending`` / ``rejected`` sessions
-    must not become ``active`` here — that would bypass registration approval
-    (including an explicit user denial).
+    Already-active sessions may refresh clocks. Only ``active`` / ``expired``
+    may proceed; any other status (including a future sixth value) is refused
+    so registration approval cannot be skipped.
 
     Raises:
-        ValueError: If the agent is permanently revoked, still awaiting or denied
-            approval, or has exceeded its absolute lifetime.
+        ValueError: If the agent is not ``active`` or ``expired``, or has
+            exceeded its absolute lifetime.
 
     Example:
         >>> reactivate_agent(expired_session, host).status
@@ -408,23 +433,8 @@ def reactivate_agent(
     """
     now = _utc_now()
 
-    if agent.status == "revoked":
-        msg = f"Agent {agent.agent_id} is permanently revoked"
-        raise ValueError(msg)
-
-    if agent.status == "pending":
-        msg = (
-            f"Agent {agent.agent_id} is still pending approval; "
-            "cannot reactivate until registration is approved"
-        )
-        raise ValueError(msg)
-
-    if agent.status == "rejected":
-        msg = (
-            f"Agent {agent.agent_id} was rejected during registration; "
-            "re-register instead of reactivating"
-        )
-        raise ValueError(msg)
+    if agent.status not in _REACTIVATABLE_AGENT_STATUSES:
+        raise ValueError(_reactivate_refusal_message(agent.agent_id, agent.status))
 
     if agent.absolute_lifetime is not None and now - agent.created_at > agent.absolute_lifetime:
         msg = f"Agent {agent.agent_id} has exceeded absolute lifetime; reactivation is not possible"

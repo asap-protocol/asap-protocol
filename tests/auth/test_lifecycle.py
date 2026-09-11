@@ -9,6 +9,7 @@ import pytest
 
 from asap.auth.identity import (
     AgentSession,
+    AgentSessionStatus,
     ExpiryStatus,
     HostIdentity,
     check_agent_expiry,
@@ -242,6 +243,24 @@ class TestReactivateAgent:
         a = _agent(status="pending")
         with pytest.raises(ValueError, match="pending approval"):
             reactivate_agent(a, _host())
+
+    @pytest.mark.parametrize("status", get_args(AgentSessionStatus))
+    def test_reactivate_only_active_and_expired(self, status: str) -> None:
+        """Every AgentSessionStatus is either reactivatable or refused (allow-list)."""
+        agent = _agent(status=status)
+        if status in {"active", "expired"}:
+            assert reactivate_agent(agent, _host()).status == "active"
+            return
+        with pytest.raises(ValueError):
+            reactivate_agent(agent, _host())
+
+    def test_unknown_status_cannot_reactivate(self) -> None:
+        """A sixth status must not fall through to status='active'."""
+        payload = _agent().model_dump()
+        payload["status"] = "quarantined"
+        unknown = AgentSession.model_construct(**payload)
+        with pytest.raises(ValueError, match="cannot be reactivated from status 'quarantined'"):
+            reactivate_agent(unknown, _host())
 
     def test_active_agent_reactivation_succeeds(self) -> None:
         """Reactivating an already-active agent is a no-op refresh."""
