@@ -33,6 +33,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   auto-merge policy cannot overwrite or delete existing agent URNs.
   Duplicate ids in `registry.json` are rejected (marketplace lookup is
   first-match). Updates and removals stay on IssueOps / human review.
+- **OpenAPI path-parameter climb** — ``_fill_path_template`` rejects
+  ``.`` / ``..`` path params before ``httpx.request``.
+  ``quote(..., safe="")`` leaves RFC 3986 dots unencoded, so a granted
+  skill for ``/v1/{resource}/{id}`` with both params ``..`` would climb
+  out of a path-prefixed ``base_url`` (confused deputy with OA-009
+  headers).
 
 ### Security (deps)
 
