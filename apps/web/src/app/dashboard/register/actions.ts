@@ -3,11 +3,42 @@
 import { auth } from '@/auth';
 import { ManifestSchema } from '@/lib/register-schema';
 import { buildRegisterAgentIssueUrl } from '@/lib/github-issues';
-import { isAllowedExternalUrl } from '@/lib/url-validator';
+import { isAllowedExternalUrl, type AllowedUrlResult } from '@/lib/url-validator';
+import { fetchAllowlistedUrl, isPinnedFetchBlocked } from '@/lib/fetch-pinned-url';
 import { checkRateLimit } from '@/lib/rate-limit';
 
 const DEFAULT_OWNER = 'asap-protocol';
 const DEFAULT_REPO = 'asap-protocol';
+const MANIFEST_PROBE_TIMEOUT_MS = 3000;
+
+async function probeManifestUrl(
+  manifestUrl: string,
+  manifestCheck: AllowedUrlResult
+): Promise<{ ok: true } | { error: string }> {
+  try {
+    const manifestFetch = await fetchAllowlistedUrl(
+      manifestUrl,
+      async (nextUrl) => (nextUrl === manifestUrl ? manifestCheck : isAllowedExternalUrl(nextUrl)),
+      MANIFEST_PROBE_TIMEOUT_MS,
+      'HEAD'
+    );
+    if (isPinnedFetchBlocked(manifestFetch)) {
+      return { error: `Could not reach Manifest URL: ${manifestFetch.error}` };
+    }
+    if (manifestFetch.status === 0) {
+      return { error: 'Could not reach Manifest URL: Request timed out' };
+    }
+    if (!manifestFetch.ok) {
+      return {
+        error: `Manifest URL returned status ${manifestFetch.status}. Must be reachable.`,
+      };
+    }
+    return { ok: true };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    return { error: `Could not reach Manifest URL: ${message}` };
+  }
+}
 
 export async function submitAgentRegistration(values: unknown) {
   try {
@@ -65,23 +96,9 @@ export async function submitAgentRegistration(values: unknown) {
       return { success: true, issueUrl };
     }
 
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
-      const manifestFetch = await fetch(manifest_url, {
-        method: 'HEAD',
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-      if (!manifestFetch.ok) {
-        return {
-          success: false,
-          error: `Manifest URL returned status ${manifestFetch.status}. Must be reachable.`,
-        };
-      }
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : String(e);
-      return { success: false, error: `Could not reach Manifest URL: ${message}` };
+    const probe = await probeManifestUrl(manifest_url, manifestCheck);
+    if ('error' in probe) {
+      return { success: false, error: probe.error };
     }
 
     const owner = process.env.GITHUB_REGISTRY_OWNER || DEFAULT_OWNER;

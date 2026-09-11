@@ -4,6 +4,8 @@ import { checkProxyRateLimit } from '@/lib/rate-limit';
 import { HealthCheckQuerySchema, parseSearchParams } from '@/lib/api-schemas';
 import { fetchAllowlistedUrl, isPinnedFetchBlocked } from '@/lib/fetch-pinned-url';
 
+export const runtime = 'nodejs';
+
 function getClientIp(request: NextRequest): string {
   const forwarded = request.headers.get('x-forwarded-for');
   if (forwarded) return forwarded.split(',')[0]?.trim() ?? 'unknown';

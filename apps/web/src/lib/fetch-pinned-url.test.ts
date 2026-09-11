@@ -48,23 +48,42 @@ describe('pinnedLookup', () => {
   });
 });
 
+async function listenLoopback(handler: http.RequestListener): Promise<{
+  server: http.Server;
+  port: number;
+}> {
+  const server = http.createServer(handler);
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address() as AddressInfo;
+  return { server, port };
+}
+
+async function closeServer(server: http.Server): Promise<void> {
+  await new Promise<void>((resolve, reject) =>
+    server.close((err) => (err ? reject(err) : resolve()))
+  );
+}
+
+const pinLoopback = async (): Promise<{ valid: true; ips: string[] }> => ({
+  valid: true,
+  ips: ['127.0.0.1'],
+});
+
 describe('fetchAllowlistedUrl', () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
   it('connects to the pinned IP even if DNS would rebind the hostname', async () => {
-    const server = http.createServer((req, res) => {
+    const { server, port } = await listenLoopback((_req, res) => {
       res.writeHead(200, { 'content-type': 'text/plain' });
       res.end('ok');
     });
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-    const { port } = server.address() as AddressInfo;
 
     try {
       const result = await fetchAllowlistedUrl(
         `http://rebind.example.invalid:${port}/`,
-        async () => ({ valid: true, ips: ['127.0.0.1'] }),
+        pinLoopback,
         2000
       );
       expect(isPinnedFetchBlocked(result)).toBe(false);
@@ -72,14 +91,12 @@ describe('fetchAllowlistedUrl', () => {
         expect(result).toEqual({ ok: true, status: 200 });
       }
     } finally {
-      await new Promise<void>((resolve, reject) =>
-        server.close((err) => (err ? reject(err) : resolve()))
-      );
+      await closeServer(server);
     }
   });
 
   it('re-validates redirect targets and blocks private Location hops', async () => {
-    const server = http.createServer((req, res) => {
+    const { server, port } = await listenLoopback((req, res) => {
       if (req.url === '/start') {
         res.writeHead(302, { Location: 'http://127.0.0.1/secret' });
         res.end();
@@ -88,8 +105,6 @@ describe('fetchAllowlistedUrl', () => {
       res.writeHead(200);
       res.end('should-not-reach');
     });
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-    const { port } = server.address() as AddressInfo;
 
     try {
       const result = await fetchAllowlistedUrl(
@@ -107,9 +122,159 @@ describe('fetchAllowlistedUrl', () => {
         expect(result.error).toContain('not allowed');
       }
     } finally {
-      await new Promise<void>((resolve, reject) =>
-        server.close((err) => (err ? reject(err) : resolve()))
+      await closeServer(server);
+    }
+  });
+
+  it('destroys the hop socket after headers so a streaming body cannot pin the isolate', async () => {
+    let serverSawClose = false;
+    const { server, port } = await listenLoopback((_req, res) => {
+      res.writeHead(200, { 'content-type': 'text/plain' });
+      const interval = setInterval(() => {
+        res.write('x'.repeat(16 * 1024));
+      }, 20);
+      res.on('close', () => {
+        clearInterval(interval);
+        serverSawClose = true;
+      });
+    });
+
+    try {
+      const started = Date.now();
+      const result = await fetchAllowlistedUrl(
+        `http://rebind.example.invalid:${port}/`,
+        pinLoopback,
+        2000
       );
+      expect(isPinnedFetchBlocked(result)).toBe(false);
+      if (!isPinnedFetchBlocked(result)) {
+        expect(result).toEqual({ ok: true, status: 200 });
+      }
+      expect(Date.now() - started).toBeLessThan(500);
+      await vi.waitFor(() => {
+        expect(serverSawClose).toBe(true);
+      });
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  it('applies timeoutMs to the whole redirect walk, not each hop', async () => {
+    const hopDelayMs = 250;
+    const { server, port } = await listenLoopback((req, res) => {
+      const delay = () => {
+        if (req.url === '/a') {
+          res.writeHead(302, { Location: '/b' });
+          res.end();
+          return;
+        }
+        res.writeHead(200);
+        res.end('ok');
+      };
+      setTimeout(delay, hopDelayMs);
+    });
+
+    try {
+      const result = await fetchAllowlistedUrl(
+        `http://rebind.example.invalid:${port}/a`,
+        pinLoopback,
+        350
+      );
+      expect(isPinnedFetchBlocked(result)).toBe(false);
+      if (!isPinnedFetchBlocked(result)) {
+        expect(result).toEqual({ ok: false, status: 0 });
+      }
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  it('blocks when the allowlist omits pinned IPs', async () => {
+    const result = await fetchAllowlistedUrl(
+      'http://rebind.example.invalid/',
+      async () => ({ valid: true }),
+      1000
+    );
+    expect(isPinnedFetchBlocked(result)).toBe(true);
+    if (isPinnedFetchBlocked(result)) {
+      expect(result.error).toContain('pinned IPs');
+    }
+  });
+
+  it('returns an error after too many redirect hops', async () => {
+    const { server, port } = await listenLoopback((_req, res) => {
+      res.writeHead(302, { Location: '/loop' });
+      res.end();
+    });
+
+    try {
+      const result = await fetchAllowlistedUrl(
+        `http://rebind.example.invalid:${port}/loop`,
+        pinLoopback,
+        2000
+      );
+      expect(isPinnedFetchBlocked(result)).toBe(true);
+      if (isPinnedFetchBlocked(result)) {
+        expect(result.error).toContain('Too many redirects');
+      }
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  it('blocks an http Location hop when the validator is HTTPS-only', async () => {
+    const { server, port } = await listenLoopback((req, res) => {
+      if (req.url === '/start') {
+        res.writeHead(302, { Location: 'http://rebind.example.invalid/next' });
+        res.end();
+        return;
+      }
+      res.writeHead(200);
+      res.end('should-not-reach');
+    });
+
+    try {
+      const result = await fetchAllowlistedUrl(
+        `http://rebind.example.invalid:${port}/start`,
+        async (url) => {
+          if (url.startsWith('http://') && !url.includes('/start')) {
+            return { valid: false, error: 'URL must use HTTPS only.' };
+          }
+          return { valid: true, ips: ['127.0.0.1'] };
+        },
+        2000
+      );
+      expect(isPinnedFetchBlocked(result)).toBe(true);
+      if (isPinnedFetchBlocked(result)) {
+        expect(result.error).toContain('HTTPS only');
+      }
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  it('can probe with HEAD while still pinning connect()', async () => {
+    let seenMethod: string | undefined;
+    const { server, port } = await listenLoopback((req, res) => {
+      seenMethod = req.method;
+      res.writeHead(200);
+      res.end();
+    });
+
+    try {
+      const result = await fetchAllowlistedUrl(
+        `http://rebind.example.invalid:${port}/`,
+        pinLoopback,
+        2000,
+        'HEAD'
+      );
+      expect(seenMethod).toBe('HEAD');
+      expect(isPinnedFetchBlocked(result)).toBe(false);
+      if (!isPinnedFetchBlocked(result)) {
+        expect(result).toEqual({ ok: true, status: 200 });
+      }
+    } finally {
+      await closeServer(server);
     }
   });
 });

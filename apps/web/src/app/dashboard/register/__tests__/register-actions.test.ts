@@ -3,6 +3,7 @@ import { submitAgentRegistration } from '../actions';
 import * as authModule from '@/auth';
 import * as urlValidator from '@/lib/url-validator';
 import * as rateLimit from '@/lib/rate-limit';
+import * as pinnedFetch from '@/lib/fetch-pinned-url';
 
 vi.mock('@/auth', () => ({
   auth: vi.fn(),
@@ -13,10 +14,19 @@ vi.mock('@/lib/url-validator', () => ({
 vi.mock('@/lib/rate-limit', () => ({
   checkRateLimit: vi.fn(() => Promise.resolve(true)),
 }));
+vi.mock('@/lib/fetch-pinned-url', async () => {
+  const actual =
+    await vi.importActual<typeof import('@/lib/fetch-pinned-url')>('@/lib/fetch-pinned-url');
+  return {
+    ...actual,
+    fetchAllowlistedUrl: vi.fn(),
+  };
+});
 
 const auth = vi.mocked(authModule.auth);
 const isAllowedExternalUrl = vi.mocked(urlValidator.isAllowedExternalUrl);
 const checkRateLimit = vi.mocked(rateLimit.checkRateLimit);
+const fetchAllowlistedUrl = vi.mocked(pinnedFetch.fetchAllowlistedUrl);
 
 const validForm = {
   name: 'my-agent',
@@ -37,7 +47,8 @@ describe('submitAgentRegistration', () => {
     auth.mockResolvedValue({
       user: { id: 'u1', username: 'testuser', name: 'Test' },
     } as never);
-    isAllowedExternalUrl.mockResolvedValue({ valid: true });
+    isAllowedExternalUrl.mockResolvedValue({ valid: true, ips: ['93.184.216.34'] });
+    fetchAllowlistedUrl.mockResolvedValue({ ok: true, status: 200 });
     checkRateLimit.mockResolvedValue(true);
   });
 
@@ -107,38 +118,31 @@ describe('submitAgentRegistration', () => {
   });
 
   it('returns error when manifest URL is not reachable (HEAD returns non-ok)', async () => {
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 404 });
-    try {
-      const result = await submitAgentRegistration(validForm);
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('Manifest URL returned status 404');
-      expect(result.error).toContain('Must be reachable');
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
+    fetchAllowlistedUrl.mockResolvedValue({ ok: false, status: 404 });
+    const result = await submitAgentRegistration(validForm);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('Manifest URL returned status 404');
+    expect(result.error).toContain('Must be reachable');
+    expect(fetchAllowlistedUrl).toHaveBeenCalledWith(
+      validForm.manifest_url,
+      expect.any(Function),
+      3000,
+      'HEAD'
+    );
   });
 
-  it('returns error when manifest URL fetch throws (network error)', async () => {
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
-    try {
-      const result = await submitAgentRegistration(validForm);
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('Could not reach Manifest URL');
-      expect(result.error).toContain('ECONNREFUSED');
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
+  it('returns error when pinned manifest HEAD times out or fails to connect', async () => {
+    fetchAllowlistedUrl.mockResolvedValue({ ok: false, status: 0 });
+    const result = await submitAgentRegistration(validForm);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('Could not reach Manifest URL');
   });
 
   it('returns success and correct GitHub Issue URL when validation and reachability pass', async () => {
-    const originalFetch = globalThis.fetch;
     const prevOwner = process.env.GITHUB_REGISTRY_OWNER;
     const prevRepo = process.env.GITHUB_REGISTRY_REPO;
     delete process.env.GITHUB_REGISTRY_OWNER;
     delete process.env.GITHUB_REGISTRY_REPO;
-    globalThis.fetch = vi.fn().mockResolvedValue({ ok: true });
     try {
       const result = await submitAgentRegistration(validForm);
       expect(result.success).toBe(true);
@@ -152,7 +156,6 @@ describe('submitAgentRegistration', () => {
       expect(url).toContain('http_endpoint=');
       expect(url).toContain('skills=search%2Csummarize');
     } finally {
-      globalThis.fetch = originalFetch;
       if (prevOwner === undefined) delete process.env.GITHUB_REGISTRY_OWNER;
       else process.env.GITHUB_REGISTRY_OWNER = prevOwner;
       if (prevRepo === undefined) delete process.env.GITHUB_REGISTRY_REPO;
@@ -161,19 +164,16 @@ describe('submitAgentRegistration', () => {
   });
 
   it('honors GITHUB_REGISTRY_OWNER/REPO overrides on IssueOps URLs', async () => {
-    const originalFetch = globalThis.fetch;
     const prevOwner = process.env.GITHUB_REGISTRY_OWNER;
     const prevRepo = process.env.GITHUB_REGISTRY_REPO;
     process.env.GITHUB_REGISTRY_OWNER = 'cutover-org';
     process.env.GITHUB_REGISTRY_REPO = 'cutover-registry';
-    globalThis.fetch = vi.fn().mockResolvedValue({ ok: true });
     try {
       const result = await submitAgentRegistration(validForm);
       expect(result.success).toBe(true);
       const url = (result as { issueUrl: string }).issueUrl;
       expect(url).toMatch(/^https:\/\/github\.com\/cutover-org\/cutover-registry\/issues\/new\?/);
     } finally {
-      globalThis.fetch = originalFetch;
       if (prevOwner === undefined) delete process.env.GITHUB_REGISTRY_OWNER;
       else process.env.GITHUB_REGISTRY_OWNER = prevOwner;
       if (prevRepo === undefined) delete process.env.GITHUB_REGISTRY_REPO;

@@ -4,6 +4,8 @@ import { checkProxyRateLimit } from '@/lib/rate-limit';
 import { ProxyCheckQuerySchema, parseSearchParams } from '@/lib/api-schemas';
 import { fetchAllowlistedUrl, isPinnedFetchBlocked } from '@/lib/fetch-pinned-url';
 
+export const runtime = 'nodejs';
+
 const FETCH_TIMEOUT_MS = 3000;
 
 function getClientIp(request: NextRequest): string {

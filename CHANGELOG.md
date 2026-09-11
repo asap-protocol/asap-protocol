@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **Marketplace allowlisted fetch DNS pin** — `/api/health-check`,
+  `/api/proxy/check`, and dashboard register HEAD no longer let Node
+  `fetch` re-resolve after the SSRF allowlist. `connect()` is pinned to
+  the allowlisted IPs, each redirect hop is re-validated, hop sockets are
+  dropped after headers, and the 3s budget is shared across the walk
+  (DNS rebinding / private Location / body-drain DoS).
 - **Lite Registry auto-registration** — `POST /registry/agents` and the
   auto-merge policy cannot overwrite or delete existing agent URNs.
   Duplicate ids in `registry.json` are rejected (marketplace lookup is

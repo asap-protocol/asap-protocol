@@ -175,6 +175,7 @@ describe('isAllowedProxyUrlAsync (DNS rebinding mitigation)', () => {
     resolve6Spy.mockResolvedValue([]);
     const result = await isAllowedProxyUrlAsync('https://example.com/health');
     expect(result.valid).toBe(true);
+    expect(result.ips).toEqual(['93.184.216.34']);
   });
 
   it('rejects when any of multiple resolved IPs is private', async () => {
