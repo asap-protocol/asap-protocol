@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **Reactivate approval bypass** — ``reactivate_agent`` /
+  ``POST /asap/agent/reactivate`` only allow ``active`` / ``expired``
+  (fail-closed). ``pending``, ``rejected``, ``revoked``, and any future
+  status cannot be force-activated. LIFE-004 scopes reactivation to expired
+  agents; flipping a denied or still-open registration would skip host
+  consent.
 - **Capability escalation constraint overwrite** —
   ``POST /asap/agent/request-capability`` no longer auto-applies a name in
   ``host.default_capabilities`` when that would clear, weaken, or otherwise
