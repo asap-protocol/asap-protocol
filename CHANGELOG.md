@@ -12,8 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Capability escalation constraint overwrite** —
   ``POST /asap/agent/request-capability`` no longer auto-applies a name in
   ``host.default_capabilities`` when that would clear, weaken, or otherwise
-  replace an existing registry grant. Constraint changes require the same
-  Device Auth / CIBA consent path as non-default capability names.
+  replace an existing registry grant (constraints, status, or a
+  host-imposed ``expires_at``). Constraint or expiry changes require the same
+  Device Auth / CIBA consent path as non-default capability names. Identical
+  active re-requests do not rewrite the grant row. A2H prompts include the
+  requested spec, not names only.
 - **Marketplace allowlisted fetch DNS pin** — `/api/health-check`,
   `/api/proxy/check`, and dashboard register HEAD no longer let Node
   `fetch` re-resolve after the SSRF allowlist. `connect()` is pinned to

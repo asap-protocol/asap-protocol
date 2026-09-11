@@ -40,7 +40,12 @@ from asap.auth.self_auth import (
     default_webauthn_verifier,
     fresh_session_violation_detail,
 )
-from asap.auth.capabilities import CapabilityRegistry, escalation_requires_user_consent
+from asap.auth.capabilities import (
+    CapabilityGrant,
+    CapabilityRegistry,
+    auto_grant_would_replace_existing_grant,
+    escalation_requires_user_consent,
+)
 from asap.auth.identity import (
     AgentSession,
     AgentStore,
@@ -173,20 +178,42 @@ def _needs_registration_approval(host: HostIdentity, requested_names: list[str])
     return escalation_requires_user_consent(host, requested_names)
 
 
+def _applied_grant_payload(grant: CapabilityGrant) -> dict[str, Any]:
+    """Narrow grant dict returned from register / auto-grant apply."""
+    payload: dict[str, Any] = {"capability": grant.capability, "status": grant.status}
+    if grant.reason:
+        payload["reason"] = grant.reason
+    return payload
+
+
 def apply_capability_specs_to_registry(
     registry: CapabilityRegistry,
     agent_id: str,
     host_id: str,
     capability_specs: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Mirror of register-time capability grants (used after approval or auto-approve)."""
+    """Mirror of register-time capability grants (used after approval or auto-approve).
+
+    Identical active rows (same constraints and no ``expires_at``) are left in
+    place so a re-request does not rewrite the grant.
+
+    Example:
+        apply_capability_specs_to_registry(registry, agent_id, host_id, specs)
+    """
     capability_grants: list[dict[str, Any]] = []
+    existing_by_name = {g.capability: g for g in registry.get_grants(agent_id)}
     for cap_req in capability_specs:
         cap_name_raw = cap_req.get("name", "")
         cap_name = cap_name_raw if isinstance(cap_name_raw, str) else ""
         if not cap_name:
             continue
         constraints = cap_req.get("constraints") if isinstance(cap_req, dict) else None
+        existing = existing_by_name.get(cap_name)
+        if existing is not None and not auto_grant_would_replace_existing_grant(
+            existing, constraints
+        ):
+            capability_grants.append(_applied_grant_payload(existing))
+            continue
         defn = registry.describe(cap_name)
         if defn is not None:
             g = registry.grant(
@@ -194,12 +221,6 @@ def apply_capability_specs_to_registry(
                 cap_name,
                 constraints=constraints,
                 granted_by=host_id,
-            )
-            capability_grants.append(
-                {
-                    "capability": g.capability,
-                    "status": g.status,
-                }
             )
         else:
             g = registry.grant(
@@ -209,13 +230,7 @@ def apply_capability_specs_to_registry(
                 reason=f"capability {cap_name!r} not found",
                 granted_by=host_id,
             )
-            capability_grants.append(
-                {
-                    "capability": g.capability,
-                    "status": g.status,
-                    "reason": g.reason,
-                }
-            )
+        capability_grants.append(_applied_grant_payload(g))
     return capability_grants
 
 

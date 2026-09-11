@@ -276,7 +276,8 @@ def auto_grant_would_replace_existing_grant(
 
     ``host.default_capabilities`` is name-only. Without this check, an Agent JWT can
     POST ``/asap/agent/request-capability`` with the same name and omit (or weaken)
-    constraints, replacing a host-imposed allowlist.
+    constraints, replacing a host-imposed allowlist. Auto-grant also writes
+    ``expires_at=None``, so any existing expiry is treated as a replace.
 
     Example:
         existing = CapabilityGrant(
@@ -287,7 +288,11 @@ def auto_grant_would_replace_existing_grant(
     """
     if existing is None:
         return False
-    return existing.status != "active" or existing.constraints != requested_constraints
+    if existing.status != "active" or existing.constraints != requested_constraints:
+        return True
+    # Auto-grant writes expires_at=None. Any host-imposed expiry would be stripped,
+    # and an expired-but-still-status=active row would be renewed without consent.
+    return existing.expires_at is not None
 
 
 def partition_escalation_capability_specs(
@@ -299,7 +304,7 @@ def partition_escalation_capability_specs(
     """Split specs into (needs_user_consent, auto_grant) using host policy and current grants.
 
     Names in ``host.default_capabilities`` auto-grant only when that would not replace
-    a different existing grant (clearing/changing constraints or flipping status).
+    a different existing grant (constraints, status, or a host-imposed ``expires_at``).
 
     Example:
         needs, auto = partition_escalation_capability_specs(

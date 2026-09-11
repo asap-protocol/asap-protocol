@@ -481,6 +481,26 @@ class TestEscalationCapabilityHelpers:
         denied = CapabilityGrant(capability="file:read", status="denied")
         assert auto_grant_would_replace_existing_grant(denied, None) is True
 
+    def test_auto_grant_replace_when_expires_at_set(self) -> None:
+        constraints: dict[str, Any] = {"path": {"in": ["/tmp"]}}
+        future = datetime.now(timezone.utc) + timedelta(hours=1)
+        existing = CapabilityGrant(
+            capability="file:read",
+            status="active",
+            constraints=constraints,
+            expires_at=future,
+        )
+        assert auto_grant_would_replace_existing_grant(existing, constraints) is True
+
+    def test_auto_grant_replace_when_expired_but_status_active(self) -> None:
+        past = datetime.now(timezone.utc) - timedelta(minutes=1)
+        existing = CapabilityGrant(
+            capability="file:read",
+            status="active",
+            expires_at=past,
+        )
+        assert auto_grant_would_replace_existing_grant(existing, None) is True
+
     def test_partition_sends_constraint_clear_to_consent(self) -> None:
         host = self._host(default_capabilities=["file:read"])
         existing = [
@@ -543,3 +563,22 @@ class TestEscalationCapabilityHelpers:
         )
         assert [s["name"] for s in needs] == ["file:read"]
         assert [s["name"] for s in autos] == ["file:write"]
+
+    def test_partition_sends_expiring_grant_to_consent(self) -> None:
+        host = self._host(default_capabilities=["file:read"])
+        constraints: dict[str, Any] = {"path": {"in": ["/tmp"]}}
+        existing = [
+            CapabilityGrant(
+                capability="file:read",
+                status="active",
+                constraints=constraints,
+                expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            ),
+        ]
+        needs, autos = partition_escalation_capability_specs(
+            host,
+            [{"name": "file:read", "constraints": constraints}],
+            existing_grants=existing,
+        )
+        assert [s["name"] for s in needs] == ["file:read"]
+        assert autos == []
