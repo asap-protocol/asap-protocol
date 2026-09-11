@@ -43,8 +43,18 @@ def _sanitize_urn_for_branch(urn: str) -> str:
 
 
 def merge_lite_registry(registry: LiteRegistry, new_entry: RegistryEntry) -> LiteRegistry:
-    """Merge *new_entry* into *registry* with sort by id and de-duplication by id."""
+    """Append *new_entry* to *registry*, sorted by id.
+
+    Existing ids are rejected. Last-write upsert would let ``POST /registry/agents``
+    replace a public listing (and auto-merge would land it) because IssueOps
+    uniqueness in ``scripts/process_registration.py`` was never applied here.
+
+    Example:
+        >>> merged = merge_lite_registry(registry, new_entry)
+    """
     by_id: dict[str, RegistryEntry] = {a.id: a for a in registry.agents}
+    if new_entry.id in by_id:
+        raise ValueError(f"Agent id {new_entry.id!r} is already registered")
     by_id[new_entry.id] = new_entry
     merged_agents = sorted(by_id.values(), key=lambda e: e.id)
     return LiteRegistry(

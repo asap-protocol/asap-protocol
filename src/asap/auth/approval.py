@@ -297,6 +297,56 @@ class InMemoryApprovalStore:
             )
 
 
+def _spec_name(spec: dict[str, Any]) -> str:
+    return str(spec.get("name", ""))
+
+
+def _merge_capability_specs(
+    existing: list[dict[str, Any]],
+    incoming: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Union specs by ``name``; a later request replaces the same name."""
+    by_name: dict[str, dict[str, Any]] = {}
+    order: list[str] = []
+    for spec in [*existing, *incoming]:
+        name = _spec_name(spec)
+        if name not in by_name:
+            order.append(name)
+        by_name[name] = dict(spec)
+    return [by_name[name] for name in order]
+
+
+def _merged_pending_payload(
+    existing: ApprovalRequestState,
+    *,
+    capabilities: list[str],
+    capability_specs: list[dict[str, Any]] | None,
+) -> tuple[list[str], list[dict[str, Any]]]:
+    """Union later names/specs onto a pending row (same name is replaced)."""
+    incoming = [dict(spec) for spec in capability_specs] if capability_specs else []
+    merged_specs = _merge_capability_specs(existing.capability_specs, incoming)
+    merged_caps = list(dict.fromkeys([*existing.capabilities, *capabilities]))
+    return merged_caps, merged_specs
+
+
+def _pending_matches_expected(
+    state: ApprovalRequestState | None,
+    expected: list[dict[str, Any]],
+) -> bool:
+    return state is not None and state.status == "pending" and state.capability_specs == expected
+
+
+def _pending_payload_unchanged(
+    existing: ApprovalRequestState,
+    *,
+    capabilities: list[str],
+    capability_specs: list[dict[str, Any]],
+) -> bool:
+    return capability_specs == existing.capability_specs and capabilities == list(
+        existing.capabilities
+    )
+
+
 async def create_device_authorization(
     store: ApprovalStore,
     agent_id: str,
@@ -310,8 +360,11 @@ async def create_device_authorization(
 ) -> ApprovalObject:
     """Start or reuse a Device Authorization (RFC 8628) approval for an agent.
 
-    If a **pending**, non-expired request already exists for ``agent_id``, returns
-    the same ``user_code`` and URIs (idempotent re-registration).
+    If a **pending**, non-expired request already exists for ``agent_id`` with
+    the same payload, returns the same ``user_code`` and URIs. A later request
+    with additional or replaced ``capability_specs`` is merged and issued as a
+    **new** challenge so an in-flight A2H/device prompt cannot approve a wider
+    grant than the human saw.
     """
     base_uri = verification_uri or DEFAULT_DEVICE_VERIFICATION_URI
     existing = await store.get(agent_id)
@@ -321,7 +374,17 @@ async def create_device_authorization(
         and existing.status == "pending"
         and existing.approval_kind == approval_kind
     ):
-        return _state_to_approval_object(existing)
+        capabilities, capability_specs = _merged_pending_payload(
+            existing,
+            capabilities=capabilities,
+            capability_specs=capability_specs,
+        )
+        if _pending_payload_unchanged(
+            existing,
+            capabilities=capabilities,
+            capability_specs=capability_specs,
+        ):
+            return _state_to_approval_object(existing)
 
     user_code = _generate_user_code()
     verification_uri_complete = f"{base_uri}?user_code={user_code}"
@@ -364,7 +427,17 @@ async def create_ciba_approval(
         and existing.status == "pending"
         and existing.approval_kind == approval_kind
     ):
-        return _state_to_approval_object(existing)
+        capabilities, capability_specs = _merged_pending_payload(
+            existing,
+            capabilities=capabilities,
+            capability_specs=capability_specs,
+        )
+        if _pending_payload_unchanged(
+            existing,
+            capabilities=capabilities,
+            capability_specs=capability_specs,
+        ):
+            return _state_to_approval_object(existing)
 
     await store.create(
         agent_id,
@@ -406,13 +479,22 @@ class A2HApprovalChannel:
         context: str,
         principal_id: str,
         timeout_seconds: float = 300.0,
+        expected_capability_specs: list[dict[str, Any]] | None = None,
     ) -> None:
-        """Block until A2H returns, then approve or deny the pending registration."""
+        """Block until A2H returns, then approve or deny the pending registration.
+
+        When ``expected_capability_specs`` is set, an approve is ignored if the
+        store row was rotated to a different payload while the human decided.
+        """
         result = await self._provider.request_approval(
             context=context,
             principal_id=principal_id,
             timeout_seconds=timeout_seconds,
         )
+        if expected_capability_specs is not None:
+            state = await self._store.get(agent_id)
+            if not _pending_matches_expected(state, expected_capability_specs):
+                return
         if result.decision == ApprovalDecision.APPROVE:
             await self._store.approve(agent_id, principal_id)
             return

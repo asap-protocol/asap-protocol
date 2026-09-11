@@ -20,6 +20,7 @@ from asap.adapters.openapi.handler import (
     OpenAPIPathParameterError,
     OpenAPIUpstreamHandler,
     UnknownOpenAPICapabilityError,
+    _fill_path_template,
     create_openapi_task_handler,
     execute,
     index_capabilities,
@@ -591,6 +592,144 @@ async def test_execute_none_path_parameter_raises(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("pet_id", [".", ".."])
+async def test_execute_dot_segment_path_parameter_raises(
+    tmp_path: Path,
+    pet_id: str,
+) -> None:
+    raw = {
+        "openapi": "3.0.3",
+        "info": {"title": "T", "version": "1"},
+        "paths": {
+            "/pets/{petId}": {
+                "get": {
+                    "operationId": "getPet",
+                    "parameters": [
+                        {
+                            "name": "petId",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        },
+                    ],
+                    "responses": {"200": {"description": "ok"}},
+                },
+            },
+        },
+    }
+    spec_name = "dot_seg_dot" if pet_id == "." else "dot_seg_dotdot"
+    with tmp_openapi_spec(tmp_path, raw, spec_name) as path:
+        doc = await load_spec(path)
+        caps = map_openapi_to_capabilities(doc)
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda _r: httpx.Response(200))
+        ) as client:
+            handler = OpenAPIUpstreamHandler.from_capabilities(
+                base_url="https://u.test/gateway",
+                capabilities=caps,
+                http_client=client,
+            )
+            with pytest.raises(OpenAPIPathParameterError) as exc_info:
+                await handler.execute("getPet", {"petId": pet_id}, session=None)
+            assert "petId" in exc_info.value.invalid
+
+
+@pytest.mark.asyncio
+async def test_execute_dotdot_path_params_do_not_call_upstream(tmp_path: Path) -> None:
+    raw = {
+        "openapi": "3.0.3",
+        "info": {"title": "T", "version": "1"},
+        "paths": {
+            "/v1/{resource}/{itemId}": {
+                "get": {
+                    "operationId": "getItem",
+                    "parameters": [
+                        {
+                            "name": "resource",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        },
+                        {
+                            "name": "itemId",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        },
+                    ],
+                    "responses": {"200": {"description": "ok"}},
+                },
+            },
+        },
+    }
+    seen: dict[str, int] = {"calls": 0}
+
+    def transport_handler(_request: httpx.Request) -> httpx.Response:
+        seen["calls"] += 1
+        return httpx.Response(200, json={"ok": True})
+
+    with tmp_openapi_spec(tmp_path, raw, "dotdot_escape") as path:
+        doc = await load_spec(path)
+        caps = map_openapi_to_capabilities(doc)
+        transport = httpx.MockTransport(transport_handler)
+        async with httpx.AsyncClient(transport=transport) as client:
+            handler = OpenAPIUpstreamHandler.from_capabilities(
+                base_url="https://api.example.com/gateway",
+                capabilities=caps,
+                http_client=client,
+            )
+            with pytest.raises(OpenAPIPathParameterError, match="Invalid path parameter"):
+                await handler.execute(
+                    "getItem",
+                    {"resource": "..", "itemId": ".."},
+                    session=None,
+                )
+        assert seen["calls"] == 0
+
+
+def test_fill_path_template_static_dot_segment_raises_path_parameter_error() -> None:
+    with pytest.raises(OpenAPIPathParameterError) as exc_info:
+        _fill_path_template("/v1/../admin", {})
+    assert exc_info.value.path_template == "/v1/../admin"
+    assert exc_info.value.invalid
+
+
+@pytest.mark.asyncio
+async def test_execute_static_dotdot_path_raises_path_parameter_error(tmp_path: Path) -> None:
+    raw = {
+        "openapi": "3.0.3",
+        "info": {"title": "T", "version": "1"},
+        "paths": {
+            "/v1/../admin": {
+                "get": {
+                    "operationId": "getAdmin",
+                    "responses": {"200": {"description": "ok"}},
+                },
+            },
+        },
+    }
+    seen: dict[str, int] = {"calls": 0}
+
+    def transport_handler(_request: httpx.Request) -> httpx.Response:
+        seen["calls"] += 1
+        return httpx.Response(200, json={"ok": True})
+
+    with tmp_openapi_spec(tmp_path, raw, "static_dotdot") as path:
+        doc = await load_spec(path)
+        caps = map_openapi_to_capabilities(doc)
+        transport = httpx.MockTransport(transport_handler)
+        async with httpx.AsyncClient(transport=transport) as client:
+            handler = OpenAPIUpstreamHandler.from_capabilities(
+                base_url="https://api.example.com/gateway",
+                capabilities=caps,
+                http_client=client,
+            )
+            with pytest.raises(OpenAPIPathParameterError):
+                await handler.execute("getAdmin", {}, session=None)
+        assert seen["calls"] == 0
+
+
+@pytest.mark.asyncio
 async def test_execute_unexpected_argument_raises(tmp_path: Path) -> None:
     raw = {
         "openapi": "3.0.3",
@@ -853,6 +992,8 @@ def test_openapi_path_parameter_error_factories_enforce_invariant() -> None:
     inv_err = OpenAPIPathParameterError.for_invalid("/x/{a}", ["a"])
     assert "Invalid path parameter" in str(inv_err)
     assert inv_err.invalid == ["a"]
+    static_err = OpenAPIPathParameterError.for_static_dot_segment("/v1/../admin")
+    assert static_err.invalid == ["/v1/../admin"]
 
 
 @pytest.mark.asyncio

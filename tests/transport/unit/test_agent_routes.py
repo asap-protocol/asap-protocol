@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import pytest
@@ -86,3 +87,37 @@ class TestApplyCapabilitySpecsToRegistry:
             [{"constraints": {"path": "/tmp"}}, {"name": 99}],
         )
         assert grants == []
+
+    def test_skips_identical_active_grant_write(self, registry: CapabilityRegistry) -> None:
+        constraints: dict[str, Any] = {"path": {"in": ["/tmp"]}}
+        first = registry.grant(
+            "agent-1",
+            "file:read",
+            granted_by="host-1",
+            constraints=constraints,
+        )
+        grants = apply_capability_specs_to_registry(
+            registry,
+            "agent-1",
+            "host-1",
+            [{"name": "file:read", "constraints": constraints}],
+        )
+        assert grants == [{"capability": "file:read", "status": "active"}]
+        current = registry.get_grants("agent-1")[0]
+        assert current is first
+
+    def test_rewrites_when_existing_grant_has_expiry(self, registry: CapabilityRegistry) -> None:
+        expires = datetime.now(timezone.utc) + timedelta(hours=1)
+        registry.grant(
+            "agent-1",
+            "file:read",
+            granted_by="host-1",
+            expires_at=expires,
+        )
+        apply_capability_specs_to_registry(
+            registry,
+            "agent-1",
+            "host-1",
+            [{"name": "file:read"}],
+        )
+        assert registry.get_grants("agent-1")[0].expires_at is None

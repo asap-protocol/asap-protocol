@@ -4,10 +4,13 @@
 Policy:
 - ``registry.json`` must already validate as :class:`~asap.discovery.registry.LiteRegistry`
   (run ``scripts/validate_registry.py`` first in CI).
-- **Self-signed path** (registry terms): no new or escalated **verified** marketplace badge.
+- **Add-only**: head may introduce new agent ids. It must not modify or delete ids that
+  already exist in the base revision (overwrites hijack traffic; deletions drop listings).
+  Duplicate ids in base or head are ineligible (dict last-wins would miss a prepended
+  hijack; marketplace ``find_by_id`` is first-match).
+- **Self-signed path** (registry terms): no new **verified** marketplace badge.
   New agents must not ship with ``verification.status == "verified"``.
-  Existing agents must not gain ``verified`` unless they were already verified in the base
-  revision (human review handles promotions).
+  Promotions stay on the manual verification flow.
 
 Exit code ``0`` = eligible for auto-merge; ``1`` = requires human review. Reason printed to
 stdout (and stderr on failure).
@@ -48,17 +51,42 @@ def _load(path: Path) -> LiteRegistry:
     return LiteRegistry.model_validate(cast(dict[str, object], raw))
 
 
+def _entry_payload(entry: RegistryEntry) -> dict[str, object]:
+    return entry.model_dump(mode="json")
+
+
+def _agents_by_unique_id(
+    agents: list[RegistryEntry], *, source: str
+) -> tuple[dict[str, RegistryEntry] | None, str]:
+    """Index agents by id, or return an ineligible reason if ids are duplicated."""
+    by_id: dict[str, RegistryEntry] = {}
+    for agent in agents:
+        aid = str(agent.id)
+        if aid in by_id:
+            return None, (
+                f"Duplicate agent id {aid} in {source} registry.json; "
+                "auto-registration requires unique ids."
+            )
+        by_id[aid] = agent
+    return by_id, ""
+
+
 def evaluate(base_path: Path, head_path: Path) -> tuple[bool, str]:
+    """Return whether *head_path* is an add-only self-signed registry update."""
     try:
         base = _load(base_path)
         head = _load(head_path)
     except (json.JSONDecodeError, ValidationError, OSError) as e:
         return False, f"Failed to parse registry JSON: {e}"
 
-    base_by_id: dict[str, RegistryEntry] = {str(a.id): a for a in base.agents}
+    base_by_id, base_err = _agents_by_unique_id(base.agents, source="base")
+    if base_by_id is None:
+        return False, base_err
+    head_by_id, head_err = _agents_by_unique_id(head.agents, source="head")
+    if head_by_id is None:
+        return False, head_err
 
-    for agent in head.agents:
-        aid = str(agent.id)
+    for aid, agent in head_by_id.items():
         prev = base_by_id.get(aid)
         if prev is None:
             if _is_verified(agent):
@@ -67,13 +95,21 @@ def evaluate(base_path: Path, head_path: Path) -> tuple[bool, str]:
                     f"New agent {aid} must not use verification.status=verified "
                     "(self-signed / auto-registration path only).",
                 )
-        elif _is_verified(agent) and not _is_verified(prev):
+            continue
+        if _entry_payload(prev) != _entry_payload(agent):
             return (
                 False,
-                f"Agent {aid} cannot be promoted to verified via auto-registration; "
-                "use the manual verification flow.",
+                f"Agent {aid} is already registered; auto-registration cannot "
+                "modify existing entries.",
             )
-    return True, "Auto-merge eligible: registry verification policy satisfied."
+
+    for aid in base_by_id:
+        if aid not in head_by_id:
+            return (
+                False,
+                f"Agent {aid} is missing from the PR; auto-registration cannot remove entries.",
+            )
+    return True, "Auto-merge eligible: add-only self-signed registration."
 
 
 def main() -> int:

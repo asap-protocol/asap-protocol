@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Reactivate approval bypass** — ``reactivate_agent`` /
+  ``POST /asap/agent/reactivate`` only allow ``active`` / ``expired``
+  (fail-closed). ``pending``, ``rejected``, ``revoked``, and any future
+  status cannot be force-activated. LIFE-004 scopes reactivation to expired
+  agents; flipping a denied or still-open registration would skip host
+  consent.
+- **Capability escalation constraint overwrite** —
+  ``POST /asap/agent/request-capability`` no longer auto-applies a name in
+  ``host.default_capabilities`` when that would clear, weaken, or otherwise
+  replace an existing registry grant (constraints, status, or a
+  host-imposed ``expires_at``). Constraint or expiry changes require the same
+  Device Auth / CIBA consent path as non-default capability names. Identical
+  active re-requests do not rewrite the grant row. A2H prompts include the
+  requested spec, not names only.
+- **Marketplace allowlisted fetch DNS pin** — `/api/health-check`,
+  `/api/proxy/check`, and dashboard register HEAD no longer let Node
+  `fetch` re-resolve after the SSRF allowlist. `connect()` is pinned to
+  the allowlisted IPs, each redirect hop is re-validated, hop sockets are
+  dropped after headers, and the 3s budget is shared across the walk
+  (DNS rebinding / private Location / body-drain DoS).
+- **Lite Registry auto-registration** — `POST /registry/agents` and the
+  auto-merge policy cannot overwrite or delete existing agent URNs.
+  Duplicate ids in `registry.json` are rejected (marketplace lookup is
+  first-match). Updates and removals stay on IssueOps / human review.
+- **OpenAPI path-parameter climb** — ``_fill_path_template`` rejects
+  ``.`` / ``..`` path params before ``httpx.request``.
+  ``quote(..., safe="")`` leaves RFC 3986 dots unencoded, so a granted
+  skill for ``/v1/{resource}/{id}`` with both params ``..`` would climb
+  out of a path-prefixed ``base_url`` (confused deputy with OA-009
+  headers). Static templates that already contain ``.`` / ``..`` raise
+  ``OpenAPIPathParameterError`` instead of ``ValueError``.
+- **Marketplace IPv6 SSRF ranges** — ``isBlockedIPv6`` treats link-local
+  as ``fe80::/10`` (not ``fe80:`` /16), blocks unspecified ``::``, and
+  applies the IPv4 blocklist to NAT64 ``64:ff9b::/96`` embeddings.
+- **Pending Device Auth / CIBA spec reuse** — a later escalation request
+  merges ``capability_specs`` and rotates to a new challenge. A2H
+  approve/deny is ignored when the store payload no longer matches the
+  prompt, so a stale consent cannot grant a wider set.
+
 ### Security (deps)
 
 - Raise `cryptography` to `>=50.0.0,<51` for **PYSEC-2026-3552** (PKCS7

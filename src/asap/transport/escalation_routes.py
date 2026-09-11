@@ -33,6 +33,28 @@ from asap.transport.rate_limit import ASAPRateLimiter
 logger = get_logger(__name__)
 
 
+def _escalation_a2h_context(
+    agent_id: str,
+    host_id: str,
+    needs_specs: list[dict[str, Any]],
+) -> str:
+    """A2H prompt lists requested names and constraints, not names only.
+
+    Example:
+        _escalation_a2h_context("ag-1", "host-1", [{"name": "file:read"}])
+    """
+    parts: list[str] = []
+    for spec in needs_specs:
+        name = spec.get("name", "")
+        constraints = spec.get("constraints")
+        if constraints is None:
+            parts.append(f"{name} (no constraints)")
+        else:
+            parts.append(f"{name} constraints={constraints!r}")
+    joined = "; ".join(parts) if parts else "(none)"
+    return f"ASAP capability escalation {agent_id} for host {host_id}: {joined}"
+
+
 class RequestCapabilityBody(ASAPBaseModel):
     """Body for ``POST /asap/agent/request-capability``."""
 
@@ -96,7 +118,11 @@ async def _handle_request_capability(
             status_code=500, content={"detail": "capability registry not configured"}
         )
 
-    needs_specs, auto_specs = partition_escalation_capability_specs(host, capability_specs)
+    needs_specs, auto_specs = partition_escalation_capability_specs(
+        host,
+        capability_specs,
+        existing_grants=registry.get_grants(agent.agent_id),
+    )
     host_id = host.host_id
     agent_id = agent.agent_id
 
@@ -149,6 +175,8 @@ async def _handle_request_capability(
             approval_kind="escalation",
         )
 
+    pending = await approval_store.get(agent_id)
+    consent_specs = pending.capability_specs if pending is not None else needs_specs
     ch = getattr(request.app.state, "identity_approval_a2h_channel", None)
     if ch is not None:
         principal = host.user_id if host.user_id else host_id
@@ -162,8 +190,9 @@ async def _handle_request_capability(
             background_a2h_resolve,
             ch,
             agent_id,
-            context=f"ASAP capability escalation {agent_id} for host {host_id}",
+            context=_escalation_a2h_context(agent_id, host_id, consent_specs),
             principal_id=str(principal),
+            expected_capability_specs=consent_specs,
         )
 
     logger.info(
