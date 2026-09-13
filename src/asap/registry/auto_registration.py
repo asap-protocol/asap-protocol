@@ -243,6 +243,8 @@ def create_auto_registration_router(config: AutoRegistrationConfig | None = None
                 detail=f"Harness base URL blocked: {exc}",
             ) from exc
 
+        # Harness HTTP client does not follow redirects. This allowlist is
+        # one-shot; following Location would skip SSRF checks (IMDS/link-local).
         report = await _run_harness(harness_url)
         if report.score < 1.0:
             failed = [c.model_dump(mode="json") for c in report.checks if not c.passed]
