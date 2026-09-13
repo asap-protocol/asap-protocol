@@ -159,11 +159,11 @@ class TestCheckResultModel:
 
 class TestComplianceHarnessFromUrl:
     @pytest.mark.asyncio
-    async def test_run_compliance_harness_v2_from_url_enables_follow_redirects(
+    async def test_run_compliance_harness_v2_from_url_disables_follow_redirects(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """Document redirect-following on remote harness preflight (SSRF-sensitive)."""
+        """Remote harness must not auto-follow Location (SSRF after URL allowlist)."""
         captured: dict[str, object] = {}
         original_init = httpx.AsyncClient.__init__
 
@@ -184,14 +184,14 @@ class TestComplianceHarnessFromUrl:
 
         await run_compliance_harness_v2_from_url("https://agent.example.com")
 
-        assert captured.get("follow_redirects") is True
+        assert captured.get("follow_redirects") is False
 
     @pytest.mark.asyncio
-    async def test_run_compliance_harness_v2_from_url_follows_redirect_on_preflight(
+    async def test_run_compliance_harness_v2_from_url_does_not_follow_redirect_on_preflight(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """Preflight GET / follows redirects (registration harness SSRF surface)."""
+        """Preflight GET / must not follow Location to link-local/IMDS."""
         requested: list[str] = []
 
         def handler(request: httpx.Request) -> httpx.Response:
@@ -217,7 +217,8 @@ class TestComplianceHarnessFromUrl:
 
         await run_compliance_harness_v2_from_url("https://agent.example.com")
 
-        assert any("169.254.169.254" in url for url in requested)
+        assert requested == ["https://agent.example.com/"]
+        assert not any("169.254.169.254" in url for url in requested)
 
 
 def _empty_report() -> ComplianceReport:
