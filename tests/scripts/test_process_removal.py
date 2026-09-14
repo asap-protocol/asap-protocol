@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import json
-from typing import Any
 from pathlib import Path
+from typing import Any
 
 from scripts.process_removal import parse_issue_body, run
 
@@ -58,6 +58,10 @@ class TestProcessRemovalRun:
         result = json.loads(output_path.read_text())
         assert result["valid"] is True
 
+        saved = json.loads(registry_path.read_text())
+        assert isinstance(saved, dict)
+        assert saved["version"] == "1.0"
+        assert isinstance(saved["updated_at"], str) and saved["updated_at"].endswith("Z")
         new_registry = _registry_agents(registry_path)
         assert len(new_registry) == 1
         assert new_registry[0]["id"] == "urn:asap:agent:other:their-agent"
