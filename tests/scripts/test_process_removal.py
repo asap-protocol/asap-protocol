@@ -3,9 +3,19 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 from pathlib import Path
 
 from scripts.process_removal import parse_issue_body, run
+
+
+def _registry_agents(path: Path) -> list[Any]:
+    raw = json.loads(path.read_text())
+    if isinstance(raw, list):
+        return raw
+    assert isinstance(raw, dict)
+    return raw["agents"]
+
 
 VALID_BODY_REMOVE = """
 ### Agent name (slug-friendly)
@@ -48,7 +58,7 @@ class TestProcessRemovalRun:
         result = json.loads(output_path.read_text())
         assert result["valid"] is True
 
-        new_registry = json.loads(registry_path.read_text())
+        new_registry = _registry_agents(registry_path)
         assert len(new_registry) == 1
         assert new_registry[0]["id"] == "urn:asap:agent:other:their-agent"
 
