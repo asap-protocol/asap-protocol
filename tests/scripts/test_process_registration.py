@@ -12,6 +12,7 @@ import pytest
 
 from asap.crypto.keys import generate_keypair
 from asap.crypto.signing import sign_manifest
+from asap.discovery.registry import LiteRegistry
 from asap.models.entities import Capability, Endpoint, Manifest, Skill
 
 from scripts.process_registration import (
@@ -801,6 +802,12 @@ class TestSaveRegistry:
         assert raw["version"] == "1.0"
         assert isinstance(raw["updated_at"], str) and raw["updated_at"].endswith("Z")
         assert raw["agents"] == agents
+        # discover_from_registry uses LiteRegistry.model_validate_json; a root
+        # array raises ValidationError even when agents themselves are valid.
+        parsed = LiteRegistry.model_validate(raw)
+        assert parsed.version == "1.0"
+        assert len(parsed.agents) == 1
+        assert str(parsed.agents[0].id) == "urn:asap:agent:test"
 
     def test_save_registry_preserves_existing_version(self, tmp_path: Path) -> None:
         """save_registry keeps version from an existing LiteRegistry file."""
