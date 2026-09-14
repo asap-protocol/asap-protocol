@@ -12,6 +12,7 @@ import pytest
 
 from asap.crypto.keys import generate_keypair
 from asap.crypto.signing import sign_manifest
+from asap.discovery.registry import LiteRegistry
 from asap.models.entities import Capability, Endpoint, Manifest, Skill
 
 from scripts.process_registration import (
@@ -20,6 +21,15 @@ from scripts.process_registration import (
     run,
 )
 from lib.registry_io import load_registry, save_registry
+
+
+def _registry_agents(path: Path) -> list[object]:
+    """Return agents list from array or LiteRegistry object file."""
+    raw = json.loads(path.read_text())
+    if isinstance(raw, list):
+        return raw
+    assert isinstance(raw, dict) and "agents" in raw
+    return raw["agents"]
 
 
 def _fake_getaddrinfo_public(
@@ -297,7 +307,7 @@ class TestProcessRegistrationRun:
         result = json.loads(output_path.read_text())
         assert result["valid"] is True
 
-        registry = json.loads(registry_path.read_text())
+        registry = _registry_agents(registry_path)
         assert len(registry) == 1
         entry = registry[0]
         assert entry["id"] == "urn:asap:agent:testuser:my-agent"
@@ -337,7 +347,7 @@ class TestProcessRegistrationRun:
 
         result = json.loads(output_path.read_text())
         assert result["valid"] is True
-        registry = json.loads(registry_path.read_text())
+        registry = _registry_agents(registry_path)
         entry = registry[0]
         assert entry.get("repository_url") == "https://github.com/me/repo"
         assert entry.get("documentation_url") == "https://docs.example.com/agent"
@@ -367,7 +377,7 @@ class TestProcessRegistrationRun:
             )
         result = json.loads(output_path.read_text())
         assert result["valid"] is True
-        registry = json.loads(registry_path.read_text())
+        registry = _registry_agents(registry_path)
         entry = registry[0]
         assert entry.get("category") == "Coding"
         assert entry.get("tags") == ["ai", "code_review"]
@@ -406,7 +416,7 @@ class TestProcessRegistrationRun:
             )
         result = json.loads(output_path.read_text())
         assert result["valid"] is True
-        entry = json.loads(registry_path.read_text())[0]
+        entry = _registry_agents(registry_path)[0]
         assert entry.get("hardware_class") == "edge_accelerator"
         assert entry.get("inference_modes") == ["cloud", "local_cuda"]
         assert entry.get("hardware_io") == ["gpio", "i2c"]
@@ -449,7 +459,7 @@ class TestProcessRegistrationRun:
             )
         result = json.loads(output_path.read_text())
         assert result["valid"] is True
-        entry = json.loads(registry_path.read_text())[0]
+        entry = _registry_agents(registry_path)[0]
         assert entry["id"] == "urn:asap:agent:testuser:my-agent"
 
     def test_invalid_tampered_signed_manifest_rejected(
@@ -713,7 +723,7 @@ class TestProcessRegistrationRun:
             author="TestUser",
         )
         assert result["valid"] is True
-        assert json.loads(registry_path.read_text())[0]["id"] == "urn:asap:agent:testuser:my-agent"
+        assert _registry_agents(registry_path)[0]["id"] == "urn:asap:agent:testuser:my-agent"
 
     def test_invalid_manifest_schema_validation(self, tmp_path: Path) -> None:
         """Malformed manifest JSON fails closed before registry write."""
@@ -774,7 +784,7 @@ class TestSaveRegistry:
     """Tests for save_registry atomic write."""
 
     def test_save_registry_atomic(self, tmp_path: Path) -> None:
-        """save_registry writes atomically."""
+        """save_registry writes atomically as a LiteRegistry object."""
         path = tmp_path / "registry.json"
         agents = [
             {
@@ -787,4 +797,43 @@ class TestSaveRegistry:
             }
         ]
         save_registry(str(path), agents)
-        assert json.loads(path.read_text()) == agents
+        raw = json.loads(path.read_text())
+        assert isinstance(raw, dict)
+        assert raw["version"] == "1.0"
+        assert isinstance(raw["updated_at"], str) and raw["updated_at"].endswith("Z")
+        assert raw["agents"] == agents
+        # discover_from_registry uses LiteRegistry.model_validate_json; a root
+        # array raises ValidationError even when agents themselves are valid.
+        parsed = LiteRegistry.model_validate(raw)
+        assert parsed.version == "1.0"
+        assert len(parsed.agents) == 1
+        assert str(parsed.agents[0].id) == "urn:asap:agent:test"
+
+    def test_save_registry_preserves_existing_version(self, tmp_path: Path) -> None:
+        """save_registry keeps version from an existing LiteRegistry file."""
+        path = tmp_path / "registry.json"
+        path.write_text(
+            json.dumps(
+                {
+                    "version": "1.1",
+                    "updated_at": "2020-01-01T00:00:00Z",
+                    "agents": [],
+                }
+            )
+        )
+        agents = [{"id": "urn:asap:agent:a:b", "name": "B"}]
+        save_registry(str(path), agents)
+        raw = json.loads(path.read_text())
+        assert raw["version"] == "1.1"
+        assert raw["agents"] == agents
+        assert raw["updated_at"] != "2020-01-01T00:00:00Z"
+
+    def test_save_registry_upgrades_bare_array_to_object(self, tmp_path: Path) -> None:
+        """IssueOps must not leave production registry as a bare agents array."""
+        path = tmp_path / "registry.json"
+        path.write_text("[]")
+        agents = [{"id": "urn:asap:agent:a:b", "name": "B"}]
+        save_registry(str(path), agents)
+        raw = json.loads(path.read_text())
+        assert set(raw) >= {"version", "updated_at", "agents"}
+        assert raw["agents"] == agents
