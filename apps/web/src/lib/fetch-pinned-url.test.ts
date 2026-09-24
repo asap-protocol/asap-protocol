@@ -46,6 +46,32 @@ describe('pinnedLookup', () => {
     });
     return expect(result).resolves.toEqual([{ address: '203.0.113.10', family: 4 }]);
   });
+
+  it('reports IPv6 family for a pinned AAAA address', () => {
+    const lookup = pinnedLookup('2001:db8::1');
+    const single = new Promise<{ address: string; family: number }>((resolve, reject) => {
+      lookup('evil.example', { family: 0 }, (err, address, family) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve({ address: String(address), family: family ?? 0 });
+      });
+    });
+    const all = new Promise<unknown>((resolve, reject) => {
+      lookup('evil.example', { all: true, family: 0 }, (err, addresses) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve(addresses);
+      });
+    });
+    return Promise.all([
+      expect(single).resolves.toEqual({ address: '2001:db8::1', family: 6 }),
+      expect(all).resolves.toEqual([{ address: '2001:db8::1', family: 6 }]),
+    ]);
+  });
 });
 
 async function listenLoopback(handler: http.RequestListener): Promise<{
@@ -247,6 +273,32 @@ describe('fetchAllowlistedUrl', () => {
       expect(isPinnedFetchBlocked(result)).toBe(true);
       if (isPinnedFetchBlocked(result)) {
         expect(result.error).toContain('HTTPS only');
+      }
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  it('connects to a pinned IPv6 address when no IPv4 is available', async () => {
+    const server = http.createServer((_req, res) => {
+      res.writeHead(200, { 'content-type': 'text/plain' });
+      res.end('ok');
+    });
+    await new Promise<void>((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(0, '::1', () => resolve());
+    });
+    const address = server.address() as AddressInfo;
+
+    try {
+      const result = await fetchAllowlistedUrl(
+        `http://rebind.example.invalid:${address.port}/`,
+        async () => ({ valid: true, ips: ['::1'] }),
+        2000
+      );
+      expect(isPinnedFetchBlocked(result)).toBe(false);
+      if (!isPinnedFetchBlocked(result)) {
+        expect(result).toEqual({ ok: true, status: 200 });
       }
     } finally {
       await closeServer(server);
