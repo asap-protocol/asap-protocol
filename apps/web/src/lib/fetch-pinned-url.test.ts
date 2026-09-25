@@ -253,6 +253,36 @@ describe('fetchAllowlistedUrl', () => {
     }
   });
 
+  it('stops when a redirect has no usable Location', async () => {
+    const cases: Array<{ location?: string; path: string }> = [
+      { path: '/missing' },
+      { path: '/broken', location: 'http://[' },
+    ];
+    for (const hop of cases) {
+      const { server, port } = await listenLoopback((_req, res) => {
+        if (hop.location === undefined) {
+          res.writeHead(302);
+        } else {
+          res.writeHead(302, { Location: hop.location });
+        }
+        res.end();
+      });
+      try {
+        const result = await fetchAllowlistedUrl(
+          `http://rebind.example.invalid:${port}${hop.path}`,
+          pinLoopback,
+          2000
+        );
+        expect(isPinnedFetchBlocked(result)).toBe(false);
+        if (!isPinnedFetchBlocked(result)) {
+          expect(result).toEqual({ ok: false, status: 302 });
+        }
+      } finally {
+        await closeServer(server);
+      }
+    }
+  });
+
   it('can probe with HEAD while still pinning connect()', async () => {
     let seenMethod: string | undefined;
     const { server, port } = await listenLoopback((req, res) => {

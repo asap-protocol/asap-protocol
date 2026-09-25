@@ -130,6 +130,14 @@ describe('isAllowedExternalUrl', () => {
     expect(result.valid).toBe(false);
     expect(result.error).toContain('127.0.0.2');
   });
+
+  it('rejects when DNS resolution fails for both A and AAAA', async () => {
+    resolve4Spy.mockRejectedValue(new Error('ENOTFOUND'));
+    resolve6Spy.mockRejectedValue(new Error('ENOTFOUND'));
+    const result = await isAllowedExternalUrl('http://nonexistent.invalid/');
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain('resolve');
+  });
 });
 
 describe('isAllowedProxyUrl', () => {
