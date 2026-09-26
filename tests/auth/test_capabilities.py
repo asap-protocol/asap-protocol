@@ -481,6 +481,10 @@ class TestEscalationCapabilityHelpers:
         denied = CapabilityGrant(capability="file:read", status="denied")
         assert auto_grant_would_replace_existing_grant(denied, None) is True
 
+    def test_auto_grant_replace_pending_grant_requires_consent(self) -> None:
+        pending = CapabilityGrant(capability="file:read", status="pending")
+        assert auto_grant_would_replace_existing_grant(pending, None) is True
+
     def test_auto_grant_replace_when_expires_at_set(self) -> None:
         constraints: dict[str, Any] = {"path": {"in": ["/tmp"]}}
         future = datetime.now(timezone.utc) + timedelta(hours=1)
@@ -500,6 +504,17 @@ class TestEscalationCapabilityHelpers:
             expires_at=past,
         )
         assert auto_grant_would_replace_existing_grant(existing, None) is True
+
+    def test_partition_pending_default_grant_needs_consent(self) -> None:
+        host = self._host(default_capabilities=["file:read"])
+        existing = [CapabilityGrant(capability="file:read", status="pending")]
+        needs, autos = partition_escalation_capability_specs(
+            host,
+            [{"name": "file:read"}],
+            existing_grants=existing,
+        )
+        assert [s["name"] for s in needs] == ["file:read"]
+        assert autos == []
 
     def test_partition_sends_constraint_clear_to_consent(self) -> None:
         host = self._host(default_capabilities=["file:read"])
