@@ -115,6 +115,19 @@ class TestURLValidation:
         with pytest.raises(WebhookURLValidationError, match="blocked address range"):
             await validate_callback_url("https://[::1]/hook")
 
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://[::]/hook",
+            "https://[fd00::1]/hook",
+            "https://[fe80::1]/hook",
+        ],
+        ids=["unspecified", "ula", "link-local"],
+    )
+    async def test_ipv6_reserved_literals_blocked(self, url: str) -> None:
+        with pytest.raises(WebhookURLValidationError, match="blocked address range"):
+            await validate_callback_url(url)
+
     # -- DNS rebinding --
 
     async def test_dns_rebinding_blocked(self) -> None:
@@ -123,6 +136,17 @@ class TestURLValidation:
             pytest.raises(WebhookURLValidationError, match="resolved to blocked IP"),
         ):
             await validate_callback_url("https://evil.example.com/hook")
+
+    async def test_dns_private_among_public_addresses_blocked(self) -> None:
+        mixed = [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 0)),
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.1.2.3", 0)),
+        ]
+        with (
+            _patch_async_getaddrinfo(mixed),
+            pytest.raises(WebhookURLValidationError, match="10.1.2.3"),
+        ):
+            await validate_callback_url("https://dual.example.com/hook")
 
     async def test_dns_resolution_failure_raises(self) -> None:
         with (

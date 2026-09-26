@@ -95,6 +95,35 @@ describe('fetchAllowlistedUrl', () => {
     }
   });
 
+  it.each([301, 303, 307, 308])(
+    'follows a %s redirect and returns the final public response',
+    async (status) => {
+      const { server, port } = await listenLoopback((req, res) => {
+        if (req.url === '/a') {
+          res.writeHead(status, { Location: '/b' });
+          res.end();
+          return;
+        }
+        res.writeHead(200);
+        res.end('ok');
+      });
+
+      try {
+        const result = await fetchAllowlistedUrl(
+          `http://rebind.example.invalid:${port}/a`,
+          pinLoopback,
+          2000
+        );
+        expect(isPinnedFetchBlocked(result)).toBe(false);
+        if (!isPinnedFetchBlocked(result)) {
+          expect(result).toEqual({ ok: true, status: 200 });
+        }
+      } finally {
+        await closeServer(server);
+      }
+    }
+  );
+
   it('re-validates redirect targets and blocks private Location hops', async () => {
     const { server, port } = await listenLoopback((req, res) => {
       if (req.url === '/start') {
