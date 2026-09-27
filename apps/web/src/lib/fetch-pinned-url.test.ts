@@ -126,6 +126,40 @@ describe('fetchAllowlistedUrl', () => {
     }
   });
 
+  it('re-validates protocol-relative Location hops', async () => {
+    const seen: string[] = [];
+    const { server, port } = await listenLoopback((req, res) => {
+      if (req.url === '/start') {
+        res.writeHead(302, { Location: '//127.0.0.1/secret' });
+        res.end();
+        return;
+      }
+      res.writeHead(200);
+      res.end('should-not-reach');
+    });
+
+    try {
+      const result = await fetchAllowlistedUrl(
+        `http://rebind.example.invalid:${port}/start`,
+        async (url) => {
+          seen.push(url);
+          if (url.includes('/start')) {
+            return { valid: true, ips: ['127.0.0.1'] };
+          }
+          return { valid: false, error: 'URL not allowed: private redirect' };
+        },
+        2000
+      );
+      expect(seen).toContain('http://127.0.0.1/secret');
+      expect(isPinnedFetchBlocked(result)).toBe(true);
+      if (isPinnedFetchBlocked(result)) {
+        expect(result.error).toContain('not allowed');
+      }
+    } finally {
+      await closeServer(server);
+    }
+  });
+
   it('destroys the hop socket after headers so a streaming body cannot pin the isolate', async () => {
     let serverSawClose = false;
     const { server, port } = await listenLoopback((_req, res) => {

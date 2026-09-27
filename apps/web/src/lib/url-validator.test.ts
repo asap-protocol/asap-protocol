@@ -24,6 +24,12 @@ describe('isBlockedHostOrIp', () => {
     expect(isBlockedHostOrIp('fec0::1')).toBe(false);
   });
 
+  it('blocks IPv6 loopback and unspecified when a zone id is present', () => {
+    expect(isBlockedHostOrIp('::1%eth0')).toBe(true);
+    expect(isBlockedHostOrIp('::%eth0')).toBe(true);
+    expect(isBlockedHostOrIp('[::1%lo]')).toBe(true);
+  });
+
   it('blocks NAT64 64:ff9b::/96 when the embedded IPv4 is private', () => {
     expect(isBlockedHostOrIp('64:ff9b::10.0.0.1')).toBe(true);
     expect(isBlockedHostOrIp('64:ff9b::192.168.1.1')).toBe(true);
@@ -84,6 +90,14 @@ describe('isAllowedExternalUrl', () => {
 
   it('blocks IPv6 loopback', async () => {
     expect((await isAllowedExternalUrl('http://[::1]/manifest')).valid).toBe(false);
+  });
+
+  it('blocks loopback hidden behind userinfo without resolving DNS', async () => {
+    const result = await isAllowedExternalUrl('http://user:pass@127.0.0.1/secret');
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain('Internal/Private');
+    expect(resolve4Spy).not.toHaveBeenCalled();
+    expect(resolve6Spy).not.toHaveBeenCalled();
   });
 
   it('blocks IPv4-mapped IPv6 loopback', async () => {
@@ -148,6 +162,11 @@ describe('isAllowedProxyUrl', () => {
     expect(isAllowedProxyUrl('https://127.0.0.1').valid).toBe(false);
     expect(isAllowedProxyUrl('https://192.168.1.1').valid).toBe(false);
     expect(isAllowedProxyUrl('https://10.0.0.1').valid).toBe(false);
+  });
+
+  it('rejects userinfo on a loopback host', () => {
+    expect(isAllowedProxyUrl('https://user:pass@127.0.0.1/health').valid).toBe(false);
+    expect(isAllowedProxyUrl('https://user:pass@[::1]/health').valid).toBe(false);
   });
 
   it('rejects non-HTTP(S) protocols', () => {

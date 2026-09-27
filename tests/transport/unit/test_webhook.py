@@ -115,6 +115,24 @@ class TestURLValidation:
         with pytest.raises(WebhookURLValidationError, match="blocked address range"):
             await validate_callback_url("https://[::1]/hook")
 
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://user:pass@127.0.0.1/hook",
+            "https://user:pass@[::1]/hook",
+        ],
+    )
+    async def test_userinfo_does_not_hide_loopback(self, url: str) -> None:
+        """Credentials in the authority must not skip the literal IP check."""
+        with (
+            patch(
+                "asyncio.get_running_loop",
+                side_effect=AssertionError("DNS should not run for an IP literal"),
+            ),
+            pytest.raises(WebhookURLValidationError, match="blocked address range"),
+        ):
+            await validate_callback_url(url)
+
     # -- DNS rebinding --
 
     async def test_dns_rebinding_blocked(self) -> None:

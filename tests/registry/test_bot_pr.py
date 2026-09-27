@@ -168,6 +168,8 @@ def test_is_reserved_destination_private_ipv4() -> None:
         ("https://192.168.1.1/m", True),
         ("https://[fc00::1]/m", True),
         ("https://[::ffff:127.0.0.1]/m", True),
+        ("https://user:pass@127.0.0.1/m", True),
+        ("https://user:pass@[::1]/m", True),
         ("https://example.com/m", False),
     ],
 )
