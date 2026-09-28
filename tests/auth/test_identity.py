@@ -479,6 +479,36 @@ async def test_touch_if_current_refuses_rotated_or_rehosted_row() -> None:
     assert rehosted is not None and rehosted.host_id == "other-host"
 
 
+async def test_touch_if_current_refuses_malformed_expected_key() -> None:
+    """A JWK missing required members fails closed and does not slide last_used_at."""
+    store = InMemoryAgentStore()
+    now = _utc_now()
+    public_key = make_ed25519_jwk()
+    await store.save(
+        AgentSession(
+            agent_id="a1",
+            host_id="h1",
+            public_key=public_key,
+            mode="delegated",
+            status="active",
+            created_at=now,
+            last_used_at=now,
+        )
+    )
+    touched_at = now + timedelta(seconds=5)
+    updated = await store.touch_if_current(
+        "a1",
+        {"kty": "OKP"},
+        touched_at,
+        expected_host_id="h1",
+    )
+    assert updated is None
+    stored = await store.get("a1")
+    assert stored is not None
+    assert stored.last_used_at == now
+    assert stored.public_key == public_key
+
+
 def test_jwk_thumbprint_sha256_is_deterministic() -> None:
     """Same JWK dict always yields the same thumbprint."""
     jwk_dict = {"crv": "Ed25519", "kty": "OKP", "x": "dGVzdA"}
