@@ -254,8 +254,42 @@ class TestFetchManifestSSRF:
         ):
             fetch_manifest("https://example.com/manifest.json")
 
+    @pytest.mark.parametrize("payload", [None, [], "not-an-object"])
+    def test_rejects_non_object_manifest_json(self, payload: object) -> None:
+        """A 200 body that is not a JSON object fails before signature checks."""
+        with (
+            patch("scripts.lib.safe_url.socket.getaddrinfo", _fake_getaddrinfo_public),
+            patch(
+                "scripts.process_registration.httpx.Client",
+                return_value=_mock_httpx_client(payload),
+            ),
+            pytest.raises(
+                ValueError,
+                match="Manifest JSON must be an object: https://example.com/manifest.json",
+            ),
+        ):
+            fetch_manifest("https://example.com/manifest.json")
 
-def _mock_httpx_client(response_json: dict) -> MagicMock:
+    def test_rejects_non_json_manifest_body(self) -> None:
+        """A 200 body that is not JSON fails closed with the manifest URL."""
+        mock_resp = MagicMock()
+        mock_resp.json.side_effect = ValueError("Expecting value")
+        mock_resp.raise_for_status = MagicMock()
+        mock_client = MagicMock()
+        mock_client.__enter__.return_value.get.return_value = mock_resp
+        mock_client.__exit__.return_value = None
+        with (
+            patch("scripts.lib.safe_url.socket.getaddrinfo", _fake_getaddrinfo_public),
+            patch("scripts.process_registration.httpx.Client", return_value=mock_client),
+            pytest.raises(
+                ValueError,
+                match="Manifest response is not JSON: https://example.com/manifest.json",
+            ),
+        ):
+            fetch_manifest("https://example.com/manifest.json")
+
+
+def _mock_httpx_client(response_json: object) -> MagicMock:
     """Build a MagicMock for httpx.Client that returns the given JSON as manifest."""
     mock_resp = MagicMock()
     mock_resp.text = json.dumps(response_json)
