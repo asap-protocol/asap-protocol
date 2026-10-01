@@ -19,6 +19,7 @@ from asap.auth.identity import (
     InMemoryAgentStore,
     InMemoryHostStore,
     RevokedAgentOverwriteError,
+    StaleAgentPublicKeyError,
     host_urn_from_thumbprint,
     jwk_thumbprint_sha256,
     save_agent_unless_revoked,
@@ -225,7 +226,12 @@ class _StubHostStore:
 class _StubAgentStore:
     """Minimal async implementation for runtime protocol checks."""
 
-    async def save(self, agent: AgentSession) -> None:
+    async def save(
+        self,
+        agent: AgentSession,
+        *,
+        expected_public_key: dict[str, Any] | None = None,
+    ) -> None:
         return None
 
     async def touch_if_current(
@@ -649,3 +655,61 @@ async def test_save_agent_unless_revoked_allows_revoked_noop_update() -> None:
     assert row is not None
     await save_agent_unless_revoked(store, row)
     assert (await store.get("a1")) is not None
+
+
+async def test_save_refuses_lifecycle_snapshot_after_key_rotation() -> None:
+    """pending→active must not restore a JWK that rotate-key already replaced."""
+    store = InMemoryAgentStore()
+    now = _utc_now()
+    old_key = make_ed25519_jwk()
+    new_key = make_ed25519_jwk()
+    pending = AgentSession(
+        agent_id="a1",
+        host_id="h1",
+        public_key=old_key,
+        mode="delegated",
+        status="pending",
+        created_at=now,
+    )
+    await store.save(pending)
+    await store.save(pending.model_copy(update={"public_key": new_key}))
+    stale_active = pending.model_copy(update={"status": "active", "activated_at": now})
+    with pytest.raises(StaleAgentPublicKeyError, match="stored public_key"):
+        await save_agent_unless_revoked(
+            store,
+            stale_active,
+            expected_public_key=old_key,
+        )
+    row = await store.get("a1")
+    assert row is not None
+    assert row.status == "pending"
+    assert jwk_thumbprint_sha256(row.public_key) == jwk_thumbprint_sha256(new_key)
+
+
+async def test_save_applies_rotation_onto_stored_lifecycle() -> None:
+    """rotate-key against an expected old JWK must keep a newer stored status."""
+    store = InMemoryAgentStore()
+    now = _utc_now()
+    old_key = make_ed25519_jwk()
+    new_key = make_ed25519_jwk()
+    pending = AgentSession(
+        agent_id="a1",
+        host_id="h1",
+        public_key=old_key,
+        mode="delegated",
+        status="pending",
+        created_at=now,
+    )
+    await store.save(pending)
+    await store.save(pending.model_copy(update={"status": "active", "activated_at": now}))
+    stale_rotate = pending.model_copy(update={"public_key": new_key})
+    await save_agent_unless_revoked(
+        store,
+        stale_rotate,
+        expected_public_key=old_key,
+    )
+    row = await store.get("a1")
+    assert row is not None
+    assert row.status == "active"
+    assert row.activated_at == now
+    assert jwk_thumbprint_sha256(row.public_key) == jwk_thumbprint_sha256(new_key)

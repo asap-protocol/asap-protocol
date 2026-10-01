@@ -36,6 +36,17 @@ class RevokedAgentOverwriteError(ValueError):
     """
 
 
+class StaleAgentPublicKeyError(ValueError):
+    """Raised when ``save`` would persist against a rotated public key.
+
+    Example:
+        >>> raise StaleAgentPublicKeyError(
+        ...     "refusing to overwrite agent 'a1': stored public_key thumbprint "
+        ...     "'abc' != expected 'def'"
+        ... )
+    """
+
+
 def validate_okp_public_key(value: dict[str, Any]) -> dict[str, Any]:
     """Validate that the dict represents a valid OKP (Ed25519) public JWK."""
     try:
@@ -103,24 +114,23 @@ class AgentSession(ASAPBaseModel):
 class AgentStore(Protocol):
     """Persistence layer for agent sessions under a host."""
 
-    async def save(self, agent: AgentSession) -> None:
+    async def save(
+        self,
+        agent: AgentSession,
+        *,
+        expected_public_key: dict[str, Any] | None = None,
+    ) -> None:
         """Persist or replace an agent session.
 
         Must refuse replacing a ``revoked`` row with a non-revoked snapshot by
-        raising :class:`RevokedAgentOverwriteError`. The check and write must be
-        one compare-and-set, equivalent to::
-
-            UPDATE agents SET ... = :row
-             WHERE agent_id = :id AND status <> 'revoked'
-            -- reject when rowcount == 0 and the stored status is revoked
-
-        Do **not** implement this as get → await I/O → overwrite: that TOCTOU
-        can resurrect a revoked agent (#324 / LIFE-005). Same class as
-        ``NonceStore.check_and_mark``. Persisting an already-revoked snapshot
-        remains allowed.
+        raising :class:`RevokedAgentOverwriteError`. When *expected_public_key*
+        is set, raise :class:`StaleAgentPublicKeyError` if the stored JWK
+        thumbprint no longer matches (concurrent rotate-key). Check and write
+        must be one compare-and-set; do not get → await I/O → overwrite
+        (#324 / LIFE-005). Persisting an already-revoked snapshot is allowed.
 
         Example:
-            >>> await store.save(session)
+            >>> await store.save(session, expected_public_key=session.public_key)
         """
         ...
 
@@ -256,23 +266,48 @@ class InMemoryHostStore:
             await self._agent_store.revoke_by_host(host_id)
 
 
-class InMemoryAgentStore:
-    """In-memory `AgentStore` for development and tests.
+def _cas_public_key_row(
+    existing: AgentSession,
+    agent: AgentSession,
+    expected_public_key: dict[str, Any],
+) -> AgentSession:
+    """Return the row to persist, or raise if the stored JWK already rotated."""
+    try:
+        stored_tp = jwk_thumbprint_sha256(existing.public_key)
+        incoming_tp = jwk_thumbprint_sha256(agent.public_key)
+        expected_tp = jwk_thumbprint_sha256(expected_public_key)
+    except (KeyError, TypeError, ValueError) as exc:
+        msg = f"cannot compare public_key thumbprints for agent {agent.agent_id!r}: {exc}"
+        raise StaleAgentPublicKeyError(msg) from exc
+    if stored_tp != expected_tp:
+        msg = (
+            f"refusing to overwrite agent {agent.agent_id!r}: stored public_key "
+            f"thumbprint {stored_tp!r} != expected {expected_tp!r}"
+        )
+        raise StaleAgentPublicKeyError(msg)
+    if incoming_tp != expected_tp:
+        return existing.model_copy(update={"public_key": agent.public_key})
+    return agent
 
-    ``save`` refuses to replace a ``revoked`` row with a non-revoked snapshot so
-    stale get→mutate→full-row-save races cannot resurrect revoked agents.
-    """
+
+class InMemoryAgentStore:
+    """In-memory AgentStore; save refuses revoked→live and stale-key overwrites."""
 
     def __init__(self) -> None:
         self._agents: dict[str, AgentSession] = {}
 
-    async def save(self, agent: AgentSession) -> None:
-        """Persist or replace a session; refuse revoked→non-revoked atomically.
+    async def save(
+        self,
+        agent: AgentSession,
+        *,
+        expected_public_key: dict[str, Any] | None = None,
+    ) -> None:
+        """Persist a session. Refuse revoked→live; CAS public_key when expected.
 
         Example:
-            >>> await store.save(session)
+            >>> await store.save(session, expected_public_key=session.public_key)
         """
-        # No await between the revoked check and the write (LIFE-005 / #324).
+        # No await between the revoked/key check and the write (LIFE-005 / #324).
         existing = self._agents.get(agent.agent_id)
         if existing is not None and existing.status == "revoked" and agent.status != "revoked":
             msg = (
@@ -280,6 +315,8 @@ class InMemoryAgentStore:
                 f"with status {agent.status!r}"
             )
             raise RevokedAgentOverwriteError(msg)
+        if expected_public_key is not None and existing is not None:
+            agent = _cas_public_key_row(existing, agent, expected_public_key)
         self._agents[agent.agent_id] = agent
 
     async def touch_if_current(
@@ -330,23 +367,33 @@ class InMemoryAgentStore:
             await self.revoke(aid)
 
 
-async def save_agent_unless_revoked(agent_store: AgentStore, agent: AgentSession) -> None:
+async def save_agent_unless_revoked(
+    agent_store: AgentStore,
+    agent: AgentSession,
+    *,
+    expected_public_key: dict[str, Any] | None = None,
+) -> None:
     """Persist *agent* through :meth:`AgentStore.save` (refuse-revoked contract).
 
-    Call sites that load a session, mutate it, then persist the full row should
-    use this helper so the intent is obvious. It does **not** add a get-then-save
-    window; atomic refuse-revoked belongs inside ``save`` (same class as
-    ``NonceStore.check_and_mark``).
+    Pass *expected_public_key* so a concurrent rotate-key is not reverted by a
+    stale lifecycle snapshot. Atomic refuse-revoked/key CAS belongs inside
+    ``save``.
 
     Example:
-        >>> await save_agent_unless_revoked(store, rotated_session)
+        >>> await save_agent_unless_revoked(
+        ...     store, rotated_session, expected_public_key=old_jwk
+        ... )
     """
-    await agent_store.save(agent)
+    if expected_public_key is None:
+        await agent_store.save(agent)
+        return
+    try:
+        await agent_store.save(agent, expected_public_key=expected_public_key)
+    except TypeError as exc:
+        if "expected_public_key" not in str(exc):
+            raise
+        await agent_store.save(agent)
 
-
-# ---------------------------------------------------------------------------
-# Agent session lifecycle (session TTL, max lifetime, absolute lifetime)
-# ---------------------------------------------------------------------------
 
 ExpiryStatus = Literal["active", "expired", "revoked"]
 

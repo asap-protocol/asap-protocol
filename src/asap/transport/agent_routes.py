@@ -52,6 +52,7 @@ from asap.auth.identity import (
     HostIdentity,
     HostStore,
     RevokedAgentOverwriteError,
+    StaleAgentPublicKeyError,
     host_urn_from_thumbprint,
     jwk_thumbprint_sha256,
     save_agent_unless_revoked,
@@ -611,8 +612,12 @@ async def _handle_agent_status(request: Request, agent_id: str) -> JSONResponse:
                     },
                 )
                 try:
-                    await save_agent_unless_revoked(agent_store, activated)
-                except RevokedAgentOverwriteError:
+                    await save_agent_unless_revoked(
+                        agent_store,
+                        activated,
+                        expected_public_key=fresh.public_key,
+                    )
+                except (RevokedAgentOverwriteError, StaleAgentPublicKeyError):
                     pass
                 else:
                     if registry is not None and appr.capability_specs:
@@ -626,8 +631,12 @@ async def _handle_agent_status(request: Request, agent_id: str) -> JSONResponse:
             fresh = await agent_store.get(agent_id)
             if fresh is not None and fresh.status == "pending":
                 rejected = fresh.model_copy(update={"status": "rejected"})
-                with suppress(RevokedAgentOverwriteError):
-                    await save_agent_unless_revoked(agent_store, rejected)
+                with suppress(RevokedAgentOverwriteError, StaleAgentPublicKeyError):
+                    await save_agent_unless_revoked(
+                        agent_store,
+                        rejected,
+                        expected_public_key=fresh.public_key,
+                    )
 
     refreshed = await agent_store.get(agent_id)
     if refreshed is not None:
@@ -753,11 +762,20 @@ async def _handle_agent_rotate_key(request: Request, body: AgentRotateKeyBody) -
 
     rotated = fresh.model_copy(update={"public_key": new_pub})
     try:
-        await save_agent_unless_revoked(agent_store, rotated)
+        await save_agent_unless_revoked(
+            agent_store,
+            rotated,
+            expected_public_key=fresh.public_key,
+        )
     except RevokedAgentOverwriteError:
         return JSONResponse(
             status_code=400,
             content={"detail": "cannot rotate key for revoked agent"},
+        )
+    except StaleAgentPublicKeyError:
+        return JSONResponse(
+            status_code=409,
+            content={"detail": "agent public key changed concurrently"},
         )
     logger.info(
         "asap.identity.agent_rotate_key",
