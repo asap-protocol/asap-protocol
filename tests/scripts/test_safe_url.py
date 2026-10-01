@@ -5,7 +5,7 @@ from __future__ import annotations
 import socket
 from unittest.mock import patch
 
-from scripts.lib.safe_url import is_safe_http_url
+from scripts.lib.safe_url import is_safe_endpoint_url, is_safe_http_url
 
 
 def _fake_public_getaddrinfo(
@@ -43,6 +43,14 @@ class TestIsSafeHttpUrl:
     def test_blocks_literal_private_ip_hostname(self) -> None:
         assert is_safe_http_url("https://10.0.0.1/") is False
 
+    def test_blocks_nat64_well_known_prefix_with_private_embedded_ipv4(self) -> None:
+        assert is_safe_http_url("http://[64:ff9b::10.0.0.1]/") is False
+        assert is_safe_http_url("http://[64:ff9b::a9fe:a9fe]/") is False
+
+    @patch("scripts.lib.safe_url.socket.getaddrinfo", _fake_public_getaddrinfo)
+    def test_allows_nat64_well_known_prefix_with_public_embedded_ipv4(self) -> None:
+        assert is_safe_http_url("http://[64:ff9b::8.8.8.8]/") is True
+
     def test_public_ip_hostname_uses_dns_resolution_path(self) -> None:
         """Literal public IPs skip blocked-host set but still resolve via getaddrinfo."""
         with patch("scripts.lib.safe_url.socket.getaddrinfo", _fake_public_getaddrinfo):
@@ -63,6 +71,29 @@ class TestIsSafeHttpUrl:
         with patch("scripts.lib.safe_url.socket.getaddrinfo", _private):
             assert is_safe_http_url("https://example.com/") is False
 
+    def test_blocks_when_dns_resolves_to_nat64_metadata_ipv4(self) -> None:
+        def _nat64_metadata(
+            host: str,
+            port: object,
+            family: int = 0,
+            sock_type: int = 0,
+            proto: int = 0,
+            flags: int = 0,
+        ) -> list[tuple[int, int, int, str, tuple[str, int]]]:
+            _ = (host, port, family, sock_type, proto, flags)
+            return [
+                (
+                    socket.AF_INET6,
+                    socket.SOCK_STREAM,
+                    0,
+                    "",
+                    ("64:ff9b::a9fe:a9fe", 0),
+                )
+            ]
+
+        with patch("scripts.lib.safe_url.socket.getaddrinfo", _nat64_metadata):
+            assert is_safe_http_url("https://example.com/") is False
+
     def test_blocks_when_dns_resolution_fails(self) -> None:
         def _fail(
             host: str,
@@ -77,3 +108,23 @@ class TestIsSafeHttpUrl:
 
         with patch("scripts.lib.safe_url.socket.getaddrinfo", _fail):
             assert is_safe_http_url("https://example.com/") is False
+
+
+class TestIsSafeEndpointUrl:
+    def test_blocks_metadata_http_endpoint(self) -> None:
+        assert is_safe_endpoint_url("http://169.254.169.254/asap") is False
+
+    def test_blocks_loopback_websocket_endpoint(self) -> None:
+        assert is_safe_endpoint_url("ws://127.0.0.1/asap/events") is False
+        assert is_safe_endpoint_url("wss://localhost/asap/events") is False
+
+    @patch("scripts.lib.safe_url.socket.getaddrinfo", _fake_public_getaddrinfo)
+    def test_allows_public_websocket_endpoint(self) -> None:
+        assert is_safe_endpoint_url("wss://api.example.com/asap/events") is True
+
+    @patch("scripts.lib.safe_url.socket.getaddrinfo", _fake_public_getaddrinfo)
+    def test_allows_public_http_endpoint(self) -> None:
+        assert is_safe_endpoint_url("https://example.com/asap") is True
+
+    def test_blocks_nat64_websocket_endpoint_with_metadata_embedded_ipv4(self) -> None:
+        assert is_safe_endpoint_url("wss://[64:ff9b::a9fe:a9fe]/asap/events") is False
