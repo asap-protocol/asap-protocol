@@ -151,7 +151,7 @@ Validates that the fixture matches `RegistryEntry`.
 **IssueOps dry-run** (`validate_registry.py` agents-array format):
 
 ```bash
-uv run python scripts/validate_registry.py tests/fixtures/registry/shellclaw-v1.0-agents-array.json
+uv run python scripts/validate_registry.py --allow-agents-array tests/fixtures/registry/shellclaw-v1.0-agents-array.json
 ```
 
 Same validation path as CI uses for `registry.json` agent objects.

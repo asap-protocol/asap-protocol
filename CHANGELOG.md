@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Lite Registry IssueOps** — `save_registry` again writes a `LiteRegistry` object
+  (`version`, `updated_at`, `agents`) so `discover_from_registry` and Python
+  validation keep working after registration/removal. CI `validate_registry.py`
+  and auto-merge eligibility now reject a bare root array on production
+  `registry.json` (fixture dry-runs use `--allow-agents-array`).
+
 ### Follow-up (planned)
 
 - **Formal Spec & Interop** — RFC spec, introspection, privacy ([prd-v2.5.5-formal-spec-interop.md](product/prd/prd-v2.5.5-formal-spec-interop.md)).
