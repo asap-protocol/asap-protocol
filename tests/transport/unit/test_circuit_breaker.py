@@ -18,7 +18,12 @@ from asap.models.envelope import Envelope
 from asap.models.payloads import TaskRequest, TaskResponse
 from asap.models.enums import TaskStatus
 from asap.transport.client import ASAPClient
-from asap.transport.circuit_breaker import CircuitBreaker, CircuitState, get_registry
+from asap.transport.circuit_breaker import (
+    CircuitBreaker,
+    CircuitBreakerRegistry,
+    CircuitState,
+    get_registry,
+)
 
 if TYPE_CHECKING:
     pass
@@ -158,6 +163,26 @@ class TestCircuitBreakerTimeout:
 
         # Should not allow attempts immediately
         assert breaker.can_attempt() is False
+
+
+class TestCircuitBreakerRegistry:
+    """Shared breakers are keyed by URL; the first caller sets the limits."""
+
+    def test_later_get_or_create_keeps_original_threshold(self) -> None:
+        """A second client must not loosen or tighten an existing shared breaker."""
+        registry = CircuitBreakerRegistry()
+        url = "https://peer.example/asap"
+        first = registry.get_or_create(url, threshold=5, timeout=60.0)
+        second = registry.get_or_create(url, threshold=1, timeout=1.0)
+
+        assert second is first
+        assert second.threshold == 5
+        assert second.timeout == 60.0
+        for _ in range(4):
+            second.record_failure()
+        assert second.get_state() == CircuitState.CLOSED
+        second.record_failure()
+        assert second.get_state() == CircuitState.OPEN
 
 
 class TestCircuitBreakerIntegration:

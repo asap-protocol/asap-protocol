@@ -4,6 +4,7 @@ This module tests timestamp and nonce validation functions in isolation,
 without HTTP dependencies or rate limiting.
 """
 
+import threading
 from datetime import datetime, timezone, timedelta
 from unittest.mock import patch
 
@@ -18,6 +19,18 @@ from asap.transport.validators import (
     validate_envelope_timestamp,
 )
 from asap.transport import validators as validators_module
+
+
+def _nonce_envelope(nonce: str) -> Envelope:
+    """Build a task request envelope carrying ``nonce``."""
+    return Envelope(
+        asap_version="0.1",
+        sender="urn:asap:agent:test",
+        recipient="urn:asap:agent:test",
+        payload_type="TaskRequest",
+        payload={"conversation_id": "c1", "skill_id": "s1", "input": {}},
+        extensions={"nonce": nonce},
+    )
 
 
 class TestTimestampValidation:
@@ -323,3 +336,38 @@ class TestNonceValidation:
             store.check_and_mark("new-nonce", ttl_seconds=10)
         assert len(store._store) == 1
         assert "new-nonce" in store._store
+
+    def test_concurrent_same_nonce_accepted_once(self) -> None:
+        """Parallel checks of one nonce accept exactly one caller.
+
+        ``check_and_mark`` is the replay lock. A regression that splits the
+        check from the mark would let two state-changing envelopes through.
+        """
+        store = InMemoryNonceStore()
+        worker_count = 16
+        barrier = threading.Barrier(worker_count)
+        outcomes: list[str] = []
+        outcomes_lock = threading.Lock()
+
+        def validate_once() -> None:
+            envelope = _nonce_envelope("shared-race-nonce")
+            barrier.wait()
+            try:
+                validate_envelope_nonce(envelope, store)
+            except InvalidNonceError:
+                outcome = "duplicate"
+            except Exception as exc:
+                outcome = f"error:{type(exc).__name__}:{exc}"
+            else:
+                outcome = "accepted"
+            with outcomes_lock:
+                outcomes.append(outcome)
+
+        workers = [threading.Thread(target=validate_once) for _ in range(worker_count)]
+        for worker in workers:
+            worker.start()
+        for worker in workers:
+            worker.join()
+
+        assert outcomes.count("accepted") == 1
+        assert outcomes.count("duplicate") == worker_count - 1
