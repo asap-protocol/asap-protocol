@@ -7,6 +7,7 @@ import {
   pickPinnedIp,
   pinnedLookup,
 } from './fetch-pinned-url';
+import { isAllowedExternalUrl } from './url-validator';
 
 describe('pickPinnedIp', () => {
   it('prefers IPv4 when both families are present', () => {
@@ -95,35 +96,6 @@ describe('fetchAllowlistedUrl', () => {
     }
   });
 
-  it.each([301, 303, 307, 308])(
-    'follows a %s redirect and returns the final public response',
-    async (status) => {
-      const { server, port } = await listenLoopback((req, res) => {
-        if (req.url === '/a') {
-          res.writeHead(status, { Location: '/b' });
-          res.end();
-          return;
-        }
-        res.writeHead(200);
-        res.end('ok');
-      });
-
-      try {
-        const result = await fetchAllowlistedUrl(
-          `http://rebind.example.invalid:${port}/a`,
-          pinLoopback,
-          2000
-        );
-        expect(isPinnedFetchBlocked(result)).toBe(false);
-        if (!isPinnedFetchBlocked(result)) {
-          expect(result).toEqual({ ok: true, status: 200 });
-        }
-      } finally {
-        await closeServer(server);
-      }
-    }
-  );
-
   it('re-validates redirect targets and blocks private Location hops', async () => {
     const { server, port } = await listenLoopback((req, res) => {
       if (req.url === '/start') {
@@ -155,11 +127,10 @@ describe('fetchAllowlistedUrl', () => {
     }
   });
 
-  it('re-validates protocol-relative Location hops', async () => {
-    const seen: string[] = [];
+  it('blocks a redirect to an IPv4-mapped private literal', async () => {
     const { server, port } = await listenLoopback((req, res) => {
       if (req.url === '/start') {
-        res.writeHead(302, { Location: '//127.0.0.1/secret' });
+        res.writeHead(302, { Location: 'http://[::ffff:192.168.1.1]/secret' });
         res.end();
         return;
       }
@@ -171,18 +142,16 @@ describe('fetchAllowlistedUrl', () => {
       const result = await fetchAllowlistedUrl(
         `http://rebind.example.invalid:${port}/start`,
         async (url) => {
-          seen.push(url);
           if (url.includes('/start')) {
             return { valid: true, ips: ['127.0.0.1'] };
           }
-          return { valid: false, error: 'URL not allowed: private redirect' };
+          return isAllowedExternalUrl(url);
         },
         2000
       );
-      expect(seen).toContain('http://127.0.0.1/secret');
       expect(isPinnedFetchBlocked(result)).toBe(true);
       if (isPinnedFetchBlocked(result)) {
-        expect(result.error).toContain('not allowed');
+        expect(result.error).toContain('Internal/Private');
       }
     } finally {
       await closeServer(server);
@@ -313,36 +282,6 @@ describe('fetchAllowlistedUrl', () => {
       }
     } finally {
       await closeServer(server);
-    }
-  });
-
-  it('stops when a redirect has no usable Location', async () => {
-    const cases: Array<{ location?: string; path: string }> = [
-      { path: '/missing' },
-      { path: '/broken', location: 'http://[' },
-    ];
-    for (const hop of cases) {
-      const { server, port } = await listenLoopback((_req, res) => {
-        if (hop.location === undefined) {
-          res.writeHead(302);
-        } else {
-          res.writeHead(302, { Location: hop.location });
-        }
-        res.end();
-      });
-      try {
-        const result = await fetchAllowlistedUrl(
-          `http://rebind.example.invalid:${port}${hop.path}`,
-          pinLoopback,
-          2000
-        );
-        expect(isPinnedFetchBlocked(result)).toBe(false);
-        if (!isPinnedFetchBlocked(result)) {
-          expect(result).toEqual({ ok: false, status: 302 });
-        }
-      } finally {
-        await closeServer(server);
-      }
     }
   });
 

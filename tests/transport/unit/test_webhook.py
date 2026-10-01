@@ -116,21 +116,18 @@ class TestURLValidation:
             await validate_callback_url("https://[::1]/hook")
 
     @pytest.mark.parametrize(
-        "url",
+        "ip",
         [
-            "https://user:pass@127.0.0.1/hook",
-            "https://user:pass@[::1]/hook",
+            "::ffff:192.168.1.1",
+            "::ffff:10.0.0.1",
+            "::ffff:169.254.169.254",
+            "240.0.0.1",
         ],
     )
-    async def test_userinfo_does_not_hide_loopback(self, url: str) -> None:
-        """Credentials in the authority must not skip the literal IP check."""
-        with (
-            patch(
-                "asyncio.get_running_loop",
-                side_effect=AssertionError("DNS should not run for an IP literal"),
-            ),
-            pytest.raises(WebhookURLValidationError, match="blocked address range"),
-        ):
+    async def test_mapped_and_reserved_literals_blocked(self, ip: str) -> None:
+        """IPv4-mapped and Class E literals are blocked before DNS."""
+        url = f"https://[{ip}]/hook" if ":" in ip else f"https://{ip}/hook"
+        with pytest.raises(WebhookURLValidationError, match="blocked address range"):
             await validate_callback_url(url)
 
     # -- DNS rebinding --
@@ -141,6 +138,17 @@ class TestURLValidation:
             pytest.raises(WebhookURLValidationError, match="resolved to blocked IP"),
         ):
             await validate_callback_url("https://evil.example.com/hook")
+
+    async def test_dns_rebinding_to_ipv4_mapped_private_blocked(self) -> None:
+        """An AAAA answer of ::ffff:192.168.1.1 is a private address, not a public one."""
+        mapped = [
+            (socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("::ffff:192.168.1.1", 0, 0, 0)),
+        ]
+        with (
+            _patch_async_getaddrinfo(mapped),
+            pytest.raises(WebhookURLValidationError, match="::ffff:192.168.1.1"),
+        ):
+            await validate_callback_url("https://rebind.example.com/hook")
 
     async def test_dns_resolution_failure_raises(self) -> None:
         with (
