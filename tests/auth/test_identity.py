@@ -419,6 +419,31 @@ async def test_touch_if_current_slides_last_used_at_without_clobbering_key() -> 
     assert stored == updated
 
 
+async def test_touch_if_current_refuses_idle_expired_active_row() -> None:
+    """An active row past session_ttl must not slide last_used_at."""
+    store = InMemoryAgentStore()
+    now = _utc_now()
+    public_key = make_ed25519_jwk()
+    stale = now - timedelta(hours=2)
+    await store.save(
+        AgentSession(
+            agent_id="a1",
+            host_id="h1",
+            public_key=public_key,
+            mode="delegated",
+            status="active",
+            created_at=stale,
+            session_ttl=timedelta(minutes=15),
+            last_used_at=stale,
+        )
+    )
+    assert (await store.touch_if_current("a1", public_key, now, expected_host_id="h1")) is None
+    stored = await store.get("a1")
+    assert stored is not None
+    assert stored.status == "active"
+    assert stored.last_used_at == stale
+
+
 async def test_touch_if_current_refuses_revoked_row() -> None:
     """Predicate fails on revoke; full-row save cannot resurrect the row."""
     store = InMemoryAgentStore()
