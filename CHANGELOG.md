@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and auto-merge eligibility now reject a bare root array on production
   `registry.json` (fixture dry-runs use `--allow-agents-array`).
 
+### Security
+
+- **Capability execute omitted arguments** — ``CapabilityRegistry.check_grant``
+  and ``POST /asap/capability/execute`` treat a missing ``arguments`` object
+  as empty when the grant has constraints. Constrained fields stay required,
+  so omitting the object no longer skips the allowlist.
+
 ### Follow-up (planned)
 
 - **Formal Spec & Interop** — RFC spec, introspection, privacy ([prd-v2.5.5-formal-spec-interop.md](product/prd/prd-v2.5.5-formal-spec-interop.md)).

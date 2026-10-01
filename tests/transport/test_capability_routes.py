@@ -451,6 +451,33 @@ class TestCapabilityExecute:
         assert body["violations"][0]["operator"] == "in"
         assert "request_id" in body and body["request_id"]
 
+    async def test_execute_omitted_arguments_cannot_skip_constraints(
+        self,
+        sample_manifest: Manifest,
+        isolated_rate_limiter: ASAPRateLimiter | None,
+    ) -> None:
+        """Constrained execute must 403 when the JSON body has no arguments object."""
+        app, agent_store, _, registry = _setup(
+            sample_manifest, isolated_rate_limiter, capabilities=_DEFAULT_CAPS
+        )
+        client = TestClient(app)
+        host_sk = Ed25519PrivateKey.generate()
+        agent_sk = Ed25519PrivateKey.generate()
+        aid = await _register_and_activate(client, app, agent_store, host_sk, agent_sk)
+        registry.grant(aid, "file:read", constraints={"path": {"in": ["/tmp"]}})
+
+        token = _agent_jwt(agent_sk, host_sk, aid)
+        r = client.post(
+            "/asap/capability/execute",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"capability": "file:read"},
+        )
+        assert r.status_code == 403
+        body = r.json()
+        assert body["error"] == "constraint_violated"
+        assert body["violations"][0]["field"] == "path"
+        assert body["violations"][0]["operator"] == "required"
+
     async def test_execute_no_auth_returns_401(
         self,
         sample_manifest: Manifest,
