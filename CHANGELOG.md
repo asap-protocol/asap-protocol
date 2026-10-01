@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+<<<<<<< HEAD
 ### Fixed
 
 - **Lite Registry IssueOps** — `save_registry` again writes a `LiteRegistry` object
@@ -14,6 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   validation keep working after registration/removal. CI `validate_registry.py`
   and auto-merge eligibility now reject a bare root array on production
   `registry.json` (fixture dry-runs use `--allow-agents-array`).
+=======
+### Security
+
+- **IssueOps registry endpoint SSRF**: `process_registration` now rejects HTTP
+  and WebSocket endpoints that resolve to private, loopback, or cloud-metadata
+  hosts before writing `registry.json`. Manifest fetch was already allowlisted;
+  the advertised agent URLs were not, so a public signed manifest could list
+  `http://169.254.169.254/` and SDK `MarketClient.run` would dial IMDS.
+>>>>>>> e84e949d (fix(registry): reject private IssueOps agent endpoints)
 
 ### Follow-up (planned)
 
