@@ -646,6 +646,52 @@ class TestProcessRegistrationRun:
         assert result["valid"] is False
         assert "Blocked" in result["errors"] or "private" in result["errors"].lower()
 
+    def test_blocks_ssrf_http_endpoint(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Matching metadata HTTP endpoint must not be written to registry.json."""
+        body = VALID_BODY_MINIMAL.replace(
+            "https://example.com/asap",
+            "http://169.254.169.254/latest/meta-data/",
+        )
+        manifest = dict(VALID_MANIFEST_JSON)
+        manifest["endpoints"] = dict(manifest["endpoints"])
+        manifest["endpoints"]["asap"] = "http://169.254.169.254/latest/meta-data/"
+        result, registry_path = self._run_with_manifest(tmp_path, manifest, body=body)
+        assert result["valid"] is False
+        assert "Blocked URL" in result["errors"]
+        assert "169.254.169.254" in result["errors"]
+        assert json.loads(registry_path.read_text()) == []
+
+    def test_blocks_ssrf_websocket_endpoint(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Matching loopback WebSocket endpoint must not be written to registry.json."""
+        body = VALID_BODY_WITH_OPTIONALS.replace(
+            "wss://api.example.com/asap/events",
+            "ws://127.0.0.1/asap/events",
+        )
+        manifest = dict(VALID_MANIFEST_JSON)
+        manifest["id"] = "urn:asap:agent:testuser:other-agent"
+        manifest["name"] = "other-agent"
+        manifest["capabilities"] = dict(manifest["capabilities"])
+        manifest["capabilities"]["skills"] = [{"id": "code_review", "description": "Review"}]
+        manifest["endpoints"] = {
+            "asap": "https://api.example.com/asap",
+            "events": "ws://127.0.0.1/asap/events",
+        }
+        result, registry_path = self._run_with_manifest(
+            tmp_path,
+            manifest,
+            body=body,
+        )
+        assert result["valid"] is False
+        assert "Blocked URL" in result["errors"]
+        assert "127.0.0.1" in result["errors"]
+        assert json.loads(registry_path.read_text()) == []
+
     def _run_with_manifest(
         self,
         tmp_path: Path,
