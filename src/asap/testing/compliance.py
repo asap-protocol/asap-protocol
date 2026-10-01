@@ -443,5 +443,6 @@ async def run_compliance_harness_v2_from_url(
             raise
         except httpx.TimeoutException:
             raise
-        preflight.raise_for_status()
+        if 300 <= preflight.status_code < 400:
+            preflight.raise_for_status()
         return await run_compliance_harness_with_client(client, categories=categories)
