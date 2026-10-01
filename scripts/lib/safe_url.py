@@ -22,6 +22,9 @@ _BLOCKED_HOSTS = frozenset(
     }
 )
 
+# Map WebSocket schemes onto HTTP so host/IP checks reuse is_safe_http_url.
+_WS_TO_HTTP_SCHEMES = {"ws": "http", "wss": "https"}
+
 
 def is_safe_http_url(url: str) -> bool:
     """Return True if ``url`` may be fetched (HTTP/HTTPS) without obvious SSRF risk.
@@ -52,3 +55,23 @@ def is_safe_http_url(url: str) -> bool:
     except (socket.gaierror, ValueError, OSError):
         return False
     return True
+
+
+def is_safe_endpoint_url(url: str) -> bool:
+    """Return True if an agent HTTP or WebSocket endpoint is not a private target.
+
+    IssueOps persists these URLs in ``registry.json``. SDK clients then connect
+    without a second host check, so a metadata or loopback endpoint becomes
+    consumer-side SSRF. WebSocket schemes are rewritten to HTTP first.
+
+    Example:
+        >>> is_safe_endpoint_url("http://169.254.169.254/asap")
+        False
+        >>> is_safe_endpoint_url("ws://127.0.0.1/events")
+        False
+    """
+    parsed = urlparse(url)
+    scheme = (parsed.scheme or "").lower()
+    if scheme in _WS_TO_HTTP_SCHEMES:
+        url = parsed._replace(scheme=_WS_TO_HTTP_SCHEMES[scheme]).geturl()
+    return is_safe_http_url(url)

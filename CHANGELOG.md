@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **IssueOps registry endpoint SSRF**: `process_registration` now rejects HTTP
+  and WebSocket endpoints that resolve to private, loopback, or cloud-metadata
+  hosts before writing `registry.json`. Manifest fetch was already allowlisted;
+  the advertised agent URLs were not, so a public signed manifest could list
+  `http://169.254.169.254/` and SDK `MarketClient.run` would dial IMDS.
+
 ### Follow-up (planned)
 
 - **Formal Spec & Interop** — RFC spec, introspection, privacy ([prd-v2.5.5-formal-spec-interop.md](product/prd/prd-v2.5.5-formal-spec-interop.md)).
