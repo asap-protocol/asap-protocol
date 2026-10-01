@@ -70,7 +70,7 @@ def is_safe_http_url(url: str) -> bool:
         resolved = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC)
         for _, _, _, _, sockaddr in resolved:
             resolved_addr = ipaddress.ip_address(sockaddr[0])
-            if resolved_addr.is_private or resolved_addr.is_loopback or resolved_addr.is_link_local:
+            if _literal_ip_is_blocked(resolved_addr):
                 return False
     except (socket.gaierror, ValueError, OSError):
         return False

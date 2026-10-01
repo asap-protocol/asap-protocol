@@ -71,6 +71,29 @@ class TestIsSafeHttpUrl:
         with patch("scripts.lib.safe_url.socket.getaddrinfo", _private):
             assert is_safe_http_url("https://example.com/") is False
 
+    def test_blocks_when_dns_resolves_to_nat64_metadata_ipv4(self) -> None:
+        def _nat64_metadata(
+            host: str,
+            port: object,
+            family: int = 0,
+            sock_type: int = 0,
+            proto: int = 0,
+            flags: int = 0,
+        ) -> list[tuple[int, int, int, str, tuple[str, int]]]:
+            _ = (host, port, family, sock_type, proto, flags)
+            return [
+                (
+                    socket.AF_INET6,
+                    socket.SOCK_STREAM,
+                    0,
+                    "",
+                    ("64:ff9b::a9fe:a9fe", 0),
+                )
+            ]
+
+        with patch("scripts.lib.safe_url.socket.getaddrinfo", _nat64_metadata):
+            assert is_safe_http_url("https://example.com/") is False
+
     def test_blocks_when_dns_resolution_fails(self) -> None:
         def _fail(
             host: str,
