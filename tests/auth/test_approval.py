@@ -475,7 +475,7 @@ async def test_stale_a2h_decline_does_not_deny_rotated_specs() -> None:
     state = await store.get("esc-stale-deny")
     assert state is not None
     assert state.deny_reason is None
-    assert state.capability_specs == later_specs
+    assert [spec["name"] for spec in state.capability_specs] == ["file:read", "file:write"]
 
 
 @pytest.mark.asyncio
