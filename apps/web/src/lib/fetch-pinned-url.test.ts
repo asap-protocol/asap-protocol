@@ -311,6 +311,32 @@ describe('fetchAllowlistedUrl', () => {
     }
   });
 
+  it('connects to a pinned IPv6 address when no IPv4 is available', async () => {
+    const server = http.createServer((_req, res) => {
+      res.writeHead(200, { 'content-type': 'text/plain' });
+      res.end('ok');
+    });
+    await new Promise<void>((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(0, '::1', () => resolve());
+    });
+    const address = server.address() as AddressInfo;
+
+    try {
+      const result = await fetchAllowlistedUrl(
+        `http://rebind.example.invalid:${address.port}/`,
+        async () => ({ valid: true, ips: ['::1'] }),
+        2000
+      );
+      expect(isPinnedFetchBlocked(result)).toBe(false);
+      if (!isPinnedFetchBlocked(result)) {
+        expect(result).toEqual({ ok: true, status: 200 });
+      }
+    } finally {
+      await closeServer(server);
+    }
+  });
+
   it('can probe with HEAD while still pinning connect()', async () => {
     let seenMethod: string | undefined;
     const { server, port } = await listenLoopback((req, res) => {
