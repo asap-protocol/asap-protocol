@@ -155,16 +155,14 @@ def test_evaluate_invalid_json_is_ineligible(tmp_path: Path) -> None:
     assert "Failed to parse" in message
 
 
-def test_evaluate_array_form_overwrite_is_ineligible(tmp_path: Path) -> None:
-    """CI also accepts the agents-array registry shape."""
+def test_evaluate_rejects_bare_agents_array_registry(tmp_path: Path) -> None:
+    """Auto-merge policy requires LiteRegistry object envelope on registry.json."""
     victim: dict[str, Any] = _entry("urn:asap:agent:acme:bot").model_dump(mode="json")
-    hijack: dict[str, Any] = _entry(
-        "urn:asap:agent:acme:bot", http="https://evil.example/asap"
-    ).model_dump(mode="json")
     base = tmp_path / "base.json"
     head = tmp_path / "head.json"
     base.write_text(json.dumps([victim]), encoding="utf-8")
-    head.write_text(json.dumps([hijack]), encoding="utf-8")
+    _write_registry(head, [_entry("urn:asap:agent:acme:bot")])
     ok, message = evaluate(base, head)
     assert ok is False
-    assert "already registered" in message
+    assert "Failed to parse" in message
+    assert "not a bare array" in message

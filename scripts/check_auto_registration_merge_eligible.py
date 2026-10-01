@@ -24,7 +24,6 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
@@ -42,11 +41,9 @@ def _is_verified(entry: RegistryEntry) -> bool:
 def _load(path: Path) -> LiteRegistry:
     raw = json.loads(path.read_text())
     if isinstance(raw, list):
-        agents = [RegistryEntry.model_validate(cast(dict[str, object], item)) for item in raw]
-        return LiteRegistry(
-            version="1.0",
-            updated_at=datetime.fromtimestamp(0, tz=UTC),
-            agents=agents,
+        raise ValueError(
+            "registry.json must be a LiteRegistry object with "
+            "'version', 'updated_at', and 'agents' (not a bare array)."
         )
     return LiteRegistry.model_validate(cast(dict[str, object], raw))
 
@@ -76,7 +73,7 @@ def evaluate(base_path: Path, head_path: Path) -> tuple[bool, str]:
     try:
         base = _load(base_path)
         head = _load(head_path)
-    except (json.JSONDecodeError, ValidationError, OSError) as e:
+    except (json.JSONDecodeError, ValidationError, OSError, ValueError) as e:
         return False, f"Failed to parse registry JSON: {e}"
 
     base_by_id, base_err = _agents_by_unique_id(base.agents, source="base")

@@ -23,13 +23,24 @@ from scripts.process_registration import (
 from lib.registry_io import load_registry, save_registry
 
 
-def _registry_agents(path: Path) -> list[object]:
-    """Return agents list from array or LiteRegistry object file."""
+def _load_lite_registry_file(path: Path) -> LiteRegistry:
+    """Assert IssueOps wrote a LiteRegistry object (not a bare agents array)."""
     raw = json.loads(path.read_text())
-    if isinstance(raw, list):
-        return raw
-    assert isinstance(raw, dict) and "agents" in raw
-    return raw["agents"]
+    assert isinstance(raw, dict), "expected LiteRegistry object envelope"
+    updated_at = raw.get("updated_at")
+    assert isinstance(updated_at, str) and updated_at.endswith("Z")
+    return LiteRegistry.model_validate(raw)
+
+
+def _minimal_registry_agent() -> dict[str, object]:
+    return {
+        "id": "urn:asap:agent:a:b",
+        "name": "B",
+        "description": "Test agent",
+        "endpoints": {"http": "https://example.com/asap"},
+        "skills": ["echo"],
+        "asap_version": "1.1.0",
+    }
 
 
 def _fake_getaddrinfo_public(
@@ -307,14 +318,15 @@ class TestProcessRegistrationRun:
         result = json.loads(output_path.read_text())
         assert result["valid"] is True
 
-        registry = _registry_agents(registry_path)
-        assert len(registry) == 1
-        entry = registry[0]
-        assert entry["id"] == "urn:asap:agent:testuser:my-agent"
-        assert entry["name"] == "my-agent"
-        assert entry["skills"] == ["web_research", "summarization"]
-        assert "http" in entry["endpoints"]
-        assert entry["endpoints"]["manifest"] == "https://example.com/manifest.json"
+        saved = _load_lite_registry_file(registry_path)
+        assert saved.version == "1.0"
+        assert len(saved.agents) == 1
+        entry = saved.agents[0]
+        assert str(entry.id) == "urn:asap:agent:testuser:my-agent"
+        assert entry.name == "my-agent"
+        assert entry.skills == ["web_research", "summarization"]
+        assert "http" in entry.endpoints
+        assert entry.endpoints["manifest"] == "https://example.com/manifest.json"
 
     def test_valid_issue_with_optionals_passes_through(
         self,
@@ -347,11 +359,10 @@ class TestProcessRegistrationRun:
 
         result = json.loads(output_path.read_text())
         assert result["valid"] is True
-        registry = _registry_agents(registry_path)
-        entry = registry[0]
-        assert entry.get("repository_url") == "https://github.com/me/repo"
-        assert entry.get("documentation_url") == "https://docs.example.com/agent"
-        assert entry.get("built_with") == "LangChain"
+        entry = _load_lite_registry_file(registry_path).agents[0]
+        assert entry.repository_url == "https://github.com/me/repo"
+        assert entry.documentation_url == "https://docs.example.com/agent"
+        assert entry.built_with == "LangChain"
 
     def test_valid_issue_with_category_tags_writes_registry_entry(
         self,
@@ -377,10 +388,9 @@ class TestProcessRegistrationRun:
             )
         result = json.loads(output_path.read_text())
         assert result["valid"] is True
-        registry = _registry_agents(registry_path)
-        entry = registry[0]
-        assert entry.get("category") == "Coding"
-        assert entry.get("tags") == ["ai", "code_review"]
+        entry = _load_lite_registry_file(registry_path).agents[0]
+        assert entry.category == "Coding"
+        assert entry.tags == ["ai", "code_review"]
 
     def test_valid_issue_derives_hardware_fields_from_manifest(
         self,
@@ -416,10 +426,10 @@ class TestProcessRegistrationRun:
             )
         result = json.loads(output_path.read_text())
         assert result["valid"] is True
-        entry = _registry_agents(registry_path)[0]
-        assert entry.get("hardware_class") == "edge_accelerator"
-        assert entry.get("inference_modes") == ["cloud", "local_cuda"]
-        assert entry.get("hardware_io") == ["gpio", "i2c"]
+        entry = _load_lite_registry_file(registry_path).agents[0]
+        assert entry.hardware_class == "edge_accelerator"
+        assert entry.inference_modes == ["cloud", "local_cuda"]
+        assert entry.hardware_io == ["gpio", "i2c"]
 
     def test_valid_issue_accepts_signed_manifest_envelope(
         self,
@@ -459,8 +469,8 @@ class TestProcessRegistrationRun:
             )
         result = json.loads(output_path.read_text())
         assert result["valid"] is True
-        entry = _registry_agents(registry_path)[0]
-        assert entry["id"] == "urn:asap:agent:testuser:my-agent"
+        entry = _load_lite_registry_file(registry_path).agents[0]
+        assert str(entry.id) == "urn:asap:agent:testuser:my-agent"
 
     def test_invalid_tampered_signed_manifest_rejected(
         self,
@@ -723,7 +733,8 @@ class TestProcessRegistrationRun:
             author="TestUser",
         )
         assert result["valid"] is True
-        assert _registry_agents(registry_path)[0]["id"] == "urn:asap:agent:testuser:my-agent"
+        saved = _load_lite_registry_file(registry_path)
+        assert str(saved.agents[0].id) == "urn:asap:agent:testuser:my-agent"
 
     def test_invalid_manifest_schema_validation(self, tmp_path: Path) -> None:
         """Malformed manifest JSON fails closed before registry write."""
@@ -821,19 +832,21 @@ class TestSaveRegistry:
                 }
             )
         )
-        agents = [{"id": "urn:asap:agent:a:b", "name": "B"}]
+        agents = [_minimal_registry_agent()]
         save_registry(str(path), agents)
         raw = json.loads(path.read_text())
         assert raw["version"] == "1.1"
         assert raw["agents"] == agents
         assert raw["updated_at"] != "2020-01-01T00:00:00Z"
+        LiteRegistry.model_validate(raw)
 
     def test_save_registry_upgrades_bare_array_to_object(self, tmp_path: Path) -> None:
         """IssueOps must not leave production registry as a bare agents array."""
         path = tmp_path / "registry.json"
         path.write_text("[]")
-        agents = [{"id": "urn:asap:agent:a:b", "name": "B"}]
+        agents = [_minimal_registry_agent()]
         save_registry(str(path), agents)
         raw = json.loads(path.read_text())
         assert set(raw) >= {"version", "updated_at", "agents"}
         assert raw["agents"] == agents
+        LiteRegistry.model_validate(raw)

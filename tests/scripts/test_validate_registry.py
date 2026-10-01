@@ -12,9 +12,20 @@ REGISTRY_FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures" / "r
 
 
 def test_shellclaw_agents_array_fixture_validates() -> None:
-    """ShellClaw registry array fixture passes the CI registry validator."""
+    """ShellClaw array fixture validates only with allow_agents_array (dry-run)."""
     path = REGISTRY_FIXTURES_DIR / "shellclaw-v1.0-agents-array.json"
-    assert validate_registry(path) == []
+    assert validate_registry(path, allow_agents_array=True) == []
+
+
+def test_production_registry_rejects_bare_agents_array(tmp_path: Path) -> None:
+    """CI validate-registry job must reject a root array (IssueOps regression)."""
+    entry_path = REGISTRY_FIXTURES_DIR / "shellclaw-v1.0-entry.json"
+    entry = json.loads(entry_path.read_text(encoding="utf-8"))
+    path = tmp_path / "registry.json"
+    path.write_text(json.dumps([entry]), encoding="utf-8")
+    errors = validate_registry(path)
+    assert errors
+    assert "bare agents array" in errors[0]
 
 
 def test_lite_registry_with_hardware_fields_validates(tmp_path: Path) -> None:
@@ -44,7 +55,7 @@ def test_agents_array_rejects_string_hardware_io(tmp_path: Path) -> None:
     registry_path = tmp_path / "registry.json"
     registry_path.write_text(json.dumps([entry]), encoding="utf-8")
 
-    errors = validate_registry(registry_path)
+    errors = validate_registry(registry_path, allow_agents_array=True)
 
     assert any("agents[0].hardware_io" in error for error in errors)
 
@@ -55,7 +66,7 @@ def test_malformed_root_shape_reports_error(tmp_path: Path) -> None:
     path.write_text('{"version": "1.0"}', encoding="utf-8")
     errors = validate_registry(path)
     assert len(errors) == 1
-    assert "Root must be either" in errors[0]
+    assert "LiteRegistry object" in errors[0]
 
 
 def test_missing_required_field_in_entry(tmp_path: Path) -> None:
@@ -65,7 +76,7 @@ def test_missing_required_field_in_entry(tmp_path: Path) -> None:
     del entry["description"]
     path = tmp_path / "bad-entry.json"
     path.write_text(json.dumps([entry]), encoding="utf-8")
-    errors = validate_registry(path)
+    errors = validate_registry(path, allow_agents_array=True)
     assert errors
     assert any("agents[0]" in err and "description" in err for err in errors)
 
@@ -96,7 +107,7 @@ def test_agents_array_rejects_duplicate_agent_ids(tmp_path: Path) -> None:
     entry = json.loads(entry_path.read_text(encoding="utf-8"))
     path = tmp_path / "dup-array.json"
     path.write_text(json.dumps([entry, entry]), encoding="utf-8")
-    errors = validate_registry(path)
+    errors = validate_registry(path, allow_agents_array=True)
     assert any("duplicate id" in error for error in errors)
     assert any(entry["id"] in error for error in errors)
 
@@ -115,6 +126,6 @@ def test_agents_list_invalid_urn(tmp_path: Path) -> None:
     ]
     path = tmp_path / "bad-id.json"
     path.write_text(json.dumps(bad), encoding="utf-8")
-    errors = validate_registry(path)
+    errors = validate_registry(path, allow_agents_array=True)
     assert errors
     assert any("agents[0]" in err and "id" in err for err in errors)
