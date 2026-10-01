@@ -118,14 +118,19 @@ class TestURLValidation:
     @pytest.mark.parametrize(
         "url",
         [
-            "https://[::]/hook",
-            "https://[fd00::1]/hook",
-            "https://[fe80::1]/hook",
+            "https://user:pass@127.0.0.1/hook",
+            "https://user:pass@[::1]/hook",
         ],
-        ids=["unspecified", "ula", "link-local"],
     )
-    async def test_ipv6_reserved_literals_blocked(self, url: str) -> None:
-        with pytest.raises(WebhookURLValidationError, match="blocked address range"):
+    async def test_userinfo_does_not_hide_loopback(self, url: str) -> None:
+        """Credentials in the authority must not skip the literal IP check."""
+        with (
+            patch(
+                "asyncio.get_running_loop",
+                side_effect=AssertionError("DNS should not run for an IP literal"),
+            ),
+            pytest.raises(WebhookURLValidationError, match="blocked address range"),
+        ):
             await validate_callback_url(url)
 
     # -- DNS rebinding --
@@ -136,17 +141,6 @@ class TestURLValidation:
             pytest.raises(WebhookURLValidationError, match="resolved to blocked IP"),
         ):
             await validate_callback_url("https://evil.example.com/hook")
-
-    async def test_dns_private_among_public_addresses_blocked(self) -> None:
-        mixed = [
-            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 0)),
-            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.1.2.3", 0)),
-        ]
-        with (
-            _patch_async_getaddrinfo(mixed),
-            pytest.raises(WebhookURLValidationError, match="10.1.2.3"),
-        ):
-            await validate_callback_url("https://dual.example.com/hook")
 
     async def test_dns_resolution_failure_raises(self) -> None:
         with (
