@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Any, Literal
+from typing import Any
 
 import pytest
 from cryptography.hazmat.primitives import serialization
@@ -29,6 +29,7 @@ from asap.auth.agent_jwt import (
 )
 from asap.auth.identity import (
     AgentSession,
+    AgentSessionStatus,
     HostIdentity,
     InMemoryAgentStore,
     InMemoryHostStore,
@@ -438,8 +439,6 @@ class _RotateAtTouchStartAgentStore(InMemoryAgentStore):
 
 async def _seed_verify_agent_jwt(
     agents: InMemoryAgentStore,
-    *,
-    session_updates: dict[str, Any] | None = None,
 ) -> tuple[InMemoryHostStore, str, dict[str, Any]]:
     """Persist h1/a1 and return hosts, token, and the agent's public JWK."""
     now = datetime.now(timezone.utc)
@@ -458,17 +457,16 @@ async def _seed_verify_agent_jwt(
             updated_at=now,
         )
     )
-    session = AgentSession(
-        agent_id="a1",
-        host_id="h1",
-        public_key=agent_pub,
-        mode="delegated",
-        status="active",
-        created_at=now,
+    await agents.save(
+        AgentSession(
+            agent_id="a1",
+            host_id="h1",
+            public_key=agent_pub,
+            mode="delegated",
+            status="active",
+            created_at=now,
+        )
     )
-    if session_updates is not None:
-        session = session.model_copy(update=session_updates)
-    await agents.save(session)
     token = create_agent_jwt(agent_sk, host_thumbprint=host_tp, agent_id="a1", aud="aud")
     return hosts, token, agent_pub
 
@@ -1179,63 +1177,80 @@ async def test_verify_agent_jwt_expired_session_status() -> None:
 
 @pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
 @pytest.mark.parametrize("status", ["pending", "rejected"])
-async def test_verify_agent_jwt_rejects_unapproved_registration_status(
-    status: Literal["pending", "rejected"],
-) -> None:
-    """Pending and rejected rows must not authenticate or slide last_used_at."""
+async def test_verify_agent_jwt_rejects_unusable_session_status(status: AgentSessionStatus) -> None:
+    """Pending and rejected sessions fail closed before the JWT can authorize work."""
+    now = datetime.now(timezone.utc)
+    host_sk = Ed25519PrivateKey.generate()
+    host_pub = _public_jwk_dict(host_sk)
+    host_tp = jwk_thumbprint_sha256(host_pub)
+    agent_sk = Ed25519PrivateKey.generate()
+    hosts = InMemoryHostStore()
     agents = InMemoryAgentStore()
-    stale = datetime.now(timezone.utc) - timedelta(minutes=5)
-    hosts, token, _agent_pub = await _seed_verify_agent_jwt(
-        agents,
-        session_updates={"status": status, "last_used_at": stale},
+    await hosts.save(
+        HostIdentity(
+            host_id="h1",
+            public_key=host_pub,
+            status="active",
+            created_at=now,
+            updated_at=now,
+        )
     )
+    await agents.save(
+        AgentSession(
+            agent_id="a1",
+            host_id="h1",
+            public_key=_public_jwk_dict(agent_sk),
+            mode="delegated",
+            status=status,
+            created_at=now,
+        )
+    )
+    token = create_agent_jwt(agent_sk, host_thumbprint=host_tp, agent_id="a1", aud="a")
     res = await verify_agent_jwt(token, hosts, agents)
     assert not res.ok
     assert res.error == f"agent session not usable: {status}"
     stored = await agents.get("a1")
     assert stored is not None
     assert stored.status == status
-    assert stored.last_used_at == stale
+    assert stored.last_used_at is None
 
 
 @pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
-async def test_verify_agent_jwt_rejects_idle_ttl_while_status_active() -> None:
-    """Idle timeout applies even when the stored status field is still active."""
+async def test_verify_agent_jwt_idle_expiry_does_not_slide_session() -> None:
+    """A still-valid Agent JWT must not refresh a session past its idle TTL."""
+    now = datetime.now(timezone.utc)
+    stale = now - timedelta(hours=2)
+    host_sk = Ed25519PrivateKey.generate()
+    host_pub = _public_jwk_dict(host_sk)
+    host_tp = jwk_thumbprint_sha256(host_pub)
+    agent_sk = Ed25519PrivateKey.generate()
+    hosts = InMemoryHostStore()
     agents = InMemoryAgentStore()
-    stale = datetime.now(timezone.utc) - timedelta(minutes=10)
-    hosts, token, _agent_pub = await _seed_verify_agent_jwt(
-        agents,
-        session_updates={
-            "session_ttl": timedelta(minutes=5),
-            "last_used_at": stale,
-        },
+    await hosts.save(
+        HostIdentity(
+            host_id="h1",
+            public_key=host_pub,
+            status="active",
+            created_at=now,
+            updated_at=now,
+        )
     )
+    await agents.save(
+        AgentSession(
+            agent_id="a1",
+            host_id="h1",
+            public_key=_public_jwk_dict(agent_sk),
+            mode="delegated",
+            status="active",
+            created_at=stale,
+            session_ttl=timedelta(minutes=30),
+            last_used_at=stale,
+        )
+    )
+    token = create_agent_jwt(agent_sk, host_thumbprint=host_tp, agent_id="a1", aud="a")
     res = await verify_agent_jwt(token, hosts, agents)
     assert not res.ok
     assert res.error == "agent_expired"
-    stored = await agents.get("a1")
-    assert stored is not None
-    assert stored.status == "active"
-    assert stored.last_used_at == stale
-
-
-@pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
-async def test_verify_agent_jwt_rejects_absolute_lifetime_while_status_active() -> None:
-    """Absolute lifetime revokes auth without rewriting status or sliding use time."""
-    agents = InMemoryAgentStore()
-    now = datetime.now(timezone.utc)
-    stale = now - timedelta(minutes=1)
-    hosts, token, _agent_pub = await _seed_verify_agent_jwt(
-        agents,
-        session_updates={
-            "created_at": now - timedelta(days=2),
-            "absolute_lifetime": timedelta(days=1),
-            "last_used_at": stale,
-        },
-    )
-    res = await verify_agent_jwt(token, hosts, agents)
-    assert not res.ok
-    assert res.error == "agent_revoked"
     stored = await agents.get("a1")
     assert stored is not None
     assert stored.status == "active"

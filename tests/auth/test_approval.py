@@ -226,6 +226,38 @@ def test_select_preferred_ciba_when_linked_and_supported() -> None:
     )
 
 
+def test_select_linked_host_without_ciba_uses_device_authorization() -> None:
+    """Server policy disables CIBA even when the host is linked."""
+    h = _sample_host(user_id="u1", status="active")
+    assert (
+        select_approval_method(h, _sample_agent(), host_supports_ciba=False)
+        == "device_authorization"
+    )
+
+
+def test_select_whitespace_user_id_is_unlinked() -> None:
+    """A blank user_id is not a CIBA binding."""
+    h = _sample_host(user_id="   ", status="active")
+    assert (
+        select_approval_method(h, _sample_agent(), host_supports_ciba=True)
+        == "device_authorization"
+    )
+
+
+def test_select_browser_agent_without_ciba_uses_device_authorization() -> None:
+    """Self-approval mitigation cannot force CIBA when the server disabled it."""
+    h = _sample_host(user_id="u1", status="active")
+    assert (
+        select_approval_method(
+            h,
+            _sample_agent(),
+            host_supports_ciba=False,
+            agent_controls_browser=True,
+        )
+        == "device_authorization"
+    )
+
+
 @pytest.mark.asyncio
 async def test_ciba_idempotent_pending_reregistration() -> None:
     store = InMemoryApprovalStore()
@@ -407,6 +439,67 @@ async def test_stale_a2h_approve_does_not_grant_rotated_specs() -> None:
         expected_capability_specs=first_specs,
     )
     assert await check_approval_status(store, "esc-stale") == "pending"
+
+
+@pytest.mark.asyncio
+async def test_stale_a2h_decline_does_not_deny_rotated_specs() -> None:
+    """A decline of the old prompt must not deny the rotated pending payload."""
+    store = InMemoryApprovalStore()
+    first_specs: list[dict[str, Any]] = [{"name": "file:read", "constraints": {"path": "/tmp"}}]
+    await create_device_authorization(
+        store,
+        "esc-stale-deny",
+        ["file:read"],
+        capability_specs=first_specs,
+        approval_kind="escalation",
+    )
+    later_specs: list[dict[str, Any]] = [{"name": "file:write", "constraints": {"path": "/var"}}]
+    await create_device_authorization(
+        store,
+        "esc-stale-deny",
+        ["file:write"],
+        capability_specs=later_specs,
+        approval_kind="escalation",
+    )
+    provider = _StubHumanApproval(
+        ApprovalResult(decision=ApprovalDecision.DECLINE, data={"reason": "too wide"}),
+    )
+    ch = A2HApprovalChannel(provider, store)
+    await ch.resolve_via_a2h(
+        "esc-stale-deny",
+        context="narrow",
+        principal_id="human-1",
+        expected_capability_specs=first_specs,
+    )
+    assert await check_approval_status(store, "esc-stale-deny") == "pending"
+    state = await store.get("esc-stale-deny")
+    assert state is not None
+    assert state.deny_reason is None
+    assert state.capability_specs == later_specs
+
+
+@pytest.mark.asyncio
+async def test_pending_registration_rotates_challenge_when_specs_widen() -> None:
+    """Registration consent rotates the user code when a later request widens specs."""
+    store = InMemoryApprovalStore()
+    first = await create_device_authorization(
+        store,
+        "reg-widen",
+        ["file:read"],
+        capability_specs=[{"name": "file:read", "constraints": {"path": "/tmp"}}],
+    )
+    second = await create_device_authorization(
+        store,
+        "reg-widen",
+        ["file:write"],
+        capability_specs=[{"name": "file:write", "constraints": {"path": "/var"}}],
+    )
+    assert first.user_code != second.user_code
+    state = await store.get("reg-widen")
+    assert state is not None
+    assert state.approval_kind == "registration"
+    assert state.capabilities == ["file:read", "file:write"]
+    assert [spec["name"] for spec in state.capability_specs] == ["file:read", "file:write"]
 
 
 @pytest.mark.asyncio
