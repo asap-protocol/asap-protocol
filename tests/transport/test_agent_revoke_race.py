@@ -311,7 +311,7 @@ class TestAgentRevokeResurrectionRaces:
         sample_manifest: Manifest,
         isolated_rate_limiter: ASAPRateLimiter | None,
     ) -> None:
-        """Approved status poll must not activate when ``save`` refuses revoke."""
+        """Approved status poll must not activate or grant when ``save`` refuses revoke."""
         agent_store = _RevokeOnArmedSaveAgentStore()
         app = _app_with_store(sample_manifest, isolated_rate_limiter, agent_store)
         host_sk = Ed25519PrivateKey.generate()
@@ -333,6 +333,9 @@ class TestAgentRevokeResurrectionRaces:
         assert st.json()["status"] == "revoked"
         stored = await agent_store.get(aid)
         assert stored is not None and stored.status == "revoked"
+        # Grants run only after pending→active save succeeds. A refused write
+        # must not leave file:read on the revoked agent.
+        assert app.state.capability_registry.get_grants(aid) == []
 
     async def test_rotate_key_does_not_map_generic_save_valueerror_to_revoke(
         self,
@@ -362,3 +365,31 @@ class TestAgentRevokeResurrectionRaces:
             )
         stored = await agent_store.get(aid)
         assert stored is not None and stored.status != "revoked"
+
+    async def test_reactivate_does_not_map_generic_save_valueerror_to_revoke(
+        self,
+        sample_manifest: Manifest,
+        isolated_rate_limiter: ASAPRateLimiter | None,
+    ) -> None:
+        """A custom store ``ValueError`` on reactivate must not be reported as revoke."""
+        agent_store = _SaveRaisesGenericValueError()
+        app = _app_with_store(sample_manifest, isolated_rate_limiter, agent_store)
+        host_sk = Ed25519PrivateKey.generate()
+        agent_sk = Ed25519PrivateKey.generate()
+        client = TestClient(app)
+        aid = client.post(
+            "/asap/agent/register",
+            headers=_auth_header(host_sk, agent_sk=agent_sk),
+        ).json()["agent_id"]
+        sess = await agent_store.get(aid)
+        assert sess is not None
+        await agent_store.save(sess.model_copy(update={"status": "expired"}))
+        agent_store.arm_generic_save_error()
+        with pytest.raises(ValueError, match="disk full"):
+            client.post(
+                "/asap/agent/reactivate",
+                headers=_auth_header(host_sk),
+                json={"agent_id": aid},
+            )
+        stored = await agent_store.get(aid)
+        assert stored is not None and stored.status == "expired"
