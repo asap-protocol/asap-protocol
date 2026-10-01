@@ -687,20 +687,24 @@ async def test_execute_dotdot_path_params_do_not_call_upstream(tmp_path: Path) -
         assert seen["calls"] == 0
 
 
-def test_fill_path_template_static_dot_segment_raises_path_parameter_error() -> None:
+@pytest.mark.parametrize("template", ["/v1/../admin", "/v1/./admin"])
+def test_fill_path_template_static_dot_segment_raises_path_parameter_error(template: str) -> None:
     with pytest.raises(OpenAPIPathParameterError) as exc_info:
-        _fill_path_template("/v1/../admin", {})
-    assert exc_info.value.path_template == "/v1/../admin"
+        _fill_path_template(template, {})
+    assert exc_info.value.path_template == template
     assert exc_info.value.invalid
 
 
 @pytest.mark.asyncio
-async def test_execute_static_dotdot_path_raises_path_parameter_error(tmp_path: Path) -> None:
+@pytest.mark.parametrize("template", ["/v1/../admin", "/v1/./admin"])
+async def test_execute_static_dot_segment_path_raises_path_parameter_error(
+    tmp_path: Path, template: str
+) -> None:
     raw = {
         "openapi": "3.0.3",
         "info": {"title": "T", "version": "1"},
         "paths": {
-            "/v1/../admin": {
+            template: {
                 "get": {
                     "operationId": "getAdmin",
                     "responses": {"200": {"description": "ok"}},
