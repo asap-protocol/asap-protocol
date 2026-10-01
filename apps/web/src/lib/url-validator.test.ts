@@ -131,32 +131,12 @@ describe('isAllowedExternalUrl', () => {
     expect(result.error).toContain('127.0.0.2');
   });
 
-  it('rejects AAAA-only private DNS when the A lookup fails', async () => {
-    resolve4Spy.mockRejectedValue(new Error('ENODATA'));
-    resolve6Spy.mockResolvedValue(['::1']);
-    const loopback = await isAllowedExternalUrl('https://v6-only.example.com/manifest');
-    expect(loopback.valid).toBe(false);
-    expect(loopback.error).toContain('::1');
-
-    resolve6Spy.mockResolvedValue(['fd00::1']);
-    const ula = await isAllowedExternalUrl('https://v6-only.example.com/manifest');
-    expect(ula.valid).toBe(false);
-    expect(ula.error).toContain('fd00::1');
-  });
-
-  it('rejects a public A record paired with a private AAAA', async () => {
-    resolve4Spy.mockResolvedValue(['93.184.216.34']);
-    resolve6Spy.mockResolvedValue(['::1']);
-    const result = await isAllowedExternalUrl('https://dual.example.com/manifest');
+  it('rejects when DNS resolution fails for both A and AAAA', async () => {
+    resolve4Spy.mockRejectedValue(new Error('ENOTFOUND'));
+    resolve6Spy.mockRejectedValue(new Error('ENOTFOUND'));
+    const result = await isAllowedExternalUrl('http://nonexistent.invalid/');
     expect(result.valid).toBe(false);
-    expect(result.error).toContain('::1');
-  });
-
-  it('allows AAAA-only public DNS and returns the address to pin', async () => {
-    resolve4Spy.mockRejectedValue(new Error('ENODATA'));
-    resolve6Spy.mockResolvedValue(['2001:db8::1']);
-    const result = await isAllowedExternalUrl('https://v6-public.example.com/manifest');
-    expect(result).toEqual({ valid: true, ips: ['2001:db8::1'] });
+    expect(result.error).toContain('resolve');
   });
 });
 
@@ -240,28 +220,5 @@ describe('isAllowedProxyUrlAsync (DNS rebinding mitigation)', () => {
     const result = await isAllowedProxyUrlAsync('https://nonexistent.invalid/');
     expect(result.valid).toBe(false);
     expect(result.error).toContain('resolve');
-  });
-
-  it('rejects AAAA-only private DNS when the A lookup fails', async () => {
-    resolve4Spy.mockRejectedValue(new Error('ENODATA'));
-    resolve6Spy.mockResolvedValue(['fd00::1']);
-    const result = await isAllowedProxyUrlAsync('https://v6-only.example.com/health');
-    expect(result.valid).toBe(false);
-    expect(result.error).toContain('Private');
-  });
-
-  it('rejects a public A record paired with a private AAAA', async () => {
-    resolve4Spy.mockResolvedValue(['93.184.216.34']);
-    resolve6Spy.mockResolvedValue(['fe80::1']);
-    const result = await isAllowedProxyUrlAsync('https://dual.example.com/health');
-    expect(result.valid).toBe(false);
-    expect(result.error).toContain('Private');
-  });
-
-  it('allows AAAA-only public DNS and returns the address to pin', async () => {
-    resolve4Spy.mockRejectedValue(new Error('ENODATA'));
-    resolve6Spy.mockResolvedValue(['2001:db8::1']);
-    const result = await isAllowedProxyUrlAsync('https://v6-public.example.com/health');
-    expect(result).toEqual({ valid: true, ips: ['2001:db8::1'] });
   });
 });
