@@ -249,6 +249,44 @@ class TestCapabilityList:
         assert by_name["file:write"]["grant_status"] == "denied"
         assert by_name["admin:config"]["grant_status"] is None
 
+    async def test_list_with_agent_jwt_slides_last_used_at(
+        self,
+        sample_manifest: Manifest,
+        isolated_rate_limiter: ASAPRateLimiter | None,
+    ) -> None:
+        """Authenticated list must persist the session slide (LIFE-005 read path)."""
+        app, agent_store, _, _registry = _setup(
+            sample_manifest, isolated_rate_limiter, capabilities=_DEFAULT_CAPS
+        )
+        client = TestClient(app)
+        host_sk = Ed25519PrivateKey.generate()
+        agent_sk = Ed25519PrivateKey.generate()
+        aid = await _register_and_activate(
+            client,
+            app,
+            agent_store,
+            host_sk,
+            agent_sk,
+            session_ttl=timedelta(hours=1),
+        )
+        sess = await agent_store.get(aid)
+        assert sess is not None
+        stale = datetime.now(timezone.utc) - timedelta(minutes=30)
+        await agent_store.save(sess.model_copy(update={"last_used_at": stale}))
+
+        token = _agent_jwt(agent_sk, host_sk, aid)
+        r = client.get(
+            "/asap/capability/list",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r.status_code == 200
+        stored = await agent_store.get(aid)
+        assert stored is not None
+        assert stored.last_used_at is not None
+        assert stored.last_used_at > stale
+        assert stored.public_key == sess.public_key
+        assert stored.status == "active"
+
 
 # ---------------------------------------------------------------------------
 # GET /asap/capability/describe
@@ -376,6 +414,49 @@ class TestCapabilityExecute:
         assert r.status_code == 403
         assert "expired" in r.json()["detail"].lower()
         assert "request_id" in r.json() and r.json()["request_id"]
+
+    async def test_execute_absolute_lifetime_returns_agent_revoked(
+        self,
+        sample_manifest: Manifest,
+        isolated_rate_limiter: ASAPRateLimiter | None,
+    ) -> None:
+        """Absolute lifetime is ``agent_revoked`` and must not slide ``last_used_at``."""
+        app, agent_store, _, registry = _setup(
+            sample_manifest, isolated_rate_limiter, capabilities=_DEFAULT_CAPS
+        )
+        client = TestClient(app)
+        host_sk = Ed25519PrivateKey.generate()
+        agent_sk = Ed25519PrivateKey.generate()
+        aid = await _register_and_activate(
+            client,
+            app,
+            agent_store,
+            host_sk,
+            agent_sk,
+            absolute_lifetime=timedelta(hours=1),
+        )
+        sess = await agent_store.get(aid)
+        assert sess is not None
+        assert sess.last_used_at is not None
+        stale_used = sess.last_used_at
+        created = datetime.now(timezone.utc) - timedelta(hours=2)
+        await agent_store.save(sess.model_copy(update={"created_at": created}))
+        registry.grant(aid, "file:read")
+
+        token = _agent_jwt(agent_sk, host_sk, aid)
+        r = client.post(
+            "/asap/capability/execute",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"capability": "file:read"},
+        )
+        assert r.status_code == 403
+        body = r.json()
+        assert body["detail"] == "agent_revoked"
+        assert "request_id" in body and body["request_id"]
+        stored = await agent_store.get(aid)
+        assert stored is not None
+        assert stored.last_used_at == stale_used
+        assert stored.status == "active"
 
     async def test_execute_revoked_host_returns_403(
         self,
