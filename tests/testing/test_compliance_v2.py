@@ -210,15 +210,18 @@ class TestComplianceHarnessFromUrl:
             original_init(self, *args, **kwargs)
 
         monkeypatch.setattr(httpx.AsyncClient, "__init__", transport_init)
+        harness_mock = AsyncMock(return_value=_empty_report())
         monkeypatch.setattr(
             "asap.testing.compliance.run_compliance_harness_with_client",
-            AsyncMock(return_value=_empty_report()),
+            harness_mock,
         )
 
-        await run_compliance_harness_v2_from_url("https://agent.example.com")
+        with pytest.raises(httpx.HTTPStatusError):
+            await run_compliance_harness_v2_from_url("https://agent.example.com")
 
         assert requested == ["https://agent.example.com/"]
         assert not any("169.254.169.254" in url for url in requested)
+        harness_mock.assert_not_called()
 
 
 def _empty_report() -> ComplianceReport:

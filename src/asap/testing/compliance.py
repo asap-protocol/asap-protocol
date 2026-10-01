@@ -438,9 +438,10 @@ async def run_compliance_harness_v2_from_url(
         # Fail fast on unreachable hosts so callers (e.g. CLI) can treat as transport error,
         # instead of a synthetic all-failed report from per-check exception handlers.
         try:
-            await client.get("/")
+            preflight = await client.get("/")
         except httpx.ConnectError:
             raise
         except httpx.TimeoutException:
             raise
+        preflight.raise_for_status()
         return await run_compliance_harness_with_client(client, categories=categories)

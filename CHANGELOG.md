@@ -7,7 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-<<<<<<< HEAD
 ### Fixed
 
 - **Lite Registry IssueOps** — `save_registry` again writes a `LiteRegistry` object
@@ -15,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   validation keep working after registration/removal. CI `validate_registry.py`
   and auto-merge eligibility now reject a bare root array on production
   `registry.json` (fixture dry-runs use `--allow-agents-array`).
-=======
+
 ### Security
 
 - **Compliance harness open-redirect SSRF** — ``run_compliance_harness_v2_from_url``
@@ -26,7 +25,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   registry-bot would fetch it. Same fail-closed policy as
   ``fetch_manifest_at_url``. ``asap compliance-check`` against a hostile
   URL is covered by the same client.
->>>>>>> c77bf8e7 (fix(testing): do not follow redirects in remote compliance harness)
 
 ### Security
 
