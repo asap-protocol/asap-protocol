@@ -7,6 +7,7 @@ import {
   pickPinnedIp,
   pinnedLookup,
 } from './fetch-pinned-url';
+import { isAllowedExternalUrl } from './url-validator';
 
 describe('pickPinnedIp', () => {
   it('prefers IPv4 when both families are present', () => {
@@ -45,6 +46,32 @@ describe('pinnedLookup', () => {
       });
     });
     return expect(result).resolves.toEqual([{ address: '203.0.113.10', family: 4 }]);
+  });
+
+  it('reports IPv6 family for a pinned AAAA address', () => {
+    const lookup = pinnedLookup('2001:db8::1');
+    const single = new Promise<{ address: string; family: number }>((resolve, reject) => {
+      lookup('evil.example', { family: 0 }, (err, address, family) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve({ address: String(address), family: family ?? 0 });
+      });
+    });
+    const all = new Promise<unknown>((resolve, reject) => {
+      lookup('evil.example', { all: true, family: 0 }, (err, addresses) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve(addresses);
+      });
+    });
+    return Promise.all([
+      expect(single).resolves.toEqual({ address: '2001:db8::1', family: 6 }),
+      expect(all).resolves.toEqual([{ address: '2001:db8::1', family: 6 }]),
+    ]);
   });
 });
 
@@ -120,6 +147,37 @@ describe('fetchAllowlistedUrl', () => {
       expect(isPinnedFetchBlocked(result)).toBe(true);
       if (isPinnedFetchBlocked(result)) {
         expect(result.error).toContain('not allowed');
+      }
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  it('blocks a redirect to an IPv4-mapped private literal', async () => {
+    const { server, port } = await listenLoopback((req, res) => {
+      if (req.url === '/start') {
+        res.writeHead(302, { Location: 'http://[::ffff:192.168.1.1]/secret' });
+        res.end();
+        return;
+      }
+      res.writeHead(200);
+      res.end('should-not-reach');
+    });
+
+    try {
+      const result = await fetchAllowlistedUrl(
+        `http://rebind.example.invalid:${port}/start`,
+        async (url) => {
+          if (url.includes('/start')) {
+            return { valid: true, ips: ['127.0.0.1'] };
+          }
+          return isAllowedExternalUrl(url);
+        },
+        2000
+      );
+      expect(isPinnedFetchBlocked(result)).toBe(true);
+      if (isPinnedFetchBlocked(result)) {
+        expect(result.error).toContain('Internal/Private');
       }
     } finally {
       await closeServer(server);
@@ -272,6 +330,96 @@ describe('fetchAllowlistedUrl', () => {
       expect(isPinnedFetchBlocked(result)).toBe(false);
       if (!isPinnedFetchBlocked(result)) {
         expect(result).toEqual({ ok: true, status: 200 });
+      }
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  it('connects to a pinned IPv6 address when no IPv4 is available', async () => {
+    const server = http.createServer((_req, res) => {
+      res.writeHead(200, { 'content-type': 'text/plain' });
+      res.end('ok');
+    });
+    await new Promise<void>((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(0, '::1', () => resolve());
+    });
+    const address = server.address() as AddressInfo;
+
+    try {
+      const result = await fetchAllowlistedUrl(
+        `http://rebind.example.invalid:${address.port}/`,
+        async () => ({ valid: true, ips: ['::1'] }),
+        2000
+      );
+      expect(isPinnedFetchBlocked(result)).toBe(false);
+      if (!isPinnedFetchBlocked(result)) {
+        expect(result).toEqual({ ok: true, status: 200 });
+      }
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  it('stops when a redirect has no usable Location', async () => {
+    const cases: Array<{ location?: string; path: string }> = [
+      { path: '/missing' },
+      { path: '/broken', location: 'http://[' },
+    ];
+    for (const hop of cases) {
+      const { server, port } = await listenLoopback((_req, res) => {
+        if (hop.location === undefined) {
+          res.writeHead(302);
+        } else {
+          res.writeHead(302, { Location: hop.location });
+        }
+        res.end();
+      });
+      try {
+        const result = await fetchAllowlistedUrl(
+          `http://rebind.example.invalid:${port}${hop.path}`,
+          pinLoopback,
+          2000
+        );
+        expect(isPinnedFetchBlocked(result)).toBe(false);
+        if (!isPinnedFetchBlocked(result)) {
+          expect(result).toEqual({ ok: false, status: 302 });
+        }
+      } finally {
+        await closeServer(server);
+      }
+    }
+  });
+
+  it('re-validates protocol-relative Location hops', async () => {
+    const seen: string[] = [];
+    const { server, port } = await listenLoopback((req, res) => {
+      if (req.url === '/start') {
+        res.writeHead(302, { Location: '//127.0.0.1/secret' });
+        res.end();
+        return;
+      }
+      res.writeHead(200);
+      res.end('should-not-reach');
+    });
+
+    try {
+      const result = await fetchAllowlistedUrl(
+        `http://rebind.example.invalid:${port}/start`,
+        async (url) => {
+          seen.push(url);
+          if (url.includes('/start')) {
+            return { valid: true, ips: ['127.0.0.1'] };
+          }
+          return { valid: false, error: 'URL not allowed: private redirect' };
+        },
+        2000
+      );
+      expect(seen).toContain('http://127.0.0.1/secret');
+      expect(isPinnedFetchBlocked(result)).toBe(true);
+      if (isPinnedFetchBlocked(result)) {
+        expect(result.error).toContain('not allowed');
       }
     } finally {
       await closeServer(server);
