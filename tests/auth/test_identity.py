@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import Any, get_args
+from typing import Any, Literal, get_args
 
 import pytest
 from pydantic import ValidationError
@@ -483,6 +483,91 @@ async def test_touch_if_current_refuses_rotated_or_rehosted_row() -> None:
     assert (await store.touch_if_current("a2", rehost_key, now, expected_host_id="h1")) is None
     rehosted = await store.get("a2")
     assert rehosted is not None and rehosted.host_id == "other-host"
+
+
+def _lifetime_expired_active_session(
+    kind: str,
+    *,
+    now: datetime,
+    public_key: dict[str, str],
+) -> AgentSession:
+    """Active row whose idle, max, or absolute clock has already elapsed."""
+    session = AgentSession(
+        agent_id="a1",
+        host_id="h1",
+        public_key=public_key,
+        mode="delegated",
+        status="active",
+        created_at=now,
+        last_used_at=now - timedelta(minutes=1),
+    )
+    updates: dict[str, Any] = {
+        "session_ttl": {
+            "session_ttl": timedelta(minutes=5),
+            "last_used_at": now - timedelta(minutes=10),
+        },
+        "max_lifetime": {
+            "activated_at": now - timedelta(hours=2),
+            "max_lifetime": timedelta(hours=1),
+        },
+        "absolute_lifetime": {
+            "created_at": now - timedelta(days=2),
+            "absolute_lifetime": timedelta(days=1),
+        },
+    }
+    chosen = updates.get(kind)
+    if chosen is None:
+        msg = f"unknown lifetime kind {kind!r}; expected session_ttl, max_lifetime, or absolute_lifetime"
+        raise AssertionError(msg)
+    return session.model_copy(update=chosen)
+
+
+@pytest.mark.parametrize("kind", ["session_ttl", "max_lifetime", "absolute_lifetime"])
+async def test_touch_if_current_refuses_elapsed_lifetime_while_status_active(kind: str) -> None:
+    """Elapsed clocks must not slide last_used_at while status still reads active."""
+    store = InMemoryAgentStore()
+    now = _utc_now()
+    public_key = make_ed25519_jwk()
+    session = _lifetime_expired_active_session(kind, now=now, public_key=public_key)
+    await store.save(session)
+    touched = await store.touch_if_current(
+        "a1",
+        public_key,
+        now,
+        expected_host_id="h1",
+    )
+    assert touched is None
+    stored = await store.get("a1")
+    assert stored is not None
+    assert stored.status == "active"
+    assert stored.last_used_at == session.last_used_at
+
+
+@pytest.mark.parametrize("status", ["pending", "rejected"])
+async def test_touch_if_current_refuses_unapproved_registration_status(
+    status: Literal["pending", "rejected"],
+) -> None:
+    """Pending and rejected rows stay frozen; touch is only for active sessions."""
+    store = InMemoryAgentStore()
+    now = _utc_now()
+    public_key = make_ed25519_jwk()
+    prior_use = now - timedelta(minutes=5)
+    await store.save(
+        AgentSession(
+            agent_id="a1",
+            host_id="h1",
+            public_key=public_key,
+            mode="delegated",
+            status=status,
+            created_at=now,
+            last_used_at=prior_use,
+        )
+    )
+    assert await store.touch_if_current("a1", public_key, now, expected_host_id="h1") is None
+    stored = await store.get("a1")
+    assert stored is not None
+    assert stored.status == status
+    assert stored.last_used_at == prior_use
 
 
 async def test_touch_if_current_refuses_malformed_expected_key() -> None:
