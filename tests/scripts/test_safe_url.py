@@ -43,6 +43,14 @@ class TestIsSafeHttpUrl:
     def test_blocks_literal_private_ip_hostname(self) -> None:
         assert is_safe_http_url("https://10.0.0.1/") is False
 
+    def test_blocks_nat64_well_known_prefix_with_private_embedded_ipv4(self) -> None:
+        assert is_safe_http_url("http://[64:ff9b::10.0.0.1]/") is False
+        assert is_safe_http_url("http://[64:ff9b::a9fe:a9fe]/") is False
+
+    @patch("scripts.lib.safe_url.socket.getaddrinfo", _fake_public_getaddrinfo)
+    def test_allows_nat64_well_known_prefix_with_public_embedded_ipv4(self) -> None:
+        assert is_safe_http_url("http://[64:ff9b::8.8.8.8]/") is True
+
     def test_public_ip_hostname_uses_dns_resolution_path(self) -> None:
         """Literal public IPs skip blocked-host set but still resolve via getaddrinfo."""
         with patch("scripts.lib.safe_url.socket.getaddrinfo", _fake_public_getaddrinfo):
@@ -94,3 +102,6 @@ class TestIsSafeEndpointUrl:
     @patch("scripts.lib.safe_url.socket.getaddrinfo", _fake_public_getaddrinfo)
     def test_allows_public_http_endpoint(self) -> None:
         assert is_safe_endpoint_url("https://example.com/asap") is True
+
+    def test_blocks_nat64_websocket_endpoint_with_metadata_embedded_ipv4(self) -> None:
+        assert is_safe_endpoint_url("wss://[64:ff9b::a9fe:a9fe]/asap/events") is False

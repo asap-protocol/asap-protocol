@@ -25,6 +25,26 @@ _BLOCKED_HOSTS = frozenset(
 # Map WebSocket schemes onto HTTP so host/IP checks reuse is_safe_http_url.
 _WS_TO_HTTP_SCHEMES = {"ws": "http", "wss": "https"}
 
+_NAT64_NETWORK = ipaddress.IPv6Network("64:ff9b::/96")
+
+
+def _embedded_ipv4_in_ipv6(addr: ipaddress.IPv6Address) -> ipaddress.IPv4Address | None:
+    """Return embedded IPv4 for NAT64 or ``::ffff:`` literals (mirrors web ``isBlockedIPv6``)."""
+    if addr.ipv4_mapped is not None:
+        return addr.ipv4_mapped
+    if addr in _NAT64_NETWORK:
+        return ipaddress.IPv4Address(int(addr) & 0xFFFFFFFF)
+    return None
+
+
+def _literal_ip_is_blocked(addr: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    if isinstance(addr, ipaddress.IPv4Address):
+        return addr.is_private or addr.is_loopback or addr.is_link_local
+    embedded = _embedded_ipv4_in_ipv6(addr)
+    if embedded is not None:
+        return _literal_ip_is_blocked(embedded)
+    return addr.is_private or addr.is_loopback or addr.is_link_local
+
 
 def is_safe_http_url(url: str) -> bool:
     """Return True if ``url`` may be fetched (HTTP/HTTPS) without obvious SSRF risk.
@@ -44,7 +64,7 @@ def is_safe_http_url(url: str) -> bool:
         addr = None
     else:
         assert addr is not None
-        if addr.is_private or addr.is_loopback or addr.is_link_local:
+        if _literal_ip_is_blocked(addr):
             return False
     try:
         resolved = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC)
