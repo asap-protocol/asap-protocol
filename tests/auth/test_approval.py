@@ -410,6 +410,43 @@ async def test_stale_a2h_approve_does_not_grant_rotated_specs() -> None:
 
 
 @pytest.mark.asyncio
+async def test_stale_a2h_decline_does_not_deny_rotated_specs() -> None:
+    """A decline bound to the old snapshot must not deny the merged row."""
+    store = InMemoryApprovalStore()
+    first_specs: list[dict[str, Any]] = [{"name": "file:read", "constraints": {"path": "/tmp"}}]
+    await create_device_authorization(
+        store,
+        "esc-stale-deny",
+        ["file:read"],
+        capability_specs=first_specs,
+        approval_kind="escalation",
+    )
+    later_specs: list[dict[str, Any]] = [{"name": "file:write", "constraints": {"path": "/var"}}]
+    await create_device_authorization(
+        store,
+        "esc-stale-deny",
+        ["file:write"],
+        capability_specs=later_specs,
+        approval_kind="escalation",
+    )
+    provider = _StubHumanApproval(
+        ApprovalResult(decision=ApprovalDecision.DECLINE, data={"reason": "too broad"})
+    )
+    channel = A2HApprovalChannel(provider, store)
+    await channel.resolve_via_a2h(
+        "esc-stale-deny",
+        context="narrow",
+        principal_id="human-1",
+        expected_capability_specs=first_specs,
+    )
+    assert await check_approval_status(store, "esc-stale-deny") == "pending"
+    state = await store.get("esc-stale-deny")
+    assert state is not None
+    assert state.deny_reason is None
+    assert [spec["name"] for spec in state.capability_specs] == ["file:read", "file:write"]
+
+
+@pytest.mark.asyncio
 async def test_capability_specs_round_trip_on_store() -> None:
     store = InMemoryApprovalStore()
     specs: list[dict[str, Any]] = [{"name": "cap:x", "constraints": {"max": 1}}]
