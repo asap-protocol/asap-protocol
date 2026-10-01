@@ -131,12 +131,12 @@ describe('isAllowedExternalUrl', () => {
     expect(result.error).toContain('127.0.0.2');
   });
 
-  it('rejects when DNS resolution fails for both A and AAAA', async () => {
-    resolve4Spy.mockRejectedValue(new Error('ENOTFOUND'));
-    resolve6Spy.mockRejectedValue(new Error('ENOTFOUND'));
-    const result = await isAllowedExternalUrl('http://nonexistent.invalid/');
+  it('rejects when any of multiple resolved IPv4 addresses is private', async () => {
+    resolve4Spy.mockResolvedValue(['93.184.216.34', '192.168.1.1']);
+    resolve6Spy.mockResolvedValue([]);
+    const result = await isAllowedExternalUrl('http://dual.example.com/manifest');
     expect(result.valid).toBe(false);
-    expect(result.error).toContain('resolve');
+    expect(result.error).toContain('192.168.1.1');
   });
 });
 
