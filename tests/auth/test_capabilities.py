@@ -181,6 +181,15 @@ class TestConstraintOperators:
         assert len(vs) == 1
         assert vs[0].operator == "required"
 
+    def test_null_argument_is_missing_for_not_in(self) -> None:
+        """JSON null must not satisfy not_in; absence is not outside the forbidden set."""
+        vs = validate_constraints({"path": {"not_in": ["/etc"]}}, {"path": None})
+        assert len(vs) == 1
+        assert vs[0].field == "path"
+        assert vs[0].operator == "required"
+        assert vs[0].actual is None
+        assert "missing required argument" in vs[0].message
+
     # -- combined operators -------------------------------------------------
 
     def test_combined_both_pass(self) -> None:
