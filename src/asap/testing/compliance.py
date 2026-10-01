@@ -419,6 +419,13 @@ async def run_compliance_harness_v2_from_url(
     Raises:
         httpx.ConnectError: If the TCP connection cannot be established (preflight ``GET /``).
         httpx.TimeoutException: If the preflight request times out.
+
+    Note:
+        Redirects are not followed. Auto-registration validates the harness
+        URL once, then calls this runner; following ``Location`` would let a
+        public agent bounce the registry-bot (or ``asap compliance-check``)
+        onto link-local/IMDS targets after that check. Same policy as
+        ``fetch_manifest_at_url``.
     """
     normalized = base_url.rstrip("/")
     timeout_cfg = Timeout(request_timeout)
@@ -426,14 +433,16 @@ async def run_compliance_harness_v2_from_url(
         base_url=normalized,
         timeout=timeout_cfg,
         headers=default_headers,
-        follow_redirects=True,
+        follow_redirects=False,
     ) as client:
         # Fail fast on unreachable hosts so callers (e.g. CLI) can treat as transport error,
         # instead of a synthetic all-failed report from per-check exception handlers.
         try:
-            await client.get("/")
+            preflight = await client.get("/")
         except httpx.ConnectError:
             raise
         except httpx.TimeoutException:
             raise
+        if 300 <= preflight.status_code < 400:
+            preflight.raise_for_status()
         return await run_compliance_harness_with_client(client, categories=categories)
