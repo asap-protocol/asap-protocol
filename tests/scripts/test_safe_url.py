@@ -5,7 +5,7 @@ from __future__ import annotations
 import socket
 from unittest.mock import patch
 
-from scripts.lib.safe_url import is_safe_http_url
+from scripts.lib.safe_url import is_safe_endpoint_url, is_safe_http_url
 
 
 def _fake_public_getaddrinfo(
@@ -77,3 +77,20 @@ class TestIsSafeHttpUrl:
 
         with patch("scripts.lib.safe_url.socket.getaddrinfo", _fail):
             assert is_safe_http_url("https://example.com/") is False
+
+
+class TestIsSafeEndpointUrl:
+    def test_blocks_metadata_http_endpoint(self) -> None:
+        assert is_safe_endpoint_url("http://169.254.169.254/asap") is False
+
+    def test_blocks_loopback_websocket_endpoint(self) -> None:
+        assert is_safe_endpoint_url("ws://127.0.0.1/asap/events") is False
+        assert is_safe_endpoint_url("wss://localhost/asap/events") is False
+
+    @patch("scripts.lib.safe_url.socket.getaddrinfo", _fake_public_getaddrinfo)
+    def test_allows_public_websocket_endpoint(self) -> None:
+        assert is_safe_endpoint_url("wss://api.example.com/asap/events") is True
+
+    @patch("scripts.lib.safe_url.socket.getaddrinfo", _fake_public_getaddrinfo)
+    def test_allows_public_http_endpoint(self) -> None:
+        assert is_safe_endpoint_url("https://example.com/asap") is True
