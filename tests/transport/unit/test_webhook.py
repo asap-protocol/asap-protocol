@@ -20,6 +20,7 @@ from asap.transport.webhook import (
     WebhookResult,
     WebhookRetryManager,
     compute_signature,
+    validate_agent_endpoint_url,
     validate_callback_url,
     verify_signature,
 )
@@ -70,6 +71,17 @@ class TestURLValidation:
         with pytest.raises(WebhookURLValidationError, match="Scheme 'http' is not allowed"):
             await validate_callback_url("http://example.com/webhook", require_https=True)
 
+    async def test_wss_rewritten_and_validated_like_https(self) -> None:
+        with _patch_async_getaddrinfo(_public_addrinfo()):
+            await validate_agent_endpoint_url(
+                "wss://example.com/asap/events",
+                require_https=True,
+            )
+
+    async def test_wss_loopback_blocked_via_rewrite(self) -> None:
+        with pytest.raises(WebhookURLValidationError, match="blocked address range"):
+            await validate_agent_endpoint_url("wss://127.0.0.1/events", require_https=True)
+
     async def test_ftp_scheme_blocked(self) -> None:
         with pytest.raises(WebhookURLValidationError, match="Scheme 'ftp' is not allowed"):
             await validate_callback_url("ftp://example.com/file", require_https=False)
@@ -115,6 +127,21 @@ class TestURLValidation:
         with pytest.raises(WebhookURLValidationError, match="blocked address range"):
             await validate_callback_url("https://[::1]/hook")
 
+    @pytest.mark.parametrize(
+        "ip",
+        [
+            "::ffff:192.168.1.1",
+            "::ffff:10.0.0.1",
+            "::ffff:169.254.169.254",
+            "240.0.0.1",
+        ],
+    )
+    async def test_mapped_and_reserved_literals_blocked(self, ip: str) -> None:
+        """IPv4-mapped and Class E literals are blocked before DNS."""
+        url = f"https://[{ip}]/hook" if ":" in ip else f"https://{ip}/hook"
+        with pytest.raises(WebhookURLValidationError, match="blocked address range"):
+            await validate_callback_url(url)
+
     # -- DNS rebinding --
 
     async def test_dns_rebinding_blocked(self) -> None:
@@ -123,6 +150,17 @@ class TestURLValidation:
             pytest.raises(WebhookURLValidationError, match="resolved to blocked IP"),
         ):
             await validate_callback_url("https://evil.example.com/hook")
+
+    async def test_dns_rebinding_to_ipv4_mapped_private_blocked(self) -> None:
+        """An AAAA answer of ::ffff:192.168.1.1 is a private address, not a public one."""
+        mapped = [
+            (socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("::ffff:192.168.1.1", 0, 0, 0)),
+        ]
+        with (
+            _patch_async_getaddrinfo(mapped),
+            pytest.raises(WebhookURLValidationError, match="::ffff:192.168.1.1"),
+        ):
+            await validate_callback_url("https://rebind.example.com/hook")
 
     async def test_dns_resolution_failure_raises(self) -> None:
         with (
@@ -643,6 +681,32 @@ class TestWebhookRetryManager:
 
         # Verify the bucket exists for this URL
         assert self._URL in manager._url_buckets
+
+    def test_bucket_cap_evicts_oldest_url_and_resets_its_limit(self) -> None:
+        """The 10k cap drops the oldest URL, so that URL's limit starts over.
+
+        Eviction is the memory bound. Dropping the wrong URL, or reusing the
+        spent bucket, would either leak buckets or keep throttling the wrong peer.
+        """
+        policy = RetryPolicy(max_retries=0, base_delay=0.0, max_delay=0.0, rate_per_second=1.0)
+        manager = WebhookRetryManager(_make_mock_delivery([_ok_result(self._URL)]), policy=policy)
+        manager._max_buckets = 2
+        oldest_url = "https://hooks.example/oldest"
+        middle_url = "https://hooks.example/middle"
+        newest_url = "https://hooks.example/newest"
+
+        with patch("asap.transport.webhook.time.monotonic", return_value=1_000.0):
+            oldest_bucket = manager._get_bucket(oldest_url)
+            assert oldest_bucket.consume() is True
+            assert oldest_bucket.consume() is False
+            manager._get_bucket(middle_url)
+            manager._get_bucket(newest_url)
+            assert oldest_url not in manager._url_buckets
+            assert middle_url in manager._url_buckets
+            assert newest_url in manager._url_buckets
+            restored = manager._get_bucket(oldest_url)
+            assert restored is not oldest_bucket
+            assert restored.consume() is True
 
     # -- Dead letter entry attributes --
 

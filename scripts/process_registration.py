@@ -45,7 +45,7 @@ from lib.registry_io import (  # noqa: E402
     save_registry,
     write_validation_result,
 )
-from lib.safe_url import is_safe_http_url  # noqa: E402
+from lib.safe_url import is_safe_endpoint_url, is_safe_http_url  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +107,24 @@ def parse_issue_body(body: str) -> dict[str, str]:
             fields[field] = sanitize_input(value, max_length=max_len)
 
     return fields
+
+
+def _append_unsafe_endpoint_errors(
+    errors: list[str], http_endpoint: str, websocket_endpoint: str
+) -> None:
+    """Reject endpoints that would send registry consumers to private hosts.
+
+    Manifest fetch already uses ``is_safe_http_url``; HTTP/WS fields were only
+    equality-checked against the manifest and then stored. The web register
+    path allowlists these URLs; IssueOps must match that bar.
+
+    DNS is checked at validation time (time-of-check); TTL changes before a
+    consumer connects are the same TOCTOU class as manifest fetch.
+    """
+    if not is_safe_endpoint_url(http_endpoint):
+        errors.append(f"Blocked URL (private/metadata): {http_endpoint}")
+    if websocket_endpoint and not is_safe_endpoint_url(websocket_endpoint):
+        errors.append(f"Blocked URL (private/metadata): {websocket_endpoint}")
 
 
 def fetch_manifest(url: str, timeout: float = 15.0) -> Manifest:
@@ -216,6 +234,11 @@ def run(
             f"WebSocket endpoint must match manifest (manifest has {manifest.endpoints.events!r})"
         )
 
+    if errors:
+        _fail_registration(output_path, errors, issue_number)
+        return
+
+    _append_unsafe_endpoint_errors(errors, http_endpoint, websocket_endpoint)
     if errors:
         _fail_registration(output_path, errors, issue_number)
         return

@@ -228,7 +228,12 @@ class CapabilityRegistry:
         capability: str,
         arguments: dict[str, Any] | None = None,
     ) -> GrantCheckResult:
-        """Return whether *agent_id* may invoke *capability* with *arguments*."""
+        """Return whether *agent_id* may invoke *capability* with *arguments*.
+
+        Constrained grants treat omitted ``arguments`` as ``{}``. Each
+        constrained field is required, so a caller cannot skip the allowlist
+        by leaving the object out of the execute body.
+        """
         agent_grants = self._grants.get(agent_id, {})
         g = agent_grants.get(capability)
 
@@ -241,8 +246,8 @@ class CapabilityRegistry:
         if g.expires_at is not None and datetime.now(timezone.utc) > g.expires_at:
             return GrantCheckResult(allowed=False, violations=[], grant=g)
 
-        if g.constraints and arguments is not None:
-            violations = validate_constraints(g.constraints, arguments)
+        if g.constraints:
+            violations = validate_constraints(g.constraints, arguments or {})
             if violations:
                 return GrantCheckResult(allowed=False, violations=violations, grant=g)
 

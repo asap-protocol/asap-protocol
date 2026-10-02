@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import Any, get_args
+from typing import Any, Literal, get_args
 
 import pytest
 from pydantic import ValidationError
@@ -19,6 +19,7 @@ from asap.auth.identity import (
     InMemoryAgentStore,
     InMemoryHostStore,
     RevokedAgentOverwriteError,
+    StaleAgentPublicKeyError,
     host_urn_from_thumbprint,
     jwk_thumbprint_sha256,
     save_agent_unless_revoked,
@@ -225,7 +226,12 @@ class _StubHostStore:
 class _StubAgentStore:
     """Minimal async implementation for runtime protocol checks."""
 
-    async def save(self, agent: AgentSession) -> None:
+    async def save(
+        self,
+        agent: AgentSession,
+        *,
+        expected_public_key: dict[str, Any] | None = None,
+    ) -> None:
         return None
 
     async def touch_if_current(
@@ -419,6 +425,31 @@ async def test_touch_if_current_slides_last_used_at_without_clobbering_key() -> 
     assert stored == updated
 
 
+async def test_touch_if_current_refuses_idle_expired_active_row() -> None:
+    """An active row past session_ttl must not slide last_used_at."""
+    store = InMemoryAgentStore()
+    now = _utc_now()
+    public_key = make_ed25519_jwk()
+    stale = now - timedelta(hours=2)
+    await store.save(
+        AgentSession(
+            agent_id="a1",
+            host_id="h1",
+            public_key=public_key,
+            mode="delegated",
+            status="active",
+            created_at=stale,
+            session_ttl=timedelta(minutes=15),
+            last_used_at=stale,
+        )
+    )
+    assert (await store.touch_if_current("a1", public_key, now, expected_host_id="h1")) is None
+    stored = await store.get("a1")
+    assert stored is not None
+    assert stored.status == "active"
+    assert stored.last_used_at == stale
+
+
 async def test_touch_if_current_refuses_revoked_row() -> None:
     """Predicate fails on revoke; full-row save cannot resurrect the row."""
     store = InMemoryAgentStore()
@@ -477,6 +508,121 @@ async def test_touch_if_current_refuses_rotated_or_rehosted_row() -> None:
     assert (await store.touch_if_current("a2", rehost_key, now, expected_host_id="h1")) is None
     rehosted = await store.get("a2")
     assert rehosted is not None and rehosted.host_id == "other-host"
+
+
+def _lifetime_expired_active_session(
+    kind: str,
+    *,
+    now: datetime,
+    public_key: dict[str, str],
+) -> AgentSession:
+    """Active row whose idle, max, or absolute clock has already elapsed."""
+    session = AgentSession(
+        agent_id="a1",
+        host_id="h1",
+        public_key=public_key,
+        mode="delegated",
+        status="active",
+        created_at=now,
+        last_used_at=now - timedelta(minutes=1),
+    )
+    updates: dict[str, Any] = {
+        "session_ttl": {
+            "session_ttl": timedelta(minutes=5),
+            "last_used_at": now - timedelta(minutes=10),
+        },
+        "max_lifetime": {
+            "activated_at": now - timedelta(hours=2),
+            "max_lifetime": timedelta(hours=1),
+        },
+        "absolute_lifetime": {
+            "created_at": now - timedelta(days=2),
+            "absolute_lifetime": timedelta(days=1),
+        },
+    }
+    chosen = updates.get(kind)
+    if chosen is None:
+        msg = f"unknown lifetime kind {kind!r}; expected session_ttl, max_lifetime, or absolute_lifetime"
+        raise AssertionError(msg)
+    return session.model_copy(update=chosen)
+
+
+@pytest.mark.parametrize("kind", ["session_ttl", "max_lifetime", "absolute_lifetime"])
+async def test_touch_if_current_refuses_elapsed_lifetime_while_status_active(kind: str) -> None:
+    """Elapsed clocks must not slide last_used_at while status still reads active."""
+    store = InMemoryAgentStore()
+    now = _utc_now()
+    public_key = make_ed25519_jwk()
+    session = _lifetime_expired_active_session(kind, now=now, public_key=public_key)
+    await store.save(session)
+    touched = await store.touch_if_current(
+        "a1",
+        public_key,
+        now,
+        expected_host_id="h1",
+    )
+    assert touched is None
+    stored = await store.get("a1")
+    assert stored is not None
+    assert stored.status == "active"
+    assert stored.last_used_at == session.last_used_at
+
+
+@pytest.mark.parametrize("status", ["pending", "rejected"])
+async def test_touch_if_current_refuses_unapproved_registration_status(
+    status: Literal["pending", "rejected"],
+) -> None:
+    """Pending and rejected rows stay frozen; touch is only for active sessions."""
+    store = InMemoryAgentStore()
+    now = _utc_now()
+    public_key = make_ed25519_jwk()
+    prior_use = now - timedelta(minutes=5)
+    await store.save(
+        AgentSession(
+            agent_id="a1",
+            host_id="h1",
+            public_key=public_key,
+            mode="delegated",
+            status=status,
+            created_at=now,
+            last_used_at=prior_use,
+        )
+    )
+    assert await store.touch_if_current("a1", public_key, now, expected_host_id="h1") is None
+    stored = await store.get("a1")
+    assert stored is not None
+    assert stored.status == status
+    assert stored.last_used_at == prior_use
+
+
+async def test_touch_if_current_refuses_malformed_expected_key() -> None:
+    """A JWK missing required members fails closed and does not slide last_used_at."""
+    store = InMemoryAgentStore()
+    now = _utc_now()
+    public_key = make_ed25519_jwk()
+    await store.save(
+        AgentSession(
+            agent_id="a1",
+            host_id="h1",
+            public_key=public_key,
+            mode="delegated",
+            status="active",
+            created_at=now,
+            last_used_at=now,
+        )
+    )
+    touched_at = now + timedelta(seconds=5)
+    updated = await store.touch_if_current(
+        "a1",
+        {"kty": "OKP"},
+        touched_at,
+        expected_host_id="h1",
+    )
+    assert updated is None
+    stored = await store.get("a1")
+    assert stored is not None
+    assert stored.last_used_at == now
+    assert stored.public_key == public_key
 
 
 def test_jwk_thumbprint_sha256_is_deterministic() -> None:
@@ -649,3 +795,61 @@ async def test_save_agent_unless_revoked_allows_revoked_noop_update() -> None:
     assert row is not None
     await save_agent_unless_revoked(store, row)
     assert (await store.get("a1")) is not None
+
+
+async def test_save_refuses_lifecycle_snapshot_after_key_rotation() -> None:
+    """pending→active must not restore a JWK that rotate-key already replaced."""
+    store = InMemoryAgentStore()
+    now = _utc_now()
+    old_key = make_ed25519_jwk()
+    new_key = make_ed25519_jwk()
+    pending = AgentSession(
+        agent_id="a1",
+        host_id="h1",
+        public_key=old_key,
+        mode="delegated",
+        status="pending",
+        created_at=now,
+    )
+    await store.save(pending)
+    await store.save(pending.model_copy(update={"public_key": new_key}))
+    stale_active = pending.model_copy(update={"status": "active", "activated_at": now})
+    with pytest.raises(StaleAgentPublicKeyError, match="stored public_key"):
+        await save_agent_unless_revoked(
+            store,
+            stale_active,
+            expected_public_key=old_key,
+        )
+    row = await store.get("a1")
+    assert row is not None
+    assert row.status == "pending"
+    assert jwk_thumbprint_sha256(row.public_key) == jwk_thumbprint_sha256(new_key)
+
+
+async def test_save_applies_rotation_onto_stored_lifecycle() -> None:
+    """rotate-key against an expected old JWK must keep a newer stored status."""
+    store = InMemoryAgentStore()
+    now = _utc_now()
+    old_key = make_ed25519_jwk()
+    new_key = make_ed25519_jwk()
+    pending = AgentSession(
+        agent_id="a1",
+        host_id="h1",
+        public_key=old_key,
+        mode="delegated",
+        status="pending",
+        created_at=now,
+    )
+    await store.save(pending)
+    await store.save(pending.model_copy(update={"status": "active", "activated_at": now}))
+    stale_rotate = pending.model_copy(update={"public_key": new_key})
+    await save_agent_unless_revoked(
+        store,
+        stale_rotate,
+        expected_public_key=old_key,
+    )
+    row = await store.get("a1")
+    assert row is not None
+    assert row.status == "active"
+    assert row.activated_at == now
+    assert jwk_thumbprint_sha256(row.public_key) == jwk_thumbprint_sha256(new_key)

@@ -6,8 +6,10 @@ do not break the Next.js ISR build or Python discovery client. Agent ids must
 be unique (marketplace lookup is first-match).
 
 Accepts:
-  - Root array: list of RegistryEntry (e.g. [] or [{ id, name, ... }, ...])
-  - Root object: LiteRegistry with version, updated_at, agents
+  - Default (production ``registry.json``): LiteRegistry object with
+    ``version``, ``updated_at``, and ``agents``.
+  - With ``--allow-agents-array``: root array of RegistryEntry for fixture
+    dry-runs (e.g. ``tests/fixtures/registry/shellclaw-v1.0-agents-array.json``).
 
 Exit code: 0 if valid, 1 if invalid (errors to stderr).
 """
@@ -45,7 +47,13 @@ def _duplicate_agent_id_errors(ids_by_index: list[tuple[int, str]]) -> list[str]
     return errors
 
 
-def validate_registry(path: Path) -> list[str]:
+_BARE_ARRAY_ERROR = (
+    "Root must be a LiteRegistry object with 'version', 'updated_at', and 'agents' "
+    "(not a bare agents array). Use --allow-agents-array for fixture dry-runs."
+)
+
+
+def validate_registry(path: Path, *, allow_agents_array: bool = False) -> list[str]:
     if not path.exists():
         return [f"File not found: {path}"]
 
@@ -55,12 +63,14 @@ def validate_registry(path: Path) -> list[str]:
         return [f"Invalid JSON: {e}"]
 
     if isinstance(raw, list):
+        if not allow_agents_array:
+            return [_BARE_ARRAY_ERROR]
         return _validate_agents_list(raw)
     if isinstance(raw, dict) and "agents" in raw:
         return _validate_lite_registry(cast(dict[str, object], raw))
     return [
-        "Root must be either a JSON array of agents or an object with 'agents' "
-        "(and 'version', 'updated_at' for LiteRegistry format)."
+        "Root must be a LiteRegistry object with 'version', 'updated_at', and 'agents', "
+        "or (with --allow-agents-array) a JSON array of agents."
     ]
 
 
@@ -105,9 +115,14 @@ def main() -> int:
         type=Path,
         help="Path to registry JSON file (default: registry.json)",
     )
+    parser.add_argument(
+        "--allow-agents-array",
+        action="store_true",
+        help="Accept a root JSON array (fixture dry-runs only; not production registry.json).",
+    )
     args = parser.parse_args()
 
-    errors = validate_registry(args.file)
+    errors = validate_registry(args.file, allow_agents_array=args.allow_agents_array)
     if not errors:
         return 0
     for msg in errors:

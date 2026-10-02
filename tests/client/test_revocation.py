@@ -160,6 +160,43 @@ async def test_is_revoked_non_dict_payload_returns_false() -> None:
 
 
 @pytest.mark.asyncio
+async def test_is_revoked_matches_dict_entries_and_skips_junk() -> None:
+    """Non-dict list entries must not raise or hide a real revoked URN."""
+
+    def mixed_payload(request: httpx.Request) -> httpx.Response:
+        _ = request
+        return httpx.Response(
+            200,
+            json={
+                "revoked": [
+                    "not-a-dict",
+                    None,
+                    {
+                        "urn": "urn:asap:agent:x",
+                        "reason": "compromised",
+                        "revoked_at": "2025-01-01T00:00:00Z",
+                    },
+                ],
+                "version": "1.0",
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mixed_payload)) as client:
+        matched = await is_revoked(
+            "urn:asap:agent:x",
+            revoked_url="https://example.com/revoked.json",
+            http_client=client,
+        )
+        other = await is_revoked(
+            "urn:asap:agent:other",
+            revoked_url="https://example.com/revoked.json",
+            http_client=client,
+        )
+    assert matched is True
+    assert other is False
+
+
+@pytest.mark.asyncio
 async def test_is_revoked_creates_and_closes_client_when_none_passed() -> None:
     mock_response = MagicMock()
     mock_response.json.return_value = {"revoked": [], "version": "1.0"}

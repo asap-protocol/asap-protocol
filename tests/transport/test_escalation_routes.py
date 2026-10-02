@@ -131,6 +131,42 @@ class TestEscalationRoutes:
         assert body["status"] == "pending"
         assert "approval" in body
 
+    async def test_pending_default_grant_is_not_auto_activated(
+        self,
+        sample_manifest: Manifest,
+        isolated_rate_limiter: ASAPRateLimiter | None,
+    ) -> None:
+        """A pending grant of a default name must stay pending until consent."""
+        caps = [CapabilityDefinition(name="file:read", description="r")]
+        app, agent_store, host_store, registry = _setup(
+            sample_manifest, isolated_rate_limiter, capabilities=caps
+        )
+        host_sk = Ed25519PrivateKey.generate()
+        agent_sk = Ed25519PrivateKey.generate()
+        client = TestClient(app)
+        aid = await _register_and_activate(client, app, agent_store, host_sk, agent_sk)
+        await _activate_host_with_defaults(
+            host_store,
+            agent_store,
+            aid,
+            default_capabilities=["file:read"],
+        )
+        registry.grant(aid, "file:read", status="pending")
+        tok = _agent_token(agent_sk, host_sk, aid)
+        r = client.post(
+            "/asap/agent/request-capability",
+            headers={"Authorization": f"Bearer {tok}"},
+            json={"capabilities": [{"name": "file:read"}]},
+        )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["status"] == "pending"
+        assert "approval" in body
+        grants = registry.get_grants(aid)
+        assert len(grants) == 1
+        assert grants[0].capability == "file:read"
+        assert grants[0].status == "pending"
+
     async def test_mixed_auto_and_approval(
         self,
         sample_manifest: Manifest,

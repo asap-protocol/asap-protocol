@@ -298,6 +298,69 @@ class TestASAPVersionMiddleware:
         assert response.headers.get("ASAP-Version") == "2.2"
         assert "result" in response.json()
 
+    @pytest.mark.parametrize(
+        ("header", "echoed"),
+        [
+            ("0.9, 2.1", "2.1"),
+            ("  0.9 ,  2.1  ", "2.1"),
+            ("0.9,,2.1", "2.1"),
+            ("2.1, 2.2", "2.1"),
+        ],
+    )
+    def test_post_asap_skips_unsupported_tokens_and_keeps_client_order(
+        self, app: FastAPI, client: TestClient, header: str, echoed: str
+    ) -> None:
+        """First supported token wins, including a fallback after an unknown version."""
+        body = _version_probe_body("conv-version-fallback", "version-fallback")
+        response = client.post("/asap", json=body, headers={"ASAP-Version": header})
+        assert response.status_code == 200
+        assert response.headers.get("ASAP-Version") == echoed
+        assert "result" in response.json()
+
+    def test_post_asap_lists_with_no_supported_token_keep_full_requested_value(
+        self, app: FastAPI, client: TestClient
+    ) -> None:
+        """A list with no supported token is rejected and echoes the whole header."""
+        body = _version_probe_body("conv-version-none", "version-none")
+        response = client.post("/asap", json=body, headers={"ASAP-Version": "0.8, 0.9"})
+        assert response.status_code == 200
+        assert response.headers.get("ASAP-Version") == ASAP_DEFAULT_TRANSPORT_VERSION
+        payload = response.json()
+        assert payload.get("error", {}).get("code") == VERSION_INCOMPATIBLE
+        assert payload.get("error", {}).get("data", {}).get("requested") == "0.8, 0.9"
+        assert "result" not in payload
+
+    def test_post_asap_whitespace_only_version_uses_default(
+        self, app: FastAPI, client: TestClient
+    ) -> None:
+        """A blank ASAP-Version header is treated as omitted and the handler still runs."""
+        body = _version_probe_body("conv-version-blank", "version-blank")
+        response = client.post("/asap", json=body, headers={"ASAP-Version": "   "})
+        assert response.status_code == 200
+        assert response.headers.get("ASAP-Version") == ASAP_DEFAULT_TRANSPORT_VERSION
+        assert "result" in response.json()
+
+
+def _version_probe_body(conversation_id: str, request_id: str) -> dict[str, Any]:
+    """JSON-RPC body for ASAP-Version negotiation probes."""
+    envelope = Envelope(
+        asap_version="0.1",
+        sender="urn:asap:agent:client",
+        recipient="urn:asap:agent:test-server",
+        payload_type="task.request",
+        payload=TaskRequest(
+            conversation_id=conversation_id,
+            skill_id="echo",
+            input={"message": "hello"},
+        ).model_dump(),
+    )
+    return {
+        "jsonrpc": "2.0",
+        "method": "asap.send",
+        "params": {"envelope": envelope.model_dump(mode="json")},
+        "id": request_id,
+    }
+
 
 class TestASAPChallengePropagation:
     """Tests for preserving upstream ASAP challenges across JSON-RPC responses."""
@@ -1293,6 +1356,43 @@ class TestAgentRegisterEndpoint:
         stored_list = await agent_store.list_by_host(host_id)
         assert len(stored_list) == 2
 
+    async def test_register_a2h_binds_expected_capability_specs(
+        self,
+        sample_manifest: Manifest,
+        isolated_rate_limiter: "ASAPRateLimiter | None",
+    ) -> None:
+        """Registration A2H must consent to the specs stored for this request."""
+        app, _agent_store, _host_store = _app_with_identity_stores(
+            sample_manifest, isolated_rate_limiter
+        )
+        ch = AsyncMock()
+        app.state.identity_approval_a2h_channel = ch
+        host_sk = Ed25519PrivateKey.generate()
+        agent_sk = Ed25519PrivateKey.generate()
+        specs = [{"name": "file:read", "constraints": {"path": {"in": ["/tmp"]}}}]
+        token = create_host_jwt(
+            host_sk,
+            aud=_HOST_JWT_AUDIENCE,
+            agent_public_key=ed25519_public_jwk(agent_sk),
+            ttl_seconds=120,
+        )
+        client = TestClient(app)
+        r = client.post(
+            "/asap/agent/register",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"capabilities": specs},
+        )
+        assert r.status_code == 200
+        data = r.json()
+        assert data["status"] == "pending"
+        ch.resolve_via_a2h.assert_awaited_once()
+        call = ch.resolve_via_a2h.await_args
+        assert call is not None
+        assert call.kwargs["expected_capability_specs"] == specs
+        stored = await app.state.identity_approval_store.get(data["agent_id"])
+        assert stored is not None
+        assert stored.capability_specs == specs
+
     def test_register_browser_agent_returns_403_webauthn_when_real_verifier_configured(
         self,
         sample_manifest: Manifest,
@@ -1807,6 +1907,89 @@ class TestAgentStatusEndpoint:
         )
         assert st.status_code == 200
         assert st.json()["status"] == "revoked"
+
+    async def test_status_denied_approval_rejects_pending_agent(
+        self,
+        sample_manifest: Manifest,
+        isolated_rate_limiter: "ASAPRateLimiter | None",
+    ) -> None:
+        """A denied registration approval persists rejected and surfaces deny_reason."""
+        app, agent_store, _host_store = _app_with_identity_stores(
+            sample_manifest, isolated_rate_limiter
+        )
+        host_sk = Ed25519PrivateKey.generate()
+        agent_sk = Ed25519PrivateKey.generate()
+        reg_tok = create_host_jwt(
+            host_sk,
+            aud=_HOST_JWT_AUDIENCE,
+            agent_public_key=ed25519_public_jwk(agent_sk),
+            ttl_seconds=120,
+        )
+        client = TestClient(app)
+        aid = client.post(
+            "/asap/agent/register",
+            headers={"Authorization": f"Bearer {reg_tok}"},
+        ).json()["agent_id"]
+        await app.state.identity_approval_store.deny(aid, "policy")
+        host_tok = _host_jwt_without_agent_claim(host_sk)
+        st = client.get(
+            f"/asap/agent/status?agent_id={aid}",
+            headers={"Authorization": f"Bearer {host_tok}"},
+        )
+        assert st.status_code == 200
+        body = st.json()
+        assert body["status"] == "rejected"
+        assert body["deny_reason"] == "policy"
+        stored = await agent_store.get(aid)
+        assert stored is not None and stored.status == "rejected"
+
+    def test_status_rejects_stale_host_jwt_while_approval_pending(
+        self,
+        sample_manifest: Manifest,
+        isolated_rate_limiter: "ASAPRateLimiter | None",
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Pending approval polls use the same fresh-session gate as register."""
+        agent_store = InMemoryAgentStore()
+        host_store = InMemoryHostStore(agent_store=agent_store)
+        app = create_app(
+            sample_manifest,
+            rate_limit="999999/minute",
+            identity_host_store=host_store,
+            identity_agent_store=agent_store,
+            identity_rate_limit="999999/minute",
+            identity_fresh_session_config=FreshSessionConfig(window_seconds=60),
+        )
+        if isolated_rate_limiter is not None:
+            app.state.limiter = isolated_rate_limiter
+        host_sk = Ed25519PrivateKey.generate()
+        agent_sk = Ed25519PrivateKey.generate()
+        reg_tok = create_host_jwt(
+            host_sk,
+            aud=_HOST_JWT_AUDIENCE,
+            agent_public_key=ed25519_public_jwk(agent_sk),
+            ttl_seconds=120,
+        )
+        client = TestClient(app)
+        reg = client.post(
+            "/asap/agent/register",
+            headers={"Authorization": f"Bearer {reg_tok}"},
+        )
+        assert reg.status_code == 200
+        aid = reg.json()["agent_id"]
+        issued_at = int(time.time()) - 120
+        with monkeypatch.context() as time_patch:
+            time_patch.setattr("asap.auth.agent_jwt.time.time", lambda: float(issued_at))
+            stale = create_host_jwt(host_sk, aud=_HOST_JWT_AUDIENCE, ttl_seconds=3600)
+        st = client.get(
+            f"/asap/agent/status?agent_id={aid}",
+            headers={"Authorization": f"Bearer {stale}"},
+        )
+        assert st.status_code == 403
+        assert st.json() == {
+            "detail": "stale host session; re-authenticate within the fresh-session window "
+            "(60s) to use approval endpoints"
+        }
 
     def test_status_same_host_jwt_reusable_without_jti_replay(
         self,

@@ -262,6 +262,76 @@ class TestAggregateSlaMetrics:
         assert 90.0 <= agg.uptime_percent <= 100.0
         assert agg.latency_p95_ms in (50, 200)  # p95 of [50, 200]
 
+    def test_zero_task_windows_use_unweighted_mean(self) -> None:
+        """Idle windows with no tasks average uptime and error rate directly."""
+        start1 = datetime(2026, 2, 18, 0, 0, 0, tzinfo=timezone.utc)
+        end1 = datetime(2026, 2, 18, 1, 0, 0, tzinfo=timezone.utc)
+        start2 = datetime(2026, 2, 18, 1, 0, 0, tzinfo=timezone.utc)
+        end2 = datetime(2026, 2, 18, 2, 0, 0, tzinfo=timezone.utc)
+        idle_high = SLAMetrics(
+            agent_id="urn:asap:agent:a",
+            period_start=start1,
+            period_end=end1,
+            uptime_percent=100.0,
+            latency_p95_ms=10,
+            error_rate_percent=0.0,
+            tasks_completed=0,
+            tasks_failed=0,
+        )
+        idle_low = SLAMetrics(
+            agent_id="urn:asap:agent:a",
+            period_start=start2,
+            period_end=end2,
+            uptime_percent=50.0,
+            latency_p95_ms=30,
+            error_rate_percent=20.0,
+            tasks_completed=0,
+            tasks_failed=0,
+        )
+        agg = aggregate_sla_metrics([idle_high, idle_low])
+        assert agg is not None
+        assert agg.period_start == start1
+        assert agg.period_end == end2
+        assert agg.tasks_completed == 0
+        assert agg.tasks_failed == 0
+        assert agg.uptime_percent == 75.0
+        assert agg.error_rate_percent == 10.0
+        assert agg.latency_p95_ms == 10
+
+    def test_zero_task_window_does_not_dilute_busy_window(self) -> None:
+        """A zero-task window contributes nothing to task-weighted rates."""
+        start1 = datetime(2026, 2, 18, 0, 0, 0, tzinfo=timezone.utc)
+        end1 = datetime(2026, 2, 18, 1, 0, 0, tzinfo=timezone.utc)
+        start2 = datetime(2026, 2, 18, 1, 0, 0, tzinfo=timezone.utc)
+        end2 = datetime(2026, 2, 18, 2, 0, 0, tzinfo=timezone.utc)
+        idle = SLAMetrics(
+            agent_id="urn:asap:agent:a",
+            period_start=start1,
+            period_end=end1,
+            uptime_percent=0.0,
+            latency_p95_ms=1000,
+            error_rate_percent=100.0,
+            tasks_completed=0,
+            tasks_failed=0,
+        )
+        busy = SLAMetrics(
+            agent_id="urn:asap:agent:a",
+            period_start=start2,
+            period_end=end2,
+            uptime_percent=100.0,
+            latency_p95_ms=40,
+            error_rate_percent=0.0,
+            tasks_completed=8,
+            tasks_failed=2,
+        )
+        agg = aggregate_sla_metrics([idle, busy])
+        assert agg is not None
+        assert agg.tasks_completed == 8
+        assert agg.tasks_failed == 2
+        assert agg.uptime_percent == 100.0
+        assert agg.error_rate_percent == 0.0
+        assert agg.latency_p95_ms == 40
+
 
 class TestParsePercentage:
     """Tests for parse_percentage (breach condition helpers)."""

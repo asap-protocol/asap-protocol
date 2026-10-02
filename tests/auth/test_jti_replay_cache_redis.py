@@ -78,6 +78,27 @@ def test_redis_jti_replay_cache_shared_semantics(monkeypatch: pytest.MonkeyPatch
     _assert_shared_replay_semantics(cache, monkeypatch)
 
 
+def test_jti_replay_partitions_do_not_share_a_jti() -> None:
+    """The same jti is first-use in each partition and a replay only inside its own."""
+    cache = JtiReplayCache(ttl_seconds=90.0)
+    assert cache.check_and_record("host-a", "shared-jti") is True
+    assert cache.check_and_record("host-b", "shared-jti") is True
+    assert cache.check_and_record("host-a", "shared-jti") is False
+    assert cache.contains("host-b", "shared-jti") is True
+    assert cache.contains("host-a", "other-jti") is False
+
+
+@pytest.mark.skipif(_fakeredis_cache() is None, reason="redis/fakeredis not installed")
+def test_redis_jti_replay_partitions_do_not_share_a_jti() -> None:
+    """Redis keys include the partition, so hosts do not consume each other's jti."""
+    cache = _fakeredis_cache()
+    assert cache is not None
+    assert cache.check_and_record("host-a", "shared-jti") is True
+    assert cache.check_and_record("host-b", "shared-jti") is True
+    assert cache.check_and_record("host-a", "shared-jti") is False
+    assert cache.contains("host-b", "shared-jti") is True
+
+
 def test_jti_replay_cache_protocol_accepts_memory() -> None:
     """Structural protocol typing covers the default in-memory backend."""
     memory: JtiReplayCacheProtocol = JtiReplayCache()

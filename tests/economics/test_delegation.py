@@ -741,6 +741,33 @@ class TestValidateDelegationCoverage:
         assert not result.success
         assert "limit exceeded" in (result.error or "").lower()
 
+    def test_max_tasks_one_below_limit_allowed(
+        self, ed25519_keypair: tuple[Ed25519PrivateKey, Any]
+    ) -> None:
+        """Usage just under max_tasks still validates (boundary is >=, not >)."""
+        priv, pub = ed25519_keypair
+        constraints = DelegationConstraints(
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            max_tasks=5,
+        )
+        token = create_delegation_jwt(
+            delegator_urn="urn:asap:agent:delegator",
+            delegate_urn="urn:asap:agent:delegate",
+            scopes=["task.execute"],
+            constraints=constraints,
+            private_key=priv,
+        )
+
+        result = validate_delegation(
+            token,
+            "task.execute",
+            public_key_resolver=lambda _: pub,
+            usage_count_for_token=lambda _: 4,
+        )
+        assert result.success
+        assert result.delegator == "urn:asap:agent:delegator"
+        assert result.jti is not None
+
     def test_revoked_token_coverage(self, ed25519_keypair: tuple[Ed25519PrivateKey, Any]) -> None:
         """Revoked token returns error (lines 192-193)."""
         priv, pub = ed25519_keypair

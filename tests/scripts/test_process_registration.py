@@ -12,6 +12,7 @@ import pytest
 
 from asap.crypto.keys import generate_keypair
 from asap.crypto.signing import sign_manifest
+from asap.discovery.registry import LiteRegistry
 from asap.models.entities import Capability, Endpoint, Manifest, Skill
 
 from scripts.process_registration import (
@@ -20,6 +21,26 @@ from scripts.process_registration import (
     run,
 )
 from lib.registry_io import load_registry, save_registry
+
+
+def _load_lite_registry_file(path: Path) -> LiteRegistry:
+    """Assert IssueOps wrote a LiteRegistry object (not a bare agents array)."""
+    raw = json.loads(path.read_text())
+    assert isinstance(raw, dict), "expected LiteRegistry object envelope"
+    updated_at = raw.get("updated_at")
+    assert isinstance(updated_at, str) and updated_at.endswith("Z")
+    return LiteRegistry.model_validate(raw)
+
+
+def _minimal_registry_agent() -> dict[str, object]:
+    return {
+        "id": "urn:asap:agent:a:b",
+        "name": "B",
+        "description": "Test agent",
+        "endpoints": {"http": "https://example.com/asap"},
+        "skills": ["echo"],
+        "asap_version": "1.1.0",
+    }
 
 
 def _fake_getaddrinfo_public(
@@ -161,6 +182,33 @@ class TestParseIssueBody:
         assert parsed["category"] == "Coding"
         assert parsed["tags"] == "ai, code_review, testing"
 
+    def test_strips_markup_and_control_chars_from_description(self) -> None:
+        """Issue text stored in the registry drops fences, tags, and control chars."""
+        body = (
+            "### Description\n"
+            "Keep <b>bold</b> text.\n"
+            "```\nsecret-block\n```\n"
+            "tail `drop-me` end\x00\n"
+        )
+        parsed = parse_issue_body(body)
+        assert parsed["description"] == "Keep bold text.\n\ntail  end"
+        assert "secret-block" not in parsed["description"]
+        assert "<b>" not in parsed["description"]
+        assert "\x00" not in parsed["description"]
+
+    def test_clamps_name_to_500_and_description_to_2000(self) -> None:
+        """Description allows a longer field than the other issue sections."""
+        body = (
+            "### Agent name (slug-friendly)\n"
+            + ("n" * 501)
+            + "\n\n### Description\n"
+            + ("d" * 2001)
+            + "\n"
+        )
+        parsed = parse_issue_body(body)
+        assert parsed["name"] == "n" * 500
+        assert parsed["description"] == "d" * 2000
+
 
 class TestFetchManifestSSRF:
     """Tests for fetch_manifest SSRF protection (RF-1)."""
@@ -254,8 +302,42 @@ class TestFetchManifestSSRF:
         ):
             fetch_manifest("https://example.com/manifest.json")
 
+    @pytest.mark.parametrize("payload", [None, [], "not-an-object"])
+    def test_rejects_non_object_manifest_json(self, payload: object) -> None:
+        """A 200 body that is not a JSON object fails before signature checks."""
+        with (
+            patch("scripts.lib.safe_url.socket.getaddrinfo", _fake_getaddrinfo_public),
+            patch(
+                "scripts.process_registration.httpx.Client",
+                return_value=_mock_httpx_client(payload),
+            ),
+            pytest.raises(
+                ValueError,
+                match="Manifest JSON must be an object: https://example.com/manifest.json",
+            ),
+        ):
+            fetch_manifest("https://example.com/manifest.json")
 
-def _mock_httpx_client(response_json: dict) -> MagicMock:
+    def test_rejects_non_json_manifest_body(self) -> None:
+        """A 200 body that is not JSON fails closed with the manifest URL."""
+        mock_resp = MagicMock()
+        mock_resp.json.side_effect = ValueError("Expecting value")
+        mock_resp.raise_for_status = MagicMock()
+        mock_client = MagicMock()
+        mock_client.__enter__.return_value.get.return_value = mock_resp
+        mock_client.__exit__.return_value = None
+        with (
+            patch("scripts.lib.safe_url.socket.getaddrinfo", _fake_getaddrinfo_public),
+            patch("scripts.process_registration.httpx.Client", return_value=mock_client),
+            pytest.raises(
+                ValueError,
+                match="Manifest response is not JSON: https://example.com/manifest.json",
+            ),
+        ):
+            fetch_manifest("https://example.com/manifest.json")
+
+
+def _mock_httpx_client(response_json: object) -> MagicMock:
     """Build a MagicMock for httpx.Client that returns the given JSON as manifest."""
     mock_resp = MagicMock()
     mock_resp.text = json.dumps(response_json)
@@ -297,14 +379,15 @@ class TestProcessRegistrationRun:
         result = json.loads(output_path.read_text())
         assert result["valid"] is True
 
-        registry = json.loads(registry_path.read_text())
-        assert len(registry) == 1
-        entry = registry[0]
-        assert entry["id"] == "urn:asap:agent:testuser:my-agent"
-        assert entry["name"] == "my-agent"
-        assert entry["skills"] == ["web_research", "summarization"]
-        assert "http" in entry["endpoints"]
-        assert entry["endpoints"]["manifest"] == "https://example.com/manifest.json"
+        saved = _load_lite_registry_file(registry_path)
+        assert saved.version == "1.0"
+        assert len(saved.agents) == 1
+        entry = saved.agents[0]
+        assert str(entry.id) == "urn:asap:agent:testuser:my-agent"
+        assert entry.name == "my-agent"
+        assert entry.skills == ["web_research", "summarization"]
+        assert "http" in entry.endpoints
+        assert entry.endpoints["manifest"] == "https://example.com/manifest.json"
 
     def test_valid_issue_with_optionals_passes_through(
         self,
@@ -337,11 +420,10 @@ class TestProcessRegistrationRun:
 
         result = json.loads(output_path.read_text())
         assert result["valid"] is True
-        registry = json.loads(registry_path.read_text())
-        entry = registry[0]
-        assert entry.get("repository_url") == "https://github.com/me/repo"
-        assert entry.get("documentation_url") == "https://docs.example.com/agent"
-        assert entry.get("built_with") == "LangChain"
+        entry = _load_lite_registry_file(registry_path).agents[0]
+        assert entry.repository_url == "https://github.com/me/repo"
+        assert entry.documentation_url == "https://docs.example.com/agent"
+        assert entry.built_with == "LangChain"
 
     def test_valid_issue_with_category_tags_writes_registry_entry(
         self,
@@ -367,10 +449,9 @@ class TestProcessRegistrationRun:
             )
         result = json.loads(output_path.read_text())
         assert result["valid"] is True
-        registry = json.loads(registry_path.read_text())
-        entry = registry[0]
-        assert entry.get("category") == "Coding"
-        assert entry.get("tags") == ["ai", "code_review"]
+        entry = _load_lite_registry_file(registry_path).agents[0]
+        assert entry.category == "Coding"
+        assert entry.tags == ["ai", "code_review"]
 
     def test_valid_issue_derives_hardware_fields_from_manifest(
         self,
@@ -406,10 +487,10 @@ class TestProcessRegistrationRun:
             )
         result = json.loads(output_path.read_text())
         assert result["valid"] is True
-        entry = json.loads(registry_path.read_text())[0]
-        assert entry.get("hardware_class") == "edge_accelerator"
-        assert entry.get("inference_modes") == ["cloud", "local_cuda"]
-        assert entry.get("hardware_io") == ["gpio", "i2c"]
+        entry = _load_lite_registry_file(registry_path).agents[0]
+        assert entry.hardware_class == "edge_accelerator"
+        assert entry.inference_modes == ["cloud", "local_cuda"]
+        assert entry.hardware_io == ["gpio", "i2c"]
 
     def test_valid_issue_accepts_signed_manifest_envelope(
         self,
@@ -449,8 +530,8 @@ class TestProcessRegistrationRun:
             )
         result = json.loads(output_path.read_text())
         assert result["valid"] is True
-        entry = json.loads(registry_path.read_text())[0]
-        assert entry["id"] == "urn:asap:agent:testuser:my-agent"
+        entry = _load_lite_registry_file(registry_path).agents[0]
+        assert str(entry.id) == "urn:asap:agent:testuser:my-agent"
 
     def test_invalid_tampered_signed_manifest_rejected(
         self,
@@ -626,6 +707,52 @@ class TestProcessRegistrationRun:
         assert result["valid"] is False
         assert "Blocked" in result["errors"] or "private" in result["errors"].lower()
 
+    def test_blocks_ssrf_http_endpoint(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Matching metadata HTTP endpoint must not be written to registry.json."""
+        body = VALID_BODY_MINIMAL.replace(
+            "https://example.com/asap",
+            "http://169.254.169.254/latest/meta-data/",
+        )
+        manifest = dict(VALID_MANIFEST_JSON)
+        manifest["endpoints"] = dict(manifest["endpoints"])
+        manifest["endpoints"]["asap"] = "http://169.254.169.254/latest/meta-data/"
+        result, registry_path = self._run_with_manifest(tmp_path, manifest, body=body)
+        assert result["valid"] is False
+        assert "Blocked URL" in result["errors"]
+        assert "169.254.169.254" in result["errors"]
+        assert json.loads(registry_path.read_text()) == []
+
+    def test_blocks_ssrf_websocket_endpoint(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Matching loopback WebSocket endpoint must not be written to registry.json."""
+        body = VALID_BODY_WITH_OPTIONALS.replace(
+            "wss://api.example.com/asap/events",
+            "ws://127.0.0.1/asap/events",
+        )
+        manifest = dict(VALID_MANIFEST_JSON)
+        manifest["id"] = "urn:asap:agent:testuser:other-agent"
+        manifest["name"] = "other-agent"
+        manifest["capabilities"] = dict(manifest["capabilities"])
+        manifest["capabilities"]["skills"] = [{"id": "code_review", "description": "Review"}]
+        manifest["endpoints"] = {
+            "asap": "https://api.example.com/asap",
+            "events": "ws://127.0.0.1/asap/events",
+        }
+        result, registry_path = self._run_with_manifest(
+            tmp_path,
+            manifest,
+            body=body,
+        )
+        assert result["valid"] is False
+        assert "Blocked URL" in result["errors"]
+        assert "127.0.0.1" in result["errors"]
+        assert json.loads(registry_path.read_text()) == []
+
     def _run_with_manifest(
         self,
         tmp_path: Path,
@@ -713,7 +840,8 @@ class TestProcessRegistrationRun:
             author="TestUser",
         )
         assert result["valid"] is True
-        assert json.loads(registry_path.read_text())[0]["id"] == "urn:asap:agent:testuser:my-agent"
+        saved = _load_lite_registry_file(registry_path)
+        assert str(saved.agents[0].id) == "urn:asap:agent:testuser:my-agent"
 
     def test_invalid_manifest_schema_validation(self, tmp_path: Path) -> None:
         """Malformed manifest JSON fails closed before registry write."""
@@ -774,7 +902,7 @@ class TestSaveRegistry:
     """Tests for save_registry atomic write."""
 
     def test_save_registry_atomic(self, tmp_path: Path) -> None:
-        """save_registry writes atomically."""
+        """save_registry writes atomically as a LiteRegistry object."""
         path = tmp_path / "registry.json"
         agents = [
             {
@@ -787,4 +915,45 @@ class TestSaveRegistry:
             }
         ]
         save_registry(str(path), agents)
-        assert json.loads(path.read_text()) == agents
+        raw = json.loads(path.read_text())
+        assert isinstance(raw, dict)
+        assert raw["version"] == "1.0"
+        assert isinstance(raw["updated_at"], str) and raw["updated_at"].endswith("Z")
+        assert raw["agents"] == agents
+        # discover_from_registry uses LiteRegistry.model_validate_json; a root
+        # array raises ValidationError even when agents themselves are valid.
+        parsed = LiteRegistry.model_validate(raw)
+        assert parsed.version == "1.0"
+        assert len(parsed.agents) == 1
+        assert str(parsed.agents[0].id) == "urn:asap:agent:test"
+
+    def test_save_registry_preserves_existing_version(self, tmp_path: Path) -> None:
+        """save_registry keeps version from an existing LiteRegistry file."""
+        path = tmp_path / "registry.json"
+        path.write_text(
+            json.dumps(
+                {
+                    "version": "1.1",
+                    "updated_at": "2020-01-01T00:00:00Z",
+                    "agents": [],
+                }
+            )
+        )
+        agents = [_minimal_registry_agent()]
+        save_registry(str(path), agents)
+        raw = json.loads(path.read_text())
+        assert raw["version"] == "1.1"
+        assert raw["agents"] == agents
+        assert raw["updated_at"] != "2020-01-01T00:00:00Z"
+        LiteRegistry.model_validate(raw)
+
+    def test_save_registry_upgrades_bare_array_to_object(self, tmp_path: Path) -> None:
+        """IssueOps must not leave production registry as a bare agents array."""
+        path = tmp_path / "registry.json"
+        path.write_text("[]")
+        agents = [_minimal_registry_agent()]
+        save_registry(str(path), agents)
+        raw = json.loads(path.read_text())
+        assert set(raw) >= {"version", "updated_at", "agents"}
+        assert raw["agents"] == agents
+        LiteRegistry.model_validate(raw)

@@ -7,6 +7,7 @@ import {
   pickPinnedIp,
   pinnedLookup,
 } from './fetch-pinned-url';
+import { isAllowedExternalUrl } from './url-validator';
 
 describe('pickPinnedIp', () => {
   it('prefers IPv4 when both families are present', () => {
@@ -120,6 +121,37 @@ describe('fetchAllowlistedUrl', () => {
       expect(isPinnedFetchBlocked(result)).toBe(true);
       if (isPinnedFetchBlocked(result)) {
         expect(result.error).toContain('not allowed');
+      }
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  it('blocks a redirect to an IPv4-mapped private literal', async () => {
+    const { server, port } = await listenLoopback((req, res) => {
+      if (req.url === '/start') {
+        res.writeHead(302, { Location: 'http://[::ffff:192.168.1.1]/secret' });
+        res.end();
+        return;
+      }
+      res.writeHead(200);
+      res.end('should-not-reach');
+    });
+
+    try {
+      const result = await fetchAllowlistedUrl(
+        `http://rebind.example.invalid:${port}/start`,
+        async (url) => {
+          if (url.includes('/start')) {
+            return { valid: true, ips: ['127.0.0.1'] };
+          }
+          return isAllowedExternalUrl(url);
+        },
+        2000
+      );
+      expect(isPinnedFetchBlocked(result)).toBe(true);
+      if (isPinnedFetchBlocked(result)) {
+        expect(result.error).toContain('Internal/Private');
       }
     } finally {
       await closeServer(server);

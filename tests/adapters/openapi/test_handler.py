@@ -687,20 +687,24 @@ async def test_execute_dotdot_path_params_do_not_call_upstream(tmp_path: Path) -
         assert seen["calls"] == 0
 
 
-def test_fill_path_template_static_dot_segment_raises_path_parameter_error() -> None:
+@pytest.mark.parametrize("template", ["/v1/../admin", "/v1/./admin"])
+def test_fill_path_template_static_dot_segment_raises_path_parameter_error(template: str) -> None:
     with pytest.raises(OpenAPIPathParameterError) as exc_info:
-        _fill_path_template("/v1/../admin", {})
-    assert exc_info.value.path_template == "/v1/../admin"
+        _fill_path_template(template, {})
+    assert exc_info.value.path_template == template
     assert exc_info.value.invalid
 
 
 @pytest.mark.asyncio
-async def test_execute_static_dotdot_path_raises_path_parameter_error(tmp_path: Path) -> None:
+@pytest.mark.parametrize("template", ["/v1/../admin", "/v1/./admin"])
+async def test_execute_static_dot_segment_path_raises_path_parameter_error(
+    tmp_path: Path, template: str
+) -> None:
     raw = {
         "openapi": "3.0.3",
         "info": {"title": "T", "version": "1"},
         "paths": {
-            "/v1/../admin": {
+            template: {
                 "get": {
                     "operationId": "getAdmin",
                     "responses": {"200": {"description": "ok"}},
@@ -1024,3 +1028,60 @@ async def test_execute_unsupported_param_in_raises_invocation_error() -> None:
         )
         with pytest.raises(OpenAPIInvocationError, match="Unsupported OpenAPI parameter location"):
             await handler.execute("badLoc", {"x": "v"}, session=None)
+
+
+@pytest.mark.asyncio
+async def test_execute_rejects_arguments_when_input_schema_is_none() -> None:
+    """Capabilities with no input schema must not forward caller arguments upstream."""
+    skill = Skill(id="noInput", description="test", input_schema=None)
+    cap = OpenAPICapability(
+        skill=skill,
+        http_method="get",
+        path_template="/items",
+        execution_kind=OpenAPIExecutionKind.SYNC,
+    )
+    calls = 0
+
+    def _count_requests(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(200, json={})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(_count_requests)) as client:
+        handler = OpenAPIUpstreamHandler.from_capabilities(
+            base_url="https://u.test",
+            capabilities=[cap],
+            http_client=client,
+        )
+        with pytest.raises(OpenAPIInvocationError, match="no input schema") as exc_info:
+            await handler.execute("noInput", {"extra": "nope"}, session=None)
+
+    assert exc_info.value.details.get("unexpected") == ["extra"]
+    assert calls == 0
+
+
+@pytest.mark.asyncio
+async def test_resolve_headers_non_string_keys_are_recoverable() -> None:
+    """Header injection must reject non-string keys before the upstream request."""
+    skill = Skill(id="z3", description="test", input_schema=None)
+    cap = OpenAPICapability(
+        skill=skill,
+        http_method="get",
+        path_template="/z",
+        execution_kind=OpenAPIExecutionKind.SYNC,
+    )
+
+    def resolve_headers(_session: object | None) -> dict[str, str]:
+        return cast("dict[str, str]", {1: "Bearer secret"})
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _r: httpx.Response(200))
+    ) as client:
+        handler = OpenAPIUpstreamHandler.from_capabilities(
+            base_url="https://svc.test",
+            capabilities=[cap],
+            http_client=client,
+            resolve_headers=resolve_headers,
+        )
+        with pytest.raises(RecoverableError, match="str keys and str values"):
+            await handler.execute("z3", {}, session=None)
