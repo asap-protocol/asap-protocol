@@ -27,7 +27,7 @@ from asap.registry.anti_spam import TRUST_LEVEL_SELF_SIGNED, auto_register_verif
 from asap.registry.bot_pr import BotPRResult, BotPRSettings, open_registry_pull_request
 from asap.testing.compliance import ComplianceReport, run_compliance_harness_v2_from_url
 from asap.transport.rate_limit import RateLimitExceeded
-from asap.transport.webhook import validate_callback_url
+from asap.transport.webhook import validate_agent_endpoint_url, validate_callback_url
 
 logger = logging.getLogger(__name__)
 
@@ -134,6 +134,25 @@ async def fetch_manifest_at_url(client: httpx.AsyncClient, manifest_url: str) ->
         return validate_signed_manifest_response(data, verify_signature=True)
     except SignatureVerificationError as exc:
         raise ManifestValidationError(str(exc), field="signature") from exc
+
+
+async def _validate_persisted_registry_endpoints(manifest: Manifest) -> None:
+    """Reject private/metadata hosts on every URL stored in ``registry.json``."""
+    for label, url in (
+        ("HTTP", manifest.endpoints.asap),
+        *(
+            [("WebSocket", manifest.endpoints.events)]
+            if manifest.endpoints.events
+            else []
+        ),
+    ):
+        try:
+            await validate_agent_endpoint_url(url, require_https=True)
+        except WebhookURLValidationError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{label} endpoint blocked: {exc}",
+            ) from exc
 
 
 def _build_registry_entry(manifest: Manifest, manifest_url: str) -> RegistryEntry:
@@ -256,6 +275,8 @@ def create_auto_registration_router(config: AutoRegistrationConfig | None = None
                     summary=report.summary,
                 ).model_dump(mode="json"),
             )
+
+        await _validate_persisted_registry_endpoints(manifest)
 
         entry = _build_registry_entry(manifest, manifest_url_str)
 

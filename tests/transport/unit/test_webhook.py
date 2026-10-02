@@ -20,6 +20,7 @@ from asap.transport.webhook import (
     WebhookResult,
     WebhookRetryManager,
     compute_signature,
+    validate_agent_endpoint_url,
     validate_callback_url,
     verify_signature,
 )
@@ -69,6 +70,17 @@ class TestURLValidation:
     async def test_http_blocked_when_required(self) -> None:
         with pytest.raises(WebhookURLValidationError, match="Scheme 'http' is not allowed"):
             await validate_callback_url("http://example.com/webhook", require_https=True)
+
+    async def test_wss_rewritten_and_validated_like_https(self) -> None:
+        with _patch_async_getaddrinfo(_public_addrinfo()):
+            await validate_agent_endpoint_url(
+                "wss://example.com/asap/events",
+                require_https=True,
+            )
+
+    async def test_wss_loopback_blocked_via_rewrite(self) -> None:
+        with pytest.raises(WebhookURLValidationError, match="blocked address range"):
+            await validate_agent_endpoint_url("wss://127.0.0.1/events", require_https=True)
 
     async def test_ftp_scheme_blocked(self) -> None:
         with pytest.raises(WebhookURLValidationError, match="Scheme 'ftp' is not allowed"):

@@ -9,6 +9,7 @@ Public exports:
     RetryPolicy: Configuration for retry behaviour (max retries, backoff, retryable codes).
     DeadLetterEntry: Record of a permanently failed webhook delivery.
     validate_callback_url: Validates a URL against SSRF rules (scheme, DNS, IP range).
+    validate_agent_endpoint_url: Same checks for HTTP/HTTPS/WSS registry endpoint fields.
 """
 
 from __future__ import annotations
@@ -24,7 +25,7 @@ from collections import deque
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 
 import httpx
 
@@ -45,6 +46,7 @@ MAX_DEAD_LETTERS = 1000
 # Allowed URL schemes.
 _ALLOWED_SCHEMES_STRICT = frozenset({"https"})
 _ALLOWED_SCHEMES_RELAXED = frozenset({"http", "https"})
+_WS_TO_HTTP_SCHEMES = {"ws": "http", "wss": "https"}
 
 
 def _is_ip_blocked(addr: str) -> bool:
@@ -143,6 +145,19 @@ async def validate_callback_url(url: str, *, require_https: bool = True) -> None
         url=url,
         resolved_ips=resolved_ips,
     )
+
+
+async def validate_agent_endpoint_url(url: str, *, require_https: bool = True) -> None:
+    """Validate HTTP or WebSocket agent endpoints before persisting to the registry.
+
+    WebSocket schemes are rewritten to HTTP/HTTPS so the same SSRF rules as
+    :func:`validate_callback_url` apply (matches IssueOps ``is_safe_endpoint_url``).
+    """
+    parsed = urlparse(url)
+    scheme = (parsed.scheme or "").lower()
+    if scheme in _WS_TO_HTTP_SCHEMES:
+        url = urlunparse(parsed._replace(scheme=_WS_TO_HTTP_SCHEMES[scheme]))
+    await validate_callback_url(url, require_https=require_https)
 
 
 @dataclass(frozen=True, slots=True)

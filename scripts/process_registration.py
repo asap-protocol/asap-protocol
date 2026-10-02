@@ -117,6 +117,9 @@ def _append_unsafe_endpoint_errors(
     Manifest fetch already uses ``is_safe_http_url``; HTTP/WS fields were only
     equality-checked against the manifest and then stored. The web register
     path allowlists these URLs; IssueOps must match that bar.
+
+    DNS is checked at validation time (time-of-check); TTL changes before a
+    consumer connects are the same TOCTOU class as manifest fetch.
     """
     if not is_safe_endpoint_url(http_endpoint):
         errors.append(f"Blocked URL (private/metadata): {http_endpoint}")
