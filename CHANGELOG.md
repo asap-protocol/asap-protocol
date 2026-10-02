@@ -7,42 +7,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-
-- **Lite Registry IssueOps** — `save_registry` again writes a `LiteRegistry` object
-  (`version`, `updated_at`, `agents`) so `discover_from_registry` and Python
-  validation keep working after registration/removal. CI `validate_registry.py`
-  and auto-merge eligibility now reject a bare root array on production
-  `registry.json` (fixture dry-runs use `--allow-agents-array`).
-
-### Security
-
-- **Capability execute omitted arguments** — ``CapabilityRegistry.check_grant``
-  and ``POST /asap/capability/execute`` treat a missing ``arguments`` object
-  as empty when the grant has constraints. Constrained fields stay required,
-  so omitting the object no longer skips the allowlist.
-
-- **Compliance harness open-redirect SSRF** — ``run_compliance_harness_v2_from_url``
-  no longer sets ``follow_redirects=True``. Auto-registration
-  (``POST /registry/agents``) allowlists the harness base URL once, then the
-  harness preflight and checks used that client; a public agent could
-  ``302`` to ``http://169.254.169.254/`` (or another blocked hop) and the
-  registry-bot would fetch it. Same fail-closed policy as
-  ``fetch_manifest_at_url``. ``asap compliance-check`` against a hostile
-  URL is covered by the same client.
-
-- **IssueOps registry endpoint SSRF**: `process_registration` now rejects HTTP
-  and WebSocket endpoints that resolve to private, loopback, or cloud-metadata
-  hosts before writing `registry.json`. Manifest fetch was already allowlisted;
-  the advertised agent URLs were not, so a public signed manifest could list
-  `http://169.254.169.254/` and SDK `MarketClient.run` would dial IMDS.
-
 ### Follow-up (planned)
 
 - **Formal Spec & Interop** — RFC spec, introspection, privacy ([prd-v2.5.5-formal-spec-interop.md](product/prd/prd-v2.5.5-formal-spec-interop.md)).
 - `@asap-protocol/mcp-auth` HTTP/SSE middleware (deferred from v2.5.0 — see [2.5.0] TypeScript note and [typescript-mcp-auth-spike.md](engineering/tasks/v2.5.0/typescript-mcp-auth-spike.md)).
 - Collapse the dual `UsageMetrics`/`InMemoryMeteringStore` pair retained in S1 for API stability.
 - Reduce the `asap.transport.client` package aggregate LOC below the S2 target.
+
+---
+
+## [2.5.6] - 2026-10-01
+
+**Security & quality patch** — Lite Registry IssueOps envelope and endpoint SSRF
+hardening, compliance harness open-redirect SSRF, constrained capability execute,
+Agent JWT rotate-key lifecycle race, dependency bumps, and consolidated regression
+tests on `development` via [#354](https://github.com/asap-protocol/asap-protocol/pull/354)–[#379](https://github.com/asap-protocol/asap-protocol/pull/379).
+This is **not** Formal Spec & Interop. npm `@asap-protocol/*` packages remain
+at **2.4.1**. PyPI `asap-compliance` remains **1.3.0**.
+Tag [`v2.5.6`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.6)
+· PyPI `asap-protocol==2.5.6`.
+
+### Fixed
+
+- **Lite Registry IssueOps envelope (#354)** — `save_registry` again writes a
+  `LiteRegistry` object (`version`, `updated_at`, `agents`) so
+  `discover_from_registry` and Python validation keep working after
+  registration/removal. CI `validate_registry.py` and auto-merge eligibility
+  now reject a bare root array on production `registry.json` (fixture dry-runs
+  use `--allow-agents-array`).
+
+- **Agent JWT rotate-key lifecycle (#372)** — lifecycle persistence uses
+  compare-and-set on `expected_public_key` so stale snapshots cannot undo
+  `POST /asap/agent/rotate-key`.
+
+### Security
+
+- **Capability execute omitted arguments (#373)** — ``CapabilityRegistry.check_grant``
+  and ``POST /asap/capability/execute`` treat a missing ``arguments`` object
+  as empty when the grant has constraints. Constrained fields stay required,
+  so omitting the object no longer skips the allowlist.
+
+- **Compliance harness open-redirect SSRF (#370)** — ``run_compliance_harness_v2_from_url``
+  no longer sets ``follow_redirects=True``. Auto-registration
+  (``POST /registry/agents``) allowlists the harness base URL once, then the
+  harness preflight and checks use that client; a public agent could
+  ``302`` to ``http://169.254.169.254/`` (or another blocked hop) and the
+  registry-bot would fetch it. Same fail-closed policy as
+  ``fetch_manifest_at_url``. ``asap compliance-check`` against a hostile
+  URL is covered by the same client.
+
+- **IssueOps registry endpoint SSRF (#371)** — `process_registration` rejects HTTP
+  and WebSocket endpoints that resolve to private, loopback, cloud-metadata, or
+  NAT64-embedded private hosts before writing `registry.json`. Manifest fetch was
+  already allowlisted; the advertised agent URLs were not, so a public signed
+  manifest could list `http://169.254.169.254/` and SDK `MarketClient.run`
+  would dial IMDS.
+
+### Changed
+
+- **GitHub Actions deps (#374)** — grouped bump for CI and release workflows.
+- **`apps/web` npm deps (#375)** — grouped production and dev dependency updates.
+
+### Quality
+
+- **Consolidated regression tests (#376–#379)** — SSRF and web policy coverage,
+  transport binding/nonce/validation edges, streaming registration and SLA idle
+  windows, and auth lifecycle/session gates.
+
+### Migration
+
+- **v2.5.5 → v2.5.6**: See [migration guide](docs/migration.md#upgrading-from-v255-to-v256).
+  No wire-protocol or manifest schema breaking changes. Capability clients with
+  constrained grants must send an ``arguments`` object (may be empty). Registry
+  operators must keep `registry.json` as a `LiteRegistry` envelope.
 
 ---
 

@@ -1119,6 +1119,61 @@ Scope: [prd-v2.5.4-distribution-loop.md](../product/prd/prd-v2.5.4-distribution-
 
 ---
 
+### Upgrading from v2.5.5 to v2.5.6
+
+**v2.5.6 (security & quality patch)** — **shipped**
+([tag `v2.5.6`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.6)) —
+hardens Lite Registry IssueOps persistence and advertised agent endpoints,
+compliance harness fetching, constrained capability execute, and Agent JWT
+rotate-key lifecycle races already on ``development``. This is **not**
+Formal Spec & Interop. There are **no wire-protocol or manifest schema**
+breaking changes relative to v2.5.5.
+
+#### What lands in v2.5.6
+
+- **Lite Registry** — IssueOps ``save_registry`` keeps the ``LiteRegistry``
+  envelope; CI ``validate_registry.py`` rejects a bare root ``agents`` array
+  unless ``--allow-agents-array`` (fixtures only)
+  ([#354](https://github.com/asap-protocol/asap-protocol/pull/354)).
+- **IssueOps endpoints** — HTTP/WebSocket agent URLs that resolve to private,
+  loopback, cloud-metadata, or NAT64-embedded private hosts are rejected before
+  ``registry.json`` is written
+  ([#371](https://github.com/asap-protocol/asap-protocol/pull/371)).
+- **Compliance harness** — no automatic redirect follow on remote harness URLs
+  ([#370](https://github.com/asap-protocol/asap-protocol/pull/370)).
+- **Capabilities** — constrained grants require an ``arguments`` object on
+  execute (omit → deny); empty ``{}`` is valid when no constrained keys are
+  required ([#373](https://github.com/asap-protocol/asap-protocol/pull/373)).
+- **Agent JWT** — lifecycle saves cannot revert a successful rotate-key
+  ([#372](https://github.com/asap-protocol/asap-protocol/pull/372)).
+- **Deps / CI** — grouped GitHub Actions ([#374](https://github.com/asap-protocol/asap-protocol/pull/374))
+  and ``apps/web`` npm ([#375](https://github.com/asap-protocol/asap-protocol/pull/375))
+  bumps; consolidated regression tests ([#376](https://github.com/asap-protocol/asap-protocol/pull/376)–[#379](https://github.com/asap-protocol/asap-protocol/pull/379)).
+- **npm / compliance** — `@asap-protocol/*` remain **2.4.1**;
+  `asap-compliance` remains **1.3.0**.
+
+#### Upgrade steps
+
+1. Bump with `pip install 'asap-protocol==2.5.6'` (or `uv add asap-protocol`).
+2. **Capability execute** — if grants include constraints, always send an
+   ``arguments`` JSON object; omitting the field is rejected.
+3. **Lite Registry** — ensure production ``registry.json`` is a
+   ``LiteRegistry`` object, not a top-level array. Local fixture dry-runs may
+   pass ``--allow-agents-array`` to ``validate_registry.py``.
+4. **Registry IssueOps** — manifests listing private, metadata, or NAT64-embedded
+   agent endpoints will fail registration (expected).
+5. TypeScript `@asap-protocol/*` packages remain at **2.4.1**;
+   `@asap-protocol/mcp-auth` HTTP/SSE middleware remains deferred.
+
+#### Backward compatibility
+
+- **Wire protocol**: Unchanged from v2.5.5.
+- **Breaking changes**: None for typical deployments. Clients that omitted
+  ``arguments`` on constrained capability execute will now receive authorization
+  failures until they send ``{}`` or the required keys.
+
+---
+
 ### Upgrading from v2.5.4 to v2.5.5
 
 **v2.5.5 (security & quality patch)** — **shipped**
