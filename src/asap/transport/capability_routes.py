@@ -21,6 +21,7 @@ from asap.auth.identity import (
     AgentStore,
     HostStore,
     RevokedAgentOverwriteError,
+    StaleAgentPublicKeyError,
     reactivate_agent,
     save_agent_unless_revoked,
 )
@@ -303,11 +304,20 @@ async def _handle_agent_reactivate(request: Request) -> JSONResponse:
     except ValueError as e:
         return JSONResponse(status_code=403, content={"detail": str(e)})
     try:
-        await save_agent_unless_revoked(agent_store, reactivated)
+        await save_agent_unless_revoked(
+            agent_store,
+            reactivated,
+            expected_public_key=fresh.public_key,
+        )
     except RevokedAgentOverwriteError:
         return JSONResponse(
             status_code=403,
             content={"detail": f"Agent {body.agent_id} is permanently revoked"},
+        )
+    except StaleAgentPublicKeyError:
+        return JSONResponse(
+            status_code=409,
+            content={"detail": "agent public key changed concurrently"},
         )
 
     # Capability decay: reset grants to host defaults

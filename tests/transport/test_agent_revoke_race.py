@@ -6,7 +6,7 @@ and status pending→active approval activation.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -73,11 +73,16 @@ class _RevokeOnArmedSaveAgentStore(InMemoryAgentStore):
         """Revoke just before the next non-revoked persist."""
         self._armed = True
 
-    async def save(self, agent: AgentSession) -> None:
+    async def save(
+        self,
+        agent: AgentSession,
+        *,
+        expected_public_key: dict[str, Any] | None = None,
+    ) -> None:
         if self._armed and agent.status != "revoked":
             await self.revoke(agent.agent_id)
             self._armed = False
-        await super().save(agent)
+        await super().save(agent, expected_public_key=expected_public_key)
 
 
 class _SaveRaisesGenericValueError(InMemoryAgentStore):
@@ -91,12 +96,17 @@ class _SaveRaisesGenericValueError(InMemoryAgentStore):
         """Fail the next persist with a validation-style ``ValueError``."""
         self._fail_next_save = True
 
-    async def save(self, agent: AgentSession) -> None:
+    async def save(
+        self,
+        agent: AgentSession,
+        *,
+        expected_public_key: dict[str, Any] | None = None,
+    ) -> None:
         if self._fail_next_save:
             self._fail_next_save = False
             msg = f"disk full while saving agent {agent.agent_id!r}, expected writable session"
             raise ValueError(msg)
-        await super().save(agent)
+        await super().save(agent, expected_public_key=expected_public_key)
 
 
 def _app_with_store(
