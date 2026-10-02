@@ -140,11 +140,7 @@ async def _validate_persisted_registry_endpoints(manifest: Manifest) -> None:
     """Reject private/metadata hosts on every URL stored in ``registry.json``."""
     for label, url in (
         ("HTTP", manifest.endpoints.asap),
-        *(
-            [("WebSocket", manifest.endpoints.events)]
-            if manifest.endpoints.events
-            else []
-        ),
+        *([("WebSocket", manifest.endpoints.events)] if manifest.endpoints.events else []),
     ):
         try:
             await validate_agent_endpoint_url(url, require_https=True)
