@@ -1,6 +1,7 @@
 """Tests for Envelope model (message wrapper)."""
 
 from datetime import datetime, timezone
+from typing import Any
 
 import pytest
 from pydantic import ValidationError
@@ -251,6 +252,41 @@ class TestEnvelope:
             recipient="urn:asap:agent:b",
             payload_type="TaskResponse",
             payload={"task_id": "t1", "status": "completed", "result": {"ok": True}},
+            correlation_id="req_123",
+        )
+        assert envelope.correlation_id == "req_123"
+
+    @pytest.mark.parametrize(
+        ("payload_type", "payload"),
+        [
+            ("McpResourceData", {"resource_uri": "file://x", "content": {"text": "hi"}}),
+            ("TaskStream", {"chunk": "token", "final": False}),
+        ],
+    )
+    def test_resource_and_stream_payloads_require_correlation_id(
+        self,
+        payload_type: str,
+        payload: dict[str, Any],
+    ) -> None:
+        """MCP resource data and stream chunks must stay pairable with the request."""
+        from asap.models.envelope import Envelope
+
+        with pytest.raises(ValidationError) as exc_info:
+            Envelope(
+                asap_version="0.1",
+                sender="urn:asap:agent:a",
+                recipient="urn:asap:agent:b",
+                payload_type=payload_type,
+                payload=payload,
+            )
+        assert "must have correlation_id" in exc_info.value.errors()[0]["msg"]
+
+        envelope = Envelope(
+            asap_version="0.1",
+            sender="urn:asap:agent:a",
+            recipient="urn:asap:agent:b",
+            payload_type=payload_type,
+            payload=payload,
             correlation_id="req_123",
         )
         assert envelope.correlation_id == "req_123"

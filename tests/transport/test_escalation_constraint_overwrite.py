@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 from unittest.mock import AsyncMock
 
 import pytest
@@ -23,6 +23,8 @@ from tests.transport.test_capability_routes import (
 from tests.transport.test_escalation_routes import _activate_host_with_defaults, _agent_token
 
 if TYPE_CHECKING:
+    from _pytest.monkeypatch import MonkeyPatch
+
     from asap.models.entities import Manifest
     from asap.transport.rate_limit import ASAPRateLimiter
 
@@ -323,3 +325,91 @@ class TestEscalationConstraintOverwrite:
         context = str(call.kwargs["context"])
         assert "file:read" in context
         assert "no constraints" in context or "constraints" in context
+
+    async def test_a2h_consent_snapshot_includes_merged_pending_specs(
+        self,
+        sample_manifest: Manifest,
+        isolated_rate_limiter: ASAPRateLimiter | None,
+    ) -> None:
+        """A2H must bind the stored escalation payload, not only the latest body."""
+        (
+            app,
+            client,
+            agent_store,
+            _hosts,
+            registry,
+            aid,
+            host_sk,
+            agent_sk,
+        ) = await _prepare_file_read_agent(sample_manifest, isolated_rate_limiter)
+        ch = AsyncMock()
+        app.state.identity_approval_a2h_channel = ch
+        sess = await agent_store.get(aid)
+        assert sess is not None
+        registry.grant(aid, "file:read", granted_by=sess.host_id, constraints=_PATH_TMP)
+        first = _post_request_capability(client, agent_sk, host_sk, aid, [{"name": "file:read"}])
+        assert first.status_code == 200
+        ch.resolve_via_a2h.assert_awaited_once()
+        first_call = ch.resolve_via_a2h.await_args
+        assert first_call is not None
+        assert first_call.kwargs["expected_capability_specs"] == [{"name": "file:read"}]
+
+        ch.reset_mock()
+        second = _post_request_capability(
+            client, agent_sk, host_sk, aid, [{"name": "admin:config"}]
+        )
+        assert second.status_code == 200
+        ch.resolve_via_a2h.assert_awaited_once()
+        second_call = ch.resolve_via_a2h.await_args
+        assert second_call is not None
+        pending = await app.state.identity_approval_store.get(aid)
+        assert pending is not None
+        bound = second_call.kwargs["expected_capability_specs"]
+        assert bound == pending.capability_specs
+        assert [spec["name"] for spec in bound] == ["file:read", "admin:config"]
+
+    @pytest.mark.parametrize("outcome", ["denied", "expired"])
+    async def test_status_poll_drops_closed_escalation_and_keeps_agent_active(
+        self,
+        sample_manifest: Manifest,
+        isolated_rate_limiter: ASAPRateLimiter | None,
+        monkeypatch: MonkeyPatch,
+        outcome: Literal["denied", "expired"],
+    ) -> None:
+        """Denied or expired escalation is cleared without deactivating the agent."""
+        (
+            app,
+            client,
+            agent_store,
+            _hosts,
+            registry,
+            aid,
+            host_sk,
+            agent_sk,
+        ) = await _prepare_file_read_agent(sample_manifest, isolated_rate_limiter)
+        sess = await agent_store.get(aid)
+        assert sess is not None
+        registry.grant(aid, "file:read", granted_by=sess.host_id, constraints=_PATH_TMP)
+        esc = _post_request_capability(client, agent_sk, host_sk, aid, [{"name": "file:read"}])
+        assert esc.status_code == 200
+        assert esc.json()["status"] == "pending"
+        if outcome == "denied":
+            await app.state.identity_approval_store.deny(aid, "operator declined")
+        else:
+            monkeypatch.setattr(
+                "asap.auth.approval._utcnow",
+                lambda: datetime.now(timezone.utc) + timedelta(days=2),
+            )
+        host_jwt = create_host_jwt(host_sk, aud=_HOST_JWT_AUDIENCE, ttl_seconds=120)
+        st = client.get(
+            f"/asap/agent/status?agent_id={aid}",
+            headers={"Authorization": f"Bearer {host_jwt}"},
+        )
+        assert st.status_code == 200
+        body = st.json()
+        assert body["status"] == "active"
+        assert "approval" not in body
+        assert "approval_status" not in body
+        assert await app.state.identity_approval_store.get(aid) is None
+        assert registry.check_grant(aid, "file:read", {"path": "/etc"}).allowed is False
+        assert registry.get_grants(aid)[0].constraints == _PATH_TMP

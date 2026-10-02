@@ -138,6 +138,14 @@ describe('submitAgentRegistration', () => {
     expect(result.error).toContain('Could not reach Manifest URL');
   });
 
+  it('returns the pinned-fetch error when manifest HEAD is blocked', async () => {
+    fetchAllowlistedUrl.mockResolvedValue({ error: 'URL not allowed: private redirect' });
+    const result = await submitAgentRegistration(validForm);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('Could not reach Manifest URL');
+    expect(result.error).toContain('private redirect');
+  });
+
   it('returns success and correct GitHub Issue URL when validation and reachability pass', async () => {
     const prevOwner = process.env.GITHUB_REGISTRY_OWNER;
     const prevRepo = process.env.GITHUB_REGISTRY_REPO;

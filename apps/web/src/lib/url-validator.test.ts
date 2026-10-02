@@ -24,6 +24,15 @@ describe('isBlockedHostOrIp', () => {
     expect(isBlockedHostOrIp('fec0::1')).toBe(false);
   });
 
+  it('blocks unique-local and IPv4-mapped literals', () => {
+    expect(isBlockedHostOrIp('fd00::1')).toBe(true);
+    expect(isBlockedHostOrIp('fc00::1')).toBe(true);
+    expect(isBlockedHostOrIp('::ffff:192.168.1.1')).toBe(true);
+    expect(isBlockedHostOrIp('::ffff:10.0.0.1')).toBe(true);
+    expect(isBlockedHostOrIp('[::ffff:192.168.1.1]')).toBe(true);
+    expect(isBlockedHostOrIp('::ffff:8.8.8.8')).toBe(true);
+  });
+
   it('blocks NAT64 64:ff9b::/96 when the embedded IPv4 is private', () => {
     expect(isBlockedHostOrIp('64:ff9b::10.0.0.1')).toBe(true);
     expect(isBlockedHostOrIp('64:ff9b::192.168.1.1')).toBe(true);
@@ -90,6 +99,17 @@ describe('isAllowedExternalUrl', () => {
     expect((await isAllowedExternalUrl('http://[::ffff:127.0.0.1]/manifest')).valid).toBe(false);
   });
 
+  it('blocks unique-local and mapped private literals before DNS', async () => {
+    const ula = await isAllowedExternalUrl('http://[fd00::1]/manifest');
+    const mapped = await isAllowedExternalUrl('http://[::ffff:192.168.1.1]/secret');
+    expect(ula.valid).toBe(false);
+    expect(ula.error).toContain('Internal/Private');
+    expect(mapped.valid).toBe(false);
+    expect(mapped.error).toContain('Internal/Private');
+    expect(resolve4Spy).not.toHaveBeenCalled();
+    expect(resolve6Spy).not.toHaveBeenCalled();
+  });
+
   it('blocks cloud metadata IPs', async () => {
     expect(
       (await isAllowedExternalUrl('http://metadata.google.internal/computeMetadata/v1/')).valid
@@ -148,6 +168,12 @@ describe('isAllowedProxyUrl', () => {
     expect(isAllowedProxyUrl('https://127.0.0.1').valid).toBe(false);
     expect(isAllowedProxyUrl('https://192.168.1.1').valid).toBe(false);
     expect(isAllowedProxyUrl('https://10.0.0.1').valid).toBe(false);
+  });
+
+  it('rejects unique-local and IPv4-mapped HTTPS literals', () => {
+    expect(isAllowedProxyUrl('https://[fd00::1]/health').error).toContain('Internal/Private');
+    expect(isAllowedProxyUrl('https://[::ffff:192.168.1.1]/health').valid).toBe(false);
+    expect(isAllowedProxyUrl('https://[::ffff:127.0.0.1]/health').valid).toBe(false);
   });
 
   it('rejects non-HTTP(S) protocols', () => {

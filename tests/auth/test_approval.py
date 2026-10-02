@@ -494,3 +494,11 @@ async def test_create_device_authorization_raises_when_get_missing_after_create(
     store = _GetAlwaysNoneApprovalStore()
     with pytest.raises(RuntimeError, match="missing after create"):
         await create_device_authorization(store, "broken-1", ["read"])
+
+
+@pytest.mark.asyncio
+async def test_create_ciba_approval_raises_when_get_missing_after_create() -> None:
+    """CIBA create must fail closed if the store cannot read the row it just wrote."""
+    store = _GetAlwaysNoneApprovalStore()
+    with pytest.raises(RuntimeError, match="missing after create"):
+        await create_ciba_approval(store, "broken-ciba", ["read"])

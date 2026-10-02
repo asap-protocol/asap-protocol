@@ -1293,6 +1293,43 @@ class TestAgentRegisterEndpoint:
         stored_list = await agent_store.list_by_host(host_id)
         assert len(stored_list) == 2
 
+    async def test_register_a2h_binds_expected_capability_specs(
+        self,
+        sample_manifest: Manifest,
+        isolated_rate_limiter: "ASAPRateLimiter | None",
+    ) -> None:
+        """Registration A2H must consent to the specs stored for this request."""
+        app, _agent_store, _host_store = _app_with_identity_stores(
+            sample_manifest, isolated_rate_limiter
+        )
+        ch = AsyncMock()
+        app.state.identity_approval_a2h_channel = ch
+        host_sk = Ed25519PrivateKey.generate()
+        agent_sk = Ed25519PrivateKey.generate()
+        specs = [{"name": "file:read", "constraints": {"path": {"in": ["/tmp"]}}}]
+        token = create_host_jwt(
+            host_sk,
+            aud=_HOST_JWT_AUDIENCE,
+            agent_public_key=ed25519_public_jwk(agent_sk),
+            ttl_seconds=120,
+        )
+        client = TestClient(app)
+        r = client.post(
+            "/asap/agent/register",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"capabilities": specs},
+        )
+        assert r.status_code == 200
+        data = r.json()
+        assert data["status"] == "pending"
+        ch.resolve_via_a2h.assert_awaited_once()
+        call = ch.resolve_via_a2h.await_args
+        assert call is not None
+        assert call.kwargs["expected_capability_specs"] == specs
+        stored = await app.state.identity_approval_store.get(data["agent_id"])
+        assert stored is not None
+        assert stored.capability_specs == specs
+
     def test_register_browser_agent_returns_403_webauthn_when_real_verifier_configured(
         self,
         sample_manifest: Manifest,

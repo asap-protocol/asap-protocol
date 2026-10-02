@@ -1429,3 +1429,49 @@ async def test_verify_agent_jwt_iat_too_far_future(monkeypatch: pytest.MonkeyPat
     res = await verify_agent_jwt(token, hosts, agents)
     assert not res.ok
     assert res.error == "invalid iat (too far in the future)"
+
+
+class _MismatchedAgentIdStore:
+    """Lookup key and returned session id disagree after the signature check."""
+
+    def __init__(self, session: AgentSession) -> None:
+        self._session = session
+
+    async def get(self, agent_id: str) -> AgentSession | None:
+        if agent_id == "a1":
+            return self._session
+        return None
+
+
+@pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
+async def test_verify_agent_jwt_rejects_sub_that_differs_from_stored_agent_id() -> None:
+    """A store row keyed by ``sub`` must still carry that same agent id."""
+    now = datetime.now(timezone.utc)
+    host_sk = Ed25519PrivateKey.generate()
+    host_pub = _public_jwk_dict(host_sk)
+    host_tp = jwk_thumbprint_sha256(host_pub)
+    agent_sk = Ed25519PrivateKey.generate()
+    agent_pub = _public_jwk_dict(agent_sk)
+    hosts = InMemoryHostStore()
+    await hosts.save(
+        HostIdentity(
+            host_id="h1",
+            public_key=host_pub,
+            status="active",
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    aliased = AgentSession(
+        agent_id="impostor",
+        host_id="h1",
+        public_key=agent_pub,
+        mode="delegated",
+        status="active",
+        created_at=now,
+    )
+    token = create_agent_jwt(agent_sk, host_thumbprint=host_tp, agent_id="a1", aud="aud")
+    res = await verify_agent_jwt(token, hosts, _MismatchedAgentIdStore(aliased))
+    assert not res.ok
+    assert res.error == "sub does not match verified agent id"
+    assert res.agent is None
