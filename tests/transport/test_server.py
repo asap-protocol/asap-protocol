@@ -298,6 +298,69 @@ class TestASAPVersionMiddleware:
         assert response.headers.get("ASAP-Version") == "2.2"
         assert "result" in response.json()
 
+    @pytest.mark.parametrize(
+        ("header", "echoed"),
+        [
+            ("0.9, 2.1", "2.1"),
+            ("  0.9 ,  2.1  ", "2.1"),
+            ("0.9,,2.1", "2.1"),
+            ("2.1, 2.2", "2.1"),
+        ],
+    )
+    def test_post_asap_skips_unsupported_tokens_and_keeps_client_order(
+        self, app: FastAPI, client: TestClient, header: str, echoed: str
+    ) -> None:
+        """First supported token wins, including a fallback after an unknown version."""
+        body = _version_probe_body("conv-version-fallback", "version-fallback")
+        response = client.post("/asap", json=body, headers={"ASAP-Version": header})
+        assert response.status_code == 200
+        assert response.headers.get("ASAP-Version") == echoed
+        assert "result" in response.json()
+
+    def test_post_asap_lists_with_no_supported_token_keep_full_requested_value(
+        self, app: FastAPI, client: TestClient
+    ) -> None:
+        """A list with no supported token is rejected and echoes the whole header."""
+        body = _version_probe_body("conv-version-none", "version-none")
+        response = client.post("/asap", json=body, headers={"ASAP-Version": "0.8, 0.9"})
+        assert response.status_code == 200
+        assert response.headers.get("ASAP-Version") == ASAP_DEFAULT_TRANSPORT_VERSION
+        payload = response.json()
+        assert payload.get("error", {}).get("code") == VERSION_INCOMPATIBLE
+        assert payload.get("error", {}).get("data", {}).get("requested") == "0.8, 0.9"
+        assert "result" not in payload
+
+    def test_post_asap_whitespace_only_version_uses_default(
+        self, app: FastAPI, client: TestClient
+    ) -> None:
+        """A blank ASAP-Version header is treated as omitted and the handler still runs."""
+        body = _version_probe_body("conv-version-blank", "version-blank")
+        response = client.post("/asap", json=body, headers={"ASAP-Version": "   "})
+        assert response.status_code == 200
+        assert response.headers.get("ASAP-Version") == ASAP_DEFAULT_TRANSPORT_VERSION
+        assert "result" in response.json()
+
+
+def _version_probe_body(conversation_id: str, request_id: str) -> dict[str, Any]:
+    """JSON-RPC body for ASAP-Version negotiation probes."""
+    envelope = Envelope(
+        asap_version="0.1",
+        sender="urn:asap:agent:client",
+        recipient="urn:asap:agent:test-server",
+        payload_type="task.request",
+        payload=TaskRequest(
+            conversation_id=conversation_id,
+            skill_id="echo",
+            input={"message": "hello"},
+        ).model_dump(),
+    )
+    return {
+        "jsonrpc": "2.0",
+        "method": "asap.send",
+        "params": {"envelope": envelope.model_dump(mode="json")},
+        "id": request_id,
+    }
+
 
 class TestASAPChallengePropagation:
     """Tests for preserving upstream ASAP challenges across JSON-RPC responses."""

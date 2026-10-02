@@ -182,6 +182,33 @@ class TestParseIssueBody:
         assert parsed["category"] == "Coding"
         assert parsed["tags"] == "ai, code_review, testing"
 
+    def test_strips_markup_and_control_chars_from_description(self) -> None:
+        """Issue text stored in the registry drops fences, tags, and control chars."""
+        body = (
+            "### Description\n"
+            "Keep <b>bold</b> text.\n"
+            "```\nsecret-block\n```\n"
+            "tail `drop-me` end\x00\n"
+        )
+        parsed = parse_issue_body(body)
+        assert parsed["description"] == "Keep bold text.\n\ntail  end"
+        assert "secret-block" not in parsed["description"]
+        assert "<b>" not in parsed["description"]
+        assert "\x00" not in parsed["description"]
+
+    def test_clamps_name_to_500_and_description_to_2000(self) -> None:
+        """Description allows a longer field than the other issue sections."""
+        body = (
+            "### Agent name (slug-friendly)\n"
+            + ("n" * 501)
+            + "\n\n### Description\n"
+            + ("d" * 2001)
+            + "\n"
+        )
+        parsed = parse_issue_body(body)
+        assert parsed["name"] == "n" * 500
+        assert parsed["description"] == "d" * 2000
+
 
 class TestFetchManifestSSRF:
     """Tests for fetch_manifest SSRF protection (RF-1)."""
