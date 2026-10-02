@@ -187,8 +187,10 @@ class TestComplianceHarnessFromUrl:
         assert captured.get("follow_redirects") is False
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("status_code", [301, 302, 307, 308])
     async def test_run_compliance_harness_v2_from_url_does_not_follow_redirect_on_preflight(
         self,
+        status_code: int,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Preflight GET / must not follow Location to link-local/IMDS."""
@@ -198,7 +200,7 @@ class TestComplianceHarnessFromUrl:
             requested.append(str(request.url))
             if str(request.url).rstrip("/") == "https://agent.example.com":
                 return httpx.Response(
-                    302,
+                    status_code,
                     headers={"Location": "http://169.254.169.254/latest/meta-data/"},
                 )
             return httpx.Response(200, text="ok")
@@ -222,6 +224,38 @@ class TestComplianceHarnessFromUrl:
         assert requested == ["https://agent.example.com/"]
         assert not any("169.254.169.254" in url for url in requested)
         harness_mock.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_run_compliance_harness_v2_from_url_404_preflight_still_runs_harness(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """A missing root route (404) must not abort scoring; only 3xx does."""
+        requested: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requested.append(str(request.url))
+            return httpx.Response(404, text="no root")
+
+        original_init = httpx.AsyncClient.__init__
+
+        def transport_init(self: httpx.AsyncClient, *args: object, **kwargs: object) -> None:
+            kwargs["transport"] = httpx.MockTransport(handler)
+            original_init(self, *args, **kwargs)
+
+        monkeypatch.setattr(httpx.AsyncClient, "__init__", transport_init)
+        report = _empty_report()
+        harness_mock = AsyncMock(return_value=report)
+        monkeypatch.setattr(
+            "asap.testing.compliance.run_compliance_harness_with_client",
+            harness_mock,
+        )
+
+        result = await run_compliance_harness_v2_from_url("https://agent.example.com")
+
+        assert result is report
+        assert requested == ["https://agent.example.com/"]
+        harness_mock.assert_awaited_once()
 
 
 def _empty_report() -> ComplianceReport:
