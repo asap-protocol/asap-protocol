@@ -670,6 +670,32 @@ class TestWebhookRetryManager:
         # Verify the bucket exists for this URL
         assert self._URL in manager._url_buckets
 
+    def test_bucket_cap_evicts_oldest_url_and_resets_its_limit(self) -> None:
+        """The 10k cap drops the oldest URL, so that URL's limit starts over.
+
+        Eviction is the memory bound. Dropping the wrong URL, or reusing the
+        spent bucket, would either leak buckets or keep throttling the wrong peer.
+        """
+        policy = RetryPolicy(max_retries=0, base_delay=0.0, max_delay=0.0, rate_per_second=1.0)
+        manager = WebhookRetryManager(_make_mock_delivery([_ok_result(self._URL)]), policy=policy)
+        manager._max_buckets = 2
+        oldest_url = "https://hooks.example/oldest"
+        middle_url = "https://hooks.example/middle"
+        newest_url = "https://hooks.example/newest"
+
+        with patch("asap.transport.webhook.time.monotonic", return_value=1_000.0):
+            oldest_bucket = manager._get_bucket(oldest_url)
+            assert oldest_bucket.consume() is True
+            assert oldest_bucket.consume() is False
+            manager._get_bucket(middle_url)
+            manager._get_bucket(newest_url)
+            assert oldest_url not in manager._url_buckets
+            assert middle_url in manager._url_buckets
+            assert newest_url in manager._url_buckets
+            restored = manager._get_bucket(oldest_url)
+            assert restored is not oldest_bucket
+            assert restored.consume() is True
+
     # -- Dead letter entry attributes --
 
     async def test_dead_letter_entry_has_created_at(self) -> None:
