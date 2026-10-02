@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from asap.auth.agent_jwt_session import SessionSlideResult, slide_session_if_still_current
 from asap.auth.identity import AgentSession, InMemoryAgentStore
@@ -50,3 +50,28 @@ async def test_slide_session_returns_session_when_touch_succeeds() -> None:
     assert slid.session is not None
     assert slid.session.agent_id == "a1"
     assert slid.session.last_used_at is not None
+
+
+async def test_slide_session_refuses_idle_expired_row() -> None:
+    """Re-read expiry blocks the slide and leaves last_used_at unchanged."""
+    store = InMemoryAgentStore()
+    now = _utc_now()
+    stale = now - timedelta(hours=2)
+    agent = AgentSession(
+        agent_id="a1",
+        host_id="h1",
+        public_key=make_ed25519_jwk(),
+        mode="delegated",
+        status="active",
+        created_at=stale,
+        session_ttl=timedelta(minutes=15),
+        last_used_at=stale,
+    )
+    await store.save(agent)
+    slid = await slide_session_if_still_current(store, agent)
+    assert slid.ok is False
+    assert slid.session is None
+    assert slid.error == "agent_expired"
+    stored = await store.get("a1")
+    assert stored is not None
+    assert stored.last_used_at == stale

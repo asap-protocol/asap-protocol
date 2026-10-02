@@ -1908,6 +1908,89 @@ class TestAgentStatusEndpoint:
         assert st.status_code == 200
         assert st.json()["status"] == "revoked"
 
+    async def test_status_denied_approval_rejects_pending_agent(
+        self,
+        sample_manifest: Manifest,
+        isolated_rate_limiter: "ASAPRateLimiter | None",
+    ) -> None:
+        """A denied registration approval persists rejected and surfaces deny_reason."""
+        app, agent_store, _host_store = _app_with_identity_stores(
+            sample_manifest, isolated_rate_limiter
+        )
+        host_sk = Ed25519PrivateKey.generate()
+        agent_sk = Ed25519PrivateKey.generate()
+        reg_tok = create_host_jwt(
+            host_sk,
+            aud=_HOST_JWT_AUDIENCE,
+            agent_public_key=ed25519_public_jwk(agent_sk),
+            ttl_seconds=120,
+        )
+        client = TestClient(app)
+        aid = client.post(
+            "/asap/agent/register",
+            headers={"Authorization": f"Bearer {reg_tok}"},
+        ).json()["agent_id"]
+        await app.state.identity_approval_store.deny(aid, "policy")
+        host_tok = _host_jwt_without_agent_claim(host_sk)
+        st = client.get(
+            f"/asap/agent/status?agent_id={aid}",
+            headers={"Authorization": f"Bearer {host_tok}"},
+        )
+        assert st.status_code == 200
+        body = st.json()
+        assert body["status"] == "rejected"
+        assert body["deny_reason"] == "policy"
+        stored = await agent_store.get(aid)
+        assert stored is not None and stored.status == "rejected"
+
+    def test_status_rejects_stale_host_jwt_while_approval_pending(
+        self,
+        sample_manifest: Manifest,
+        isolated_rate_limiter: "ASAPRateLimiter | None",
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Pending approval polls use the same fresh-session gate as register."""
+        agent_store = InMemoryAgentStore()
+        host_store = InMemoryHostStore(agent_store=agent_store)
+        app = create_app(
+            sample_manifest,
+            rate_limit="999999/minute",
+            identity_host_store=host_store,
+            identity_agent_store=agent_store,
+            identity_rate_limit="999999/minute",
+            identity_fresh_session_config=FreshSessionConfig(window_seconds=60),
+        )
+        if isolated_rate_limiter is not None:
+            app.state.limiter = isolated_rate_limiter
+        host_sk = Ed25519PrivateKey.generate()
+        agent_sk = Ed25519PrivateKey.generate()
+        reg_tok = create_host_jwt(
+            host_sk,
+            aud=_HOST_JWT_AUDIENCE,
+            agent_public_key=ed25519_public_jwk(agent_sk),
+            ttl_seconds=120,
+        )
+        client = TestClient(app)
+        reg = client.post(
+            "/asap/agent/register",
+            headers={"Authorization": f"Bearer {reg_tok}"},
+        )
+        assert reg.status_code == 200
+        aid = reg.json()["agent_id"]
+        issued_at = int(time.time()) - 120
+        with monkeypatch.context() as time_patch:
+            time_patch.setattr("asap.auth.agent_jwt.time.time", lambda: float(issued_at))
+            stale = create_host_jwt(host_sk, aud=_HOST_JWT_AUDIENCE, ttl_seconds=3600)
+        st = client.get(
+            f"/asap/agent/status?agent_id={aid}",
+            headers={"Authorization": f"Bearer {stale}"},
+        )
+        assert st.status_code == 403
+        assert st.json() == {
+            "detail": "stale host session; re-authenticate within the fresh-session window "
+            "(60s) to use approval endpoints"
+        }
+
     def test_status_same_host_jwt_reusable_without_jti_replay(
         self,
         sample_manifest: Manifest,
