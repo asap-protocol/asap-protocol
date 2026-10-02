@@ -17,6 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **Capability execute omitted arguments** — ``CapabilityRegistry.check_grant``
+  and ``POST /asap/capability/execute`` treat a missing ``arguments`` object
+  as empty when the grant has constraints. Constrained fields stay required,
+  so omitting the object no longer skips the allowlist.
+
 - **Compliance harness open-redirect SSRF** — ``run_compliance_harness_v2_from_url``
   no longer sets ``follow_redirects=True``. Auto-registration
   (``POST /registry/agents``) allowlists the harness base URL once, then the
@@ -25,8 +30,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   registry-bot would fetch it. Same fail-closed policy as
   ``fetch_manifest_at_url``. ``asap compliance-check`` against a hostile
   URL is covered by the same client.
-
-### Security
 
 - **IssueOps registry endpoint SSRF**: `process_registration` now rejects HTTP
   and WebSocket endpoints that resolve to private, loopback, or cloud-metadata

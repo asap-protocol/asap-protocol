@@ -332,6 +332,17 @@ class TestCapabilityRegistry:
         assert len(r.violations) == 1
         assert r.violations[0].operator == "in"
 
+    def test_check_grant_constraints_reject_omitted_arguments(
+        self, registry: CapabilityRegistry
+    ) -> None:
+        """A constrained grant must not pass when the caller omits arguments."""
+        registry.grant("a1", "file:read", constraints={"path": {"in": ["/tmp"]}})
+        r = registry.check_grant("a1", "file:read")
+        assert not r.allowed
+        assert len(r.violations) == 1
+        assert r.violations[0].field == "path"
+        assert r.violations[0].operator == "required"
+
     def test_check_grant_expired(self, registry: CapabilityRegistry) -> None:
         past = datetime.now(timezone.utc) - timedelta(hours=1)
         registry.grant("a1", "file:read", expires_at=past)
