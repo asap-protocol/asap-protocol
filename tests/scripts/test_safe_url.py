@@ -43,6 +43,12 @@ class TestIsSafeHttpUrl:
     def test_blocks_literal_private_ip_hostname(self) -> None:
         assert is_safe_http_url("https://10.0.0.1/") is False
 
+    def test_blocks_ipv6_loopback_link_local_and_mapped_loopback(self) -> None:
+        """Literal IPv6 loopback, link-local, and mapped loopback are not fetchable."""
+        assert is_safe_http_url("https://[::1]/path") is False
+        assert is_safe_http_url("https://[fe80::1]/") is False
+        assert is_safe_http_url("https://[::ffff:127.0.0.1]/") is False
+
     def test_blocks_nat64_well_known_prefix_with_private_embedded_ipv4(self) -> None:
         assert is_safe_http_url("http://[64:ff9b::10.0.0.1]/") is False
         assert is_safe_http_url("http://[64:ff9b::a9fe:a9fe]/") is False

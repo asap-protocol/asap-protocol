@@ -90,6 +90,11 @@ class TestParseMaxAge:
         """Cache-Control with max-age=0 returns None."""
         assert _parse_max_age_from_cache_control("max-age=0") is None
 
+    def test_caps_max_age_at_one_day(self) -> None:
+        """Discover cache TTL cannot exceed one day, even if the origin asks for more."""
+        assert _parse_max_age_from_cache_control("public, max-age=86400") == 86400.0
+        assert _parse_max_age_from_cache_control("max-age=999999") == 86400.0
+
 
 class TestSendRetryOnServerError:
     """Tests for send() retry behavior on server errors."""
