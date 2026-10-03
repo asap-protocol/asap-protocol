@@ -156,6 +156,41 @@ class TestMeteringStorageBridgeAggregate:
         assert agg.total_tokens == 15
         assert agg.total_api_calls == 1
 
+    async def test_aggregate_today_excludes_previous_utc_day(self) -> None:
+        """``today`` is the current UTC calendar day, not a rolling 24 hours."""
+        backend = InMemoryMeteringStorage()
+        bridge = MeteringStorageBridge(backend)
+        now = datetime.now(timezone.utc)
+        start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        await backend.record(
+            UsageMetrics(
+                task_id="yesterday",
+                agent_id="a1",
+                consumer_id="c1",
+                tokens_in=100,
+                tokens_out=100,
+                api_calls=4,
+                timestamp=start_of_today - timedelta(seconds=1),
+            )
+        )
+        await backend.record(
+            UsageMetrics(
+                task_id="today",
+                agent_id="a1",
+                consumer_id="c1",
+                tokens_in=5,
+                tokens_out=25,
+                api_calls=1,
+                timestamp=now,
+            )
+        )
+
+        agg = await bridge.aggregate(agent_id="a1", period="today")
+        assert agg.period == "today"
+        assert agg.total_tokens == 30
+        assert agg.total_tasks == 1
+        assert agg.total_api_calls == 1
+
     async def test_aggregate_unknown_period_no_time_filter(self) -> None:
         backend = InMemoryMeteringStorage()
         bridge = MeteringStorageBridge(backend)
