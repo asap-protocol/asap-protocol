@@ -415,6 +415,47 @@ class TestCapabilityExecute:
         assert "expired" in r.json()["detail"].lower()
         assert "request_id" in r.json() and r.json()["request_id"]
 
+    async def test_execute_idle_session_ttl_returns_403_without_sliding(
+        self,
+        sample_manifest: Manifest,
+        isolated_rate_limiter: ASAPRateLimiter | None,
+    ) -> None:
+        """Idle ``session_ttl`` is ``agent_expired`` and must not refresh ``last_used_at``."""
+        app, agent_store, _, registry = _setup(
+            sample_manifest, isolated_rate_limiter, capabilities=_DEFAULT_CAPS
+        )
+        client = TestClient(app)
+        host_sk = Ed25519PrivateKey.generate()
+        agent_sk = Ed25519PrivateKey.generate()
+        aid = await _register_and_activate(
+            client,
+            app,
+            agent_store,
+            host_sk,
+            agent_sk,
+            session_ttl=timedelta(minutes=5),
+        )
+        sess = await agent_store.get(aid)
+        assert sess is not None
+        stale_used = datetime.now(timezone.utc) - timedelta(minutes=30)
+        await agent_store.save(sess.model_copy(update={"last_used_at": stale_used}))
+        registry.grant(aid, "file:read")
+
+        token = _agent_jwt(agent_sk, host_sk, aid)
+        r = client.post(
+            "/asap/capability/execute",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"capability": "file:read"},
+        )
+        assert r.status_code == 403
+        body = r.json()
+        assert body["detail"] == "agent_expired"
+        assert body["request_id"]
+        stored = await agent_store.get(aid)
+        assert stored is not None
+        assert stored.last_used_at == stale_used
+        assert stored.status == "active"
+
     async def test_execute_absolute_lifetime_returns_agent_revoked(
         self,
         sample_manifest: Manifest,

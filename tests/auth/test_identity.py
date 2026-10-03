@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import Any, Literal, get_args
+from typing import Any, Literal, cast, get_args
 
 import pytest
 from pydantic import ValidationError
@@ -161,6 +161,29 @@ def test_models_are_frozen() -> None:
     )
     with pytest.raises(ValidationError, match="frozen"):
         host.host_id = "other"
+
+
+def test_host_and_agent_reject_incomplete_okp_jwk() -> None:
+    """Identity rows must not persist a JWK that cannot be imported as Ed25519."""
+    now = _utc_now()
+    incomplete: dict[str, str] = {"kty": "OKP", "crv": "Ed25519"}
+    with pytest.raises(ValidationError, match="Invalid OKP public key JWK"):
+        HostIdentity(
+            host_id="h",
+            public_key=incomplete,
+            status="active",
+            created_at=now,
+            updated_at=now,
+        )
+    with pytest.raises(ValidationError, match="Invalid OKP public key JWK"):
+        AgentSession(
+            agent_id="a",
+            host_id="h",
+            public_key=incomplete,
+            mode="delegated",
+            status="pending",
+            created_at=now,
+        )
 
 
 def test_models_reject_extra_fields() -> None:
@@ -775,6 +798,62 @@ async def test_save_agent_unless_revoked_rejects_stale_active_snapshot() -> None
         await save_agent_unless_revoked(store, stale.model_copy(update={"status": "active"}))
     row = await store.get("a1")
     assert row is not None and row.status == "revoked"
+
+
+async def test_save_agent_unless_revoked_falls_back_for_legacy_save() -> None:
+    """Stores that predate key CAS still persist when the kwarg is rejected."""
+
+    class _LegacySaveStore:
+        def __init__(self) -> None:
+            self.saved: list[AgentSession] = []
+
+        async def save(self, agent: AgentSession) -> None:
+            self.saved.append(agent)
+
+    now = _utc_now()
+    session = AgentSession(
+        agent_id="a1",
+        host_id="h1",
+        public_key=make_ed25519_jwk(),
+        mode="delegated",
+        status="active",
+        created_at=now,
+    )
+    store = _LegacySaveStore()
+    await save_agent_unless_revoked(
+        cast(AgentStore, store),
+        session,
+        expected_public_key=session.public_key,
+    )
+    assert store.saved == [session]
+
+
+async def test_save_agent_unless_revoked_reraises_unrelated_type_error() -> None:
+    """Only a missing ``expected_public_key`` parameter falls back to plain save."""
+
+    class _RaisingStore:
+        async def save(
+            self,
+            agent: AgentSession,
+            expected_public_key: dict[str, Any] | None = None,
+        ) -> None:
+            raise TypeError(f"database offline for {agent.agent_id}")
+
+    now = _utc_now()
+    session = AgentSession(
+        agent_id="a1",
+        host_id="h1",
+        public_key=make_ed25519_jwk(),
+        mode="delegated",
+        status="active",
+        created_at=now,
+    )
+    with pytest.raises(TypeError, match="database offline for a1"):
+        await save_agent_unless_revoked(
+            cast(AgentStore, _RaisingStore()),
+            session,
+            expected_public_key=session.public_key,
+        )
 
 
 async def test_save_agent_unless_revoked_allows_revoked_noop_update() -> None:
