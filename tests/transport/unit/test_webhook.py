@@ -128,6 +128,25 @@ class TestURLValidation:
             await validate_callback_url("https://[::1]/hook")
 
     @pytest.mark.parametrize(
+        "url",
+        [
+            "https://[::]/hook",
+            "https://[fe80::1]/hook",
+            "https://[fea0::1]/hook",
+            "https://[fc00::1]/hook",
+            "https://0.0.0.0/hook",
+            "https://0.0.0.1/hook",
+            "https://127.0.0.2/hook",
+            "https://[::ffff:127.0.0.1]/hook",
+            "wss://[fea0::1]/events",
+        ],
+    )
+    async def test_blocks_noncanonical_private_literals(self, url: str) -> None:
+        """Block ::, fe80::/10, ULA, and non-canonical loopback before DNS."""
+        with pytest.raises(WebhookURLValidationError, match="blocked address range"):
+            await validate_agent_endpoint_url(url)
+
+    @pytest.mark.parametrize(
         "ip",
         [
             "::ffff:192.168.1.1",

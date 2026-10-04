@@ -5,6 +5,8 @@ from __future__ import annotations
 import socket
 from unittest.mock import patch
 
+import pytest
+
 from scripts.lib.safe_url import is_safe_endpoint_url, is_safe_http_url
 
 
@@ -42,6 +44,23 @@ class TestIsSafeHttpUrl:
 
     def test_blocks_literal_private_ip_hostname(self) -> None:
         assert is_safe_http_url("https://10.0.0.1/") is False
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://[::]/",
+            "https://[fea0::1]/path",
+            "https://[fc00::1]/",
+            "https://127.0.0.2/",
+            "https://0.0.0.1/",
+            "https://172.31.255.255/",
+            "https://192.168.255.255/",
+            "https://10.255.255.255/",
+        ],
+    )
+    def test_blocks_unspecified_link_local_ula_and_cidr_edges(self, url: str) -> None:
+        """IssueOps must reject non-canonical private literals before DNS."""
+        assert is_safe_http_url(url) is False
 
     def test_blocks_nat64_well_known_prefix_with_private_embedded_ipv4(self) -> None:
         assert is_safe_http_url("http://[64:ff9b::10.0.0.1]/") is False
@@ -128,3 +147,8 @@ class TestIsSafeEndpointUrl:
 
     def test_blocks_nat64_websocket_endpoint_with_metadata_embedded_ipv4(self) -> None:
         assert is_safe_endpoint_url("wss://[64:ff9b::a9fe:a9fe]/asap/events") is False
+
+    def test_blocks_unspecified_and_fe80_slash10_websocket_literals(self) -> None:
+        """WebSocket endpoints are rewritten to HTTP, then the same literal guard applies."""
+        assert is_safe_endpoint_url("ws://[::]/asap/events") is False
+        assert is_safe_endpoint_url("wss://[fea0::1]/asap/events") is False
