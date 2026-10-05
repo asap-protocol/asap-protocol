@@ -32,6 +32,13 @@ class TestIsSafeHttpUrl:
     def test_blocks_metadata_ip(self) -> None:
         assert is_safe_http_url("https://169.254.169.254/latest/meta-data/") is False
 
+    def test_blocks_cloud_metadata_hostnames_without_dns(self) -> None:
+        """Metadata hostnames are rejected before DNS so a resolver cannot widen them."""
+        with patch("scripts.lib.safe_url.socket.getaddrinfo") as resolve:
+            assert is_safe_http_url("http://metadata.google.internal/computeMetadata/v1/") is False
+            assert is_safe_http_url("https://Metadata.AWS.internal/latest/meta-data/") is False
+            resolve.assert_not_called()
+
     @patch("scripts.lib.safe_url.socket.getaddrinfo", _fake_public_getaddrinfo)
     def test_allows_https_public_example(self) -> None:
         assert is_safe_http_url("https://example.com/registry.json") is True
@@ -113,6 +120,10 @@ class TestIsSafeHttpUrl:
 class TestIsSafeEndpointUrl:
     def test_blocks_metadata_http_endpoint(self) -> None:
         assert is_safe_endpoint_url("http://169.254.169.254/asap") is False
+
+    def test_blocks_cloud_metadata_hostnames_on_endpoints(self) -> None:
+        assert is_safe_endpoint_url("https://metadata.google.internal/asap") is False
+        assert is_safe_endpoint_url("wss://metadata.aws.internal/asap/events") is False
 
     def test_blocks_loopback_websocket_endpoint(self) -> None:
         assert is_safe_endpoint_url("ws://127.0.0.1/asap/events") is False

@@ -251,6 +251,33 @@ def test_register_agent_compliance_gate_422(
     assert body["detail"]["score"] == 0.0
 
 
+def test_register_agent_rejects_unknown_json_fields() -> None:
+    """``POST /registry/agents`` rejects fields outside ``manifest_url``."""
+    cfg = AutoRegistrationConfig(
+        oauth_claims_dependency=_oauth_bypass,
+        run_compliance=lambda _base: _passing_report(),
+        open_pull_request=_noop_pr,
+    )
+    app = FastAPI()
+    app.state.registration_limiter = create_test_limiter(
+        ["100000/hour"],
+        key_func=registration_token_key,
+    )
+    app.state.registration_receipt_cache = {}
+    app.include_router(create_auto_registration_router(cfg))
+    client = TestClient(app)
+    resp = client.post(
+        "/registry/agents",
+        json={
+            "manifest_url": "https://example.com/.well-known/asap/manifest.json",
+            "score": 1,
+        },
+        headers={"Authorization": "Bearer tok"},
+    )
+    assert resp.status_code == 422
+    assert "extra_forbidden" in resp.text
+
+
 def test_register_agent_idempotent_cache(
     registration_app: tuple[FastAPI, list[tuple[RegistryEntry, str]]],
     manifest_https: Manifest,

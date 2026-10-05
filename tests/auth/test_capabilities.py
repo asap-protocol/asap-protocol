@@ -349,6 +349,32 @@ class TestCapabilityRegistry:
         r = registry.check_grant("a1", "file:read")
         assert not r.allowed
 
+    def test_check_grant_allowed_at_exact_expiry_denied_after(
+        self,
+        registry: CapabilityRegistry,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Expiry uses a strict ``>`` comparison: the boundary instant is still allowed."""
+        boundary = datetime(2026, 10, 5, 12, 0, tzinfo=timezone.utc)
+        registry.grant("a1", "file:read", expires_at=boundary)
+        clock = {"now": boundary}
+
+        class _FrozenDateTime(datetime):
+            @classmethod
+            def now(cls, tz: timezone | None = None) -> datetime:
+                _ = tz
+                return clock["now"]
+
+        monkeypatch.setattr("asap.auth.capabilities.datetime", _FrozenDateTime)
+        at_boundary = registry.check_grant("a1", "file:read")
+        assert at_boundary.allowed
+
+        clock["now"] = boundary + timedelta(microseconds=1)
+        after = registry.check_grant("a1", "file:read")
+        assert not after.allowed
+        assert after.grant is not None
+        assert after.violations == []
+
     def test_check_grant_not_expired(self, registry: CapabilityRegistry) -> None:
         future = datetime.now(timezone.utc) + timedelta(hours=1)
         registry.grant("a1", "file:read", expires_at=future)
