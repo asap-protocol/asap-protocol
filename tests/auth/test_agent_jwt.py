@@ -437,6 +437,32 @@ class _RotateAtTouchStartAgentStore(InMemoryAgentStore):
         )
 
 
+class _FailFirstTouchAgentStore(InMemoryAgentStore):
+    """First ``touch_if_current`` loses the race; the row stays active."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._rejected_touch = False
+
+    async def touch_if_current(
+        self,
+        agent_id: str,
+        expected_public_key: dict[str, Any],
+        last_used_at: datetime,
+        *,
+        expected_host_id: str,
+    ) -> AgentSession | None:
+        if not self._rejected_touch:
+            self._rejected_touch = True
+            return None
+        return await super().touch_if_current(
+            agent_id,
+            expected_public_key,
+            last_used_at,
+            expected_host_id=expected_host_id,
+        )
+
+
 async def _seed_verify_agent_jwt(
     agents: InMemoryAgentStore,
 ) -> tuple[InMemoryHostStore, str, dict[str, Any]]:
@@ -738,6 +764,90 @@ async def test_verify_agent_jwt_jti_replay() -> None:
     assert res1.ok
     assert not res2.ok
     assert res2.error == "jti replay detected"
+
+
+@pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
+async def test_verify_host_jwt_exp_boundary_is_exclusive(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``exp`` is exclusive: valid one second before, rejected at the exp instant."""
+    t0 = 1_700_000_000.0
+    ttl = 30
+    monkeypatch.setattr("time.time", lambda: t0)
+    signing_key = Ed25519PrivateKey.generate()
+    still_valid = create_host_jwt(signing_key, aud="aud", ttl_seconds=ttl)
+    at_exp = create_host_jwt(signing_key, aud="aud", ttl_seconds=ttl)
+    hosts = InMemoryHostStore()
+
+    monkeypatch.setattr("time.time", lambda: t0 + ttl - 1)
+    accepted = await verify_host_jwt(still_valid, hosts)
+    assert accepted.ok
+
+    monkeypatch.setattr("time.time", lambda: t0 + ttl)
+    rejected = await verify_host_jwt(at_exp, hosts)
+    assert not rejected.ok
+    assert rejected.error == "token expired or missing exp"
+
+
+@pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
+async def test_verify_agent_jwt_exp_boundary_is_exclusive(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Agent JWT lifetime uses the same exclusive ``exp`` instant as Host JWTs."""
+    t0 = 1_700_000_000.0
+    monkeypatch.setattr("time.time", lambda: t0)
+    early_agents = InMemoryAgentStore()
+    early_hosts, early_token, _early_pub = await _seed_verify_agent_jwt(early_agents)
+    late_agents = InMemoryAgentStore()
+    late_hosts, late_token, _late_pub = await _seed_verify_agent_jwt(late_agents)
+
+    monkeypatch.setattr("time.time", lambda: t0 + AGENT_JWT_TTL_SECONDS - 1)
+    accepted = await verify_agent_jwt(early_token, early_hosts, early_agents)
+    assert accepted.ok
+
+    monkeypatch.setattr("time.time", lambda: t0 + AGENT_JWT_TTL_SECONDS)
+    rejected = await verify_agent_jwt(late_token, late_hosts, late_agents)
+    assert not rejected.ok
+    assert rejected.error == "token expired or missing exp"
+
+
+@pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
+async def test_verify_agent_jwt_failed_slide_still_consumes_jti() -> None:
+    """A lost session slide burns ``jti`` so the same token cannot be retried."""
+    agents = _FailFirstTouchAgentStore()
+    hosts, token, _agent_pub = await _seed_verify_agent_jwt(agents)
+    cache = JtiReplayCache()
+    first = await verify_agent_jwt(token, hosts, agents, jti_replay_cache=cache)
+    assert not first.ok
+    assert first.error == "agent session changed during verification"
+    stored = await agents.get("a1")
+    assert stored is not None and stored.status == "active"
+    second = await verify_agent_jwt(token, hosts, agents, jti_replay_cache=cache)
+    assert not second.ok
+    assert second.error == "jti replay detected"
+
+
+@pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
+async def test_verify_host_jwt_read_only_jti_does_not_consume_until_spend() -> None:
+    """In-memory polling may reuse a Host JWT until a recording route spends it."""
+    now = datetime.now(timezone.utc)
+    host_sk = Ed25519PrivateKey.generate()
+    hosts = InMemoryHostStore()
+    await hosts.save(
+        HostIdentity(
+            host_id="host-readonly-jti",
+            public_key=_public_jwk_dict(host_sk),
+            status="active",
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    token = create_host_jwt(host_sk, aud="aud", ttl_seconds=120)
+    cache = JtiReplayCache()
+    for _ in range(2):
+        poll = await verify_host_jwt(token, hosts, jti_replay_cache=cache, record_jti=False)
+        assert poll.ok
+    spend = await verify_host_jwt(token, hosts, jti_replay_cache=cache, record_jti=True)
+    assert spend.ok
+    replay = await verify_host_jwt(token, hosts, jti_replay_cache=cache, record_jti=False)
+    assert not replay.ok
+    assert replay.error == "jti replay detected"
 
 
 @pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
