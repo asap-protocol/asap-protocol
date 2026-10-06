@@ -463,6 +463,54 @@ class TestEvaluateBreachConditions:
         assert results[0].breach_type == "error_rate"
         assert results[0].severity == "critical"
 
+    @pytest.mark.parametrize(
+        ("sla", "latency_ms", "error_rate"),
+        [
+            (SLADefinition(max_latency_p95_ms=500), 500, 0.0),
+            (SLADefinition(max_error_rate="1%"), 10, 1.0),
+        ],
+    )
+    def test_metric_at_sla_ceiling_is_not_a_breach(
+        self,
+        sla: SLADefinition,
+        latency_ms: int,
+        error_rate: float,
+    ) -> None:
+        """Equality with the promised ceiling is compliant (strict ``>`` / ``<``)."""
+        metrics = self._metrics(uptime=100.0, latency_ms=latency_ms, error_rate=error_rate)
+        assert evaluate_breach_conditions(sla, metrics) == []
+
+    def test_availability_at_95_percent_is_warning(self) -> None:
+        """Critical availability starts strictly below 95 percent uptime."""
+        sla = SLADefinition(availability="99%")
+        metrics = self._metrics(uptime=95.0, latency_ms=10, error_rate=0.0)
+        results = evaluate_breach_conditions(sla, metrics)
+        assert len(results) == 1
+        assert results[0].breach_type == "availability"
+        assert results[0].severity == "warning"
+
+    @pytest.mark.parametrize(
+        ("latency_ms", "severity"),
+        [(999, "warning"), (1000, "critical")],
+    )
+    def test_latency_critical_boundary_at_double_max(self, latency_ms: int, severity: str) -> None:
+        """Latency becomes critical at exactly twice the promised maximum."""
+        sla = SLADefinition(max_latency_p95_ms=500)
+        metrics = self._metrics(uptime=100.0, latency_ms=latency_ms, error_rate=0.0)
+        results = evaluate_breach_conditions(sla, metrics)
+        assert len(results) == 1
+        assert results[0].severity == severity
+
+    @pytest.mark.parametrize(("rate", "severity"), [(3.9, "warning"), (4.0, "critical")])
+    def test_error_rate_critical_boundary_at_double_max(self, rate: float, severity: str) -> None:
+        """A 2 percent budget is critical at 4 percent, below the global 5 percent floor."""
+        sla = SLADefinition(max_error_rate="2%")
+        metrics = self._metrics(uptime=100.0, latency_ms=10, error_rate=rate)
+        results = evaluate_breach_conditions(sla, metrics)
+        assert len(results) == 1
+        assert results[0].breach_type == "error_rate"
+        assert results[0].severity == severity
+
     def test_multiple_breaches(self) -> None:
         """All three breach types can be returned when all thresholds are exceeded."""
         sla = SLADefinition(
