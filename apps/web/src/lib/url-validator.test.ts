@@ -150,6 +150,21 @@ describe('isAllowedExternalUrl', () => {
     expect(result.valid).toBe(false);
     expect(result.error).toContain('127.0.0.2');
   });
+
+  it('rejects a private AAAA even when A is absent or public', async () => {
+    resolve4Spy.mockRejectedValue(new Error('ENOTFOUND'));
+    resolve6Spy.mockResolvedValue(['fd00::1']);
+    const ulaOnly = await isAllowedExternalUrl('http://ula.example/manifest');
+    expect(ulaOnly.valid).toBe(false);
+    expect(ulaOnly.error).toContain('fd00::1');
+    expect(resolve6Spy).toHaveBeenCalled();
+
+    resolve4Spy.mockResolvedValue(['93.184.216.34']);
+    resolve6Spy.mockResolvedValue(['fe80::1']);
+    const mixed = await isAllowedExternalUrl('http://dual.example/manifest');
+    expect(mixed.valid).toBe(false);
+    expect(mixed.error).toContain('fe80::1');
+  });
 });
 
 describe('isAllowedProxyUrl', () => {
@@ -230,6 +245,16 @@ describe('isAllowedProxyUrlAsync (DNS rebinding mitigation)', () => {
     resolve6Spy.mockResolvedValue([]);
     const result = await isAllowedProxyUrlAsync('https://dual-stack.example.com/');
     expect(result.valid).toBe(false);
+  });
+
+  it('rejects a private AAAA beside a public A record', async () => {
+    resolve4Spy.mockResolvedValue(['93.184.216.34']);
+    resolve6Spy.mockResolvedValue(['fd00::1']);
+    const result = await isAllowedProxyUrlAsync('https://dual.example.com/health');
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain('Internal/Private');
+    expect(resolve4Spy).toHaveBeenCalled();
+    expect(resolve6Spy).toHaveBeenCalled();
   });
 
   it('rejects when DNS resolution fails for both A and AAAA', async () => {

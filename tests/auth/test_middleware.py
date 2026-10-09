@@ -285,6 +285,51 @@ def test_oauth2_middleware_returns_403_when_scope_insufficient() -> None:
     assert response.json() == {"detail": "Insufficient scope"}
 
 
+def test_extra_path_prefix_authenticates_without_global_scope() -> None:
+    """Operator prefixes require a JWT but do not apply required_scope (#209)."""
+    key = jwk.RSAKey.generate_key(2048, private=True)
+    key_set = jwk.KeySet.import_key_set({"keys": [key.as_dict(private=False)]})
+
+    async def jwks_fetcher(_uri: str) -> jwk.KeySet:
+        return key_set
+
+    app = FastAPI()
+
+    @app.get("/usage")
+    async def usage() -> dict[str, str]:
+        return {"status": "ok"}
+
+    @app.get("/asap")
+    async def asap() -> dict[str, str]:
+        return {"status": "ok"}
+
+    app.add_middleware(
+        OAuth2Middleware,
+        jwks_uri="https://auth.example.com/jwks.json",
+        path_prefix="/asap",
+        extra_path_prefixes=("/usage",),
+        required_scope="asap:execute",
+        jwks_fetcher=jwks_fetcher,
+    )
+
+    now = int(time.time())
+    token = jose_jwt.encode(
+        {"alg": "RS256", "typ": "JWT"},
+        {"sub": "urn:asap:agent:reader", "scope": "asap:read", "exp": now + 3600},
+        key,
+    )
+    headers = {"Authorization": f"Bearer {token}"}
+    with TestClient(app) as client:
+        usage_response = client.get("/usage", headers=headers)
+        asap_response = client.get("/asap", headers=headers)
+        anonymous = client.get("/usage")
+
+    assert usage_response.status_code == 200
+    assert asap_response.status_code == 403
+    assert asap_response.json() == {"detail": "Insufficient scope"}
+    assert anonymous.status_code == 401
+
+
 async def test_oauth2_middleware_returns_503_when_jwks_fetch_fails() -> None:
     """When JWKS fetcher raises HTTPError, middleware returns 503."""
 

@@ -162,6 +162,27 @@ class TestURLValidation:
         ):
             await validate_callback_url("https://rebind.example.com/hook")
 
+    async def test_mixed_public_and_private_dns_is_blocked(self) -> None:
+        """One private answer rejects the host even when another answer is public."""
+        mixed = [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 0)),
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("192.168.1.1", 0)),
+        ]
+        with (
+            _patch_async_getaddrinfo(mixed),
+            pytest.raises(WebhookURLValidationError, match="192.168.1.1"),
+        ):
+            await validate_callback_url("https://dual.example.com/hook")
+
+    async def test_unique_local_aaaa_is_blocked(self) -> None:
+        """An AAAA answer inside fc00::/7 is a private address."""
+        ula = [(socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("fd00::1", 0, 0, 0))]
+        with (
+            _patch_async_getaddrinfo(ula),
+            pytest.raises(WebhookURLValidationError, match="fd00::1"),
+        ):
+            await validate_callback_url("https://ula.example.com/hook")
+
     async def test_dns_resolution_failure_raises(self) -> None:
         with (
             _patch_async_getaddrinfo(side_effect=socket.gaierror("DNS failed")),

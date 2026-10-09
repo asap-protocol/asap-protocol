@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from typing import Any, cast, get_args
+from datetime import datetime, timedelta, timezone, tzinfo
+from typing import TYPE_CHECKING, Any, cast, get_args
 
 import pytest
 from pydantic import ValidationError
@@ -27,6 +27,9 @@ from asap.auth.identity import (
     jwk_thumbprint_sha256,
 )
 from tests.crypto.jwk_helpers import make_ed25519_jwk
+
+if TYPE_CHECKING:
+    from _pytest.monkeypatch import MonkeyPatch
 
 
 # ---------------------------------------------------------------------------
@@ -355,6 +358,32 @@ class TestCapabilityRegistry:
         r = registry.check_grant("a1", "file:read")
         assert r.allowed
 
+    def test_check_grant_allows_the_expiry_instant(
+        self,
+        registry: CapabilityRegistry,
+        monkeypatch: MonkeyPatch,
+    ) -> None:
+        """``expires_at`` is still valid at equality and denied one microsecond later."""
+        expires_at = datetime(2026, 10, 9, 12, 0, tzinfo=timezone.utc)
+
+        class _ExpiryClock(datetime):
+            @classmethod
+            def now(cls, tz: tzinfo | None = None) -> datetime:
+                if tz is None:
+                    return expires_at.replace(tzinfo=None)
+                return expires_at.astimezone(tz)
+
+        monkeypatch.setattr("asap.auth.capabilities.datetime", _ExpiryClock)
+        registry.grant("a1", "file:read", expires_at=expires_at)
+        assert registry.check_grant("a1", "file:read").allowed is True
+
+        registry.grant(
+            "a1",
+            "file:read",
+            expires_at=expires_at - timedelta(microseconds=1),
+        )
+        assert registry.check_grant("a1", "file:read").allowed is False
+
     def test_check_grant_unknown_agent(self, registry: CapabilityRegistry) -> None:
         r = registry.check_grant("unknown", "file:read")
         assert not r.allowed
@@ -471,6 +500,19 @@ class TestEscalationCapabilityHelpers:
         )
         assert needs == []
         assert autos == []
+
+    def test_partition_strips_name_before_default_match(self) -> None:
+        """Padding around a default name does not force a consent round-trip.
+
+        The returned spec keeps the original name. Strip is only the policy key.
+        """
+        host = self._host(default_capabilities=["file:read"])
+        needs, autos = partition_escalation_capability_specs(
+            host,
+            [{"name": "  file:read  "}],
+        )
+        assert needs == []
+        assert autos == [{"name": "  file:read  "}]
 
     def test_auto_grant_replace_none_existing_is_false(self) -> None:
         assert auto_grant_would_replace_existing_grant(None, None) is False

@@ -540,6 +540,28 @@ class TestDiscoverFromRegistry:
         assert reg.agents[1].skills == ["code_review"]
 
     @pytest.mark.asyncio
+    async def test_discover_does_not_follow_redirects(self) -> None:
+        """A 302 is rejected by raise_for_status and its Location is not fetched."""
+        seen: list[str] = []
+
+        def mock_transport(request: httpx.Request) -> httpx.Response:
+            seen.append(str(request.url))
+            return httpx.Response(
+                status_code=302,
+                headers={"Location": "http://169.254.169.254/latest/meta-data/"},
+                content=b"nope",
+            )
+
+        with pytest.raises(httpx.HTTPStatusError) as exc_info:
+            await discover_from_registry(
+                registry_url="https://registry.example/registry.json",
+                transport=httpx.MockTransport(mock_transport),
+            )
+
+        assert exc_info.value.response.status_code == 302
+        assert seen == ["https://registry.example/registry.json"]
+
+    @pytest.mark.asyncio
     async def test_cache_used_second_call_does_not_fetch(self) -> None:
         """Second discover_from_registry for same URL returns cached result; no second HTTP call."""
         call_count = 0
