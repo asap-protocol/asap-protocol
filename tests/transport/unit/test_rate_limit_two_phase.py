@@ -72,3 +72,26 @@ def test_check_n_does_not_consume_hits_when_a_limit_fails() -> None:
         limiter.check_n(_request(), 5)
     assert len(tested) == 2
     assert hits == []
+
+
+def test_check_n_records_one_hit_per_accepted_item() -> None:
+    """A successful batch spends one hit per item, so a later call sees the full count."""
+    limiter = ASAPRateLimiter(
+        key_func=lambda _request: "batch-client",
+        limits=["5/minute"],
+    )
+    limiter.check_n(_request(), 3)
+    limiter.check_n(_request(), 2)
+    with pytest.raises(RateLimitExceeded):
+        limiter.check(_request())
+
+
+def test_check_n_non_positive_does_not_consult_the_window() -> None:
+    """Zero and negative batch sizes return before any limiter key or counter is touched."""
+
+    def _reject_lookup(_request: Request) -> str:
+        raise AssertionError("key_func must not run for a non-positive batch")
+
+    limiter = ASAPRateLimiter(key_func=_reject_lookup, limits=["1/minute"])
+    limiter.check_n(_request(), 0)
+    limiter.check_n(_request(), -4)

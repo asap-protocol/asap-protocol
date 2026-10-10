@@ -129,6 +129,18 @@ def test_getitem_removes_expired_entry_behind_still_valid_head(
         _ = c["k1"]
 
 
+def test_getitem_refreshes_lru_so_the_read_key_survives_eviction() -> None:
+    """A successful read moves that key to the newest slot before the next insert."""
+    cache: RegistrationReceiptTTLCache[str] = RegistrationReceiptTTLCache(maxsize=2, ttl=60.0)
+    cache["cold"] = "1"
+    cache["hot"] = "2"
+    assert cache["cold"] == "1"
+    cache["incoming"] = "3"
+    assert "hot" not in cache
+    assert cache["cold"] == "1"
+    assert cache["incoming"] == "3"
+
+
 def test_iter_yields_cache_keys() -> None:
     """Iteration yields current non-expired keys in LRU order."""
     c: RegistrationReceiptTTLCache[str] = RegistrationReceiptTTLCache(maxsize=10, ttl=60.0)
