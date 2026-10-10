@@ -1,8 +1,9 @@
-"""Regression: pending→active / reactivate full-row save must not undo rotate-key.
+"""Regression: identity HTTP must not undo a concurrent rotate-key via full-row save.
 
 Distinct from revoke resurrection (``test_agent_revoke_race.py`` / LIFE-005):
-a concurrent ``POST /asap/agent/rotate-key`` lands a new JWK, then status or
-reactivate persists a snapshot that still carries the old ``public_key``.
+a concurrent rotation lands a new JWK, then status polls, ``rotate-key``, or
+``reactivate`` must keep that JWK, return 409 on lost CAS, and must not apply
+grants or decay when the compare-and-swap fails.
 """
 
 from __future__ import annotations
@@ -83,6 +84,32 @@ def _app_with_store(
     return app
 
 
+async def _register_then_expire(
+    client: TestClient,
+    agent_store: InMemoryAgentStore,
+    host_sk: Ed25519PrivateKey,
+    agent_sk: Ed25519PrivateKey,
+) -> str:
+    """Register a default session and mark it expired so reactivate is legal."""
+    reg_tok = create_host_jwt(
+        host_sk,
+        aud=_HOST_JWT_AUDIENCE,
+        agent_public_key=ed25519_public_jwk(agent_sk),
+        ttl_seconds=120,
+    )
+    reg = client.post(
+        "/asap/agent/register",
+        headers={"Authorization": f"Bearer {reg_tok}"},
+    )
+    assert reg.status_code == 200
+    aid = reg.json()["agent_id"]
+    sess = await agent_store.get(aid)
+    assert sess is not None
+    await agent_store.save(sess.model_copy(update={"status": "expired"}))
+    assert isinstance(aid, str)
+    return aid
+
+
 def _register_pending_file_read(
     client: TestClient,
     host_sk: Ed25519PrivateKey,
@@ -116,7 +143,7 @@ class TestAgentKeyRotationRaces:
         sample_manifest: Manifest,
         isolated_rate_limiter: ASAPRateLimiter | None,
     ) -> None:
-        """Approved status poll must keep a JWK that rotated inside ``save``."""
+        """Approved status poll keeps the rotated JWK and does not grant capabilities."""
         new_sk = Ed25519PrivateKey.generate()
         new_pub = ed25519_public_jwk(new_sk)
         agent_store = _RotateOnArmedSaveAgentStore(new_pub)
@@ -133,9 +160,81 @@ class TestAgentKeyRotationRaces:
             headers=_auth_header(host_sk),
         )
         assert st.status_code == 200
+        assert st.json()["status"] == "pending"
         stored = await agent_store.get(aid)
         assert stored is not None
+        assert stored.status == "pending"
         assert jwk_thumbprint_sha256(stored.public_key) == jwk_thumbprint_sha256(new_pub)
+        # Grants run only after pending→active save succeeds. A lost CAS must
+        # not publish file:read for a session that stayed pending.
+        assert app.state.capability_registry.get_grants(aid) == []
+        approval = await app.state.identity_approval_store.get(aid)
+        assert approval is not None
+        assert approval.status == "approved"
+
+    async def test_denied_status_keeps_rotated_key(
+        self,
+        sample_manifest: Manifest,
+        isolated_rate_limiter: ASAPRateLimiter | None,
+    ) -> None:
+        """A denied poll must not 500 or write rejected over a key that rotated in save."""
+        new_sk = Ed25519PrivateKey.generate()
+        new_pub = ed25519_public_jwk(new_sk)
+        agent_store = _RotateOnArmedSaveAgentStore(new_pub)
+        app = _app_with_store(sample_manifest, isolated_rate_limiter, agent_store)
+        host_sk = Ed25519PrivateKey.generate()
+        agent_sk = Ed25519PrivateKey.generate()
+        client = TestClient(app)
+        aid = _register_pending_file_read(client, host_sk, agent_sk)
+        await app.state.identity_approval_store.deny(aid, "operator declined")
+        agent_store.arm_rotate_on_save()
+
+        st = client.get(
+            f"/asap/agent/status?agent_id={aid}",
+            headers=_auth_header(host_sk),
+        )
+        assert st.status_code == 200
+        body = st.json()
+        assert body["status"] == "pending"
+        assert body["approval_status"] == "denied"
+        stored = await agent_store.get(aid)
+        assert stored is not None
+        assert stored.status == "pending"
+        assert jwk_thumbprint_sha256(stored.public_key) == jwk_thumbprint_sha256(new_pub)
+        assert app.state.capability_registry.get_grants(aid) == []
+        approval = await app.state.identity_approval_store.get(aid)
+        assert approval is not None
+        assert approval.status == "denied"
+
+    async def test_rotate_key_returns_409_when_key_changes_during_save(
+        self,
+        sample_manifest: Manifest,
+        isolated_rate_limiter: ASAPRateLimiter | None,
+    ) -> None:
+        """Concurrent rotate wins: 409, and the caller's JWK is not stored."""
+        concurrent_pub = ed25519_public_jwk(Ed25519PrivateKey.generate())
+        requested_pub = ed25519_public_jwk(Ed25519PrivateKey.generate())
+        agent_store = _RotateOnArmedSaveAgentStore(concurrent_pub)
+        app = _app_with_store(sample_manifest, isolated_rate_limiter, agent_store)
+        host_sk = Ed25519PrivateKey.generate()
+        agent_sk = Ed25519PrivateKey.generate()
+        client = TestClient(app)
+        aid = _register_pending_file_read(client, host_sk, agent_sk)
+        agent_store.arm_rotate_on_save()
+
+        resp = client.post(
+            "/asap/agent/rotate-key",
+            headers=_auth_header(host_sk),
+            json={"agent_id": aid, "new_public_key": requested_pub},
+        )
+        assert resp.status_code == 409
+        assert resp.json()["detail"] == "agent public key changed concurrently"
+        stored = await agent_store.get(aid)
+        assert stored is not None
+        assert stored.status == "pending"
+        stored_tp = jwk_thumbprint_sha256(stored.public_key)
+        assert stored_tp == jwk_thumbprint_sha256(concurrent_pub)
+        assert stored_tp != jwk_thumbprint_sha256(requested_pub)
 
     async def test_reactivate_does_not_revert_rotated_key(
         self,
@@ -150,19 +249,7 @@ class TestAgentKeyRotationRaces:
         host_sk = Ed25519PrivateKey.generate()
         agent_sk = Ed25519PrivateKey.generate()
         client = TestClient(app)
-        reg_tok = create_host_jwt(
-            host_sk,
-            aud=_HOST_JWT_AUDIENCE,
-            agent_public_key=ed25519_public_jwk(agent_sk),
-            ttl_seconds=120,
-        )
-        aid = client.post(
-            "/asap/agent/register",
-            headers={"Authorization": f"Bearer {reg_tok}"},
-        ).json()["agent_id"]
-        sess = await agent_store.get(aid)
-        assert sess is not None
-        await agent_store.save(sess.model_copy(update={"status": "expired"}))
+        aid = await _register_then_expire(client, agent_store, host_sk, agent_sk)
         agent_store.arm_rotate_on_save()
 
         resp = client.post(
@@ -170,7 +257,39 @@ class TestAgentKeyRotationRaces:
             headers=_auth_header(host_sk),
             json={"agent_id": aid},
         )
-        assert resp.status_code in (200, 409)
+        assert resp.status_code == 409
+        assert resp.json()["detail"] == "agent public key changed concurrently"
         stored = await agent_store.get(aid)
         assert stored is not None
+        assert stored.status == "expired"
         assert jwk_thumbprint_sha256(stored.public_key) == jwk_thumbprint_sha256(new_pub)
+
+    async def test_reactivate_stale_key_returns_409_without_decay(
+        self,
+        sample_manifest: Manifest,
+        isolated_rate_limiter: ASAPRateLimiter | None,
+    ) -> None:
+        """Lost CAS on reactivate is 409 and must not decay grants that are still active."""
+        new_pub = ed25519_public_jwk(Ed25519PrivateKey.generate())
+        agent_store = _RotateOnArmedSaveAgentStore(new_pub)
+        app = _app_with_store(sample_manifest, isolated_rate_limiter, agent_store)
+        host_sk = Ed25519PrivateKey.generate()
+        agent_sk = Ed25519PrivateKey.generate()
+        client = TestClient(app)
+        aid = await _register_then_expire(client, agent_store, host_sk, agent_sk)
+        app.state.capability_registry.grant(aid, "admin:config")
+        agent_store.arm_rotate_on_save()
+
+        resp = client.post(
+            "/asap/agent/reactivate",
+            headers=_auth_header(host_sk),
+            json={"agent_id": aid},
+        )
+        assert resp.status_code == 409
+        assert resp.json()["detail"] == "agent public key changed concurrently"
+        stored = await agent_store.get(aid)
+        assert stored is not None
+        assert stored.status == "expired"
+        assert jwk_thumbprint_sha256(stored.public_key) == jwk_thumbprint_sha256(new_pub)
+        grants = {g.capability: g.status for g in app.state.capability_registry.get_grants(aid)}
+        assert grants == {"admin:config": "active"}

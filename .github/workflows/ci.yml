@@ -141,7 +141,7 @@ jobs:
         run: npm audit --omit=dev --audit-level=moderate
         working-directory: apps/web
       - name: npm audit (all deps, high+)
-        run: npm audit --audit-level=high
+        run: npx audit-ci --config audit-ci.jsonc
         working-directory: apps/web
 
   test-python:
