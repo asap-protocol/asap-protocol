@@ -30,6 +30,16 @@ def _make_jsonrpc_body(envelope: Envelope, request_id: str | int = 1) -> str:
     )
 
 
+class _FrozenMonotonic:
+    """Controllable stand-in for ``time.monotonic`` so refill tests do not sleep."""
+
+    def __init__(self, now: float) -> None:
+        self.now = now
+
+    def __call__(self) -> float:
+        return self.now
+
+
 class TestWebSocketTokenBucket:
     def test_consume_allows_under_limit(self) -> None:
         bucket = WebSocketTokenBucket(rate=2.0)
@@ -37,14 +47,14 @@ class TestWebSocketTokenBucket:
         assert bucket.consume(1) is True
         assert bucket.consume(1) is False
 
-    def test_refill_over_time_allows_again(self) -> None:
-        import time
-
+    def test_refill_over_time_allows_again(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        clock = _FrozenMonotonic(1_000.0)
+        monkeypatch.setattr("asap.transport.rate_limit.time.monotonic", clock)
         bucket = WebSocketTokenBucket(rate=10.0, capacity=10.0)
         for _ in range(10):
             assert bucket.consume(1) is True
         assert bucket.consume(1) is False
-        time.sleep(0.2)  # 2 tokens refill
+        clock.now += 0.2  # 2 tokens refill at rate=10
         assert bucket.consume(1) is True
         assert bucket.consume(1) is True
         assert bucket.consume(1) is False
@@ -64,6 +74,30 @@ class TestWebSocketTokenBucket:
     def test_rate_property(self) -> None:
         bucket = WebSocketTokenBucket(rate=5.0)
         assert bucket.rate == 5.0
+
+    def test_batch_consume_is_all_or_nothing(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A burst larger than the balance is rejected and does not debit or refill twice."""
+        clock = _FrozenMonotonic(1_000.0)
+        monkeypatch.setattr("asap.transport.rate_limit.time.monotonic", clock)
+        bucket = WebSocketTokenBucket(rate=1.0, capacity=4.0)
+
+        assert bucket.consume(5) is False
+        assert bucket.consume(4) is True
+        clock.now = 1_002.0
+        assert bucket.consume(3) is False
+        assert bucket.consume(2) is True
+        assert bucket.consume(1) is False
+
+    def test_refill_caps_at_capacity(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Idle time cannot accumulate more tokens than the configured capacity."""
+        clock = _FrozenMonotonic(1_000.0)
+        monkeypatch.setattr("asap.transport.rate_limit.time.monotonic", clock)
+        bucket = WebSocketTokenBucket(rate=10.0, capacity=5.0)
+
+        assert bucket.consume(5) is True
+        clock.now = 1_100.0
+        assert bucket.consume(5) is True
+        assert bucket.consume(1) is False
 
 
 class TestWebSocketRateLimitHandler(NoRateLimitTestBase):
