@@ -1,0 +1,6 @@
+{
+  // Dev-toolchain only (eslint-config-next, shadcn CLI): fast-glob → micromatch → braces.
+  // GHSA-vfj7-8cjw-p6xm: no fixed braces release on npm at audit time; production graph is clean.
+  "high": true,
+  "allowlist": ["GHSA-vfj7-8cjw-p6xm"]
+}
