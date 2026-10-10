@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -326,13 +326,14 @@ class TestSQLiteAsyncSnapshotStore:
         """Primary key (task_id, version) replaces the prior row instead of duplicating it."""
         store = SQLiteAsyncSnapshotStore(db_path=tmp_path / "replace.db")
         await store.save(sample_snapshot)
+        replacement_created = sample_snapshot.created_at + timedelta(seconds=60)
         replacement = StateSnapshot(
             id="snap_01HX5K7R000000000000000099",
             task_id=sample_snapshot.task_id,
             version=sample_snapshot.version,
             data={"status": "completed", "progress": 100},
             checkpoint=True,
-            created_at=sample_snapshot.created_at,
+            created_at=replacement_created,
         )
         await store.save(replacement)
 
@@ -341,6 +342,7 @@ class TestSQLiteAsyncSnapshotStore:
         assert got.id == replacement.id
         assert got.data == {"status": "completed", "progress": 100}
         assert got.checkpoint is True
+        assert got.created_at == replacement_created
         assert await store.list_versions(sample_snapshot.task_id) == [1]
         latest = await store.get(sample_snapshot.task_id)
         assert latest is not None and latest.id == replacement.id

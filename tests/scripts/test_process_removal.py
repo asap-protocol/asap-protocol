@@ -113,7 +113,13 @@ class TestProcessRemovalRun:
         existing = [{"id": "urn:asap:agent:testuser:My-Agent", "name": "My-Agent"}]
         registry_path.write_text(json.dumps(existing))
         output_path = tmp_path / "result.json"
-        body = VALID_BODY_REMOVE.replace("my-agent", "My-Agent")
+        body = """
+### Agent name (slug-friendly)
+My-Agent
+
+### Confirmation
+- [x] I confirm that I want to remove this agent from the registry.
+"""
 
         run(
             body=body,

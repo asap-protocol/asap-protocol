@@ -47,14 +47,14 @@ class TestWebSocketTokenBucket:
         assert bucket.consume(1) is True
         assert bucket.consume(1) is False
 
-    def test_refill_over_time_allows_again(self) -> None:
-        import time
-
+    def test_refill_over_time_allows_again(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        clock = _FrozenMonotonic(1_000.0)
+        monkeypatch.setattr("asap.transport.rate_limit.time.monotonic", clock)
         bucket = WebSocketTokenBucket(rate=10.0, capacity=10.0)
         for _ in range(10):
             assert bucket.consume(1) is True
         assert bucket.consume(1) is False
-        time.sleep(0.2)  # 2 tokens refill
+        clock.now += 0.2  # 2 tokens refill at rate=10
         assert bucket.consume(1) is True
         assert bucket.consume(1) is True
         assert bucket.consume(1) is False
