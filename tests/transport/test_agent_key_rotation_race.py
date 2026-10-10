@@ -1,8 +1,9 @@
-"""Regression: pending→active / reactivate full-row save must not undo rotate-key.
+"""Regression: identity HTTP must not undo a concurrent rotate-key via full-row save.
 
 Distinct from revoke resurrection (``test_agent_revoke_race.py`` / LIFE-005):
-a concurrent ``POST /asap/agent/rotate-key`` lands a new JWK, then status or
-reactivate persists a snapshot that still carries the old ``public_key``.
+a concurrent rotation lands a new JWK, then status polls, ``rotate-key``, or
+``reactivate`` must keep that JWK, return 409 on lost CAS, and must not apply
+grants or decay when the compare-and-swap fails.
 """
 
 from __future__ import annotations
@@ -96,10 +97,12 @@ async def _register_then_expire(
         agent_public_key=ed25519_public_jwk(agent_sk),
         ttl_seconds=120,
     )
-    aid = client.post(
+    reg = client.post(
         "/asap/agent/register",
         headers={"Authorization": f"Bearer {reg_tok}"},
-    ).json()["agent_id"]
+    )
+    assert reg.status_code == 200
+    aid = reg.json()["agent_id"]
     sess = await agent_store.get(aid)
     assert sess is not None
     await agent_store.save(sess.model_copy(update={"status": "expired"}))
@@ -165,6 +168,9 @@ class TestAgentKeyRotationRaces:
         # Grants run only after pending→active save succeeds. A lost CAS must
         # not publish file:read for a session that stayed pending.
         assert app.state.capability_registry.get_grants(aid) == []
+        approval = await app.state.identity_approval_store.get(aid)
+        assert approval is not None
+        assert approval.status == "approved"
 
     async def test_denied_status_keeps_rotated_key(
         self,
@@ -196,6 +202,9 @@ class TestAgentKeyRotationRaces:
         assert stored.status == "pending"
         assert jwk_thumbprint_sha256(stored.public_key) == jwk_thumbprint_sha256(new_pub)
         assert app.state.capability_registry.get_grants(aid) == []
+        approval = await app.state.identity_approval_store.get(aid)
+        assert approval is not None
+        assert approval.status == "denied"
 
     async def test_rotate_key_returns_409_when_key_changes_during_save(
         self,
@@ -248,9 +257,11 @@ class TestAgentKeyRotationRaces:
             headers=_auth_header(host_sk),
             json={"agent_id": aid},
         )
-        assert resp.status_code in (200, 409)
+        assert resp.status_code == 409
+        assert resp.json()["detail"] == "agent public key changed concurrently"
         stored = await agent_store.get(aid)
         assert stored is not None
+        assert stored.status == "expired"
         assert jwk_thumbprint_sha256(stored.public_key) == jwk_thumbprint_sha256(new_pub)
 
     async def test_reactivate_stale_key_returns_409_without_decay(
