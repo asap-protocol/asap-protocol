@@ -99,17 +99,18 @@ CI (`quality-web`) runs both of the following after `npm ci` and treats failures
 ```bash
 cd apps/web
 npm audit --omit=dev --audit-level=moderate
-npm audit --audit-level=high
+npx audit-ci --config audit-ci.jsonc
 ```
 
 - **Production graph** (`--omit=dev`): moderate and above must be clean.
-- **Full graph** (including devDependencies): high and above must be clean.
+- **Full graph** (including devDependencies): high and above must be clean, enforced via `audit-ci` and `apps/web/audit-ci.jsonc` (same allowlist as CI). Raw `npm audit --audit-level=high` may still list dev-only advisories with no fixed release.
 - Prefer range-compatible updates via `npm install` / `npm audit fix` (never `npm audit fix --force`).
 - Do **not** downgrade `next` to satisfy transitive advisories. For Next **16.3.4**, pin fixed transitive deps via npm overrides with an unscoped `next` key — a versioned key like `next@16.2.10` pins nested copies of `next` and breaks `npm ci` (ERESOLVE) on every Next bump:
 
 ```json
 "overrides": {
-  "sharp": "^0.35.4",
+  "sharp": "^0.35.5",
+  "source-map-js": "^1.2.2",
   "fast-uri": "^3.1.6",
   "nanoid": "^3.3.18",
   "postcss": "^8.5.23",
