@@ -1221,8 +1221,9 @@ def test_register_agent_cleartext_ws_events_rejected_before_pr(
     """ws:// must be rewritten to http and rejected before a registry PR opens."""
 
     async def _public_dns(hostname: str) -> list[str]:
-        assert hostname == "example.com"
-        return ["93.184.216.34"]
+        if hostname in ("example.com", "events.example.com"):
+            return ["93.184.216.34"]
+        raise AssertionError(f"unexpected DNS lookup: {hostname}")
 
     monkeypatch.setattr("asap.transport.webhook._resolve_hostname", _public_dns)
     resp, pr_calls = _post_manifest_events(

@@ -113,7 +113,10 @@ class TestURLValidation:
         ]
         with (
             _patch_async_getaddrinfo(private),
-            pytest.raises(WebhookURLValidationError, match="10.0.0.8"),
+            pytest.raises(
+                WebhookURLValidationError,
+                match=r"events\.example\.com.*10\.0\.0\.8",
+            ),
         ):
             await validate_agent_endpoint_url(
                 "wss://events.example.com/asap/events",

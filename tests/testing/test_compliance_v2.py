@@ -187,7 +187,7 @@ class TestComplianceHarnessFromUrl:
         assert captured.get("follow_redirects") is False
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("status_code", [301, 302, 307, 308])
+    @pytest.mark.parametrize("status_code", [301, 302, 303, 307, 308])
     async def test_run_compliance_harness_v2_from_url_does_not_follow_redirect_on_preflight(
         self,
         status_code: int,
@@ -232,6 +232,7 @@ class TestComplianceHarnessFromUrl:
     ) -> None:
         """A missing root route (404) must not abort scoring; only 3xx does."""
         requested: list[str] = []
+        captured: dict[str, object] = {}
 
         def handler(request: httpx.Request) -> httpx.Response:
             requested.append(str(request.url))
@@ -240,6 +241,7 @@ class TestComplianceHarnessFromUrl:
         original_init = httpx.AsyncClient.__init__
 
         def transport_init(self: httpx.AsyncClient, *args: object, **kwargs: object) -> None:
+            captured.update(kwargs)
             kwargs["transport"] = httpx.MockTransport(handler)
             original_init(self, *args, **kwargs)
 
@@ -255,7 +257,10 @@ class TestComplianceHarnessFromUrl:
 
         assert result is report
         assert requested == ["https://agent.example.com/"]
+        assert captured.get("follow_redirects") is False
         harness_mock.assert_awaited_once()
+        client_arg = harness_mock.await_args.args[0]
+        assert client_arg.follow_redirects is False
 
 
 def _empty_report() -> ComplianceReport:
