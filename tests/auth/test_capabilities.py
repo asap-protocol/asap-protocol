@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone, tzinfo
-from typing import TYPE_CHECKING, Any, cast, get_args
+from datetime import datetime, timedelta, timezone
+from typing import Any, cast, get_args
 
 import pytest
 from pydantic import ValidationError
@@ -27,9 +27,6 @@ from asap.auth.identity import (
     jwk_thumbprint_sha256,
 )
 from tests.crypto.jwk_helpers import make_ed25519_jwk
-
-if TYPE_CHECKING:
-    from _pytest.monkeypatch import MonkeyPatch
 
 
 # ---------------------------------------------------------------------------
