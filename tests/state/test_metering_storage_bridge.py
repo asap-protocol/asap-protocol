@@ -11,12 +11,15 @@ Contract under test:
 - ``query`` returns ``UsageEvent`` rows for the agent/time window;
 - ``aggregate`` returns a state ``UsageAggregate`` for the matching agent and an
   empty one when no data matches;
-- period ``h`` excludes events older than one hour.
+- period ``h`` excludes events older than one hour;
+- period ``week`` / ``w`` excludes events older than seven days.
 """
 
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+
+import pytest
 
 from asap.economics.metering import UsageMetrics
 from asap.economics.storage import InMemoryMeteringStorage
@@ -190,6 +193,41 @@ class TestMeteringStorageBridgeAggregate:
         assert agg.total_tokens == 30
         assert agg.total_tasks == 1
         assert agg.total_api_calls == 1
+
+    @pytest.mark.parametrize("period", ["week", "w"])
+    async def test_aggregate_week_excludes_events_older_than_seven_days(self, period: str) -> None:
+        """Rolling week must drop usage from before the window and keep the recent task."""
+        backend = InMemoryMeteringStorage()
+        bridge = MeteringStorageBridge(backend)
+        now = datetime.now(timezone.utc)
+        await backend.record(
+            UsageMetrics(
+                task_id="stale",
+                agent_id="a1",
+                consumer_id="c1",
+                tokens_in=100,
+                tokens_out=100,
+                api_calls=4,
+                timestamp=now - timedelta(days=8),
+            )
+        )
+        await backend.record(
+            UsageMetrics(
+                task_id="recent",
+                agent_id="a1",
+                consumer_id="c1",
+                tokens_in=3,
+                tokens_out=4,
+                api_calls=1,
+                timestamp=now - timedelta(days=6),
+            )
+        )
+
+        agg = await bridge.aggregate(agent_id="a1", period=period)
+        assert agg.period == period
+        assert agg.total_tokens == 7
+        assert agg.total_api_calls == 1
+        assert agg.total_tasks == 1
 
     async def test_aggregate_unknown_period_no_time_filter(self) -> None:
         backend = InMemoryMeteringStorage()

@@ -169,6 +169,25 @@ class TestURLValidation:
             await validate_callback_url("https://[::1]/hook")
 
     @pytest.mark.parametrize(
+        "url",
+        [
+            "https://[::]/hook",
+            "https://[fe80::1]/hook",
+            "https://[fea0::1]/hook",
+            "https://[fc00::1]/hook",
+            "https://0.0.0.0/hook",
+            "https://0.0.0.1/hook",
+            "https://127.0.0.2/hook",
+            "https://[::ffff:127.0.0.1]/hook",
+            "wss://[fea0::1]/events",
+        ],
+    )
+    async def test_blocks_noncanonical_private_literals(self, url: str) -> None:
+        """Block ::, fe80::/10, ULA, and non-canonical loopback before DNS."""
+        with pytest.raises(WebhookURLValidationError, match="blocked address range"):
+            await validate_agent_endpoint_url(url)
+
+    @pytest.mark.parametrize(
         "ip",
         [
             "::ffff:192.168.1.1",
@@ -202,6 +221,27 @@ class TestURLValidation:
             pytest.raises(WebhookURLValidationError, match="::ffff:192.168.1.1"),
         ):
             await validate_callback_url("https://rebind.example.com/hook")
+
+    async def test_mixed_public_and_private_dns_is_blocked(self) -> None:
+        """One private answer rejects the host even when another answer is public."""
+        mixed = [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 0)),
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("192.168.1.1", 0)),
+        ]
+        with (
+            _patch_async_getaddrinfo(mixed),
+            pytest.raises(WebhookURLValidationError, match="192.168.1.1"),
+        ):
+            await validate_callback_url("https://dual.example.com/hook")
+
+    async def test_unique_local_aaaa_is_blocked(self) -> None:
+        """An AAAA answer inside fc00::/7 is a private address."""
+        ula = [(socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("fd00::1", 0, 0, 0))]
+        with (
+            _patch_async_getaddrinfo(ula),
+            pytest.raises(WebhookURLValidationError, match="fd00::1"),
+        ):
+            await validate_callback_url("https://ula.example.com/hook")
 
     async def test_dns_resolution_failure_raises(self) -> None:
         with (

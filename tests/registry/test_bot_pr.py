@@ -171,6 +171,11 @@ def test_is_reserved_destination_private_ipv4() -> None:
         ("https://[::ffff:192.168.1.1]/m", True),
         ("https://[::ffff:10.0.0.1]/m", True),
         ("https://[::ffff:169.254.169.254]/m", True),
+        ("https://[::]/m", True),
+        ("https://[fe80::1]/m", True),
+        ("https://[fea0::1]/m", True),
+        ("https://127.0.0.2/m", True),
+        ("https://0.0.0.1/m", True),
         ("https://example.com/m", False),
     ],
 )

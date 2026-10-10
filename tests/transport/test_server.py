@@ -1460,6 +1460,45 @@ class TestAgentRegisterEndpoint:
         assert r.status_code == 200
         assert r.json()["status"] == "pending"
 
+    def test_register_browser_gate_accepts_only_json_true(
+        self,
+        sample_manifest: Manifest,
+        isolated_rate_limiter: "ASAPRateLimiter | None",
+    ) -> None:
+        """Only JSON ``true`` forces WebAuthn; string and numeric flags stay off."""
+
+        class _FlaggedWebAuthnVerifier:
+            __asap_performs_real_webauthn__ = True
+
+        app, _agent_store, _host_store = _app_with_identity_stores(
+            sample_manifest, isolated_rate_limiter
+        )
+        app.state.identity_webauthn_verifier = _FlaggedWebAuthnVerifier()
+        host_sk = Ed25519PrivateKey.generate()
+        client = TestClient(app)
+
+        def register(flag: object) -> Any:
+            token = create_host_jwt(
+                host_sk,
+                aud=_HOST_JWT_AUDIENCE,
+                agent_public_key=ed25519_public_jwk(Ed25519PrivateKey.generate()),
+                ttl_seconds=120,
+            )
+            return client.post(
+                "/asap/agent/register",
+                headers={"Authorization": f"Bearer {token}"},
+                json={"agent_controls_browser": flag},
+            )
+
+        blocked = register(True)
+        assert blocked.status_code == 403
+        assert blocked.json() == {"detail": "webauthn_required"}
+
+        for flag in ("true", 1, "True"):
+            allowed = register(flag)
+            assert allowed.status_code == 200
+            assert allowed.json()["status"] == "pending"
+
     def test_register_rejects_stale_host_jwt_before_pending_approval(
         self,
         sample_manifest: Manifest,

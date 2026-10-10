@@ -18,6 +18,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from fastapi.websockets import WebSocketDisconnect
 from joserfc import jwk, jwt as jose_jwt
 
 from asap.auth import OAuth2Config
@@ -70,7 +71,11 @@ def _task_request_body(req_id: str | int = "ws-oauth2-1") -> str:
     return json.dumps(rpc.model_dump())
 
 
-def _make_oauth2_app(key_set: jwk.KeySet) -> "Any":
+def _make_oauth2_app(
+    key_set: jwk.KeySet,
+    *,
+    required_scope: str | None = None,
+) -> Any:
     """Build an OAuth2-only app that resolves JWKS from ``key_set``."""
 
     async def mock_jwks(_uri: str) -> jwk.KeySet:
@@ -82,20 +87,21 @@ def _make_oauth2_app(key_set: jwk.KeySet) -> "Any":
         oauth2_config=OAuth2Config(
             jwks_uri="https://auth.example.com/jwks.json",
             path_prefix="/asap",
+            required_scope=required_scope,
             jwks_fetcher=mock_jwks,
         ),
         rate_limit=TEST_RATE_LIMIT_DEFAULT,
     )
 
 
-def _mint_valid_jwt(signing_key: jwk.RSAKey) -> str:
+def _mint_valid_jwt(signing_key: jwk.RSAKey, *, scope: str = "asap:execute") -> str:
     """Mint a valid RS256 JWT carrying the manifest-bound custom claim."""
     now = int(time.time())
     return jose_jwt.encode(
         {"alg": "RS256", "typ": "JWT"},
         {
             "sub": "urn:asap:agent:client",
-            "scope": "asap:execute",
+            "scope": scope,
             "exp": now + 3600,
             DEFAULT_CUSTOM_CLAIM: "urn:asap:agent:test-server",
         },
@@ -170,3 +176,41 @@ class TestWebSocketOAuth2Enforcement:
             # (missing OR invalid token). Assert the specific code so a regression
             # to a silent dispatch or a different close code is caught.
             assert exc_info.value.code == WS_CLOSE_AUTH_REQUIRED
+
+    def test_ws_rejects_token_missing_required_scope(self) -> None:
+        """A valid JWT without ``required_scope`` is closed and not dispatched."""
+        key = jwk.RSAKey.generate_key(2048, private=True)
+        key_set = jwk.KeySet.import_key_set({"keys": [key.as_dict(private=False)]})
+        app = _make_oauth2_app(key_set, required_scope="asap:admin")
+        token = _mint_valid_jwt(key, scope="asap:execute")
+
+        with (
+            TestClient(app) as client,
+            client.websocket_connect(
+                "/asap/ws", headers={"Authorization": f"Bearer {token}"}
+            ) as websocket,
+        ):
+            websocket.send_text(_task_request_body())
+            with pytest.raises(WebSocketDisconnect) as exc_info:
+                websocket.receive_text()
+            assert exc_info.value.code == WS_CLOSE_AUTH_REQUIRED
+
+    def test_ws_admits_token_that_includes_required_scope(self) -> None:
+        """A JWT that includes ``required_scope`` is admitted and dispatched."""
+        key = jwk.RSAKey.generate_key(2048, private=True)
+        key_set = jwk.KeySet.import_key_set({"keys": [key.as_dict(private=False)]})
+        app = _make_oauth2_app(key_set, required_scope="asap:admin")
+        token = _mint_valid_jwt(key, scope="asap:execute asap:admin")
+
+        with (
+            TestClient(app) as client,
+            client.websocket_connect(
+                "/asap/ws", headers={"Authorization": f"Bearer {token}"}
+            ) as websocket,
+        ):
+            websocket.send_text(_task_request_body())
+            response_text = websocket.receive_text()
+
+        data = json.loads(response_text)
+        assert data.get("jsonrpc") == "2.0"
+        assert data["result"]["envelope"].get("payload_type") == "task.response"

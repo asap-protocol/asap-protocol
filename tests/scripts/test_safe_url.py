@@ -5,6 +5,8 @@ from __future__ import annotations
 import socket
 from unittest.mock import patch
 
+import pytest
+
 from scripts.lib.safe_url import is_safe_endpoint_url, is_safe_http_url
 
 
@@ -32,6 +34,13 @@ class TestIsSafeHttpUrl:
     def test_blocks_metadata_ip(self) -> None:
         assert is_safe_http_url("https://169.254.169.254/latest/meta-data/") is False
 
+    def test_blocks_cloud_metadata_hostnames_without_dns(self) -> None:
+        """Metadata hostnames are rejected before DNS so a resolver cannot widen them."""
+        with patch("scripts.lib.safe_url.socket.getaddrinfo") as resolve:
+            assert is_safe_http_url("http://metadata.google.internal/computeMetadata/v1/") is False
+            assert is_safe_http_url("https://Metadata.AWS.internal/latest/meta-data/") is False
+            resolve.assert_not_called()
+
     @patch("scripts.lib.safe_url.socket.getaddrinfo", _fake_public_getaddrinfo)
     def test_allows_https_public_example(self) -> None:
         assert is_safe_http_url("https://example.com/registry.json") is True
@@ -48,6 +57,23 @@ class TestIsSafeHttpUrl:
         assert is_safe_http_url("https://[::1]/path") is False
         assert is_safe_http_url("https://[fe80::1]/") is False
         assert is_safe_http_url("https://[::ffff:127.0.0.1]/") is False
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://[::]/",
+            "https://[fea0::1]/path",
+            "https://[fc00::1]/",
+            "https://127.0.0.2/",
+            "https://0.0.0.1/",
+            "https://172.31.255.255/",
+            "https://192.168.255.255/",
+            "https://10.255.255.255/",
+        ],
+    )
+    def test_blocks_unspecified_link_local_ula_and_cidr_edges(self, url: str) -> None:
+        """IssueOps must reject non-canonical private literals before DNS."""
+        assert is_safe_http_url(url) is False
 
     def test_blocks_nat64_well_known_prefix_with_private_embedded_ipv4(self) -> None:
         assert is_safe_http_url("http://[64:ff9b::10.0.0.1]/") is False
@@ -120,6 +146,10 @@ class TestIsSafeEndpointUrl:
     def test_blocks_metadata_http_endpoint(self) -> None:
         assert is_safe_endpoint_url("http://169.254.169.254/asap") is False
 
+    def test_blocks_cloud_metadata_hostnames_on_endpoints(self) -> None:
+        assert is_safe_endpoint_url("https://metadata.google.internal/asap") is False
+        assert is_safe_endpoint_url("wss://metadata.aws.internal/asap/events") is False
+
     def test_blocks_loopback_websocket_endpoint(self) -> None:
         assert is_safe_endpoint_url("ws://127.0.0.1/asap/events") is False
         assert is_safe_endpoint_url("wss://localhost/asap/events") is False
@@ -134,3 +164,8 @@ class TestIsSafeEndpointUrl:
 
     def test_blocks_nat64_websocket_endpoint_with_metadata_embedded_ipv4(self) -> None:
         assert is_safe_endpoint_url("wss://[64:ff9b::a9fe:a9fe]/asap/events") is False
+
+    def test_blocks_unspecified_and_fe80_slash10_websocket_literals(self) -> None:
+        """WebSocket endpoints are rewritten to HTTP, then the same literal guard applies."""
+        assert is_safe_endpoint_url("ws://[::]/asap/events") is False
+        assert is_safe_endpoint_url("wss://[fea0::1]/asap/events") is False

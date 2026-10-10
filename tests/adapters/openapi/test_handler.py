@@ -91,6 +91,54 @@ async def test_execute_get_path_and_query_via_mocked_httpx(tmp_path: Path) -> No
 
 
 @pytest.mark.asyncio
+async def test_execute_encodes_reserved_path_characters_as_one_segment(tmp_path: Path) -> None:
+    """Slash, query, fragment, and space in a path value stay inside one segment.
+
+    ``request.url.path`` decodes those bytes and looks like extra segments.
+    The wire path is ``raw_path``.
+    """
+    raw = {
+        "openapi": "3.0.3",
+        "info": {"title": "T", "version": "1"},
+        "paths": {
+            "/pets/{petId}": {
+                "get": {
+                    "operationId": "getPet",
+                    "parameters": [
+                        {
+                            "name": "petId",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        },
+                    ],
+                    "responses": {"200": {"description": "ok"}},
+                },
+            },
+        },
+    }
+
+    def transport_handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.raw_path == b"/pets/a%2Fb%3Fc%23d%20e"
+        assert request.url.query == b""
+        assert request.url.host == "upstream.test"
+        return httpx.Response(200, json={"ok": True})
+
+    with tmp_openapi_spec(tmp_path, raw, "encoded_path") as path:
+        doc = await load_spec(path)
+        caps = map_openapi_to_capabilities(doc)
+        transport = httpx.MockTransport(transport_handler)
+        async with httpx.AsyncClient(transport=transport) as client:
+            handler = OpenAPIUpstreamHandler.from_capabilities(
+                base_url="https://upstream.test",
+                capabilities=caps,
+                http_client=client,
+            )
+            out = await handler.execute("getPet", {"petId": "a/b?c#d e"}, session=None)
+        assert out == {"ok": True}
+
+
+@pytest.mark.asyncio
 async def test_execute_post_json_body_and_query_via_mocked_httpx(tmp_path: Path) -> None:
     raw = {
         "openapi": "3.0.3",

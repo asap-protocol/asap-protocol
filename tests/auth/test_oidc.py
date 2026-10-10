@@ -37,6 +37,27 @@ def test_validate_issuer_url_blocks_private_hosts() -> None:
         _validate_issuer_url("http://192.168.1.1/")
 
 
+@pytest.mark.parametrize(
+    "issuer_url",
+    [
+        "http://[::1]/",
+        "https://[::]/",
+        "https://[fe80::1]/",
+        "https://[fea0::1]/.well-known/openid-configuration",
+        "http://169.254.169.254/",
+        "http://240.0.0.1/",
+        "http://0.0.0.1/",
+        "http://[fc00::1]/",
+        "http://127.0.0.2/",
+        "http://[::ffff:127.0.0.1]/",
+    ],
+)
+def test_validate_issuer_url_blocks_reserved_and_link_local_literals(issuer_url: str) -> None:
+    """Discovery must reject unspecified, fe80::/10, ULA, and Class E issuer hosts."""
+    with pytest.raises(ValueError, match="private/internal"):
+        _validate_issuer_url(issuer_url)
+
+
 def test_validate_issuer_url_allows_public_hosts() -> None:
     """Verify public issuer_url hosts are allowed."""
     _validate_issuer_url("https://auth.example.com")
@@ -53,6 +74,12 @@ def test_oidc_discovery_rejects_private_issuer_by_default() -> None:
     """Verify OIDCDiscovery raises on private issuer_url unless allow_private_issuers=True."""
     with pytest.raises(ValueError, match="private/internal"):
         OIDCDiscovery("http://127.0.0.1/")
+
+
+def test_oidc_discovery_rejects_fe80_slash10_issuer() -> None:
+    """fea0::/10 is link-local; a prefix check that only matches fe80: would miss it."""
+    with pytest.raises(ValueError, match="fea0::1"):
+        OIDCDiscovery("https://[fea0::1]/")
 
 
 async def test_oidc_discovery_with_allow_private_issuers() -> None:

@@ -349,6 +349,32 @@ class TestCapabilityRegistry:
         r = registry.check_grant("a1", "file:read")
         assert not r.allowed
 
+    def test_check_grant_allowed_at_exact_expiry_denied_after(
+        self,
+        registry: CapabilityRegistry,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Expiry uses a strict ``>`` comparison: the boundary instant is still allowed."""
+        boundary = datetime(2026, 10, 5, 12, 0, tzinfo=timezone.utc)
+        registry.grant("a1", "file:read", expires_at=boundary)
+        clock = {"now": boundary}
+
+        class _FrozenDateTime(datetime):
+            @classmethod
+            def now(cls, tz: timezone | None = None) -> datetime:
+                _ = tz
+                return clock["now"]
+
+        monkeypatch.setattr("asap.auth.capabilities.datetime", _FrozenDateTime)
+        at_boundary = registry.check_grant("a1", "file:read")
+        assert at_boundary.allowed
+
+        clock["now"] = boundary + timedelta(microseconds=1)
+        after = registry.check_grant("a1", "file:read")
+        assert not after.allowed
+        assert after.grant is not None
+        assert after.violations == []
+
     def test_check_grant_not_expired(self, registry: CapabilityRegistry) -> None:
         future = datetime.now(timezone.utc) + timedelta(hours=1)
         registry.grant("a1", "file:read", expires_at=future)
@@ -471,6 +497,19 @@ class TestEscalationCapabilityHelpers:
         )
         assert needs == []
         assert autos == []
+
+    def test_partition_strips_name_before_default_match(self) -> None:
+        """Padding around a default name does not force a consent round-trip.
+
+        The returned spec keeps the original name. Strip is only the policy key.
+        """
+        host = self._host(default_capabilities=["file:read"])
+        needs, autos = partition_escalation_capability_specs(
+            host,
+            [{"name": "  file:read  "}],
+        )
+        assert needs == []
+        assert autos == [{"name": "  file:read  "}]
 
     def test_auto_grant_replace_none_existing_is_false(self) -> None:
         assert auto_grant_would_replace_existing_grant(None, None) is False
