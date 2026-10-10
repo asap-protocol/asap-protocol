@@ -291,6 +291,22 @@ class TestEnvelope:
         )
         assert envelope.correlation_id == "req_123"
 
+    def test_unknown_payload_type_keeps_raw_dict(self) -> None:
+        """Unregistered payload types stay forward-compatible dicts."""
+        from asap.models.envelope import Envelope
+
+        raw = {"foo": 1, "bar": "baz"}
+        envelope = Envelope(
+            asap_version="0.1",
+            sender="urn:asap:agent:a",
+            recipient="urn:asap:agent:b",
+            payload_type="vendor.custom.event",
+            payload=raw,
+        )
+        assert envelope.payload == raw
+        assert envelope.payload_dict == raw
+        assert isinstance(envelope.payload, dict)
+
     def test_malformed_task_request_raises_error(self) -> None:
         """Missing required TaskRequest fields raises ValidationError."""
         from asap.models.envelope import Envelope

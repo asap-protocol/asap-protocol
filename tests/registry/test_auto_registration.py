@@ -1115,6 +1115,56 @@ def test_register_agent_events_endpoint_in_registry_entry(
     assert entry.endpoints.get("ws") == "wss://example.com/events"
 
 
+def test_register_agent_private_asap_endpoint_does_not_open_pr(
+    manifest_https: Manifest,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A loopback ``endpoints.asap`` must be rejected before a registry PR opens.
+
+    The route uses the production SSRF check (not a stub) on the harness base
+    derived from that URL.
+    """
+    pr_calls: list[tuple[RegistryEntry, str]] = []
+    private = manifest_https.model_copy(
+        update={"endpoints": Endpoint(asap="https://127.0.0.1/asap")}
+    )
+
+    async def _fake_fetch(_client: object, _url: str) -> Manifest:
+        return private
+
+    monkeypatch.setattr(
+        "asap.registry.auto_registration.fetch_manifest_at_url",
+        _fake_fetch,
+    )
+
+    async def _fake_pr(entry: RegistryEntry, url: str) -> BotPRResult:
+        pr_calls.append((entry, url))
+        return BotPRResult(pr_url="x", branch_name="b")
+
+    cfg = AutoRegistrationConfig(
+        oauth_claims_dependency=_oauth_bypass,
+        run_compliance=lambda _b: _passing_report(),
+        open_pull_request=_fake_pr,
+    )
+    app = FastAPI()
+    app.state.registration_limiter = create_test_limiter(
+        ["100000/hour"],
+        key_func=registration_token_key,
+    )
+    app.include_router(create_auto_registration_router(cfg))
+    client = TestClient(app)
+    resp = client.post(
+        "/registry/agents",
+        json={"manifest_url": "https://example.com/loopback-asap.json"},
+        headers={"Authorization": "Bearer loopback-asap"},
+    )
+    assert resp.status_code == 400
+    detail = resp.json()["detail"]
+    assert "Harness base URL blocked" in detail
+    assert "127.0.0.1" in detail
+    assert pr_calls == []
+
+
 def test_register_agent_blocked_events_endpoint_400(
     manifest_https: Manifest,
     monkeypatch: pytest.MonkeyPatch,

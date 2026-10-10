@@ -590,3 +590,35 @@ class TestRecordTaskUsageEdgeCases:
         )
         assert len(events) == 1
         assert events[0].metrics.duration_ms == 0
+
+    @pytest.mark.asyncio
+    async def test_skips_when_task_id_empty(
+        self,
+        metering_store: InMemoryMeteringStore,
+        sample_manifest: Manifest,
+    ) -> None:
+        """An empty task_id must not create a metering row."""
+        envelope = Envelope(
+            asap_version="0.1",
+            sender="urn:asap:agent:consumer",
+            recipient=sample_manifest.id,
+            payload_type="task.request",
+            payload={"conversation_id": "c", "skill_id": "s", "input": {}},
+        )
+        response = Envelope(
+            asap_version="0.1",
+            sender=sample_manifest.id,
+            recipient="urn:asap:agent:consumer",
+            payload_type="task.response",
+            payload={"task_id": "", "status": "completed"},
+            correlation_id="req-01",
+        )
+
+        await record_task_usage(metering_store, envelope, response, 100, sample_manifest)
+
+        events = await metering_store.query(
+            sample_manifest.id,
+            datetime(2000, 1, 1, tzinfo=timezone.utc),
+            datetime(2100, 1, 1, tzinfo=timezone.utc),
+        )
+        assert events == []
