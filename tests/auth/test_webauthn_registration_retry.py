@@ -50,6 +50,7 @@ async def test_failed_registration_keeps_pending_ceremony_until_success() -> Non
     with pytest.raises(WebAuthnCeremonyError) as failed:
         await impl.finish_webauthn_registration("host-a", _tampered_attestation())
     assert failed.value.detail == "webauthn_registration_verification_failed"
+    assert await store.list_credentials("host-a") == []
 
     credential_id = await impl.finish_webauthn_registration("host-a", _NONE_ATTESTATION)
     assert credential_id == _EXPECTED_CREDENTIAL_ID_B64

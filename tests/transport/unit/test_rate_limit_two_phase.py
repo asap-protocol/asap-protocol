@@ -37,11 +37,13 @@ def _limiter_with_spies() -> tuple[ASAPRateLimiter, list[str], list[str]]:
     tested: list[str] = []
     hits: list[str] = []
 
-    def fake_test(rate_limit: Any, key: str) -> bool:
+    def fake_test(rate_limit: Any, key: str, cost: int = 1) -> bool:
+        _ = cost
         tested.append(f"{rate_limit}:{key}")
         return len(tested) == 1
 
-    def fake_hit(rate_limit: Any, key: str) -> bool:
+    def fake_hit(rate_limit: Any, key: str, cost: int = 1) -> bool:
+        _ = cost
         hits.append(f"{rate_limit}:{key}")
         return True
 
@@ -82,6 +84,31 @@ def test_check_n_records_one_hit_per_accepted_item() -> None:
     )
     limiter.check_n(_request(), 3)
     limiter.check_n(_request(), 2)
+    with pytest.raises(RateLimitExceeded):
+        limiter.check(_request())
+
+
+def test_check_n_rejects_batch_larger_than_remaining_quota_without_consuming() -> None:
+    """A batch that does not fit must raise without debiting partial hits."""
+    limiter = ASAPRateLimiter(
+        key_func=lambda _request: "batch-client",
+        limits=["5/minute"],
+    )
+    limiter.check_n(_request(), 4)
+    with pytest.raises(RateLimitExceeded):
+        limiter.check_n(_request(), 2)
+    limiter.check(_request())
+
+
+def test_check_n_rejects_oversized_batch_on_empty_window() -> None:
+    """``test(cost=n)`` must fail before any ``hit`` when n exceeds the window."""
+    limiter = ASAPRateLimiter(
+        key_func=lambda _request: "batch-client",
+        limits=["5/minute"],
+    )
+    with pytest.raises(RateLimitExceeded):
+        limiter.check_n(_request(), 6)
+    limiter.check_n(_request(), 5)
     with pytest.raises(RateLimitExceeded):
         limiter.check(_request())
 
