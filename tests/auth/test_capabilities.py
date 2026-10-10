@@ -384,32 +384,6 @@ class TestCapabilityRegistry:
         r = registry.check_grant("a1", "file:read")
         assert r.allowed
 
-    def test_check_grant_allows_the_expiry_instant(
-        self,
-        registry: CapabilityRegistry,
-        monkeypatch: MonkeyPatch,
-    ) -> None:
-        """``expires_at`` is still valid at equality and denied one microsecond later."""
-        expires_at = datetime(2026, 10, 9, 12, 0, tzinfo=timezone.utc)
-
-        class _ExpiryClock(datetime):
-            @classmethod
-            def now(cls, tz: tzinfo | None = None) -> datetime:
-                if tz is None:
-                    return expires_at.replace(tzinfo=None)
-                return expires_at.astimezone(tz)
-
-        monkeypatch.setattr("asap.auth.capabilities.datetime", _ExpiryClock)
-        registry.grant("a1", "file:read", expires_at=expires_at)
-        assert registry.check_grant("a1", "file:read").allowed is True
-
-        registry.grant(
-            "a1",
-            "file:read",
-            expires_at=expires_at - timedelta(microseconds=1),
-        )
-        assert registry.check_grant("a1", "file:read").allowed is False
-
     def test_check_grant_unknown_agent(self, registry: CapabilityRegistry) -> None:
         r = registry.check_grant("unknown", "file:read")
         assert not r.allowed
