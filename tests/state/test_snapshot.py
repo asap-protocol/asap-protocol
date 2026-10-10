@@ -319,6 +319,57 @@ class TestSQLiteAsyncSnapshotStore:
         await asyncio.gather(*(store.save(s) for s in snapshots))
         assert await store.list_versions(task_id) == list(range(1, 11))
 
+    @pytest.mark.asyncio
+    async def test_save_same_version_replaces_row(
+        self, tmp_path: Path, sample_snapshot: StateSnapshot
+    ) -> None:
+        """Primary key (task_id, version) replaces the prior row instead of duplicating it."""
+        store = SQLiteAsyncSnapshotStore(db_path=tmp_path / "replace.db")
+        await store.save(sample_snapshot)
+        replacement = StateSnapshot(
+            id="snap_01HX5K7R000000000000000099",
+            task_id=sample_snapshot.task_id,
+            version=sample_snapshot.version,
+            data={"status": "completed", "progress": 100},
+            checkpoint=True,
+            created_at=sample_snapshot.created_at,
+        )
+        await store.save(replacement)
+
+        got = await store.get(sample_snapshot.task_id, sample_snapshot.version)
+        assert got is not None
+        assert got.id == replacement.id
+        assert got.data == {"status": "completed", "progress": 100}
+        assert got.checkpoint is True
+        assert await store.list_versions(sample_snapshot.task_id) == [1]
+        latest = await store.get(sample_snapshot.task_id)
+        assert latest is not None and latest.id == replacement.id
+
+    @pytest.mark.asyncio
+    async def test_delete_highest_version_repoints_latest(
+        self, tmp_path: Path, sample_snapshot: StateSnapshot
+    ) -> None:
+        """Deleting the highest version makes get() return the previous snapshot."""
+        store = SQLiteAsyncSnapshotStore(db_path=tmp_path / "latest-after-delete.db")
+        await store.save(sample_snapshot)
+        newer = StateSnapshot(
+            id="snap_sqlite_v2_01HX5K7R000000000000000001",
+            task_id=sample_snapshot.task_id,
+            version=2,
+            data={"step": 2},
+            checkpoint=False,
+            created_at=sample_snapshot.created_at,
+        )
+        await store.save(newer)
+
+        assert await store.delete(sample_snapshot.task_id, 2) is True
+        latest = await store.get(sample_snapshot.task_id)
+        assert latest is not None
+        assert latest.version == 1
+        assert latest.id == sample_snapshot.id
+        assert await store.get(sample_snapshot.task_id, 2) is None
+        assert await store.list_versions(sample_snapshot.task_id) == [1]
+
 
 class TestInMemorySnapshotStore:
     """Test the InMemorySnapshotStore implementation."""

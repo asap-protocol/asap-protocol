@@ -106,3 +106,44 @@ class TestProcessRemovalRun:
         assert "not found in the registry" in result["errors"]
         assert "debug_id" in result
         assert result["debug_id"].startswith("ASAP-")
+
+    def test_author_casefold_removes_exact_slug(self, tmp_path: Path) -> None:
+        """GitHub actor case is folded; the agent slug must still match exactly."""
+        registry_path = tmp_path / "registry.json"
+        existing = [{"id": "urn:asap:agent:testuser:My-Agent", "name": "My-Agent"}]
+        registry_path.write_text(json.dumps(existing))
+        output_path = tmp_path / "result.json"
+        body = VALID_BODY_REMOVE.replace("my-agent", "My-Agent")
+
+        run(
+            body=body,
+            issue_number="4",
+            author="TestUser",
+            output_path=str(output_path),
+            registry_path=str(registry_path),
+        )
+
+        result = json.loads(output_path.read_text())
+        assert result["valid"] is True
+        assert _registry_agents(registry_path) == []
+
+    def test_slug_case_mismatch_is_not_found(self, tmp_path: Path) -> None:
+        """A differently cased slug is a different agent id and is left in the registry."""
+        registry_path = tmp_path / "registry.json"
+        existing = [{"id": "urn:asap:agent:testuser:My-Agent", "name": "My-Agent"}]
+        registry_path.write_text(json.dumps(existing))
+        output_path = tmp_path / "result.json"
+
+        run(
+            body=VALID_BODY_REMOVE,
+            issue_number="5",
+            author="TestUser",
+            output_path=str(output_path),
+            registry_path=str(registry_path),
+        )
+
+        result = json.loads(output_path.read_text())
+        assert result["valid"] is False
+        assert "urn:asap:agent:testuser:my-agent" in result["errors"]
+        saved = json.loads(registry_path.read_text())
+        assert saved == existing
