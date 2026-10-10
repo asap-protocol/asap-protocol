@@ -832,12 +832,17 @@ async def test_save_agent_unless_revoked_reraises_unrelated_type_error() -> None
     """Only a missing ``expected_public_key`` parameter falls back to plain save."""
 
     class _RaisingStore:
+        def __init__(self) -> None:
+            self.used_expected_key: list[bool] = []
+
         async def save(
             self,
             agent: AgentSession,
             expected_public_key: dict[str, Any] | None = None,
         ) -> None:
-            raise TypeError(f"database offline for {agent.agent_id}")
+            self.used_expected_key.append(expected_public_key is not None)
+            if expected_public_key is not None:
+                raise TypeError(f"database offline for {agent.agent_id}")
 
     now = _utc_now()
     session = AgentSession(
@@ -848,12 +853,14 @@ async def test_save_agent_unless_revoked_reraises_unrelated_type_error() -> None
         status="active",
         created_at=now,
     )
+    store = _RaisingStore()
     with pytest.raises(TypeError, match="database offline for a1"):
         await save_agent_unless_revoked(
-            cast(AgentStore, _RaisingStore()),
+            cast(AgentStore, store),
             session,
             expected_public_key=session.public_key,
         )
+    assert store.used_expected_key == [True]
 
 
 async def test_save_agent_unless_revoked_allows_revoked_noop_update() -> None:
