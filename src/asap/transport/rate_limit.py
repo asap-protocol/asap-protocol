@@ -142,7 +142,7 @@ class ASAPRateLimiter:
             return
         key = self._key_func(request)
         for rate_limit in self._rate_limits:
-            if not self._strategy.test(rate_limit, key):
+            if not self._strategy.test(rate_limit, key, cost=n):
                 window_stats = self._strategy.get_window_stats(rate_limit, key)
                 retry_seconds = max(1, int(window_stats[0] - time.time()))
                 raise RateLimitExceeded(
@@ -151,8 +151,14 @@ class ASAPRateLimiter:
                     limit=str(rate_limit),
                 )
         for rate_limit in self._rate_limits:
-            for _ in range(n):
-                self._strategy.hit(rate_limit, key)
+            if not self._strategy.hit(rate_limit, key, cost=n):
+                window_stats = self._strategy.get_window_stats(rate_limit, key)
+                retry_seconds = max(1, int(window_stats[0] - time.time()))
+                raise RateLimitExceeded(
+                    detail=f"Rate limit exceeded: {rate_limit}",
+                    retry_after=retry_seconds,
+                    limit=str(rate_limit),
+                )
 
     def test(self, request: Request) -> bool:
         """Return True if *request* would pass all limits (no counter increment)."""

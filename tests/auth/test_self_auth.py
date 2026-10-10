@@ -227,6 +227,59 @@ async def test_check_webauthn_browser_gate_returns_403_without_payload() -> None
     assert r.http_status == 403
 
 
+def _recording_real_verifier(seen: list[bool]) -> WebAuthnVerifier:
+    """Verifier that records whether the approval path demanded user verification."""
+
+    class _RealVerifier(WebAuthnVerifier):
+        __asap_performs_real_webauthn__ = True
+
+        async def verify(
+            self,
+            _challenge: str,
+            _response: Any,
+            *,
+            host_id: str | None = None,
+            require_user_verification: bool = False,
+        ) -> bool:
+            seen.append(require_user_verification)
+            _ = host_id
+            return True
+
+    return _RealVerifier()
+
+
+@pytest.mark.asyncio
+async def test_browser_controlled_approval_requires_user_verification() -> None:
+    """A real verifier on a browser-controlled agent must be asked for user verification."""
+    seen: list[bool] = []
+    result = await check_webauthn_for_approval_path(
+        [],
+        {"webauthn": {"challenge": "c1", "response": {"id": "cred"}}},
+        None,
+        _recording_real_verifier(seen),
+        host_id="urn:asap:host:1",
+        agent_controls_browser=True,
+    )
+    assert result.detail is None
+    assert seen == [True]
+
+
+@pytest.mark.asyncio
+async def test_capability_webauthn_does_not_require_user_verification() -> None:
+    """High-risk capabilities alone do not force user verification."""
+    seen: list[bool] = []
+    result = await check_webauthn_for_approval_path(
+        ["admin.task"],
+        {"webauthn": {"challenge": "c1", "response": {"id": "cred"}}},
+        FreshSessionConfig(require_webauthn_for=["admin.task"]),
+        _recording_real_verifier(seen),
+        host_id="urn:asap:host:1",
+        agent_controls_browser=False,
+    )
+    assert result.detail is None
+    assert seen == [False]
+
+
 def test_placeholder_not_real_webauthn() -> None:
     assert uses_real_webauthn_verifier(PlaceholderWebAuthnVerifier()) is False
 
