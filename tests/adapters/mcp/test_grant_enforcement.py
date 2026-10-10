@@ -134,6 +134,44 @@ async def test_constraint_violation_returns_constraint_violation(
 
 
 @pytest.mark.asyncio
+async def test_omitted_arguments_cannot_skip_constraints(
+    echo_mcp_server: MCPServer,
+    host_store: InMemoryHostStore,
+    agent_store: InMemoryAgentStore,
+    capability_registry: CapabilityRegistry,
+    host_identity: HostIdentity,
+    agent_session: AgentSession,
+    mint_agent_jwt: Callable[..., str],
+    register_capability: Callable[..., CapabilityDefinition],
+    grant_capability: Callable[..., CapabilityGrant],
+) -> None:
+    """A constrained MCP grant stays denied when ``arguments`` is omitted or empty."""
+    register_capability("echo", description="Echo tool capability")
+    grant_capability(
+        agent_session.agent_id,
+        "echo",
+        constraints={"tokens": {"max": 100}},
+    )
+    token = mint_agent_jwt(capabilities=["echo"])
+    config = build_grant_auth_config(host_store, agent_store, capability_registry)
+    protected = protect_server(echo_mcp_server, config)
+
+    omitted = await protected._handle_tools_call(
+        {"name": "echo", "_meta": {"asap_agent_jwt": token}}
+    )
+    assert CONSTRAINT_VIOLATION in error_text(omitted)
+    assert "tokens" in error_text(omitted)
+
+    empty = await protected._handle_tools_call(tool_call_params("echo", arguments={}, jwt=token))
+    assert CONSTRAINT_VIOLATION in error_text(empty)
+
+    with pytest.raises(ValueError, match="Invalid params"):
+        await protected._handle_tools_call(
+            {"name": "echo", "arguments": None, "_meta": {"asap_agent_jwt": token}}
+        )
+
+
+@pytest.mark.asyncio
 async def test_tool_capability_map_checks_resolved_capability_in_jwt(
     search_mcp_server: MCPServer,
     host_store: InMemoryHostStore,

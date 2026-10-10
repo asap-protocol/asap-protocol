@@ -40,6 +40,34 @@ describe('isBlockedHostOrIp', () => {
     expect(isBlockedHostOrIp('64:ff9b::8.8.8.8')).toBe(false);
     expect(isBlockedHostOrIp('64:ff9b:1::10.0.0.1')).toBe(false);
   });
+
+  it('blocks IPv4 CIDR edges and rejects out-of-range octets', () => {
+    expect(isBlockedHostOrIp('172.15.255.255')).toBe(false);
+    expect(isBlockedHostOrIp('172.16.0.0')).toBe(true);
+    expect(isBlockedHostOrIp('172.31.255.255')).toBe(true);
+    expect(isBlockedHostOrIp('172.32.0.1')).toBe(false);
+    expect(isBlockedHostOrIp('192.167.255.255')).toBe(false);
+    expect(isBlockedHostOrIp('192.168.0.0')).toBe(true);
+    expect(isBlockedHostOrIp('10.255.255.255')).toBe(true);
+    expect(isBlockedHostOrIp('11.0.0.1')).toBe(false);
+    expect(isBlockedHostOrIp('169.254.0.1')).toBe(true);
+    expect(isBlockedHostOrIp('169.255.1.1')).toBe(false);
+    expect(isBlockedHostOrIp('0.0.0.1')).toBe(true);
+    expect(isBlockedHostOrIp('127.255.255.255')).toBe(true);
+    expect(isBlockedHostOrIp('128.0.0.1')).toBe(false);
+    expect(isBlockedHostOrIp('999.1.2.3')).toBe(true);
+    expect(isBlockedHostOrIp('256.0.0.1')).toBe(true);
+  });
+
+  it('blocks Node-normalized mapped and NAT64 literals', () => {
+    expect(isBlockedHostOrIp('::ffff:7f00:1')).toBe(true);
+    expect(isBlockedHostOrIp('::ffff:808:808')).toBe(true);
+    expect(isBlockedHostOrIp('::ffff:0:1')).toBe(true);
+    expect(isBlockedHostOrIp('64:ff9b::a9fe:a9fe')).toBe(true);
+    expect(isBlockedHostOrIp('64:ff9b::808:808')).toBe(false);
+    expect(isBlockedHostOrIp('::1%eth0')).toBe(true);
+    expect(isBlockedHostOrIp('fe80::1%eth0')).toBe(true);
+  });
 });
 
 describe('isAllowedExternalUrl', () => {
@@ -99,6 +127,36 @@ describe('isAllowedExternalUrl', () => {
     expect((await isAllowedExternalUrl('http://[::ffff:127.0.0.1]/manifest')).valid).toBe(false);
   });
 
+  it('blocks unspecified and fe80::/10 literals before DNS', async () => {
+    const unspecified = await isAllowedExternalUrl('http://[::]/manifest');
+    const linkLocal = await isAllowedExternalUrl('http://[fea0::1]/manifest');
+    expect(unspecified.valid).toBe(false);
+    expect(unspecified.error).toContain('Internal/Private');
+    expect(linkLocal.valid).toBe(false);
+    expect(linkLocal.error).toContain('Internal/Private');
+    expect(resolve4Spy).not.toHaveBeenCalled();
+    expect(resolve6Spy).not.toHaveBeenCalled();
+  });
+
+  it('blocks Node-normalized NAT64 metadata before DNS', async () => {
+    const result = await isAllowedExternalUrl('http://[64:ff9b::169.254.169.254]/latest/meta-data');
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain('Internal/Private');
+    expect(resolve4Spy).not.toHaveBeenCalled();
+    expect(resolve6Spy).not.toHaveBeenCalled();
+  });
+
+  it('rejects IPv6 zone identifiers as invalid URLs', async () => {
+    expect(await isAllowedExternalUrl('http://[::1%eth0]/')).toEqual({
+      valid: false,
+      error: 'Invalid URL.',
+    });
+    expect(await isAllowedExternalUrl('http://[fe80::1%25eth0]/')).toEqual({
+      valid: false,
+      error: 'Invalid URL.',
+    });
+  });
+
   it('blocks unique-local and mapped private literals before DNS', async () => {
     const ula = await isAllowedExternalUrl('http://[fd00::1]/manifest');
     const mapped = await isAllowedExternalUrl('http://[::ffff:192.168.1.1]/secret');
@@ -150,6 +208,21 @@ describe('isAllowedExternalUrl', () => {
     expect(result.valid).toBe(false);
     expect(result.error).toContain('127.0.0.2');
   });
+
+  it('rejects a private AAAA even when A is absent or public', async () => {
+    resolve4Spy.mockRejectedValue(new Error('ENOTFOUND'));
+    resolve6Spy.mockResolvedValue(['fd00::1']);
+    const ulaOnly = await isAllowedExternalUrl('http://ula.example/manifest');
+    expect(ulaOnly.valid).toBe(false);
+    expect(ulaOnly.error).toContain('fd00::1');
+    expect(resolve6Spy).toHaveBeenCalled();
+
+    resolve4Spy.mockResolvedValue(['93.184.216.34']);
+    resolve6Spy.mockResolvedValue(['fe80::1']);
+    const mixed = await isAllowedExternalUrl('http://dual.example/manifest');
+    expect(mixed.valid).toBe(false);
+    expect(mixed.error).toContain('fe80::1');
+  });
 });
 
 describe('isAllowedProxyUrl', () => {
@@ -174,6 +247,13 @@ describe('isAllowedProxyUrl', () => {
     expect(isAllowedProxyUrl('https://[fd00::1]/health').error).toContain('Internal/Private');
     expect(isAllowedProxyUrl('https://[::ffff:192.168.1.1]/health').valid).toBe(false);
     expect(isAllowedProxyUrl('https://[::ffff:127.0.0.1]/health').valid).toBe(false);
+  });
+
+  it('rejects normalized NAT64 metadata and mapped public literals without DNS', () => {
+    expect(isAllowedProxyUrl('https://[64:ff9b::169.254.169.254]/health').valid).toBe(false);
+    expect(isAllowedProxyUrl('https://[::ffff:8.8.8.8]/health').valid).toBe(false);
+    expect(isAllowedProxyUrl('https://[::]/health').valid).toBe(false);
+    expect(isAllowedProxyUrl('https://[fea0::1]/health').valid).toBe(false);
   });
 
   it('rejects non-HTTP(S) protocols', () => {
@@ -230,6 +310,16 @@ describe('isAllowedProxyUrlAsync (DNS rebinding mitigation)', () => {
     resolve6Spy.mockResolvedValue([]);
     const result = await isAllowedProxyUrlAsync('https://dual-stack.example.com/');
     expect(result.valid).toBe(false);
+  });
+
+  it('rejects a private AAAA beside a public A record', async () => {
+    resolve4Spy.mockResolvedValue(['93.184.216.34']);
+    resolve6Spy.mockResolvedValue(['fd00::1']);
+    const result = await isAllowedProxyUrlAsync('https://dual.example.com/health');
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain('Internal/Private');
+    expect(resolve4Spy).toHaveBeenCalled();
+    expect(resolve6Spy).toHaveBeenCalled();
   });
 
   it('rejects when DNS resolution fails for both A and AAAA', async () => {

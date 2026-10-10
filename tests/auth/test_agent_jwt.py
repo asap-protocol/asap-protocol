@@ -262,6 +262,31 @@ async def test_verify_host_jwt_revoked_host_rejected() -> None:
 
 
 @pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
+async def test_verify_host_jwt_revoked_still_consumes_jti() -> None:
+    """A rejected revoked-host verify still records ``jti`` so the token cannot be retried."""
+    now = datetime.now(timezone.utc)
+    sk = Ed25519PrivateKey.generate()
+    hosts = InMemoryHostStore()
+    await hosts.save(
+        HostIdentity(
+            host_id="h1",
+            public_key=_public_jwk_dict(sk),
+            status="revoked",
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    token = create_host_jwt(sk, aud="x")
+    cache = JtiReplayCache()
+    first = await verify_host_jwt(token, hosts, jti_replay_cache=cache)
+    second = await verify_host_jwt(token, hosts, jti_replay_cache=cache)
+    assert not first.ok
+    assert first.error == "host revoked"
+    assert not second.ok
+    assert second.error == "jti replay detected"
+
+
+@pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
 async def test_verify_agent_jwt_success() -> None:
     """Valid agent JWT with matching host and active agent."""
     now = datetime.now(timezone.utc)
@@ -1364,6 +1389,51 @@ async def test_verify_agent_jwt_idle_expiry_does_not_slide_session() -> None:
     stored = await agents.get("a1")
     assert stored is not None
     assert stored.status == "active"
+    assert stored.last_used_at == stale
+
+
+@pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
+async def test_verify_agent_jwt_idle_expiry_consumes_jti() -> None:
+    """Idle expiry rejects the token and still burns ``jti`` so it cannot be presented again."""
+    now = datetime.now(timezone.utc)
+    stale = now - timedelta(hours=2)
+    host_sk = Ed25519PrivateKey.generate()
+    host_pub = _public_jwk_dict(host_sk)
+    host_tp = jwk_thumbprint_sha256(host_pub)
+    agent_sk = Ed25519PrivateKey.generate()
+    hosts = InMemoryHostStore()
+    agents = InMemoryAgentStore()
+    await hosts.save(
+        HostIdentity(
+            host_id="h1",
+            public_key=host_pub,
+            status="active",
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    await agents.save(
+        AgentSession(
+            agent_id="a1",
+            host_id="h1",
+            public_key=_public_jwk_dict(agent_sk),
+            mode="delegated",
+            status="active",
+            created_at=stale,
+            session_ttl=timedelta(minutes=30),
+            last_used_at=stale,
+        )
+    )
+    token = create_agent_jwt(agent_sk, host_thumbprint=host_tp, agent_id="a1", aud="a")
+    cache = JtiReplayCache()
+    first = await verify_agent_jwt(token, hosts, agents, jti_replay_cache=cache)
+    second = await verify_agent_jwt(token, hosts, agents, jti_replay_cache=cache)
+    assert not first.ok
+    assert first.error == "agent_expired"
+    assert not second.ok
+    assert second.error == "jti replay detected"
+    stored = await agents.get("a1")
+    assert stored is not None
     assert stored.last_used_at == stale
 
 

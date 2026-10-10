@@ -166,3 +166,16 @@ def test_evaluate_rejects_bare_agents_array_registry(tmp_path: Path) -> None:
     assert ok is False
     assert "Failed to parse" in message
     assert "not a bare array" in message
+
+
+def test_evaluate_rejects_bare_array_on_head(tmp_path: Path) -> None:
+    """A head revision that drops the LiteRegistry envelope is not auto-merge eligible."""
+    victim: dict[str, Any] = _entry("urn:asap:agent:acme:bot").model_dump(mode="json")
+    base = tmp_path / "base.json"
+    head = tmp_path / "head.json"
+    _write_registry(base, [_entry("urn:asap:agent:acme:bot")])
+    head.write_text(json.dumps([victim]), encoding="utf-8")
+    ok, message = evaluate(base, head)
+    assert ok is False
+    assert "Failed to parse" in message
+    assert "not a bare array" in message

@@ -391,10 +391,12 @@ def test_oauth2_middleware_skips_global_scope_on_extra_prefixes() -> None:
     with TestClient(app) as client:
         operator = client.get("/usage", headers=headers)
         protocol = client.get("/asap", headers=headers)
+        anonymous = client.get("/usage")
 
     assert operator.status_code == 200
     assert protocol.status_code == 403
     assert protocol.json() == {"detail": "Insufficient scope"}
+    assert anonymous.status_code == 401
 
 
 async def test_oauth2_middleware_returns_503_when_jwks_fetch_fails() -> None:
