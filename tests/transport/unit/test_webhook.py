@@ -82,6 +82,44 @@ class TestURLValidation:
         with pytest.raises(WebhookURLValidationError, match="blocked address range"):
             await validate_agent_endpoint_url("wss://127.0.0.1/events", require_https=True)
 
+    async def test_ws_rewrite_rejected_when_https_required(self) -> None:
+        """Cleartext ws:// must become http and fail the registry https requirement."""
+        with (
+            _patch_async_getaddrinfo(_public_addrinfo()),
+            pytest.raises(WebhookURLValidationError, match="Scheme 'http' is not allowed"),
+        ):
+            await validate_agent_endpoint_url("ws://example.com/events", require_https=True)
+
+    async def test_wss_userinfo_does_not_hide_loopback(self) -> None:
+        """Userinfo must not stop the rewritten URL from seeing a loopback host."""
+        with pytest.raises(WebhookURLValidationError, match="blocked address range"):
+            await validate_agent_endpoint_url(
+                "wss://user:pass@127.0.0.1/events",
+                require_https=True,
+            )
+
+    async def test_wss_ipv4_mapped_private_literal_blocked(self) -> None:
+        """Bracketed IPv4-mapped literals must survive the wss-to-https rewrite."""
+        with pytest.raises(WebhookURLValidationError, match="blocked address range"):
+            await validate_agent_endpoint_url(
+                "wss://[::ffff:10.0.0.1]/events",
+                require_https=True,
+            )
+
+    async def test_wss_dns_rebinding_blocked_after_scheme_rewrite(self) -> None:
+        """Scheme rewrite must keep the hostname so a private DNS answer still fails."""
+        private = [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.0.0.8", 0)),
+        ]
+        with (
+            _patch_async_getaddrinfo(private),
+            pytest.raises(WebhookURLValidationError, match="10.0.0.8"),
+        ):
+            await validate_agent_endpoint_url(
+                "wss://events.example.com/asap/events",
+                require_https=True,
+            )
+
     async def test_ftp_scheme_blocked(self) -> None:
         with pytest.raises(WebhookURLValidationError, match="Scheme 'ftp' is not allowed"):
             await validate_callback_url("ftp://example.com/file", require_https=False)

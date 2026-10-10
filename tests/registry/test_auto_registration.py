@@ -1165,6 +1165,109 @@ def test_register_agent_blocked_events_endpoint_400(
     assert pr_calls == []
 
 
+def _post_manifest_events(
+    monkeypatch: pytest.MonkeyPatch,
+    manifest_https: Manifest,
+    events_url: str,
+    *,
+    manifest_url: str,
+    token: str,
+) -> tuple[httpx.Response, list[tuple[RegistryEntry, str]]]:
+    """POST /registry/agents with a substituted events URL and a recording PR opener."""
+    pr_calls: list[tuple[RegistryEntry, str]] = []
+    updated = manifest_https.model_copy(
+        update={
+            "endpoints": Endpoint(
+                asap="https://example.com/asap",
+                events=events_url,
+            )
+        }
+    )
+
+    async def _fake_fetch(_client: object, _url: str) -> Manifest:
+        return updated
+
+    async def _fake_pr(entry: RegistryEntry, url: str) -> BotPRResult:
+        pr_calls.append((entry, url))
+        return BotPRResult(pr_url="x", branch_name="b")
+
+    monkeypatch.setattr(
+        "asap.registry.auto_registration.fetch_manifest_at_url",
+        _fake_fetch,
+    )
+    cfg = AutoRegistrationConfig(
+        oauth_claims_dependency=_oauth_bypass,
+        run_compliance=lambda _b: _passing_report(),
+        open_pull_request=_fake_pr,
+    )
+    app = FastAPI()
+    app.state.registration_limiter = create_test_limiter(
+        ["100000/hour"],
+        key_func=registration_token_key,
+    )
+    app.include_router(create_auto_registration_router(cfg))
+    response = TestClient(app).post(
+        "/registry/agents",
+        json={"manifest_url": manifest_url},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    return response, pr_calls
+
+
+def test_register_agent_cleartext_ws_events_rejected_before_pr(
+    manifest_https: Manifest,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ws:// must be rewritten to http and rejected before a registry PR opens."""
+
+    async def _public_dns(hostname: str) -> list[str]:
+        assert hostname == "example.com"
+        return ["93.184.216.34"]
+
+    monkeypatch.setattr("asap.transport.webhook._resolve_hostname", _public_dns)
+    resp, pr_calls = _post_manifest_events(
+        monkeypatch,
+        manifest_https,
+        "ws://events.example.com/events",
+        manifest_url="https://example.com/cleartext-ws.json",
+        token="cleartext-ws",
+    )
+    assert resp.status_code == 400
+    detail = str(resp.json()["detail"])
+    assert "WebSocket endpoint blocked" in detail
+    assert "Scheme 'http' is not allowed" in detail
+    assert pr_calls == []
+
+
+def test_register_agent_events_dns_rebinding_rejected_before_pr(
+    manifest_https: Manifest,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A public events name that resolves private must not be written via a PR."""
+
+    async def _split_dns(hostname: str) -> list[str]:
+        if hostname == "events.example.com":
+            return ["10.0.0.8"]
+        if hostname == "example.com":
+            return ["93.184.216.34"]
+        raise AssertionError(f"unexpected DNS lookup: {hostname}")
+
+    monkeypatch.setattr("asap.transport.webhook._resolve_hostname", _split_dns)
+    resp, pr_calls = _post_manifest_events(
+        monkeypatch,
+        manifest_https,
+        "wss://events.example.com/events",
+        manifest_url="https://example.com/rebind-ws.json",
+        token="rebind-ws",
+    )
+    assert resp.status_code == 400
+    detail = str(resp.json()["detail"])
+    assert "WebSocket endpoint blocked" in detail
+    assert "events.example.com" in detail
+    assert "10.0.0.8" in detail
+    assert pr_calls == []
+
+
 def test_run_compliance_bad_return_type_is_not_awaited(
     manifest_https: Manifest,
     monkeypatch: pytest.MonkeyPatch,
