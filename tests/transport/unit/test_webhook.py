@@ -763,6 +763,38 @@ class TestWebhookRetryManager:
         # Verify the bucket exists for this URL
         assert self._URL in manager._url_buckets
 
+    async def test_partial_refill_waits_only_for_the_missing_token(self) -> None:
+        """A fractional token shortfall sleeps for (1 - tokens) / rate, then delivers."""
+        clock = {"now": 8_000.0}
+        sleeps: list[float] = []
+
+        def fake_monotonic() -> float:
+            return clock["now"]
+
+        async def fake_sleep(delay: float) -> None:
+            if delay <= 0 or len(sleeps) >= 2:
+                raise AssertionError(f"rate-limit wait made no progress: {delay} after {sleeps}")
+            sleeps.append(delay)
+            clock["now"] += delay
+
+        policy = RetryPolicy(max_retries=0, base_delay=0.0, max_delay=0.0, rate_per_second=4.0)
+        delivery = _make_mock_delivery([_ok_result(self._URL)])
+        manager = WebhookRetryManager(delivery, policy=policy)
+
+        with (
+            patch("asap.transport.webhook.time.monotonic", side_effect=fake_monotonic),
+            patch("asap.transport.webhook.asyncio.sleep", side_effect=fake_sleep),
+        ):
+            bucket = manager._get_bucket(self._URL)
+            for _ in range(4):
+                assert bucket.consume() is True
+            clock["now"] += 0.125
+            result = await manager.deliver_with_retry(self._URL, self._PAYLOAD)
+
+        assert result.success is True
+        assert sleeps == [0.125]
+        assert delivery.deliver.call_count == 1
+
     def test_bucket_cap_evicts_oldest_url_and_resets_its_limit(self) -> None:
         """The 10k cap drops the oldest URL, so that URL's limit starts over.
 
