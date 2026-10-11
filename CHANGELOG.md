@@ -59,7 +59,8 @@ Tag [`v2.5.7`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.
   No wire-protocol or manifest schema breaking changes. Operators using
   JSON-RPC batch or other ``check_n`` paths should expect quota to reflect batch
   size; oversized batches that v2.5.6 could accept may now raise
-  ``RateLimitExceeded`` (intended behavior).
+  ``RateLimitExceeded`` (intended behavior). With default limits, a batch of 50
+  against ``10/second`` can trip in one call.
 
 ---
 

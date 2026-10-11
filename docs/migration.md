@@ -1150,6 +1150,9 @@ relative to v2.5.6.
 1. Bump with `pip install 'asap-protocol==2.5.7'` (or `uv add asap-protocol`).
 2. **Batch rate limits** — if you use JSON-RPC batch or other ``check_n`` paths,
    expect quota to reflect batch size (intended; may be stricter than v2.5.6).
+   With defaults (``DEFAULT_MAX_BATCH_SIZE`` 50 and ``10/second``), a single
+   batch can exceed the per-second window and raise ``RateLimitExceeded`` where
+   v2.5.6 could still accept it.
 3. TypeScript `@asap-protocol/*` packages remain at **2.4.1**;
    `@asap-protocol/mcp-auth` HTTP/SSE middleware remains deferred.
 
