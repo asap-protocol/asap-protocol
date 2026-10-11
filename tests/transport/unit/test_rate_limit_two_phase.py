@@ -122,3 +122,75 @@ def test_check_n_non_positive_does_not_consult_the_window() -> None:
     limiter = ASAPRateLimiter(key_func=_reject_lookup, limits=["1/minute"])
     limiter.check_n(_request(), 0)
     limiter.check_n(_request(), -4)
+
+
+def test_check_n_forwards_batch_cost_to_every_window() -> None:
+    """Each configured window is tested and charged once, at the full batch cost."""
+    limiter = ASAPRateLimiter(
+        key_func=lambda _request: "batch-client",
+        limits=["10/second;100/minute"],
+    )
+    calls: list[tuple[str, int]] = []
+
+    def fake_test(rate_limit: Any, key: str, cost: int = 1) -> bool:
+        _ = (rate_limit, key)
+        calls.append(("test", cost))
+        return True
+
+    def fake_hit(rate_limit: Any, key: str, cost: int = 1) -> bool:
+        _ = (rate_limit, key)
+        calls.append(("hit", cost))
+        return True
+
+    limiter._strategy.test = fake_test
+    limiter._strategy.hit = fake_hit
+    limiter.check_n(_request(), 4)
+
+    assert calls == [("test", 4), ("test", 4), ("hit", 4), ("hit", 4)]
+
+
+def test_check_n_raises_when_recording_rejects_the_batch() -> None:
+    """A hit that rejects cost=n fails closed and does not charge later windows."""
+    limiter = ASAPRateLimiter(
+        key_func=lambda _request: "batch-client",
+        limits=["10/second;100/minute"],
+    )
+    hits: list[int] = []
+
+    def fake_test(rate_limit: Any, key: str, cost: int = 1) -> bool:
+        _ = (rate_limit, key, cost)
+        return True
+
+    def fake_hit(rate_limit: Any, key: str, cost: int = 1) -> bool:
+        _ = (rate_limit, key)
+        hits.append(cost)
+        return False
+
+    def fake_stats(rate_limit: Any, key: str) -> tuple[float, int]:
+        _ = (rate_limit, key)
+        return (time.time() + 30, 0)
+
+    limiter._strategy.test = fake_test
+    limiter._strategy.hit = fake_hit
+    limiter._strategy.get_window_stats = fake_stats
+
+    with pytest.raises(RateLimitExceeded) as exc_info:
+        limiter.check_n(_request(), 4)
+
+    assert hits == [4]
+    assert exc_info.value.retry_after >= 1
+    assert "10 per 1 second" in exc_info.value.limit
+
+
+def test_burst_window_rejects_oversized_batch_without_spending_quota() -> None:
+    """A batch over the per-second cap leaves both windows able to accept a fitting batch."""
+    limiter = ASAPRateLimiter(
+        key_func=lambda _request: "batch-client",
+        limits=["2/second;100/minute"],
+    )
+    with pytest.raises(RateLimitExceeded):
+        limiter.check_n(_request(), 3)
+
+    limiter.check_n(_request(), 2)
+    with pytest.raises(RateLimitExceeded):
+        limiter.check(_request())
