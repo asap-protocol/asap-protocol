@@ -7,9 +7,9 @@
 
 > A production-ready protocol for agent-to-agent communication and task coordination.
 
-**Quick Info**: [`v2.5.6`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.6) · PyPI [`asap-protocol`](https://pypi.org/project/asap-protocol/) | `Apache 2.0` | `Python 3.13+` | [Documentation](docs/index.md) | [Changelog](CHANGELOG.md)
+**Quick Info**: [`v2.5.7`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.7) · PyPI [`asap-protocol`](https://pypi.org/project/asap-protocol/) | `Apache 2.0` | `Python 3.13+` | [Documentation](docs/index.md) | [Changelog](CHANGELOG.md)
 
-> 📦 **Install** — [`asap-protocol` **2.5.6** on PyPI](https://pypi.org/project/asap-protocol/) (Python) · [`@asap-protocol/client` on npm](https://www.npmjs.com/package/@asap-protocol/client) (TypeScript)
+> 📦 **Install** — [`asap-protocol` **2.5.7** on PyPI](https://pypi.org/project/asap-protocol/) (Python) · [`@asap-protocol/client` on npm](https://www.npmjs.com/package/@asap-protocol/client) (TypeScript)
 
 🚀 **Live now** our [**agentic marketplace**](https://asap-protocol.com/) — browse agents, register yours, request verification.
 
@@ -64,16 +64,16 @@ ASAP meets agents where they run — optional Python extras, npm tool bridges, a
 We recommend using [uv](https://github.com/astral-sh/uv) for dependency management:
 
 ```bash
-uv add asap-protocol  # latest on PyPI (currently 2.5.6)
+uv add asap-protocol  # latest on PyPI (currently 2.5.7)
 ```
 
 Or with pip:
 
 ```bash
-pip install asap-protocol==2.5.6
+pip install asap-protocol==2.5.7
 ```
 
-**TypeScript** (npm, **`2.4.1`** — unchanged for v2.5.6; `@asap-protocol/mcp-auth` HTTP middleware still deferred):
+**TypeScript** (npm, **`2.4.1`** — unchanged for v2.5.7; `@asap-protocol/mcp-auth` HTTP middleware still deferred):
 
 - [`@asap-protocol/client`](https://www.npmjs.com/package/@asap-protocol/client) — [SDK docs](docs/sdks/typescript.md)
 - [`@asap-protocol/mastra`](https://www.npmjs.com/package/@asap-protocol/mastra) — [docs](docs/integrations/mastra.md) · [demo](apps/example-mastra/README.md)
@@ -85,7 +85,7 @@ npm install @asap-protocol/mastra@2.4.1 @asap-protocol/client @mastra/core zod
 npm install @asap-protocol/openai-agents@2.4.1 @asap-protocol/client @openai/agents zod
 ```
 
-**Python v2.5.6** (security & quality patch) is **shipped** — see [Migration (v2.5.5 → v2.5.6)](docs/migration.md#upgrading-from-v255-to-v256). Dist Loop starters remain: [Build for agents](docs/guides/build-for-agents.md) · [starters](examples/starters/README.md).
+**Python v2.5.7** (quality & coverage patch) is **shipped** — see [Migration (v2.5.6 → v2.5.7)](docs/migration.md#upgrading-from-v256-to-v257). Dist Loop starters remain: [Build for agents](docs/guides/build-for-agents.md) · [starters](examples/starters/README.md).
 
 ## Quick Start
 
@@ -173,6 +173,7 @@ High-level only — see **[Changelog](https://github.com/asap-protocol/asap-prot
 
 | Version | What shipped |
 | :-- | :-- |
+| **v2.5.7** | **Quality & coverage patch** — **[GitHub Release `v2.5.7`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.7)** · batch rate-limit `check_n` fix, CI security gate deps + `apps/web` audit-ci, consolidated regression tests ([#395](https://github.com/asap-protocol/asap-protocol/pull/395)–[#399](https://github.com/asap-protocol/asap-protocol/pull/399)). npm `@asap-protocol/*` remain **2.4.1**. See [CHANGELOG](CHANGELOG.md#257---2026-10-11) and [Migration (v2.5.6 → v2.5.7)](docs/migration.md#upgrading-from-v256-to-v257) |
 | **v2.5.6** | **Security & quality patch** — **[GitHub Release `v2.5.6`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.6)** · Lite Registry IssueOps envelope + endpoint SSRF, compliance open-redirect SSRF, constrained capability execute, rotate-key lifecycle race, deps + regression tests. npm `@asap-protocol/*` remain **2.4.1**. See [CHANGELOG](CHANGELOG.md#256---2026-10-01) and [Migration (v2.5.5 → v2.5.6)](docs/migration.md#upgrading-from-v255-to-v256) |
 | **v2.5.5** | **Security & quality patch** — **[GitHub Release `v2.5.5`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.5)** · OpenAPI path-param climb, registry URN overwrite guard, marketplace SSRF DNS pin, capability-replace consent, fail-closed reactivate, Agent JWT persist/revoke races. npm `@asap-protocol/*` remain **2.4.1**. See [CHANGELOG](CHANGELOG.md#255---2026-09-11) and [Migration (v2.5.4 → v2.5.5)](docs/migration.md#upgrading-from-v254-to-v255) |
 | **v2.5.4** | **Distribution Loop** — **[GitHub Release `v2.5.4`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.4)** · thin starters (`examples/starters/`), [Build for agents](docs/guides/build-for-agents.md), homepage agent-first CTAs, telemetry ops (no public metrics UI). See [CHANGELOG](CHANGELOG.md#254---2026-07-18), [PRD](product/prd/prd-v2.5.4-distribution-loop.md), and [Migration (v2.5.3 → v2.5.4)](docs/migration.md#upgrading-from-v253-to-v254) |
@@ -198,7 +199,7 @@ High-level only — see **[Changelog](https://github.com/asap-protocol/asap-prot
 
 The [agentic marketplace](https://asap-protocol.com/) and Lite Registry are live. The **v2.5.x train** focuses on interop and adoption:
 
-- **Formal Spec & Interop** — RFC, introspection, privacy (PRD [prd-v2.5.5-formal-spec-interop.md](product/prd/prd-v2.5.5-formal-spec-interop.md); library **2.5.6** is the security/quality patch above)
+- **Formal Spec & Interop** — RFC, introspection, privacy (PRD [prd-v2.5.5-formal-spec-interop.md](product/prd/prd-v2.5.5-formal-spec-interop.md); library **2.5.7** is the quality/coverage patch above)
 - **`@asap-protocol/mcp-auth`** (npm) — HTTP/SSE MCP middleware
 - **Formal spec track** — introspection, privacy, cross-protocol interop on the path to v3.0 economy
 
