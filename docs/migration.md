@@ -1134,7 +1134,7 @@ relative to v2.5.6.
 - **Rate limits** — ``ASAPRateLimiter.check_n`` charges ``cost=n`` on the
   moving window ([#394](https://github.com/asap-protocol/asap-protocol/pull/394)).
 - **CI security** — ``uv`` override pins and ``apps/web`` ``audit-ci`` /
-  npm overrides ([#394](https://github.com/asap-protocol/asap-protocol/pull/394)
+  npm overrides ([#395](https://github.com/asap-protocol/asap-protocol/pull/395)
   train).
 - **Regression tests** — transport/auth ([#395](https://github.com/asap-protocol/asap-protocol/pull/395),
   [#397](https://github.com/asap-protocol/asap-protocol/pull/397),

@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **Quality & coverage patch** — correct batch HTTP rate-limit accounting,
 transitive dependency overrides for CI security gates, `apps/web` audit-ci
 enforcement, and consolidated regression tests on `main` via
-[#395](https://github.com/asap-protocol/asap-protocol/pull/395)–[#399](https://github.com/asap-protocol/asap-protocol/pull/399).
+[#394](https://github.com/asap-protocol/asap-protocol/pull/394)–[#399](https://github.com/asap-protocol/asap-protocol/pull/399).
 This is **not** Formal Spec & Interop. npm `@asap-protocol/*` packages remain
 at **2.4.1**. PyPI `asap-compliance` remains **1.3.0**.
 Tag [`v2.5.7`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.7)
@@ -37,11 +37,11 @@ Tag [`v2.5.7`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.
 
 - **Transitive Python deps** — ``uv`` override pins for advisories on optional
   integration paths (``multidict``, ``pydantic-ai``, ``werkzeug``, ``fsspec``)
-  so CI ``pip-audit`` stays green ([#394](https://github.com/asap-protocol/asap-protocol/pull/394)
+  so CI ``pip-audit`` stays green ([#395](https://github.com/asap-protocol/asap-protocol/pull/395)
   train).
 - **`apps/web` npm audit** — CI uses ``audit-ci`` with ``audit-ci.jsonc``;
   production overrides bump ``sharp`` and ``source-map-js``
-  ([#394](https://github.com/asap-protocol/asap-protocol/pull/394) train).
+  ([#395](https://github.com/asap-protocol/asap-protocol/pull/395) train).
 
 ### Quality
 
@@ -56,9 +56,10 @@ Tag [`v2.5.7`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.
 ### Migration
 
 - **v2.5.6 → v2.5.7**: See [migration guide](docs/migration.md#upgrading-from-v256-to-v257).
-  No wire-protocol or manifest schema breaking changes. Operators relying on
-  batch endpoints should expect slightly stricter rate limiting when ``check_n``
-  is used (intended behavior).
+  No wire-protocol or manifest schema breaking changes. Operators using
+  JSON-RPC batch or other ``check_n`` paths should expect quota to reflect batch
+  size; oversized batches that v2.5.6 could accept may now raise
+  ``RateLimitExceeded`` (intended behavior).
 
 ---
 
