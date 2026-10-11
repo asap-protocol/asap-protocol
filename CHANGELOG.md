@@ -16,6 +16,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.5.7] - 2026-10-11
+
+**Quality & coverage patch** — correct batch HTTP rate-limit accounting,
+transitive dependency overrides for CI security gates, `apps/web` audit-ci
+enforcement, and consolidated regression tests on `main` via
+[#395](https://github.com/asap-protocol/asap-protocol/pull/395)–[#399](https://github.com/asap-protocol/asap-protocol/pull/399).
+This is **not** Formal Spec & Interop. npm `@asap-protocol/*` packages remain
+at **2.4.1**. PyPI `asap-compliance` remains **1.3.0**.
+Tag [`v2.5.7`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.7)
+· PyPI `asap-protocol==2.5.7`.
+
+### Fixed
+
+- **Batch rate limits (#394)** — ``ASAPRateLimiter.check_n`` passes ``cost=n`` to
+  the moving-window strategy instead of ``n`` separate unit-cost ``hit`` calls,
+  so multi-item requests consume the correct quota.
+
+### Security
+
+- **Transitive Python deps** — ``uv`` override pins for advisories on optional
+  integration paths (``multidict``, ``pydantic-ai``, ``werkzeug``, ``fsspec``)
+  so CI ``pip-audit`` stays green ([#394](https://github.com/asap-protocol/asap-protocol/pull/394)
+  train).
+- **`apps/web` npm audit** — CI uses ``audit-ci`` with ``audit-ci.jsonc``;
+  production overrides bump ``sharp`` and ``source-map-js``
+  ([#394](https://github.com/asap-protocol/asap-protocol/pull/394) train).
+
+### Quality
+
+- **Transport & auth regression tests (#395, #397, #394)** — stale-key grants and
+  409 races, WebSocket token bursts and snapshot replace, streamed limits and
+  ceremony retry paths.
+- **Registry & compliance harness (#389)** — endpoint rewrite, webhook DNS match,
+  compliance preflight edges.
+- **Identity, economics, ingress (#398, #399)** — JWT middleware and metering
+  bridges, SSRF and ingress policy, adapter storage edges.
+
+### Migration
+
+- **v2.5.6 → v2.5.7**: See [migration guide](docs/migration.md#upgrading-from-v256-to-v257).
+  No wire-protocol or manifest schema breaking changes. Operators relying on
+  batch endpoints should expect slightly stricter rate limiting when ``check_n``
+  is used (intended behavior).
+
+---
+
 ## [2.5.6] - 2026-10-01
 
 **Security & quality patch** — Lite Registry IssueOps envelope and endpoint SSRF
