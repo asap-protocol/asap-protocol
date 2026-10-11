@@ -3,7 +3,7 @@
 > **Purpose**: Formal review points to update documentation with learnings (product follow-up after releases).
 > **Location**: Lives under **`product/`** because it drives PRD updates and retros, not day-to-day engineering execution.
 > **Created**: 2026-02-06
-> **Updated**: 2026-10-11 — **v2.5.7** quality & coverage patch **shipped** (tag [`v2.5.7`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.7); PyPI **2.5.7**; release PR TBD). Formal Spec remains **next** ([prd-v2.5.5-formal-spec-interop.md](./prd/prd-v2.5.5-formal-spec-interop.md) — filename historical, not this library tag). Long-term = **v3.0** Economy (trigger-gated).
+> **Updated**: 2026-10-11 — **v2.5.7** quality & coverage patch **shipped** (tag [`v2.5.7`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.7); PyPI **2.5.7**; [#400](https://github.com/asap-protocol/asap-protocol/pull/400)). Formal Spec remains **next** ([prd-v2.5.5-formal-spec-interop.md](./prd/prd-v2.5.5-formal-spec-interop.md) — filename historical, not this library tag). Long-term = **v3.0** Economy (trigger-gated).
 
 ---
 
