@@ -122,3 +122,46 @@ def test_check_n_non_positive_does_not_consult_the_window() -> None:
     limiter = ASAPRateLimiter(key_func=_reject_lookup, limits=["1/minute"])
     limiter.check_n(_request(), 0)
     limiter.check_n(_request(), -4)
+
+
+def _limiter_rejecting_at(reset_at: float) -> ASAPRateLimiter:
+    """Limiter whose first window always fails and reports ``reset_at``."""
+    limiter = ASAPRateLimiter(
+        key_func=lambda _request: "retry-client",
+        limits=["1/minute"],
+    )
+
+    def _reject(_rate_limit: Any, _key: str, cost: int = 1) -> bool:
+        _ = cost
+        return False
+
+    def _stats(_rate_limit: Any, _key: str) -> tuple[float, int]:
+        return (reset_at, 0)
+
+    limiter._strategy.test = _reject
+    limiter._strategy.get_window_stats = _stats
+    return limiter
+
+
+def test_retry_after_floors_fractional_reset_and_clamps_at_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """429 retry_after is whole seconds and is never zero when the window is due."""
+    frozen = 1_700_000_000.0
+    monkeypatch.setattr("asap.transport.rate_limit.time.time", lambda: frozen)
+
+    with pytest.raises(RateLimitExceeded) as fractional:
+        _limiter_rejecting_at(frozen + 30.9).check(_request())
+    assert fractional.value.retry_after == 30
+
+    with pytest.raises(RateLimitExceeded) as almost_open:
+        _limiter_rejecting_at(frozen + 0.2).check(_request())
+    assert almost_open.value.retry_after == 1
+
+    with pytest.raises(RateLimitExceeded) as already_reset:
+        _limiter_rejecting_at(frozen - 5.0).check(_request())
+    assert already_reset.value.retry_after == 1
+
+    with pytest.raises(RateLimitExceeded) as batch:
+        _limiter_rejecting_at(frozen + 30.9).check_n(_request(), 4)
+    assert batch.value.retry_after == 30
