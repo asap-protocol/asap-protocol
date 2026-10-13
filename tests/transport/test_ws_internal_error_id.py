@@ -55,3 +55,48 @@ class TestWSInternalErrorIdPreserved:
         assert len(sent) == 1
         frame = json.loads(sent[0])
         assert frame["id"] is None
+
+
+class TestWSInternalErrorSanitized:
+    """Production frames must not echo exception text (HTTP parity)."""
+
+    @pytest.mark.asyncio
+    async def test_production_frame_hides_exception_text(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Debug off: the client sees a generic message, not the exception."""
+        monkeypatch.setattr("asap.transport.ws._dispatch.is_debug_mode", lambda: False)
+        sent: list[str] = []
+
+        await _send_internal_error_frame(
+            _ws_stub(sent),
+            RuntimeError("boom-secret"),
+            response_id="req-1",
+        )
+
+        assert len(sent) == 1
+        frame = json.loads(sent[0])
+        assert frame["id"] == "req-1"
+        assert frame["error"]["data"] == {"error": "Internal server error"}
+        assert "boom-secret" not in sent[0]
+        assert "RuntimeError" not in sent[0]
+
+    @pytest.mark.asyncio
+    async def test_debug_frame_includes_exception_text(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Debug on: operators can see the exception type and message."""
+        monkeypatch.setattr("asap.transport.ws._dispatch.is_debug_mode", lambda: True)
+        sent: list[str] = []
+
+        await _send_internal_error_frame(
+            _ws_stub(sent),
+            RuntimeError("boom-secret"),
+            response_id="req-1",
+        )
+
+        frame = json.loads(sent[0])
+        assert frame["error"]["data"] == {
+            "error": "boom-secret",
+            "type": "RuntimeError",
+        }

@@ -157,6 +157,20 @@ def test_verify_ca_signature_rejects_unknown_ca() -> None:
     assert "unknown CA" in exc_info.value.message
 
 
+def test_verify_ca_signature_rejects_missing_public_key() -> None:
+    """A verified manifest with no CA public key cannot be checked against known CAs."""
+    manifest = _sample_manifest()
+    agent_key, _agent_public = generate_keypair()
+    ca_key, _ca_public = generate_keypair()
+    signed = sign_with_ca(manifest, agent_key, ca_key)
+    stripped = signed.model_copy(update={"public_key": None})
+    known_cas = [public_key_to_base64(ca_key.public_key())]
+    with pytest.raises(SignatureVerificationError) as exc_info:
+        verify_ca_signature(stripped, known_cas)
+    assert exc_info.value.message == "Cannot verify CA: signed manifest has no public_key."
+    assert exc_info.value.details == {}
+
+
 def test_verify_ca_signature_rejects_self_signed() -> None:
     manifest = _sample_manifest()
     agent_key, _ = generate_keypair()
