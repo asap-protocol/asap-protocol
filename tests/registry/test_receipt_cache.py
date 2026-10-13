@@ -95,6 +95,25 @@ def test_ttl_cache_contains_drops_expired_entry(mock_monotonic_clock: dict[str, 
     assert "k" not in c
 
 
+def test_ttl_cache_expires_at_exact_deadline(mock_monotonic_clock: dict[str, float]) -> None:
+    """TTL uses ``>= expires_at``: live one second before the deadline, gone at it.
+
+    Registration idempotency checks ``cache_key in cache``. An off-by-one here
+    would replay a receipt after the window or drop it early. The 25s jump in
+    the older expiry test does not pin this instant.
+    """
+    cache: RegistrationReceiptTTLCache[str] = RegistrationReceiptTTLCache(maxsize=10, ttl=10.0)
+    cache["receipt"] = "body"
+    mock_monotonic_clock["t"] = 9.0
+    assert "receipt" in cache
+    assert cache["receipt"] == "body"
+
+    mock_monotonic_clock["t"] = 10.0
+    assert "receipt" not in cache
+    with pytest.raises(KeyError):
+        _ = cache["receipt"]
+
+
 def test_ttl_cache_delitem_removes_key() -> None:
     """``del`` removes a key and updates length."""
     c: RegistrationReceiptTTLCache[str] = RegistrationReceiptTTLCache(maxsize=10, ttl=60.0)
