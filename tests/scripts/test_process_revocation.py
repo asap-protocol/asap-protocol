@@ -148,3 +148,64 @@ class TestProcessRevocationRun:
         result = json.loads(output_path.read_text())
         assert "valid" in result
         assert result["valid"] is True
+
+    def test_rejects_urn_that_is_not_an_agent_urn(self, tmp_path: Path) -> None:
+        """A non-URN id is rejected before it can be appended to the revocation list."""
+        registry_path = tmp_path / "registry.json"
+        revoked_path = tmp_path / "revoked_agents.json"
+        output_path = tmp_path / "result.json"
+        bad_id = "https://evil.example/agent"
+        original_revoked = json.dumps({"revoked": [], "version": "1.0"})
+
+        registry_path.write_text(json.dumps([{"id": bad_id, "name": "not-an-agent-urn"}]))
+        revoked_path.write_text(original_revoked)
+
+        run(
+            body=f"""
+### Agent URN
+{bad_id}
+
+### Reason
+compromised
+
+### Confirmation
+- [x] I confirm that this revocation request is valid and authorized.
+""",
+            issue_number="5",
+            output_path=str(output_path),
+            registry_path=str(registry_path),
+            revoked_path=str(revoked_path),
+        )
+
+        result = json.loads(output_path.read_text())
+        assert result["valid"] is False
+        assert "Invalid URN format" in result["errors"]
+        assert bad_id in result["errors"]
+        assert revoked_path.read_text() == original_revoked
+
+    def test_invalid_revoked_schema_is_not_rewritten(self, tmp_path: Path) -> None:
+        """A revoked file that fails schema validation is left byte-for-byte unchanged."""
+        registry_path = tmp_path / "registry.json"
+        revoked_path = tmp_path / "revoked_agents.json"
+        output_path = tmp_path / "result.json"
+        original_revoked = json.dumps(
+            {"revoked": [{"urn": "urn:asap:agent:testuser:my-agent"}], "version": "1.0"}
+        )
+
+        registry_path.write_text(
+            json.dumps([{"id": "urn:asap:agent:testuser:my-agent", "name": "my-agent"}])
+        )
+        revoked_path.write_text(original_revoked)
+
+        run(
+            body=VALID_BODY_REVOKE,
+            issue_number="6",
+            output_path=str(output_path),
+            registry_path=str(registry_path),
+            revoked_path=str(revoked_path),
+        )
+
+        result = json.loads(output_path.read_text())
+        assert result["valid"] is False
+        assert "revoked_agents.json schema invalid" in result["errors"]
+        assert revoked_path.read_text() == original_revoked
