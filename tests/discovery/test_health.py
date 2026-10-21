@@ -66,6 +66,15 @@ class TestHealthResponse:
         assert health_status.load.active_tasks == 3
         assert health_status.load.queue_depth == 2
 
+    def test_future_monotonic_start_reports_zero_uptime(self, sample_manifest: Manifest) -> None:
+        """A start timestamp ahead of the clock must not fail the health probe."""
+        started_at = time.monotonic() + 60.0
+        assert health.compute_uptime_seconds(started_at) == 0.0
+        health_status, status_code = health.get_health_response(sample_manifest, started_at)
+        assert status_code == 200
+        assert health_status.status == "healthy"
+        assert health_status.uptime_seconds == 0.0
+
 
 class TestHealthEndpointIntegration:
     """Tests for GET /.well-known/asap/health served by ASAPServer."""
