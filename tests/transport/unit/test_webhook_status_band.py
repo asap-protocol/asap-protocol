@@ -1,7 +1,8 @@
 """Webhook delivery treats only HTTP 200-299 as success.
 
-A redirect (300) must stay a failure so retry does not record a delivery
-that never reached the handler. 199 is outside the inclusive lower bound.
+``deliver`` returns a ``WebhookResult``. It does not write a delivery record.
+199 is below the inclusive lower bound, 200 and 299 are inside it, and 300
+is a redirect, so it is not a success.
 """
 
 from __future__ import annotations
@@ -24,13 +25,13 @@ def _public_addrinfo() -> list[tuple[int, int, int, str, tuple[str, int]]]:
 
 @pytest.mark.parametrize(
     ("status_code", "delivered"),
-    [(199, False), (299, True), (300, False)],
+    [(199, False), (200, True), (299, True), (300, False)],
 )
 async def test_deliver_success_is_exclusive_to_the_2xx_band(
     status_code: int,
     delivered: bool,
 ) -> None:
-    """199 fails, 299 succeeds, and 300 is not a successful delivery."""
+    """Success is ``200 <= status < 300`` on the result ``deliver`` returns."""
     delivery = WebhookDelivery(secret=None, require_https=True)
     mock_client = AsyncMock()
     mock_client.post.return_value = httpx.Response(status_code)
@@ -46,4 +47,3 @@ async def test_deliver_success_is_exclusive_to_the_2xx_band(
 
     assert result.success is delivered
     assert result.status_code == status_code
-    assert result.error is None

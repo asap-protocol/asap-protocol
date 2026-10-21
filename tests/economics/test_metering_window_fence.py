@@ -55,13 +55,20 @@ class _FrozenUtcNow(datetime):
         )
 
 
-def _usage(task_id: str, tokens_in: int, when: datetime) -> UsageMetrics:
+def _usage(
+    task_id: str,
+    tokens_in: int,
+    when: datetime,
+    *,
+    api_calls: int = 0,
+) -> UsageMetrics:
     """Build one billing row with a single token count at ``when``."""
     return UsageMetrics(
         task_id=task_id,
         agent_id=_AGENT_ID,
         consumer_id=_CONSUMER_ID,
         tokens_in=tokens_in,
+        api_calls=api_calls,
         timestamp=when,
     )
 
@@ -93,17 +100,17 @@ async def _assert_window(
     opening: datetime,
 ) -> None:
     """Aggregate ``period`` and require both inclusive edges, nothing outside."""
-    await storage.record(_usage("before-open", 100, opening - _ONE_MICROSECOND))
-    await storage.record(_usage("at-open", 1, opening))
-    await storage.record(_usage("at-now", 2, _FROZEN_NOW))
-    await storage.record(_usage("after-now", 200, _FROZEN_NOW + _ONE_MICROSECOND))
+    await storage.record(_usage("before-open", 100, opening - _ONE_MICROSECOND, api_calls=10))
+    await storage.record(_usage("at-open", 1, opening, api_calls=1))
+    await storage.record(_usage("at-now", 2, _FROZEN_NOW, api_calls=2))
+    await storage.record(_usage("after-now", 200, _FROZEN_NOW + _ONE_MICROSECOND, api_calls=20))
 
     aggregate = await MeteringStorageBridge(storage).aggregate(_AGENT_ID, period)
 
     assert aggregate.period == period
     assert aggregate.total_tokens == 3
     assert aggregate.total_tasks == 2
-    assert aggregate.total_api_calls == 0
+    assert aggregate.total_api_calls == 3
 
 
 @pytest.mark.parametrize("backend", ["memory", "sqlite"])

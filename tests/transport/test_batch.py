@@ -114,10 +114,11 @@ class TestBatchServer(NoRateLimitTestBase):
         assert data["error"]["code"] == INVALID_REQUEST
         assert "empty batch" in data["error"]["data"]["reason"]
 
-    async def test_oversized_batch_returns_error(self, transport: ASGITransport) -> None:
-        """A batch exceeding max_batch_size returns a single error."""
+    async def test_oversized_batch_returns_error(self, app: Any, transport: ASGITransport) -> None:
+        """A batch one past ``app.state.max_batch_size`` returns a single error."""
         env = _make_envelope()
-        batch_body = [_make_rpc_request(env, f"r{i}") for i in range(6)]
+        over_limit = int(app.state.max_batch_size) + 1
+        batch_body = [_make_rpc_request(env, f"r{i}") for i in range(over_limit)]
 
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.post("/asap", content=json.dumps(batch_body))
@@ -129,11 +130,13 @@ class TestBatchServer(NoRateLimitTestBase):
 
     async def test_batch_at_max_size_returns_one_response_per_item(
         self,
+        app: Any,
         transport: ASGITransport,
     ) -> None:
-        """A batch of exactly max_batch_size is accepted; one more is already rejected."""
+        """A batch of exactly ``app.state.max_batch_size`` returns one response per item."""
         env = _make_envelope()
-        batch_body = [_make_rpc_request(env, f"r{i}") for i in range(5)]
+        limit = int(app.state.max_batch_size)
+        batch_body = [_make_rpc_request(env, f"r{i}") for i in range(limit)]
 
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.post("/asap", content=json.dumps(batch_body))
@@ -141,7 +144,7 @@ class TestBatchServer(NoRateLimitTestBase):
         assert resp.status_code == 200
         data = resp.json()
         assert isinstance(data, list)
-        assert len(data) == 5
+        assert len(data) == limit
         assert all(item["jsonrpc"] == "2.0" for item in data)
 
     async def test_non_dict_items_return_errors(self, transport: ASGITransport) -> None:
