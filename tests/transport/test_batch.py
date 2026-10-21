@@ -127,6 +127,23 @@ class TestBatchServer(NoRateLimitTestBase):
         assert data["error"]["code"] == INVALID_REQUEST
         assert "exceeds max" in data["error"]["data"]["reason"]
 
+    async def test_batch_at_max_size_returns_one_response_per_item(
+        self,
+        transport: ASGITransport,
+    ) -> None:
+        """A batch of exactly max_batch_size is accepted; one more is already rejected."""
+        env = _make_envelope()
+        batch_body = [_make_rpc_request(env, f"r{i}") for i in range(5)]
+
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.post("/asap", content=json.dumps(batch_body))
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert isinstance(data, list)
+        assert len(data) == 5
+        assert all(item["jsonrpc"] == "2.0" for item in data)
+
     async def test_non_dict_items_return_errors(self, transport: ASGITransport) -> None:
         """Non-dict items in the batch produce INVALID_REQUEST for those entries."""
         env = _make_envelope()
