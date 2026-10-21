@@ -179,6 +179,21 @@ def test_verify_manifest_missing_public_key_raises() -> None:
     )
 
 
+def test_verify_manifest_rejects_truncated_public_key() -> None:
+    """A valid base64 key of the wrong length is a signature failure, not a crash."""
+    manifest = _sample_manifest()
+    private_key, _public_key = generate_keypair()
+    signed = sign_manifest(manifest, private_key)
+    truncated = base64.b64encode(b"\x11" * 16).decode("ascii")
+    signed_short_key = SignedManifest(
+        manifest=signed.manifest,
+        signature=signed.signature,
+        public_key=truncated,
+    )
+    with pytest.raises(SignatureVerificationError, match="32 bytes, got 16"):
+        verify_manifest(signed_short_key)
+
+
 def test_verify_manifest_invalid_public_key_raises() -> None:
     manifest = _sample_manifest()
     private_key, _ = generate_keypair()
