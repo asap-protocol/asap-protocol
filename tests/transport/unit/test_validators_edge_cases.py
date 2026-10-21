@@ -138,6 +138,8 @@ class TestNonceValidationEdgeCases:
         with store._lock:
             store._store["boundary-nonce"] = expiry
 
+        # Force the expiry sweep. The default 5% roll can hide a `<` to `<=` flip.
+        monkeypatch.setattr("asap.transport.validators._CLEANUP_PROBABILITY", 1.0)
         monkeypatch.setattr("asap.transport.validators.time.time", lambda: expiry)
         with pytest.raises(InvalidNonceError, match="Duplicate nonce"):
             validate_envelope_nonce(envelope, store)

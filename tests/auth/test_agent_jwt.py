@@ -943,7 +943,11 @@ def test_jti_replay_cache_rejects_blank_jti() -> None:
 
 
 def test_jti_replay_cache_max_size_evicts_oldest_expiry_first() -> None:
-    """Beyond ``max_size``, earliest-expiring entries are dropped (memory cap)."""
+    """Beyond ``max_size``, earliest-expiring entries are dropped (memory cap).
+
+    This only checks that the cache stays at ``max_size``. Which key is dropped
+    is locked in ``tests/auth/test_jti_replay_eviction.py``.
+    """
     cache = JtiReplayCache(ttl_seconds=90.0, max_size=2)
     assert cache.check_and_record("p", "a")
     assert cache.check_and_record("p", "b")

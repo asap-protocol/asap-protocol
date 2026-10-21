@@ -130,23 +130,28 @@ def test_check_n_forwards_batch_cost_to_every_window() -> None:
         key_func=lambda _request: "batch-client",
         limits=["10/second;100/minute"],
     )
-    calls: list[tuple[str, int]] = []
+    calls: list[tuple[str, str, int]] = []
 
     def fake_test(rate_limit: Any, key: str, cost: int = 1) -> bool:
-        _ = (rate_limit, key)
-        calls.append(("test", cost))
+        _ = key
+        calls.append(("test", str(rate_limit), cost))
         return True
 
     def fake_hit(rate_limit: Any, key: str, cost: int = 1) -> bool:
-        _ = (rate_limit, key)
-        calls.append(("hit", cost))
+        _ = key
+        calls.append(("hit", str(rate_limit), cost))
         return True
 
     limiter._strategy.test = fake_test
     limiter._strategy.hit = fake_hit
     limiter.check_n(_request(), 4)
 
-    assert calls == [("test", 4), ("test", 4), ("hit", 4), ("hit", 4)]
+    assert calls == [
+        ("test", "10 per 1 second", 4),
+        ("test", "100 per 1 minute", 4),
+        ("hit", "10 per 1 second", 4),
+        ("hit", "100 per 1 minute", 4),
+    ]
 
 
 def test_check_n_raises_when_recording_rejects_the_batch() -> None:
@@ -183,17 +188,22 @@ def test_check_n_raises_when_recording_rejects_the_batch() -> None:
 
 
 def test_burst_window_rejects_oversized_batch_without_spending_quota() -> None:
-    """A batch over the per-second cap leaves both windows able to accept a fitting batch."""
+    """A rejected oversized batch leaves every window at its full remaining count."""
     limiter = ASAPRateLimiter(
         key_func=lambda _request: "batch-client",
-        limits=["2/second;100/minute"],
+        limits=["2/second;2/minute"],
     )
+    request = _request()
     with pytest.raises(RateLimitExceeded):
-        limiter.check_n(_request(), 3)
+        limiter.check_n(request, 3)
 
-    limiter.check_n(_request(), 2)
+    for rate_limit in limiter.limits:
+        _reset_at, remaining = limiter._strategy.get_window_stats(rate_limit, "batch-client")
+        assert remaining == rate_limit.amount
+
+    limiter.check_n(request, 2)
     with pytest.raises(RateLimitExceeded):
-        limiter.check(_request())
+        limiter.check(request)
 
 
 def _limiter_rejecting_at(reset_at: float) -> ASAPRateLimiter:
@@ -218,22 +228,22 @@ def _limiter_rejecting_at(reset_at: float) -> ASAPRateLimiter:
 def test_retry_after_floors_fractional_reset_and_clamps_at_one(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """429 retry_after is whole seconds and is never zero when the window is due."""
+    """429 retry_after is ``max(1, int(delta))`` for both ``check`` and ``check_n``."""
     frozen = 1_700_000_000.0
     monkeypatch.setattr("asap.transport.rate_limit.time.time", lambda: frozen)
 
-    with pytest.raises(RateLimitExceeded) as fractional:
-        _limiter_rejecting_at(frozen + 30.9).check(_request())
-    assert fractional.value.retry_after == 30
+    def _expect(offset: float, expected: int, *, batch: int | None = None) -> None:
+        limiter = _limiter_rejecting_at(frozen + offset)
+        with pytest.raises(RateLimitExceeded) as exc_info:
+            if batch is None:
+                limiter.check(_request())
+            else:
+                limiter.check_n(_request(), batch)
+        assert exc_info.value.retry_after == expected
 
-    with pytest.raises(RateLimitExceeded) as almost_open:
-        _limiter_rejecting_at(frozen + 0.2).check(_request())
-    assert almost_open.value.retry_after == 1
-
-    with pytest.raises(RateLimitExceeded) as already_reset:
-        _limiter_rejecting_at(frozen - 5.0).check(_request())
-    assert already_reset.value.retry_after == 1
-
-    with pytest.raises(RateLimitExceeded) as batch:
-        _limiter_rejecting_at(frozen + 30.9).check_n(_request(), 4)
-    assert batch.value.retry_after == 30
+    # 2.0 separates int(delta) from max(1, ceil(delta) - 1).
+    for batch in (None, 4):
+        _expect(30.9, 30, batch=batch)
+        _expect(2.0, 2, batch=batch)
+        _expect(0.2, 1, batch=batch)
+        _expect(-5.0, 1, batch=batch)

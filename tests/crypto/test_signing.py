@@ -185,7 +185,7 @@ def test_verify_manifest_rejects_truncated_public_key() -> None:
     private_key, _public_key = generate_keypair()
     signed = sign_manifest(manifest, private_key)
     truncated = base64.b64encode(b"\x11" * 16).decode("ascii")
-    signed_short_key = SignedManifest.model_construct(
+    signed_short_key = SignedManifest(
         manifest=signed.manifest,
         signature=signed.signature,
         public_key=truncated,

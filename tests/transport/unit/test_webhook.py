@@ -788,11 +788,12 @@ class TestWebhookRetryManager:
             bucket = manager._get_bucket(self._URL)
             for _ in range(4):
                 assert bucket.consume() is True
-            clock["now"] += 0.125
+            # 0.25 tokens left. The real wait is 0.1875s; tokens/rate would be 0.0625s.
+            clock["now"] += 0.0625
             result = await manager.deliver_with_retry(self._URL, self._PAYLOAD)
 
         assert result.success is True
-        assert sleeps == [0.125]
+        assert sleeps == [0.1875]
         assert delivery.deliver.call_count == 1
 
     def test_bucket_cap_evicts_oldest_url_and_resets_its_limit(self) -> None:

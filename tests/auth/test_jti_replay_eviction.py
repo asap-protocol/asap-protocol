@@ -16,7 +16,9 @@ class _ExRecordingClient:
 
     def set(self, key: str, value: str, *, nx: bool = False, ex: int | None = None) -> bool:
         """Record the expiry argument and pretend the key was created."""
-        _ = (key, value, nx)
+        _ = (key, value)
+        if nx is not True:
+            raise AssertionError(f"jti replay SET must pass nx=True, got {nx}")
         if ex is None:
             raise AssertionError("jti replay SET must pass ex")
         self.expiry_seconds.append(ex)
@@ -45,7 +47,11 @@ def test_jti_replay_evicts_soonest_expiry_not_oldest_insert(
 
 
 def test_in_memory_jti_keeps_fractional_ttl(monkeypatch: pytest.MonkeyPatch) -> None:
-    """In-memory replay windows keep fractional seconds instead of flooring them."""
+    """In-memory replay keeps fractional seconds and allows reuse when now equals expiry.
+
+    A live entry is ``exp > now``. The nonce store uses the other edge
+    (``expiry >= now`` still counts as used).
+    """
     clock = {"now": 10_000.0}
     monkeypatch.setattr("asap.auth.agent_jwt.time.time", lambda: clock["now"])
     cache = JtiReplayCache(ttl_seconds=1.5)
@@ -58,7 +64,11 @@ def test_in_memory_jti_keeps_fractional_ttl(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 def test_redis_jti_ex_floors_fractional_ttl_and_never_uses_zero() -> None:
-    """Redis EX is whole seconds, floored, and at least one second."""
+    """Redis EX floors fractional TTL on purpose: 2.9s becomes 2, and 0.4s becomes 1.
+
+    In-memory TTL keeps the float. Redis only stores whole seconds, so the
+    floor is shorter above 1s and the 1s minimum is longer below 1s.
+    """
     client = _ExRecordingClient()
     floored = RedisJtiReplayCache(client, ttl_seconds=2.9)
     assert floored.check_and_record("host-a", "jti-floor") is True
