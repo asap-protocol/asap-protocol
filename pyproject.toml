@@ -84,8 +84,8 @@ webauthn = [
 ]
 # Framework integration extras.
 mcp = [
-    # Floor 1.28.1 for CVE-2026-52869 / CVE-2026-52870 / CVE-2026-59950.
-    "mcp>=1.28.1",
+    # Floor 1.30.0 for CVE-2026-59951 (prior: 1.28.1 for CVE-2026-52869 / 52870 / 59950).
+    "mcp>=1.30.0,<2",
 ]
 langchain = [
     "langchain-core>=1.3.3",
@@ -124,13 +124,14 @@ Issues = "https://github.com/asap-protocol/asap-protocol/issues"
 # Override transitive dependencies for security fixes:
 # - pyjwt>=2.14.0 for PYSEC-2026-4140–4152 (prior: CVE-2026-32597 baseline at 2.12.0)
 # - anyio>=4.14.2 for PYSEC-2026-4024 / PYSEC-2026-4025
-# - aiohttp>=3.14.3,<4 for PYSEC-2026-3545/3546/3547 (prior: CVE-2026-34993 / CVE-2026-47265 at >=3.14.0)
+# - aiohttp>=3.14.4,<4 for CVE-2026-111063/111064/111065/111066/111748/111749/111750 and GHSA-2g87-pp6c-29x5 (prior: PYSEC-2026-3545/3546/3547 at >=3.14.3)
 # - zeroconf>=0.149.5 for CVE-2026-47180/47183/47184 ([dns-sd] extra)
 # - pyasn1>=0.6.4 for CVE-2026-30922 / CVE-2026-59885 / CVE-2026-59886 / PYSEC-2026-3455/3456/3457 (transitive, auth/JWT stack)
 # - tinytag>=2.2.1 for CVE-2026-32889
 # - cryptography>=50.0.0 for PYSEC-2026-3552 (PKCS7 Bleichenbacher; 3553/3554 fixed in 49.0.0; prior GHSA-537c-gmf6-5ccf at >=48.0.1)
 # - requests>=2.33.0 for CVE-2026-25645 (extract_zipped_paths temp file)
-# - pillow>=12.3.0 for PYSEC-2026-2253–2257 (prior: CVE-2026-40192 at >=12.2.0; transitive, e.g. pdf/vision stacks)
+# - pillow>=13.0.0 for CVE-2026-112395/112397/112400/112404/112895/112896/112897/112899 (prior: PYSEC-2026-2253–2257 at >=12.3.0; transitive, e.g. pdf/vision stacks)
+# - certifi>=2026.10.19 for PYSEC-2026-4320 (transitive via requests/httpx)
 # - click>=8.3.3 for PYSEC-2026-2132 (transitive, e.g. typer / uvicorn / mkdocs stacks)
 # - pytest>=9.0.3 for CVE-2025-71176 (dev)
 # - python-multipart>=0.0.31 for CVE-2026-53538–53540 (FastAPI stack; prior floor 0.0.27)
@@ -159,14 +160,15 @@ Issues = "https://github.com/asap-protocol/asap-protocol/issues"
 # - fsspec>=2026.6.0 for CVE-2026-104851
 [tool.uv]
 override-dependencies = [
-    "aiohttp>=3.14.3,<4",
+    "aiohttp>=3.14.4,<4",
+    "certifi>=2026.10.19",
     "anyio>=4.14.2",
     "pyjwt>=2.14.0,<3",
     "pyasn1>=0.6.4",
     "tinytag>=2.2.1",
     "cryptography>=50.0.0,<51",
     "requests>=2.33.0",
-    "pillow>=12.3.0",
+    "pillow>=13.0.0",
     "click>=8.3.3",
     "pytest>=9.0.3",
     "python-multipart>=0.0.31",
