@@ -124,7 +124,7 @@ npx audit-ci --config audit-ci.jsonc
 }
 ```
 
-The `sharp` override forces Next's nested `sharp` up to `>=0.35.4` (GHSA-rgj7-g3m4-5g8c / libheif). Keep the direct `sharp` dependency aligned. **16.3.4** is the August 2026 security line (GHSA-p293-qw3h-jr36, GHSA-2xp9-vwfh-vxw4); do not stay on 16.2.x. Nested `"next": { "postcss": "..." }` is unnecessary on 16.3.4 (Next already declares PostCSS 8.5.23+). The `fflate` override addresses **CVE-2026-45820**; `baseline-browser-mapping` addresses **CVE-2026-45819**.
+The `vite` override pins `8.1.6` (GHSA-587h-7wmj-h5pm and the other launch-editor advisories on Vite 8.0.0–8.1.5). The `sharp` override forces Next's nested `sharp` up to `>=0.35.4` (GHSA-rgj7-g3m4-5g8c / libheif). Keep the direct `sharp` dependency aligned. **16.3.4** is the August 2026 security line (GHSA-p293-qw3h-jr36, GHSA-2xp9-vwfh-vxw4); do not stay on 16.2.x. Nested `"next": { "postcss": "..." }` is unnecessary on 16.3.4 (Next already declares PostCSS 8.5.23+). The `fflate` override addresses **CVE-2026-45820**; `baseline-browser-mapping` addresses **CVE-2026-45819**.
 
 If a PostCSS or sharp override breaks `next build`, stop and report — do not silently adopt a preview/canary Next.
 
@@ -134,7 +134,7 @@ CI runs `pip-audit` after a sync that **excludes** the optional extras `crewai` 
 
 `uv sync --frozen --all-extras --dev --no-extra crewai --no-extra llamaindex` then `uv run pip-audit --ignore-vuln CVE-2026-4539 --ignore-vuln CVE-2026-4963 --ignore-vuln CVE-2026-2654 --ignore-vuln PYSEC-2024-271 --ignore-vuln PYSEC-2026-89 --ignore-vuln PYSEC-2025-183` (matches CI).
 
-Security floors live in `tool.uv.override-dependencies` (with per-CVE comments in `pyproject.toml`) so lock refreshes cannot regress them; recent additions: `mkdocs-material>=9.7.7` (PYSEC-2026-3864 / CVE-2026-73295), `pymdown-extensions>=11.0.1` (CVE-2026-61632), `pyasn1>=0.6.4` (PYSEC-2026-3455/3456/3457), `aiohttp>=3.14.3` (PYSEC-2026-3545/3546/3547), and `h2>=4.4.1` (PYSEC-2026-3628).
+Security floors live in `tool.uv.override-dependencies` (with per-CVE comments in `pyproject.toml`) so lock refreshes cannot regress them; recent additions: `mkdocs-material>=9.7.7` (PYSEC-2026-3864 / CVE-2026-73295), `pymdown-extensions>=11.0.1` (CVE-2026-61632), `pyasn1>=0.6.4` (PYSEC-2026-3455/3456/3457), `aiohttp>=3.14.4` (CVE-2026-111063 and related; prior floor `>=3.14.3`), `certifi>=2026.10.19` (PYSEC-2026-4320), and `h2>=4.4.1` (PYSEC-2026-3628).
 
 **CVE-2026-4539 (Pygments)**: CI uses `--ignore-vuln CVE-2026-4539` until a patched `pygments` release on PyPI resolves the advisory (`tool.uv.override-dependencies` prefers `pygments>=2.20.0` when resolvable).
 
@@ -152,7 +152,7 @@ Security floors live in `tool.uv.override-dependencies` (with per-CVE comments i
 
 **PYSEC-2026-2132 (click)**: Resolved via override (`click>=8.3.3`) — transitive via typer / uvicorn / mkdocs stacks.
 
-**PYSEC-2026-2253–2257 (pillow)**: Resolved via override (`pillow>=12.3.0`; prior floor was `>=12.2.0` for CVE-2026-40192) — transitive via pdf/vision stacks.
+**PYSEC-2026-2253–2257 (pillow)**: Prior floor `pillow>=12.3.0` (and `>=12.2.0` for CVE-2026-40192). **CVE-2026-112395 / 112397 / 112400 / 112404 / 112895 / 112896 / 112897 / 112899** require `pillow>=13.0.0` via override — transitive via pdf/vision stacks.
 
 **CVE-2026-46678 / PYSEC-2026-3692 / PYSEC-2026-3693 (pydantic-ai, optional `[pydanticai]` extra)**: Resolved via `[pydanticai]` extra floor `pydantic-ai>=1.106.0,<2` (prior floor `>=1.99.0`; 1.102.0 in lock as of 2026-06).
 
@@ -168,7 +168,7 @@ Security floors live in `tool.uv.override-dependencies` (with per-CVE comments i
 
 **PYSEC-2025-183 (pyjwt, transitive via `[mcp]`)**: CI uses `--ignore-vuln PYSEC-2025-183` — advisory is **disputed by the supplier** (minimum key length is application-defined); override already pins `pyjwt>=2.12.0,<3` for CVE-2026-32597.
 
-**CVE-2026-52869 / CVE-2026-52870 / CVE-2026-59950 (mcp, optional `[mcp]` extra)**: Resolved by raising the `[mcp]` floor to `mcp>=1.28.1` (lock 1.28.1 as of 2026-07-18).
+**CVE-2026-52869 / CVE-2026-52870 / CVE-2026-59950 (mcp, optional `[mcp]` extra)**: Prior floor `mcp>=1.28.1`. **CVE-2026-59951** requires `mcp>=1.30.0,<2`.
 
 **PYSEC-2024-271 (flask-cors, transitive via `locust` in dev/benchmarks)**: CI uses `--ignore-vuln PYSEC-2024-271` — log-injection when debug logging is enabled; **6.0.2 is latest on PyPI** with no fixed release listed. Not on the runtime agent-server path.
 

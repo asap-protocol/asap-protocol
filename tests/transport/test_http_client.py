@@ -121,3 +121,13 @@ def test_version_client_rejects_unknown_supported_transport_versions() -> None:
             require_https=False,
             supported_transport_versions=("9.9",),
         )
+
+
+def test_version_client_rejects_empty_supported_transport_versions() -> None:
+    """An empty version list must fail at construction, not send a blank header."""
+    with pytest.raises(ValueError, match="must be non-empty"):
+        ASAPClient(
+            "http://127.0.0.1:8000",
+            require_https=False,
+            supported_transport_versions=(),
+        )
