@@ -1,3 +1,4 @@
+// Temporary path-filter simulation. Not part of the CI pull requests.
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { resolve } from 'path'
