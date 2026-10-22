@@ -151,6 +151,67 @@ describe('fetchUserRegistrationIssues', () => {
     }
   });
 
+  it('drops other authors, pull requests, and missing users', async () => {
+    mockListForRepo.mockResolvedValue({
+      data: [
+        {
+          id: 2,
+          number: 11,
+          title: 'Register: theirs',
+          html_url: 'https://github.com/owner/repo/issues/11',
+          state: 'open',
+          user: { login: 'otheruser' },
+          pull_request: undefined,
+        },
+        {
+          id: 3,
+          number: 12,
+          title: 'Register: pr',
+          html_url: 'https://github.com/owner/repo/pull/12',
+          state: 'open',
+          user: { login: 'testuser' },
+          pull_request: {},
+        },
+        {
+          id: 4,
+          number: 13,
+          title: 'Register: anonymous',
+          html_url: 'https://github.com/owner/repo/issues/13',
+          state: 'open',
+          user: null,
+          pull_request: undefined,
+        },
+        {
+          id: 1,
+          number: 10,
+          title: 'Register: mine',
+          html_url: 'https://github.com/owner/repo/issues/10',
+          state: 'open',
+          user: { login: 'testuser' },
+          pull_request: undefined,
+        },
+      ],
+      headers: {},
+    });
+
+    const result = await fetchUserRegistrationIssues();
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      // @ts-expect-error test assertion simplifies result object access
+      const data = result.data;
+      expect(data).toHaveLength(1);
+      expect(data[0]).toEqual({
+        id: 1,
+        number: 10,
+        title: 'Register: mine',
+        url: 'https://github.com/owner/repo/issues/10',
+        state: 'open',
+        status: 'Pending',
+      });
+    }
+  });
+
   it('revalidateUserRegistrationIssues does not throw when authenticated', async () => {
     auth.mockResolvedValue({
       user: { id: 'u1', username: 'testuser' },
