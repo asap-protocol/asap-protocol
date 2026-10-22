@@ -1,5 +1,14 @@
-# CI: quality (lint+typecheck), transport surface lint (D4), test, coverage, security.
-# 7 jobs total. Branch protection: require quality (python), lint transport growth (D4), quality (web), test (python), test (web), coverage, security.
+# CI: path filter, quality (lint+typecheck), transport surface lint (D4),
+# test, coverage, and security.
+# Branch protection on main requires quality (python), quality (web),
+# test (python), test (web), coverage, security, and security (web).
+# security (web) runs the npm audits when the diff touches apps/web/** or
+# .github/**, and when path detection fails. A python-only change skips it.
+# A skipped required check still passes. A real advisory fails the check and
+# blocks merge to main. Registry retries stay on this job so a transient npm
+# outage does not fail quality (web) or test (web).
+# Other jobs for a stack are skipped when the change does not touch that
+# stack. If detection fails, the suite runs.
 name: CI
 
 on:
@@ -44,9 +53,75 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    name: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      python: ${{ steps.filter.outputs.python }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          # Full history so the filter can diff against the base commit.
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Resolve diff base
+        id: diffbase
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            git fetch --no-tags origin "$PR_BASE_SHA"
+            sha="$(git merge-base "$PR_BASE_SHA" HEAD)"
+          else
+            sha="$PUSH_BEFORE"
+          fi
+          echo "sha=${sha}" >> "$GITHUB_OUTPUT"
+      - name: Detect changed stacks
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d  # v4.0.3
+        id: filter
+        with:
+          # Git, not the pull-request files API. That API returned
+          # "diff is temporarily unavailable" on run 39772726954 and
+          # skipped every later job. An empty token selects the git path.
+          # pull_request handling always runs `git diff base..head`. A
+          # branch name does not select the merge-base on this pin. The
+          # step above passes the merge-base SHA, so a stale pull request
+          # does not light a stack that only moved on the base branch.
+          token: ""
+          base: ${{ steps.diffbase.outputs.sha }}
+          # docs/ is python: mkdocs build and tests/test_docs_links.py read it.
+          # .github/ runs both stacks, because this workflow is what changed.
+          filters: |
+            python:
+              - 'src/**'
+              - 'scripts/**'
+              - 'tests/**'
+              - 'asap-compliance/**'
+              - 'examples/**'
+              - 'apps/example-agent/**'
+              - 'docs/**'
+              - 'mkdocs.yml'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - '.github/**'
+            web:
+              - 'apps/web/**'
+              - '.github/**'
+
   lint-transport-growth:
     name: lint transport growth (D4)
     runs-on: ubuntu-latest
+    needs: [changes]
+    # Run the suite when detection itself fails, so a filter error cannot
+    # skip the required checks.
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.python == 'true') }}
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -56,6 +131,8 @@ jobs:
   quality-python:
     name: quality (python)
     runs-on: ubuntu-latest
+    needs: [changes]
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.python == 'true') }}
     timeout-minutes: 14
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -65,6 +142,13 @@ jobs:
         run: |
           uv run ruff check . --output-format=github
           uv run ruff format --check .
+      - name: Restore mypy cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: .mypy_cache
+          key: mypy-${{ runner.os }}-${{ hashFiles('uv.lock', 'pyproject.toml') }}-${{ github.sha }}
+          restore-keys: |
+            mypy-${{ runner.os }}-${{ hashFiles('uv.lock', 'pyproject.toml') }}-
       - name: Type check with mypy
         run: uv run mypy src/ scripts/ tests/
       - name: Build docs
@@ -73,6 +157,8 @@ jobs:
   quality-web:
     name: quality (web)
     runs-on: ubuntu-latest
+    needs: [changes]
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.web == 'true') }}
     timeout-minutes: 18
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -137,11 +223,154 @@ jobs:
           # Compile-only placeholder: `src/auth.ts` throws if AUTH_SECRET is missing
           # or shorter than 32 chars. Not used to sign tokens in this job.
           AUTH_SECRET: ci-quality-web-build-placeholder-not-a-secret
+
+  test-python:
+    name: test (python)
+    runs-on: ubuntu-latest
+    needs: [changes]
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.python == 'true') }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Setup Python
+        uses: ./.github/actions/setup-python
+      # One pass for the suite, except the subprocess test below.
+      # b7ed79ff (2026-01-31) dropped -n after KeyError: WorkerController.
+      # That lock already had pytest-cov 7.0.0, pytest-xdist 3.8.0, and
+      # coverage 7.13.1 (pytest 9.0.2). This lock matches except pytest 9.0.3.
+      # Run 39772718697 did not reproduce the crash.
+      - name: Run tests with coverage
+        env:
+          PYTHONPATH: ${{ github.workspace }}/src:${{ github.workspace }}
+        run: uv run pytest -n auto --tb=short --cov=asap --cov-report=xml --deselect tests/adapters/mcp/test_stdio_integration.py::test_subprocess_example_server_secure_action_denied_without_jwt
+        timeout-minutes: 12
+      # 5d5a2c5b kept tests/adapters/mcp/ off xdist after PR 233. The other
+      # adapter tests stayed in the parallel run. This one starts
+      # `uv run python examples/mcp_auth_bridge/server.py`. --cov-append
+      # adds it to the .coverage file the coverage job reads.
+      - name: Run MCP subprocess test
+        env:
+          PYTHONPATH: ${{ github.workspace }}/src:${{ github.workspace }}
+        run: uv run pytest tests/adapters/mcp/test_stdio_integration.py::test_subprocess_example_server_secure_action_denied_without_jwt -v --tb=short --cov=asap --cov-append --cov-report=xml
+      # .coverage is hidden; upload-artifact skips it unless this flag is set.
+      # relative_files = true (pyproject.toml) stores paths like src/asap/...
+      # The coverage job resolves those after its own checkout. Leave
+      # relative_files on. Absolute workspace paths miss sources when the
+      # runners do not share a workspace directory.
+      - name: Upload coverage data
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: python-coverage
+          path: |
+            coverage.xml
+            .coverage
+          include-hidden-files: true
+          retention-days: 1
+          if-no-files-found: error
+      - name: Run compliance tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}/src:${{ github.workspace }}:${{ github.workspace }}/asap-compliance
+        run: uv run pytest asap-compliance/tests/ -q --tb=short
+      - name: Example agent Compliance Harness v2 baseline
+        working-directory: apps/example-agent
+        run: |
+          uv sync --frozen --group dev
+          uv run pytest tests/ -q --tb=short
+
+  test-web:
+    name: test (web)
+    runs-on: ubuntu-latest
+    needs: [changes]
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.web == 'true') }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+        working-directory: apps/web
+      # test:coverage applies the thresholds in apps/web/vitest.config.ts.
+      # A second plain vitest run only repeated the same files.
+      - name: Vitest coverage
+        run: npm run test:coverage
+        working-directory: apps/web
+
+  coverage:
+    name: coverage
+    runs-on: ubuntu-latest
+    needs: [test-python]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      # Checkout so coverage report can resolve the relative paths in
+      # .coverage (relative_files = true in pyproject.toml). The report
+      # lists src/asap/... Leave relative_files on. Absolute paths miss
+      # sources when this runner's workspace path differs from the test job.
+      - name: Download coverage data
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          name: python-coverage
+      - name: Setup Python
+        uses: ./.github/actions/setup-python
+      - name: Enforce coverage threshold
+        run: uv run coverage report --fail-under=85
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5  # v7.1.1
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  security:
+    name: security
+    runs-on: ubuntu-latest
+    needs: [changes]
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.python == 'true') }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Setup Python
+        uses: ./.github/actions/setup-python
+        with:
+          # Omit extras whose transitive deps have no OSV fix on PyPI (diskcache, nltk).
+          sync-flags: --no-extra crewai --no-extra llamaindex
+      # CVE-2026-4539: pygments advisory with no patched PyPI release yet (override pins >=2.20 when available).
+      # CVE-2026-4963 / CVE-2026-2654: smolagents optional extra; OSV lists no fix version on PyPI as of 2026-05 (see SECURITY.md).
+      # PYSEC-2026-89 / PYSEC-2025-183 / PYSEC-2024-271: optional/transitive; see SECURITY.md.
+      - name: Scan for vulnerabilities (pip-audit)
+        run: uv run pip-audit --ignore-vuln CVE-2026-4539 --ignore-vuln CVE-2026-4963 --ignore-vuln CVE-2026-2654 --ignore-vuln PYSEC-2024-271 --ignore-vuln PYSEC-2026-89 --ignore-vuln PYSEC-2025-183
+      - name: Scan for security issues (bandit)
+        run: uv run bandit -r src/ -ll
+
+  security-web:
+    name: security (web)
+    runs-on: ubuntu-latest
+    needs: [changes]
+    # Required on Protect main. A web-only diff skips the Python security
+    # job and still runs this audit. Fail open when changes itself fails.
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.web == 'true') }}
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+        working-directory: apps/web
       # npm 10 (bundled with Node 20) falls back to the retired
       # /-/npm/v1/security/audits/quick endpoint (HTTP 410) when the bulk
       # advisory response is rejected. npm 11 removed that fallback
-      # (npm/cli#7911). Install it only for the audit steps so npm ci and
-      # the Next build stay on the Node 20 toolchain.
+      # (npm/cli#7911). Install it only for the audit steps so npm ci stays
+      # on the Node 20 toolchain.
       - name: Use npm 11 for audit
         run: npm install -g npm@11.21.0
       # The bulk advisory endpoint can return 503. npm then waits out its
@@ -173,6 +402,8 @@ jobs:
       # audit-ci prints "code undefined" and drops the registry body when
       # npm audit exits on a 503 (run 39714743928). Fail that call fast,
       # then retry. "Failed security audit" is a real advisory and stops.
+      # Use the lockfile binary (audit-ci 7.1.0). `npx --yes audit-ci@7`
+      # floats inside v7, and a changed failure string would retry a real advisory.
       - name: npm audit (all deps, high+)
         working-directory: apps/web
         run: |
@@ -182,7 +413,7 @@ jobs:
           npm config set fetch-retry-maxtimeout 5000
           for attempt in 1 2 3 4; do
             set +e
-            output="$(npx --yes audit-ci@7 --config audit-ci.jsonc --retry-count=1 2>&1)"
+            output="$(npx --no-install audit-ci --config audit-ci.jsonc --retry-count=1 2>&1)"
             status=$?
             set -e
             printf '%s\n' "$output"
@@ -198,105 +429,3 @@ jobs:
             echo "audit-ci registry error (attempt ${attempt}); retrying in 20s"
             sleep 20
           done
-
-  test-python:
-    name: test (python)
-    runs-on: ubuntu-latest
-    needs: [quality-python, lint-transport-growth]
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-      - name: Setup Python
-        uses: ./.github/actions/setup-python
-      - name: Run tests
-        env:
-          PYTHONPATH: ${{ github.workspace }}/src:${{ github.workspace }}
-        run: uv run pytest -n auto --tb=short --ignore=tests/adapters/mcp/
-        timeout-minutes: 12
-      - name: Run MCP adapter tests
-        env:
-          PYTHONPATH: ${{ github.workspace }}/src:${{ github.workspace }}
-        run: uv run pytest tests/adapters/mcp/ -v --tb=short
-      - name: Run compliance tests
-        env:
-          PYTHONPATH: ${{ github.workspace }}/src:${{ github.workspace }}:${{ github.workspace }}/asap-compliance
-        run: uv run pytest asap-compliance/tests/ -q --tb=short
-      - name: Example agent Compliance Harness v2 baseline
-        working-directory: apps/example-agent
-        run: |
-          uv sync --frozen --group dev
-          uv run pytest tests/ -q --tb=short
-
-  test-web:
-    name: test (web)
-    runs-on: ubuntu-latest
-    needs: [quality-web]
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-      - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
-        with:
-          node-version: 20
-          cache: 'npm'
-          cache-dependency-path: apps/web/package-lock.json
-      - name: Install dependencies
-        run: npm ci
-        working-directory: apps/web
-      - name: Vitest
-        run: npm test
-        working-directory: apps/web
-      - name: Vitest coverage
-        run: npm run test:coverage
-        working-directory: apps/web
-
-  coverage:
-    name: coverage
-    runs-on: ubuntu-latest
-    needs: [quality-python, lint-transport-growth]
-    timeout-minutes: 18
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-      - name: Setup Python
-        uses: ./.github/actions/setup-python
-      - name: Run tests with coverage
-        env:
-          PYTHONPATH: ${{ github.workspace }}/src:${{ github.workspace }}
-        run: |
-          for i in 1 2; do
-            echo "Coverage attempt $i/2"
-            if uv run pytest --tb=short --cov=asap --cov-report=xml --cov-fail-under=85; then
-              echo "Coverage passed on attempt $i"
-              exit 0
-            fi
-            echo "Coverage attempt $i failed, retrying..."
-          done
-          echo "Coverage failed after 2 attempts"
-          exit 1
-        timeout-minutes: 15
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5  # v7.1.1
-        with:
-          files: ./coverage.xml
-          fail_ci_if_error: false
-          token: ${{ secrets.CODECOV_TOKEN }}
-
-  security:
-    name: security
-    runs-on: ubuntu-latest
-    needs: [quality-python, lint-transport-growth]
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-      - name: Setup Python
-        uses: ./.github/actions/setup-python
-        with:
-          # Omit extras whose transitive deps have no OSV fix on PyPI (diskcache, nltk).
-          sync-flags: --no-extra crewai --no-extra llamaindex
-      # CVE-2026-4539: pygments advisory with no patched PyPI release yet (override pins >=2.20 when available).
-      # CVE-2026-4963 / CVE-2026-2654: smolagents optional extra; OSV lists no fix version on PyPI as of 2026-05 (see SECURITY.md).
-      # PYSEC-2026-89 / PYSEC-2025-183 / PYSEC-2024-271: optional/transitive; see SECURITY.md.
-      - name: Scan for vulnerabilities (pip-audit)
-        run: uv run pip-audit --ignore-vuln CVE-2026-4539 --ignore-vuln CVE-2026-4963 --ignore-vuln CVE-2026-2654 --ignore-vuln PYSEC-2024-271 --ignore-vuln PYSEC-2026-89 --ignore-vuln PYSEC-2025-183
-      - name: Scan for security issues (bandit)
-        run: uv run bandit -r src/ -ll

@@ -39,8 +39,8 @@ For **when tests are required** (bugs, new public APIs, refactors), see the test
 
 ## 5. CI and pytest-xdist
 
-When running tests in parallel (`-n auto`), follow these rules to avoid INTERNALERROR (exit code 3) and flaky CI:
+When running tests in parallel (`-n auto`), follow these rules to avoid flaky CI:
 
 - **Rate limiter isolation:** The global rate limiter (slowapi) is shared across workers. `tests/conftest.py` provides an autouse fixture `_isolate_rate_limiter` that replaces it with an isolated instance per test. Do not remove this fixture; tests that need specific rate limits (e.g. `tests/transport/integration/test_rate_limiting.py`) skip isolation via `request.fspath` check.
-- **Coverage and xdist:** Do NOT add `--cov=asap` or `--cov-report=*` to pytest `addopts` in `pyproject.toml`. Running coverage with pytest-xdist can cause INTERNALERROR. Run coverage only in a dedicated job without `-n auto` (e.g. `uv run pytest --tb=short --cov=asap --cov-report=xml --cov-fail-under=85`). The fail-under value is the minimum project coverage threshold; do not lower it without team agreement.
+- **Coverage and xdist:** Do NOT add `--cov=asap` or `--cov-report=*` to pytest `addopts` in `pyproject.toml`. A partial run would be measured against the project-wide floor. CI collects coverage with `uv run pytest -n auto --tb=short --cov=asap --cov-report=xml`. The coverage job applies the floor: `uv run coverage report --fail-under=85`. Local pre-push may add `--cov-fail-under=85` to the pytest command. Do not lower 85 without team agreement.
 - **Benchmarks and testpaths:** `testpaths` must include only `tests/`, not `benchmarks/`. The benchmarks use Locust, which monkey-patches gevent/ssl on import; that conflicts with pytest-xdist workers. Run benchmarks separately when needed: `uv run pytest benchmarks/` or `uv run locust -f benchmarks/load_test.py`.

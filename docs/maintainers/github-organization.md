@@ -105,7 +105,8 @@ Configured via the Rulesets API on `asap-protocol/asap-protocol` (not classic br
 - Dismiss stale reviews on new pushes
 - Block force pushes (`non_fast_forward`)
 - Restrict branch deletion
-- Required status checks (strict): `quality (python)`, `quality (web)`, `test (python)`, `test (web)`, `coverage`, `security` (job names from `.github/workflows/ci.yml`)
+- Required status checks (strict): `quality (python)`, `quality (web)`, `test (python)`, `test (web)`, `coverage`, `security`, `security (web)` (job names from `.github/workflows/ci.yml`).
+- `security (web)` runs when the diff touches `apps/web/**` or `.github/**`, and when path detection fails. A python-only change skips it. GitHub treats that skip as a passing required check. A web-only change runs the npm audits in this job, not in the Python `security` job. Protect main requires `security (web)`. A high advisory (`vite` GHSA-587h-7wmj-h5pm on run 39773532774) fails the check and blocks merge to `main`. `development` has no required-check ruleset.
 
 **Bypass actors** (can bypass ruleset rules when needed):
 

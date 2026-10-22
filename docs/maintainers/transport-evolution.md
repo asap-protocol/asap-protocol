@@ -18,7 +18,7 @@ CI enforces a frozen baseline of **public function and method names** on the tra
 
 Adding any **new public symbol** (names not starting with `_`; excludes nested defs inside functions) to the server module or to any module in the client package **breaks CI**. Removing symbols is allowed.
 
-Repo admins must keep this job in **branch protection required checks** next to the other CI gates.
+Protect main does not require `lint transport growth (D4)`. The job still runs for Python changes.
 
 ## Escape hatch (rare)
 

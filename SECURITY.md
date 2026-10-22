@@ -89,22 +89,22 @@ We aim to review and merge security updates according to the following target ti
 We continuously monitor dependencies using:
 - **Dependabot**: Automated security updates and alerts
 - **pip-audit**: Integrated into CI pipeline for vulnerability scanning (Python)
-- **npm audit**: Blocking steps on the `quality (web)` CI job for `apps/web/`
+- **npm audit**: `security (web)` for `apps/web/`. Protect main requires that check. A real advisory fails it and blocks merge to `main`.
 - **GitHub Security Advisories**: Public database of known vulnerabilities
 
 ### npm audit policy (`apps/web/`)
 
-CI (`quality-web`) runs both of the following after `npm ci` and treats failures as blocking:
+CI job `security (web)` runs both of the following after `npm ci`. A non-zero exit fails that job. Protect main requires `security (web)`, so the failure blocks merge to `main`:
 
 ```bash
 cd apps/web
 npm install -g npm@11.21.0  # Node 20 ships npm 10, which falls back to the retired quick audit endpoint
 npm audit --omit=dev --audit-level=moderate  # CI retries a registry 503; a real advisory still fails immediately
-npx --yes audit-ci@7 --config audit-ci.jsonc  # package-manager is npm; do not let auto mode pick pnpm
+npx --no-install audit-ci --config audit-ci.jsonc  # lockfile binary (audit-ci 7.1.0); config forces npm
 ```
 
-- **Production graph** (`--omit=dev`): moderate and above must be clean.
-- **Full graph** (including devDependencies): high and above must be clean, enforced via `audit-ci` and `apps/web/audit-ci.jsonc` (same allowlist as CI). Raw `npm audit --audit-level=high` may still list dev-only advisories with no fixed release.
+- **Production graph** (`--omit=dev`): moderate and above fail `security (web)`.
+- **Full graph** (including devDependencies): high and above fail `security (web)`, enforced via `audit-ci` and `apps/web/audit-ci.jsonc` (same allowlist as CI). Raw `npm audit --audit-level=high` may still list dev-only advisories with no fixed release.
 - Prefer range-compatible updates via `npm install` / `npm audit fix` (never `npm audit fix --force`).
 - Do **not** downgrade `next` to satisfy transitive advisories. For Next **16.3.4**, pin fixed transitive deps via npm overrides with an unscoped `next` key — a versioned key like `next@16.2.10` pins nested copies of `next` and breaks `npm ci` (ERESOLVE) on every Next bump:
 
@@ -125,7 +125,7 @@ npx --yes audit-ci@7 --config audit-ci.jsonc  # package-manager is npm; do not l
 }
 ```
 
-The `vite` override pins `8.1.6` (GHSA-587h-7wmj-h5pm and the other launch-editor advisories on Vite 8.0.0–8.1.5). The `sharp` override forces Next's nested `sharp` up to `>=0.35.4` (GHSA-rgj7-g3m4-5g8c / libheif). Keep the direct `sharp` dependency aligned. **16.3.4** is the August 2026 security line (GHSA-p293-qw3h-jr36, GHSA-2xp9-vwfh-vxw4); do not stay on 16.2.x. Nested `"next": { "postcss": "..." }` is unnecessary on 16.3.4 (Next already declares PostCSS 8.5.23+). The `fflate` override addresses **CVE-2026-45820**; `baseline-browser-mapping` addresses **CVE-2026-45819**.
+The `sharp` override forces Next's nested `sharp` up to `>=0.35.4` (GHSA-rgj7-g3m4-5g8c / libheif). Keep the direct `sharp` dependency aligned. **16.3.4** is the August 2026 security line (GHSA-p293-qw3h-jr36, GHSA-2xp9-vwfh-vxw4); do not stay on 16.2.x. Nested `"next": { "postcss": "..." }` is unnecessary on 16.3.4 (Next already declares PostCSS 8.5.23+). The `fflate` override addresses **CVE-2026-45820**; `baseline-browser-mapping` addresses **CVE-2026-45819**. The `vite` override pins **8.1.6**, the first 8.1 release that clears **GHSA-587h-7wmj-h5pm** (vulnerable range `>=8.0.0 <=8.1.5`). Vite is a Vitest devDependency. Later minors patch that advisory at 8.2.4 and 8.3.3; this repo stays on the 8.1 patch the lock already resolved.
 
 If a PostCSS or sharp override breaks `next build`, stop and report — do not silently adopt a preview/canary Next.
 
@@ -135,7 +135,7 @@ CI runs `pip-audit` after a sync that **excludes** the optional extras `crewai` 
 
 `uv sync --frozen --all-extras --dev --no-extra crewai --no-extra llamaindex` then `uv run pip-audit --ignore-vuln CVE-2026-4539 --ignore-vuln CVE-2026-4963 --ignore-vuln CVE-2026-2654 --ignore-vuln PYSEC-2024-271 --ignore-vuln PYSEC-2026-89 --ignore-vuln PYSEC-2025-183` (matches CI).
 
-Security floors live in `tool.uv.override-dependencies` (with per-CVE comments in `pyproject.toml`) so lock refreshes cannot regress them; recent additions: `mkdocs-material>=9.7.7` (PYSEC-2026-3864 / CVE-2026-73295), `pymdown-extensions>=11.0.1` (CVE-2026-61632), `pyasn1>=0.6.4` (PYSEC-2026-3455/3456/3457), `aiohttp>=3.14.4` (CVE-2026-111063 and related; prior floor `>=3.14.3`), `certifi>=2026.10.19` (PYSEC-2026-4320), and `h2>=4.4.1` (PYSEC-2026-3628).
+Security floors live in `tool.uv.override-dependencies` (with per-CVE comments in `pyproject.toml`) so lock refreshes cannot regress them; recent additions: `mkdocs-material>=9.7.7` (PYSEC-2026-3864 / CVE-2026-73295), `pymdown-extensions>=11.0.1` (CVE-2026-61632), `pyasn1>=0.6.4` (PYSEC-2026-3455/3456/3457), `aiohttp>=3.14.4,<4` (CVE-2026-111063–111066 / CVE-2026-111748–111750 / GHSA-2g87-pp6c-29x5), `certifi>=2026.10.19` (PYSEC-2026-4320), `pillow>=13.0.0` (Pillow 12.3.0 advisories fixed in 13.0.0), `mcp>=1.30.0,<2` (CVE-2026-59951), and `h2>=4.4.1` (PYSEC-2026-3628).
 
 **CVE-2026-4539 (Pygments)**: CI uses `--ignore-vuln CVE-2026-4539` until a patched `pygments` release on PyPI resolves the advisory (`tool.uv.override-dependencies` prefers `pygments>=2.20.0` when resolvable).
 
@@ -153,7 +153,7 @@ Security floors live in `tool.uv.override-dependencies` (with per-CVE comments i
 
 **PYSEC-2026-2132 (click)**: Resolved via override (`click>=8.3.3`) — transitive via typer / uvicorn / mkdocs stacks.
 
-**PYSEC-2026-2253–2257 (pillow)**: Prior floor `pillow>=12.3.0` (and `>=12.2.0` for CVE-2026-40192). **CVE-2026-112395 / 112397 / 112400 / 112404 / 112895 / 112896 / 112897 / 112899** require `pillow>=13.0.0` via override — transitive via pdf/vision stacks.
+**PYSEC-2026-2253–2257 (pillow)**: Resolved via override (`pillow>=13.0.0`; prior floor was `>=12.3.0` for those advisories and `>=12.2.0` for CVE-2026-40192) — transitive via pdf/vision stacks. **13.0.0** also clears the Pillow 12.3.0 advisories pip-audit reported in October 2026 (CVE-2026-112390 and related). Pillow 13 drops Python 3.10; this project requires Python 3.13+. The repository does not call the removed APIs (`Image._show`, `ExifTags.IFD.Makernote`, saving I-mode images as PNG). Transitive consumers declare `pillow` with no upper bound below 13.
 
 **CVE-2026-46678 / PYSEC-2026-3692 / PYSEC-2026-3693 (pydantic-ai, optional `[pydanticai]` extra)**: Resolved via `[pydanticai]` extra floor `pydantic-ai>=1.106.0,<2` (prior floor `>=1.99.0`; 1.102.0 in lock as of 2026-06).
 
@@ -169,7 +169,11 @@ Security floors live in `tool.uv.override-dependencies` (with per-CVE comments i
 
 **PYSEC-2025-183 (pyjwt, transitive via `[mcp]`)**: CI uses `--ignore-vuln PYSEC-2025-183` — advisory is **disputed by the supplier** (minimum key length is application-defined); override already pins `pyjwt>=2.12.0,<3` for CVE-2026-32597.
 
-**CVE-2026-52869 / CVE-2026-52870 / CVE-2026-59950 (mcp, optional `[mcp]` extra)**: Prior floor `mcp>=1.28.1`. **CVE-2026-59951** requires `mcp>=1.30.0,<2`.
+**CVE-2026-111063–111066 / CVE-2026-111748–111750 / GHSA-2g87-pp6c-29x5 (aiohttp)**: Resolved via override (`aiohttp>=3.14.4,<4`; lock 3.14.5). The prior floor `>=3.14.3` covered PYSEC-2026-3545/3546/3547. aiohttp 3.14.5 pulls `yarl>=1.23`; the lock is `yarl` 1.25.1.
+
+**PYSEC-2026-4320 (certifi)**: Resolved via override (`certifi>=2026.10.19`; lock 2026.10.19) — transitive via requests / httpx.
+
+**CVE-2026-52869 / CVE-2026-52870 / CVE-2026-59950 / CVE-2026-59951 (mcp, optional `[mcp]` extra)**: Resolved by `mcp>=1.30.0,<2` (extra and override; lock 1.30.0). **CVE-2026-59951** is also fixed in `mcp>=2.2.0`, but 2.x replaces `mcp.server.fastmcp` with a migration shim and depends on `httpx2`. `asap-mcp-server` imports `FastMCP` from `mcp.server.fastmcp`, which 1.30.0 still provides. Do not drop the `<2` cap to clear this advisory.
 
 **PYSEC-2024-271 (flask-cors, transitive via `locust` in dev/benchmarks)**: CI uses `--ignore-vuln PYSEC-2024-271` — log-injection when debug logging is enabled; **6.0.2 is latest on PyPI** with no fixed release listed. Not on the runtime agent-server path.
 
@@ -202,6 +206,7 @@ We pin **upper bounds** on the security- and protocol-sensitive libraries listed
 | `pyjwt` (override) | `>=2.12.0,<3` | CVE-2026-32597 baseline; v3 changes default `options` behavior for token introspection |
 | `webauthn` (optional extra) | `>=2.6,<3` | Assertion/attestation verification for SELF-002 |
 | `pydantic` | `>=2.12.5,<3` | Model validation contract across all payloads; v3 is a breaking rewrite |
+| `mcp` (optional extra + override) | `>=1.30.0,<2` | CVE-2026-59951 baseline; v2 replaces `mcp.server.fastmcp` and depends on `httpx2` |
 
 **Bumping a pinned upper bound**:
 1. Read the upstream release notes and diff the deprecations / security-impacting changes
