@@ -1,5 +1,6 @@
 """Unit tests for Ed25519 key generation, serialization, and loading."""
 
+import base64
 import os
 import time
 from pathlib import Path
@@ -23,6 +24,7 @@ from asap.crypto.keys import (
     load_private_key_from_env,
     load_private_key_from_file_sync,
     load_private_key_from_pem,
+    load_public_key_from_base64,
     public_key_to_base64,
     serialize_private_key,
     warn_if_key_old,
@@ -232,3 +234,23 @@ def test_load_private_key_from_file_logs_warning_for_old_key(
     mock_logger.warning.assert_called_once()
     call_args = mock_logger.warning.call_args
     assert "key_rotation_recommended" in str(call_args)
+
+
+def test_load_public_key_from_base64_rejects_non_32_byte_payloads() -> None:
+    """Manifest trust loading accepts 32 raw bytes and rejects one byte either side.
+
+    A length check that uses ``>`` or ``<`` would accept a 33-byte or 31-byte
+    payload and hand a wrong key to signature verification.
+    """
+    _private_key, public_key = generate_keypair()
+    encoded = public_key_to_base64(public_key)
+    loaded = load_public_key_from_base64(encoded)
+    assert public_key_to_base64(loaded) == encoded
+
+    raw = base64.b64decode(encoded)
+    short_key = base64.b64encode(raw[:-1]).decode("ascii")
+    long_key = base64.b64encode(raw + b"\x00").decode("ascii")
+    with pytest.raises(ValueError, match="32 bytes, got 31"):
+        load_public_key_from_base64(short_key)
+    with pytest.raises(ValueError, match="32 bytes, got 33"):
+        load_public_key_from_base64(long_key)

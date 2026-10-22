@@ -6,6 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from asap.economics.metering import (
+    BatchUsageRequest,
     UsageAggregateByAgent,
     UsageAggregateByConsumer,
     UsageAggregateByPeriod,
@@ -227,3 +228,29 @@ class TestUsageAggregateByPeriod:
         assert agg.period == "2026-02-16"
         assert agg.unique_agents == 5
         assert agg.unique_consumers == 8
+
+
+def _batch_event(index: int) -> UsageMetrics:
+    """One usage row for batch-size validation."""
+    return UsageMetrics(
+        task_id=f"task_{index}",
+        agent_id="urn:asap:agent:batch",
+        consumer_id="urn:asap:agent:consumer",
+        timestamp=datetime(2026, 6, 15, 12, 0, tzinfo=timezone.utc),
+    )
+
+
+class TestBatchUsageRequestLimits:
+    """Ingress batches are capped so one request cannot record an unbounded ledger."""
+
+    def test_accepts_one_thousand_events(self) -> None:
+        """The documented maximum of 1000 events is valid."""
+        batch = BatchUsageRequest(events=[_batch_event(index) for index in range(1000)])
+        assert len(batch.events) == 1000
+
+    def test_rejects_empty_and_one_past_the_cap(self) -> None:
+        """Zero events and 1001 events are rejected."""
+        with pytest.raises(ValidationError):
+            BatchUsageRequest(events=[])
+        with pytest.raises(ValidationError, match="1000"):
+            BatchUsageRequest(events=[_batch_event(index) for index in range(1001)])

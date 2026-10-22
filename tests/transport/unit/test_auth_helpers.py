@@ -299,3 +299,42 @@ async def test_verify_host_bearer_require_active_host_false_skips_revoked_403() 
     assert err.status_code == 401
     body: dict[str, Any] = json.loads(err.body)
     assert body["detail"] == HOST_REVOKED_ERROR
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("iss", ["", "   ", 42])
+async def test_verify_host_bearer_blank_or_non_string_iss_returns_400(iss: object) -> None:
+    """Whitespace and non-string iss values are missing issuers, not authenticated hosts."""
+    app = _identity_app(InMemoryHostStore())
+    request = _http_request(app, authorization="Bearer synthetic")
+    fake_result = JwtVerifyResult(ok=True, claims={"iss": iss}, host=None)
+
+    with patch(
+        "asap.transport._auth_helpers.verify_host_jwt",
+        new=AsyncMock(return_value=fake_result),
+    ):
+        result, err = await verify_host_bearer(request, jti_replay_cache=None)
+
+    assert result is None
+    assert err is not None
+    assert err.status_code == 400
+    assert err.body == b'{"detail":"missing iss in host JWT"}'
+
+
+@pytest.mark.asyncio
+async def test_verify_host_bearer_success_without_claims_returns_401() -> None:
+    """ok=True with no claims must not authenticate; the iss gate cannot run."""
+    app = _identity_app(InMemoryHostStore())
+    request = _http_request(app, authorization="Bearer synthetic")
+    fake_result = JwtVerifyResult(ok=True, claims=None, host=None)
+
+    with patch(
+        "asap.transport._auth_helpers.verify_host_jwt",
+        new=AsyncMock(return_value=fake_result),
+    ):
+        result, err = await verify_host_bearer(request, jti_replay_cache=None)
+
+    assert result is None
+    assert err is not None
+    assert err.status_code == 401
+    assert err.body == b'{"detail":"Invalid host token"}'
