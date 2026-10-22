@@ -16,6 +16,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.5.8] - 2026-10-21
+
+**Security & coverage patch** — record the repository dependency overrides
+and regression tests that landed on `main` after v2.5.7 via
+[#413](https://github.com/asap-protocol/asap-protocol/pull/413)–[#417](https://github.com/asap-protocol/asap-protocol/pull/417).
+This is **not** Formal Spec & Interop. npm `@asap-protocol/*` packages remain
+at **2.4.1**. PyPI `asap-compliance` remains **1.3.0**.
+Tag [`v2.5.8`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.8)
+· PyPI `asap-protocol==2.5.8`.
+
+### Security
+
+- **Repository uv overrides and `[mcp]` extra (#413)** —
+  ``[tool.uv] override-dependencies`` pins ``aiohttp>=3.14.4,<4``
+  (CVE-2026-111063 and related), ``certifi>=2026.10.19`` (PYSEC-2026-4320),
+  and ``pillow>=13.0.0`` (CVE-2026-112395 / 112397 / 112400 / 112404 /
+  112895 / 112896 / 112897 / 112899). Those overrides apply in this
+  repository. They are not requirements of the published wheel. The
+  optional ``[mcp]`` extra requires ``mcp>=1.30.0,<2`` (CVE-2026-59951).
+- **`apps/web` Vite (#413)** — npm override pins ``vite`` to ``8.1.6``
+  (GHSA-587h-7wmj-h5pm and the other launch-editor advisories on Vite
+  8.0.0–8.1.5). This pin is the web app in this repository, not a PyPI
+  requirement.
+- **`apps/web` audit CI** — ``quality (web)`` installs npm 11.21.0 before
+  ``npm audit`` and ``audit-ci``. ``audit-ci.jsonc`` sets
+  ``package-manager`` to ``npm``. npm 10 (Node 20) and pnpm 9 still call
+  the retired ``/-/npm/v1/security/audits/quick`` endpoint. Both audit
+  steps retry a registry 503 and still fail immediately on a real advisory.
+
+### Quality
+
+- **Quota, replay, and nonce regression tests (#413)** — webhook partial
+  refill, truncated public keys, JTI eviction, nonce expiry, and discovery
+  health. Batch ``check_n`` cost shipped in v2.5.7.
+- **Metering, SLA, usage, and delivery regression tests (#414)** — metering
+  windows, SLA boundaries, audit queries, the existing one-time
+  ``delegate_urn`` column add, usage pagination, webhook status band, batch
+  size, OpenAPI schema depth, and snapshot-loop edges.
+- **Refresh, cache, and revocation regression tests (#415)** — OAuth refresh
+  on the buffer second, introspection cache expiry, discovery and registry
+  cache TTL, delegation expiry, ack timeout, revocation of a non-agent URN,
+  and dashboard action edges.
+- **Expiry, receipt, and session regression tests (#416)** — receipt reads
+  at exact expiry, registration receipts, reactivation lifetime, approval
+  deadlines, host JWT skew, scope-claim types, envelope timestamps, and
+  compliance preflight edges.
+- **Lifetime and size regression tests (#417)** — verify and reactivate
+  lifetime edges, blank IssueOps fields, request and decompressed size caps,
+  WebSocket idle and heartbeat fences, and truncated key age
+  (``timedelta.days`` inside ``warn_if_key_old``, distinct from the truncated
+  public-key fence in #413).
+
+### Migration
+
+- **v2.5.7 → v2.5.8**: See [migration guide](docs/migration.md#upgrading-from-v257-to-v258).
+  No wire-protocol or manifest schema breaking changes. Installs of the
+  optional ``[mcp]`` extra now require ``mcp>=1.30.0,<2``.
+
+---
+
 ## [2.5.7] - 2026-10-11
 
 **Quality & coverage patch** — correct batch HTTP rate-limit accounting,
