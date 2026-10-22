@@ -1,7 +1,9 @@
-# CI: quality (lint+typecheck), transport surface lint (D4), test, coverage, security.
-# Branch protection on main requires quality (python), quality (web), test (python),
-# test (web), coverage, and security. security (web) is not a required check:
-# an npm registry outage there does not block the web quality or test jobs.
+# CI: path filter, quality (lint+typecheck), transport surface lint (D4),
+# test, coverage, and security.
+# Branch protection on main requires quality (python), quality (web),
+# test (python), test (web), coverage, and security.
+# security (web) is not a required check. Jobs for a stack are skipped when
+# the change does not touch that stack; a skipped required check still passes.
 name: CI
 
 on:
@@ -46,9 +48,49 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    name: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      python: ${{ steps.filter.outputs.python }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          # Push events diff with git. Pull requests use the API and ignore this checkout.
+          fetch-depth: 0
+      - name: Detect changed stacks
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d  # v4.0.3
+        id: filter
+        with:
+          # docs/ is python: mkdocs build and tests/test_docs_links.py read it.
+          # .github/ runs both stacks, because this workflow is what changed.
+          filters: |
+            python:
+              - 'src/**'
+              - 'scripts/**'
+              - 'tests/**'
+              - 'asap-compliance/**'
+              - 'examples/**'
+              - 'apps/example-agent/**'
+              - 'docs/**'
+              - 'mkdocs.yml'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - '.github/**'
+            web:
+              - 'apps/web/**'
+              - '.github/**'
+
   lint-transport-growth:
     name: lint transport growth (D4)
     runs-on: ubuntu-latest
+    needs: [changes]
+    if: needs.changes.outputs.python == 'true'
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -58,6 +100,8 @@ jobs:
   quality-python:
     name: quality (python)
     runs-on: ubuntu-latest
+    needs: [changes]
+    if: needs.changes.outputs.python == 'true'
     timeout-minutes: 14
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -82,6 +126,8 @@ jobs:
   quality-web:
     name: quality (web)
     runs-on: ubuntu-latest
+    needs: [changes]
+    if: needs.changes.outputs.web == 'true'
     timeout-minutes: 18
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -150,6 +196,8 @@ jobs:
   test-python:
     name: test (python)
     runs-on: ubuntu-latest
+    needs: [changes]
+    if: needs.changes.outputs.python == 'true'
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -188,6 +236,8 @@ jobs:
   test-web:
     name: test (web)
     runs-on: ubuntu-latest
+    needs: [changes]
+    if: needs.changes.outputs.web == 'true'
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -234,6 +284,8 @@ jobs:
   security:
     name: security
     runs-on: ubuntu-latest
+    needs: [changes]
+    if: needs.changes.outputs.python == 'true'
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -253,6 +305,8 @@ jobs:
   security-web:
     name: security (web)
     runs-on: ubuntu-latest
+    needs: [changes]
+    if: needs.changes.outputs.web == 'true'
     timeout-minutes: 18
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
