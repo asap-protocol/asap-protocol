@@ -367,6 +367,9 @@ filterwarnings = [
 [tool.coverage.run]
 source = ["asap"]
 branch = true
+# The CI coverage job reads the data file on another runner. Relative paths
+# still resolve after checkout; absolute workspace paths would not.
+relative_files = true
 omit = [
     "src/asap/examples/*",  # Runnable examples and demos; tested via tests/examples/
     "src/asap/discovery/dnssd.py",  # P3 optional, deferred to v1.1.1+
