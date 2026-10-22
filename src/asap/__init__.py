@@ -4,6 +4,7 @@ A streamlined, scalable, asynchronous protocol for agent-to-agent communication
 and task coordination.
 """
 
+# Temporary path-filter simulation. Not part of the CI pull requests.
 from __future__ import annotations
 
 from typing import Any
