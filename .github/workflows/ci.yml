@@ -24,7 +24,10 @@ on:
       - '.github/workflows/**'
       - '.github/actions/**'
   pull_request:
-    branches: [main, development, release/2.5.0]
+    # ci/filter-sim-base is temporary, so draft PRs can show the path filter
+    # against a base that already contains this workflow. It is not on the
+    # pull requests that target development.
+    branches: [main, development, release/2.5.0, ci/filter-sim-base]
     paths:
       - 'src/**'
       - 'scripts/**'
