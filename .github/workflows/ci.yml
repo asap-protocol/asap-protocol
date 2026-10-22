@@ -1,11 +1,10 @@
 # CI: quality (lint+typecheck), transport surface lint (D4), test, coverage, security.
 # Branch protection on main requires quality (python), quality (web), test (python),
-# test (web), coverage, and security.
-# security (web) is not a required check. It runs on every trigger that matches
-# the path filters below, including a change that only touches src/**.
-# A real advisory fails that job and does not block merge unless Protect main
-# requires security (web). Registry retries stay there so an npm outage does
-# not fail quality (web) or test (web).
+# test (web), coverage, security, and security (web).
+# security (web) runs the npm audits on every trigger that matches the path
+# filters below, including a change that only touches src/**. A real advisory
+# fails that check and blocks merge to main. Registry retries stay on this job
+# so a transient npm outage does not fail quality (web) or test (web).
 name: CI
 
 on:

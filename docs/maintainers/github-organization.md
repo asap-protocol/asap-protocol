@@ -105,8 +105,8 @@ Configured via the Rulesets API on `asap-protocol/asap-protocol` (not classic br
 - Dismiss stale reviews on new pushes
 - Block force pushes (`non_fast_forward`)
 - Restrict branch deletion
-- Required status checks (strict): `quality (python)`, `quality (web)`, `test (python)`, `test (web)`, `coverage`, `security` (job names from `.github/workflows/ci.yml`).
-- `security (web)` has no job-level `if`. It runs on every CI trigger that matches the workflow path filters, including a change that only touches `src/**`. It is not a required check. A high advisory from that job (run 39772718697: `vite` GHSA-587h-7wmj-h5pm, `fast-glob`, and `braces`) fails the job and does not block merge unless Protect main is updated to require it.
+- Required status checks (strict): `quality (python)`, `quality (web)`, `test (python)`, `test (web)`, `coverage`, `security`, `security (web)` (job names from `.github/workflows/ci.yml`).
+- `security (web)` has no job-level `if`. It runs on every CI trigger that matches the workflow path filters, including a change that only touches `src/**`. Protect main requires it. A high advisory (run 39772718697: `vite` GHSA-587h-7wmj-h5pm) fails the check and blocks merge to `main`. `development` has no required-check ruleset.
 
 **Bypass actors** (can bypass ruleset rules when needed):
 

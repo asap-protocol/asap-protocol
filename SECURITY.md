@@ -89,12 +89,12 @@ We aim to review and merge security updates according to the following target ti
 We continuously monitor dependencies using:
 - **Dependabot**: Automated security updates and alerts
 - **pip-audit**: Integrated into CI pipeline for vulnerability scanning (Python)
-- **npm audit**: `security (web)` for `apps/web/`. A real advisory fails that job. Protect main does not require it, so the failure does not block merge.
+- **npm audit**: `security (web)` for `apps/web/`. Protect main requires that check. A real advisory fails it and blocks merge to `main`.
 - **GitHub Security Advisories**: Public database of known vulnerabilities
 
 ### npm audit policy (`apps/web/`)
 
-CI job `security (web)` runs both of the following after `npm ci`. A non-zero exit fails that job. The job is not a required status check, so the failure does not block merge:
+CI job `security (web)` runs both of the following after `npm ci`. A non-zero exit fails that job. Protect main requires `security (web)`, so the failure blocks merge to `main`:
 
 ```bash
 cd apps/web
