@@ -164,7 +164,10 @@ jobs:
         run: uv run pytest -n auto --tb=short --cov=asap --cov-report=xml
         timeout-minutes: 12
       # .coverage is hidden; upload-artifact skips it unless this flag is set.
-      # The coverage job reads it from the same GitHub workspace path.
+      # relative_files = true (pyproject.toml) stores paths like src/asap/...
+      # The coverage job resolves those after its own checkout. Leave
+      # relative_files on. Absolute workspace paths miss sources when the
+      # runners do not share a workspace directory.
       - name: Upload coverage data
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
@@ -213,9 +216,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-      # Source files must be present: coverage report resolves the paths
-      # stored in .coverage, which are absolute workspace paths from the
-      # test job. GitHub-hosted runners use the same workspace path.
+      # Checkout so coverage report can resolve the relative paths in
+      # .coverage (relative_files = true in pyproject.toml). The report
+      # lists src/asap/... Leave relative_files on. Absolute paths miss
+      # sources when this runner's workspace path differs from the test job.
       - name: Download coverage data
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
         with:
