@@ -93,6 +93,21 @@ def test_check_fresh_session_outside_window() -> None:
     assert check_fresh_session(600.0, cfg, now_ts=now) is False
 
 
+def test_fresh_session_stays_valid_at_exact_window() -> None:
+    """Approval remains allowed when host ``iat`` age equals ``window_seconds``.
+
+    The comparison is inclusive. One second past the window is a stale session.
+    """
+    cfg = FreshSessionConfig(window_seconds=300)
+    now = 1000.0
+    assert check_fresh_session(now - 300.0, cfg, now_ts=now) is True
+    assert fresh_session_violation_detail({"iat": now - 300.0}, cfg, now_ts=now) is None
+    assert check_fresh_session(now - 301.0, cfg, now_ts=now) is False
+    detail = fresh_session_violation_detail({"iat": now - 301.0}, cfg, now_ts=now)
+    assert detail is not None
+    assert "stale host session" in detail
+
+
 def test_fresh_session_violation_missing_iat() -> None:
     cfg = FreshSessionConfig()
     detail = fresh_session_violation_detail({}, cfg, now_ts=0.0)

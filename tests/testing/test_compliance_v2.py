@@ -262,6 +262,47 @@ class TestComplianceHarnessFromUrl:
         client_arg = harness_mock.await_args.args[0]
         assert client_arg.follow_redirects is False
 
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("error_type", "message"),
+        [
+            (httpx.ConnectError, "connection refused"),
+            (httpx.ReadTimeout, "timed out"),
+        ],
+    )
+    async def test_preflight_transport_errors_propagate(
+        self,
+        error_type: type[Exception],
+        message: str,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Connect and timeout failures stay transport errors, not a failed score.
+
+        The preflight ``GET /`` re-raises these so callers can tell an unreachable
+        agent from a harness that ran and failed every check.
+        """
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            raise error_type(message)
+
+        original_init = httpx.AsyncClient.__init__
+
+        def transport_init(self: httpx.AsyncClient, *args: object, **kwargs: object) -> None:
+            kwargs["transport"] = httpx.MockTransport(handler)
+            original_init(self, *args, **kwargs)
+
+        monkeypatch.setattr(httpx.AsyncClient, "__init__", transport_init)
+        harness_mock = AsyncMock(return_value=_empty_report())
+        monkeypatch.setattr(
+            "asap.testing.compliance.run_compliance_harness_with_client",
+            harness_mock,
+        )
+
+        with pytest.raises(error_type, match=message):
+            await run_compliance_harness_v2_from_url("https://agent.example.com")
+
+        harness_mock.assert_not_called()
+
 
 def _empty_report() -> ComplianceReport:
     return ComplianceReport(

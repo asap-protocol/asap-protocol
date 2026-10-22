@@ -150,6 +150,55 @@ class TestCheckAgentExpiry:
         )
         assert check_agent_expiry(a) == "revoked"
 
+    def test_absolute_lifetime_boundary_is_exclusive(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """``now - created_at > absolute_lifetime`` stays active at equality.
+
+        One microsecond past that instant is revoked. Well-past cases do not
+        pin this fence.
+        """
+        created = datetime(2024, 1, 1, tzinfo=timezone.utc)
+        lifetime = timedelta(days=1)
+        clock = {"instant": created + lifetime}
+
+        def _now() -> datetime:
+            return clock["instant"]
+
+        monkeypatch.setattr("asap.auth.identity._utc_now", _now)
+        agent = _agent(absolute_lifetime=lifetime, created_at=created)
+        assert check_agent_expiry(agent) == "active"
+        clock["instant"] = created + lifetime + timedelta(microseconds=1)
+        assert check_agent_expiry(agent) == "revoked"
+
+    def test_max_lifetime_boundary_is_exclusive(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Session max lifetime uses the same strict ``>`` comparison."""
+        activated = datetime(2024, 6, 1, tzinfo=timezone.utc)
+        lifetime = timedelta(hours=2)
+        clock = {"instant": activated + lifetime}
+
+        def _now() -> datetime:
+            return clock["instant"]
+
+        monkeypatch.setattr("asap.auth.identity._utc_now", _now)
+        agent = _agent(max_lifetime=lifetime, activated_at=activated, created_at=activated)
+        assert check_agent_expiry(agent) == "active"
+        clock["instant"] = activated + lifetime + timedelta(microseconds=1)
+        assert check_agent_expiry(agent) == "expired"
+
+    def test_session_ttl_boundary_is_exclusive(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Idle TTL uses strict ``>`` so the exact deadline is still active."""
+        last_used = datetime(2024, 6, 1, tzinfo=timezone.utc)
+        ttl = timedelta(minutes=5)
+        clock = {"instant": last_used + ttl}
+
+        def _now() -> datetime:
+            return clock["instant"]
+
+        monkeypatch.setattr("asap.auth.identity._utc_now", _now)
+        agent = _agent(session_ttl=ttl, last_used_at=last_used, created_at=last_used)
+        assert check_agent_expiry(agent) == "active"
+        clock["instant"] = last_used + ttl + timedelta(microseconds=1)
+        assert check_agent_expiry(agent) == "expired"
+
     # -- combined / precedence ----------------------------------------------
 
     def test_absolute_takes_precedence_over_expired(self) -> None:
@@ -226,6 +275,30 @@ class TestReactivateAgent:
         )
         with pytest.raises(ValueError, match="absolute lifetime"):
             reactivate_agent(a, _host())
+
+    def test_reactivate_absolute_lifetime_boundary_is_exclusive(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """``reactivate_agent`` repeats ``now - created_at > absolute_lifetime``.
+
+        Equality still reactivates. One microsecond later raises. A case two
+        days past a one-day limit stays red if that copy flips from ``>`` to
+        ``>=``.
+        """
+        created = datetime(2024, 1, 1, tzinfo=timezone.utc)
+        lifetime = timedelta(days=1)
+        clock = {"instant": created + lifetime}
+
+        def _now() -> datetime:
+            return clock["instant"]
+
+        monkeypatch.setattr("asap.auth.identity._utc_now", _now)
+        agent = _agent(status="expired", absolute_lifetime=lifetime, created_at=created)
+        assert reactivate_agent(agent, _host()).status == "active"
+
+        clock["instant"] = created + lifetime + timedelta(microseconds=1)
+        with pytest.raises(ValueError, match="absolute lifetime"):
+            reactivate_agent(agent, _host())
 
     def test_revoked_agent_raises(self) -> None:
         a = _agent(status="revoked")
