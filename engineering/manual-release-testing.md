@@ -73,7 +73,7 @@ Repeat the same scenarios covered by CI without running the full suite:
 
 **Reference run (local, 2026-04-16)**: `2953 passed`, `7 skipped` in ~130s without `-n auto`.
 
-- [ ] Optional coverage (CI-parity, no xdist): `uv run pytest --tb=short --cov=asap --cov-report=term-missing --cov-fail-under=85`
+- [ ] Coverage: `uv run pytest -n auto --tb=short --cov=asap --cov-report=term-missing --cov-fail-under=85` (local floor). CI collects with `uv run pytest -n auto --tb=short --cov=asap --cov-report=xml` and applies the floor in the coverage job: `uv run coverage report --fail-under=85`.
 
 ## 10. Lint & Type Check
 

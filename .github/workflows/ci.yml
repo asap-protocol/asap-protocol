@@ -1,5 +1,10 @@
 # CI: quality (lint+typecheck), transport surface lint (D4), test, coverage, security.
-# 7 jobs total. Branch protection: require quality (python), lint transport growth (D4), quality (web), test (python), test (web), coverage, security.
+# Branch protection on main requires quality (python), quality (web), test (python),
+# test (web), coverage, security, and security (web).
+# security (web) runs the npm audits on every trigger that matches the path
+# filters below, including a change that only touches src/**. A real advisory
+# fails that check and blocks merge to main. Registry retries stay on this job
+# so a transient npm outage does not fail quality (web) or test (web).
 name: CI
 
 on:
@@ -65,6 +70,13 @@ jobs:
         run: |
           uv run ruff check . --output-format=github
           uv run ruff format --check .
+      - name: Restore mypy cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: .mypy_cache
+          key: mypy-${{ runner.os }}-${{ hashFiles('uv.lock', 'pyproject.toml') }}-${{ github.sha }}
+          restore-keys: |
+            mypy-${{ runner.os }}-${{ hashFiles('uv.lock', 'pyproject.toml') }}-
       - name: Type check with mypy
         run: uv run mypy src/ scripts/ tests/
       - name: Build docs
@@ -137,31 +149,48 @@ jobs:
           # Compile-only placeholder: `src/auth.ts` throws if AUTH_SECRET is missing
           # or shorter than 32 chars. Not used to sign tokens in this job.
           AUTH_SECRET: ci-quality-web-build-placeholder-not-a-secret
-      - name: npm audit (production, moderate+)
-        run: npm audit --omit=dev --audit-level=moderate
-        working-directory: apps/web
-      - name: npm audit (all deps, high+)
-        run: npx audit-ci --config audit-ci.jsonc
-        working-directory: apps/web
 
   test-python:
     name: test (python)
     runs-on: ubuntu-latest
-    needs: [quality-python, lint-transport-growth]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Setup Python
         uses: ./.github/actions/setup-python
-      - name: Run tests
+      # One pass for the suite, except the subprocess test below.
+      # b7ed79ff (2026-01-31) dropped -n after KeyError: WorkerController.
+      # That lock already had pytest-cov 7.0.0, pytest-xdist 3.8.0, and
+      # coverage 7.13.1 (pytest 9.0.2). This lock matches except pytest 9.0.3.
+      # Run 39772718697 did not reproduce the crash.
+      - name: Run tests with coverage
         env:
           PYTHONPATH: ${{ github.workspace }}/src:${{ github.workspace }}
-        run: uv run pytest -n auto --tb=short --ignore=tests/adapters/mcp/
+        run: uv run pytest -n auto --tb=short --cov=asap --cov-report=xml --deselect tests/adapters/mcp/test_stdio_integration.py::test_subprocess_example_server_secure_action_denied_without_jwt
         timeout-minutes: 12
-      - name: Run MCP adapter tests
+      # 5d5a2c5b kept tests/adapters/mcp/ off xdist after PR 233. The other
+      # adapter tests stayed in the parallel run. This one starts
+      # `uv run python examples/mcp_auth_bridge/server.py`. --cov-append
+      # adds it to the .coverage file the coverage job reads.
+      - name: Run MCP subprocess test
         env:
           PYTHONPATH: ${{ github.workspace }}/src:${{ github.workspace }}
-        run: uv run pytest tests/adapters/mcp/ -v --tb=short
+        run: uv run pytest tests/adapters/mcp/test_stdio_integration.py::test_subprocess_example_server_secure_action_denied_without_jwt -v --tb=short --cov=asap --cov-append --cov-report=xml
+      # .coverage is hidden; upload-artifact skips it unless this flag is set.
+      # relative_files = true (pyproject.toml) stores paths like src/asap/...
+      # The coverage job resolves those after its own checkout. Leave
+      # relative_files on. Absolute workspace paths miss sources when the
+      # runners do not share a workspace directory.
+      - name: Upload coverage data
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: python-coverage
+          path: |
+            coverage.xml
+            .coverage
+          include-hidden-files: true
+          retention-days: 1
+          if-no-files-found: error
       - name: Run compliance tests
         env:
           PYTHONPATH: ${{ github.workspace }}/src:${{ github.workspace }}:${{ github.workspace }}/asap-compliance
@@ -175,7 +204,6 @@ jobs:
   test-web:
     name: test (web)
     runs-on: ubuntu-latest
-    needs: [quality-web]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -188,9 +216,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
         working-directory: apps/web
-      - name: Vitest
-        run: npm test
-        working-directory: apps/web
+      # test:coverage applies the thresholds in apps/web/vitest.config.ts.
+      # A second plain vitest run only repeated the same files.
       - name: Vitest coverage
         run: npm run test:coverage
         working-directory: apps/web
@@ -198,27 +225,22 @@ jobs:
   coverage:
     name: coverage
     runs-on: ubuntu-latest
-    needs: [quality-python, lint-transport-growth]
-    timeout-minutes: 18
+    needs: [test-python]
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      # Checkout so coverage report can resolve the relative paths in
+      # .coverage (relative_files = true in pyproject.toml). The report
+      # lists src/asap/... Leave relative_files on. Absolute paths miss
+      # sources when this runner's workspace path differs from the test job.
+      - name: Download coverage data
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          name: python-coverage
       - name: Setup Python
         uses: ./.github/actions/setup-python
-      - name: Run tests with coverage
-        env:
-          PYTHONPATH: ${{ github.workspace }}/src:${{ github.workspace }}
-        run: |
-          for i in 1 2; do
-            echo "Coverage attempt $i/2"
-            if uv run pytest --tb=short --cov=asap --cov-report=xml --cov-fail-under=85; then
-              echo "Coverage passed on attempt $i"
-              exit 0
-            fi
-            echo "Coverage attempt $i failed, retrying..."
-          done
-          echo "Coverage failed after 2 attempts"
-          exit 1
-        timeout-minutes: 15
+      - name: Enforce coverage threshold
+        run: uv run coverage report --fail-under=85
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5  # v7.1.1
         with:
@@ -229,7 +251,6 @@ jobs:
   security:
     name: security
     runs-on: ubuntu-latest
-    needs: [quality-python, lint-transport-growth]
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -245,3 +266,82 @@ jobs:
         run: uv run pip-audit --ignore-vuln CVE-2026-4539 --ignore-vuln CVE-2026-4963 --ignore-vuln CVE-2026-2654 --ignore-vuln PYSEC-2024-271 --ignore-vuln PYSEC-2026-89 --ignore-vuln PYSEC-2025-183
       - name: Scan for security issues (bandit)
         run: uv run bandit -r src/ -ll
+
+  security-web:
+    name: security (web)
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+        working-directory: apps/web
+      # npm 10 (bundled with Node 20) falls back to the retired
+      # /-/npm/v1/security/audits/quick endpoint (HTTP 410) when the bulk
+      # advisory response is rejected. npm 11 removed that fallback
+      # (npm/cli#7911). Install it only for the audit steps so npm ci stays
+      # on the Node 20 toolchain.
+      - name: Use npm 11 for audit
+        run: npm install -g npm@11.21.0
+      # The bulk advisory endpoint can return 503. npm then waits out its
+      # own backoff and exits 1. Retry only that registry failure so a
+      # real advisory still fails on the first report. 2026-10-22 run
+      # 39713963470 failed this way after npm 11 was installed.
+      - name: npm audit (production, moderate+)
+        working-directory: apps/web
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4; do
+            set +e
+            output="$(npm audit --omit=dev --audit-level=moderate --fetch-retries=1 --fetch-retry-mintimeout=5000 --fetch-retry-maxtimeout=15000 2>&1)"
+            status=$?
+            set -e
+            printf '%s\n' "$output"
+            if [ "$status" -eq 0 ]; then
+              exit 0
+            fi
+            if ! printf '%s\n' "$output" | grep -Eq 'Service Unavailable|audit endpoint returned an error|ECONNRESET|ETIMEDOUT|ENOTFOUND'; then
+              exit "$status"
+            fi
+            if [ "$attempt" -eq 4 ]; then
+              exit "$status"
+            fi
+            echo "npm registry audit unavailable (attempt ${attempt}); retrying in 20s"
+            sleep 20
+          done
+      # audit-ci prints "code undefined" and drops the registry body when
+      # npm audit exits on a 503 (run 39714743928). Fail that call fast,
+      # then retry. "Failed security audit" is a real advisory and stops.
+      # Use the lockfile binary (audit-ci 7.1.0). `npx --yes audit-ci@7`
+      # floats inside v7, and a changed failure string would retry a real advisory.
+      - name: npm audit (all deps, high+)
+        working-directory: apps/web
+        run: |
+          set -euo pipefail
+          npm config set fetch-retries 0
+          npm config set fetch-retry-mintimeout 2000
+          npm config set fetch-retry-maxtimeout 5000
+          for attempt in 1 2 3 4; do
+            set +e
+            output="$(npx --no-install audit-ci --config audit-ci.jsonc --retry-count=1 2>&1)"
+            status=$?
+            set -e
+            printf '%s\n' "$output"
+            if [ "$status" -eq 0 ]; then
+              exit 0
+            fi
+            if printf '%s\n' "$output" | grep -q 'Failed security audit'; then
+              exit "$status"
+            fi
+            if [ "$attempt" -eq 4 ]; then
+              exit "$status"
+            fi
+            echo "audit-ci registry error (attempt ${attempt}); retrying in 20s"
+            sleep 20
+          done

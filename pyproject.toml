@@ -84,8 +84,9 @@ webauthn = [
 ]
 # Framework integration extras.
 mcp = [
-    # Floor 1.28.1 for CVE-2026-52869 / CVE-2026-52870 / CVE-2026-59950.
-    "mcp>=1.28.1",
+    # Floor 1.30.0 for CVE-2026-59951 (also covers CVE-2026-52869 / CVE-2026-52870 /
+    # CVE-2026-59950). Stay on 1.x: mcp 2.x replaces mcp.server.fastmcp and depends on httpx2.
+    "mcp>=1.30.0,<2",
 ]
 langchain = [
     "langchain-core>=1.3.3",
@@ -124,13 +125,15 @@ Issues = "https://github.com/asap-protocol/asap-protocol/issues"
 # Override transitive dependencies for security fixes:
 # - pyjwt>=2.14.0 for PYSEC-2026-4140–4152 (prior: CVE-2026-32597 baseline at 2.12.0)
 # - anyio>=4.14.2 for PYSEC-2026-4024 / PYSEC-2026-4025
-# - aiohttp>=3.14.3,<4 for PYSEC-2026-3545/3546/3547 (prior: CVE-2026-34993 / CVE-2026-47265 at >=3.14.0)
+# - aiohttp>=3.14.4,<4 for CVE-2026-111063–111066 / CVE-2026-111748–111750 / GHSA-2g87-pp6c-29x5 (prior: PYSEC-2026-3545/3546/3547 at >=3.14.3)
 # - zeroconf>=0.149.5 for CVE-2026-47180/47183/47184 ([dns-sd] extra)
 # - pyasn1>=0.6.4 for CVE-2026-30922 / CVE-2026-59885 / CVE-2026-59886 / PYSEC-2026-3455/3456/3457 (transitive, auth/JWT stack)
 # - tinytag>=2.2.1 for CVE-2026-32889
 # - cryptography>=50.0.0 for PYSEC-2026-3552 (PKCS7 Bleichenbacher; 3553/3554 fixed in 49.0.0; prior GHSA-537c-gmf6-5ccf at >=48.0.1)
 # - requests>=2.33.0 for CVE-2026-25645 (extract_zipped_paths temp file)
-# - pillow>=12.3.0 for PYSEC-2026-2253–2257 (prior: CVE-2026-40192 at >=12.2.0; transitive, e.g. pdf/vision stacks)
+# - certifi>=2026.10.19 for PYSEC-2026-4320 (transitive via requests / httpx)
+# - pillow>=13.0.0 for the Pillow 12.3.0 advisories fixed in 13.0.0 (CVE-2026-112390 and related; prior: PYSEC-2026-2253–2257 at >=12.3.0)
+# - mcp>=1.30.0,<2 for CVE-2026-59951 (2.2.0+ also fixes it; 2.x breaks FastMCP — see SECURITY.md)
 # - click>=8.3.3 for PYSEC-2026-2132 (transitive, e.g. typer / uvicorn / mkdocs stacks)
 # - pytest>=9.0.3 for CVE-2025-71176 (dev)
 # - python-multipart>=0.0.31 for CVE-2026-53538–53540 (FastAPI stack; prior floor 0.0.27)
@@ -159,14 +162,16 @@ Issues = "https://github.com/asap-protocol/asap-protocol/issues"
 # - fsspec>=2026.6.0 for CVE-2026-104851
 [tool.uv]
 override-dependencies = [
-    "aiohttp>=3.14.3,<4",
+    "aiohttp>=3.14.4,<4",
+    "certifi>=2026.10.19",
     "anyio>=4.14.2",
     "pyjwt>=2.14.0,<3",
     "pyasn1>=0.6.4",
     "tinytag>=2.2.1",
     "cryptography>=50.0.0,<51",
     "requests>=2.33.0",
-    "pillow>=12.3.0",
+    "pillow>=13.0.0",
+    "mcp>=1.30.0,<2",
     "click>=8.3.3",
     "pytest>=9.0.3",
     "python-multipart>=0.0.31",
@@ -347,8 +352,9 @@ addopts = [
     "--strict-markers",
     "--strict-config",
 ]
-# Coverage options: use explicitly when needed (e.g., pytest --tb=short --cov=asap --cov-report=xml --cov-fail-under=85)
-# NOT included in addopts to avoid conflicts with pytest-xdist (-n auto)
+# Coverage options: use explicitly when needed
+# (e.g. pytest -n auto --tb=short --cov=asap --cov-report=xml --cov-fail-under=85).
+# NOT included in addopts: a partial test run would fail the project-wide floor.
 testpaths = ["tests"]
 # Note: benchmarks/ excluded from testpaths - Locust monkey-patches gevent/ssl which
 # conflicts with pytest-xdist. Run benchmarks separately: uv run pytest benchmarks/
@@ -366,6 +372,9 @@ filterwarnings = [
 [tool.coverage.run]
 source = ["asap"]
 branch = true
+# The CI coverage job reads the data file on another runner. Relative paths
+# still resolve after checkout; absolute workspace paths would not.
+relative_files = true
 omit = [
     "src/asap/examples/*",  # Runnable examples and demos; tested via tests/examples/
     "src/asap/discovery/dnssd.py",  # P3 optional, deferred to v1.1.1+

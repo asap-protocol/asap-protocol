@@ -9,7 +9,7 @@ disable-model-invocation: false
 ## Pre-requisites
 
 - `.cursor/rules/testing-rate-limiting.mdc` (bridge rule)
-- `.cursor/rules/testing-standards.mdc` (pytest + xdist; do not combine coverage with `-n auto`)
+- `.cursor/rules/testing-standards.mdc` (pytest + xdist; coverage is collected in the parallel run, not in addopts)
 - `.cursor/README.md` (canonical test commands)
 
 ## When to use

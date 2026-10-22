@@ -167,12 +167,9 @@ pytest -n 0
 ### CI Configuration
 
 ```yaml
-# .github/workflows/ci.yml (two separate jobs — do not combine -n with --cov)
-- name: Run tests
-  run: uv run pytest -n auto --tb=short
-
-- name: Run coverage
-  run: uv run pytest --tb=short --cov=asap --cov-report=xml --cov-fail-under=85
+# .github/workflows/ci.yml (coverage is collected in the parallel test job)
+- name: Run tests with coverage
+  run: uv run pytest -n auto --tb=short --cov=asap --cov-report=xml
 ```
 
 ---
