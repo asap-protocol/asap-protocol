@@ -16,6 +16,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.5.8] - 2026-10-21
+
+**Security & coverage patch** — raise dependency floors that CI audits
+flagged after v2.5.7, and record the regression fences that landed on
+`main` via
+[#413](https://github.com/asap-protocol/asap-protocol/pull/413)–[#417](https://github.com/asap-protocol/asap-protocol/pull/417).
+This is **not** Formal Spec & Interop. npm `@asap-protocol/*` packages remain
+at **2.4.1**. PyPI `asap-compliance` remains **1.3.0**.
+Tag [`v2.5.8`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.8)
+· PyPI `asap-protocol==2.5.8`.
+
+### Security
+
+- **Python floors (#413)** — ``uv`` overrides and the optional ``[mcp]`` extra
+  move to ``aiohttp>=3.14.4,<4`` (CVE-2026-111063 and related),
+  ``certifi>=2026.10.19`` (PYSEC-2026-4320), ``pillow>=13.0.0``
+  (CVE-2026-112395 / 112397 / 112400 / 112404 / 112895 / 112896 / 112897 /
+  112899), and ``mcp>=1.30.0,<2`` (CVE-2026-59951).
+- **`apps/web` Vite (#413)** — npm override pins ``vite`` to ``8.1.6``
+  (GHSA-587h-7wmj-h5pm and the other launch-editor advisories on Vite
+  8.0.0–8.1.5).
+
+### Quality
+
+- **Quota, replay, and nonce (#413)** — batch ``check_n`` cost, webhook
+  partial refill, truncated signing keys, JTI eviction, nonce expiry, and
+  discovery health.
+- **Metering, SLA, usage, and delivery (#414)** — metering windows, SLA
+  boundaries, audit queries, delegation schema upgrade, usage pagination,
+  webhook status band, batch size, OpenAPI schema depth, and snapshot-loop
+  edges.
+- **Refresh, cache, and revocation (#415)** — OAuth refresh on the buffer
+  second, introspection cache expiry, discovery and registry cache TTL,
+  delegation expiry, ack timeout, revocation of a non-agent URN, and dashboard
+  action edges.
+- **Expiry, receipt, and session (#416)** — receipt reads at exact expiry,
+  registration receipts, reactivation lifetime, approval deadlines, host JWT
+  skew, scope-claim types, envelope timestamps, and compliance preflight
+  edges.
+- **Lifetime and size (#417)** — verify and reactivate lifetime edges, blank
+  IssueOps fields, request and decompressed size caps, WebSocket idle and
+  heartbeat fences, and truncated key age.
+
+### Migration
+
+- **v2.5.7 → v2.5.8**: See [migration guide](docs/migration.md#upgrading-from-v257-to-v258).
+  No wire-protocol or manifest schema breaking changes. Installs of the
+  optional ``[mcp]`` extra now require ``mcp>=1.30.0,<2``.
+
+---
+
 ## [2.5.7] - 2026-10-11
 
 **Quality & coverage patch** — correct batch HTTP rate-limit accounting,

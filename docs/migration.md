@@ -1119,6 +1119,52 @@ Scope: [prd-v2.5.4-distribution-loop.md](../product/prd/prd-v2.5.4-distribution-
 
 ---
 
+### Upgrading from v2.5.7 to v2.5.8
+
+**v2.5.8 (security & coverage patch)** — **shipped**
+([tag `v2.5.8`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.8)) —
+raises dependency floors flagged by CI audits after v2.5.7 and records
+regression fences already on ``main``. This is **not** Formal Spec &
+Interop. There are **no wire-protocol or manifest schema** breaking changes
+relative to v2.5.7.
+
+#### What lands in v2.5.8
+
+- **Python floors** — ``aiohttp>=3.14.4,<4``, ``certifi>=2026.10.19``,
+  ``pillow>=13.0.0``, and optional ``[mcp]`` ``mcp>=1.30.0,<2``
+  ([#413](https://github.com/asap-protocol/asap-protocol/pull/413)).
+- **Web app** — ``apps/web`` overrides pin ``vite`` to ``8.1.6``
+  ([#413](https://github.com/asap-protocol/asap-protocol/pull/413)).
+- **Regression fences** — quota, replay, and nonce
+  ([#413](https://github.com/asap-protocol/asap-protocol/pull/413));
+  metering, SLA, usage, and delivery
+  ([#414](https://github.com/asap-protocol/asap-protocol/pull/414));
+  refresh, cache, and revocation
+  ([#415](https://github.com/asap-protocol/asap-protocol/pull/415));
+  expiry, receipt, and session
+  ([#416](https://github.com/asap-protocol/asap-protocol/pull/416));
+  lifetime and size
+  ([#417](https://github.com/asap-protocol/asap-protocol/pull/417)).
+- **npm / compliance** — `@asap-protocol/*` remain **2.4.1**;
+  `asap-compliance` remains **1.3.0**.
+
+#### Upgrade steps
+
+1. Bump with `pip install 'asap-protocol==2.5.8'` (or `uv add asap-protocol`).
+2. If you install the optional ``[mcp]`` extra, the floor is now
+   ``mcp>=1.30.0,<2``.
+3. TypeScript `@asap-protocol/*` packages remain at **2.4.1**;
+   `@asap-protocol/mcp-auth` HTTP/SSE middleware remains deferred.
+
+#### Backward compatibility
+
+- **Wire protocol**: Unchanged from v2.5.7.
+- **Breaking changes**: None for typical deployments. The new floors only
+  affect installs that pull ``aiohttp``, ``certifi``, ``pillow``, the
+  ``[mcp]`` extra, or the in-repo web app.
+
+---
+
 ### Upgrading from v2.5.6 to v2.5.7
 
 **v2.5.7 (quality & coverage patch)** — **shipped**
