@@ -318,6 +318,8 @@ jobs:
       # audit-ci prints "code undefined" and drops the registry body when
       # npm audit exits on a 503 (run 39714743928). Fail that call fast,
       # then retry. "Failed security audit" is a real advisory and stops.
+      # Use the lockfile binary (audit-ci 7.1.0). `npx --yes audit-ci@7`
+      # floats inside v7, and a changed failure string would retry a real advisory.
       - name: npm audit (all deps, high+)
         working-directory: apps/web
         run: |
@@ -327,7 +329,7 @@ jobs:
           npm config set fetch-retry-maxtimeout 5000
           for attempt in 1 2 3 4; do
             set +e
-            output="$(npx --yes audit-ci@7 --config audit-ci.jsonc --retry-count=1 2>&1)"
+            output="$(npx --no-install audit-ci --config audit-ci.jsonc --retry-count=1 2>&1)"
             status=$?
             set -e
             printf '%s\n' "$output"
