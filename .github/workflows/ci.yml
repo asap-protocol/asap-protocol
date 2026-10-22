@@ -1,10 +1,14 @@
-# CI: quality (lint+typecheck), transport surface lint (D4), test, coverage, security.
-# Branch protection on main requires quality (python), quality (web), test (python),
-# test (web), coverage, security, and security (web).
-# security (web) runs the npm audits on every trigger that matches the path
-# filters below, including a change that only touches src/**. A real advisory
-# fails that check and blocks merge to main. Registry retries stay on this job
-# so a transient npm outage does not fail quality (web) or test (web).
+# CI: path filter, quality (lint+typecheck), transport surface lint (D4),
+# test, coverage, and security.
+# Branch protection on main requires quality (python), quality (web),
+# test (python), test (web), coverage, security, and security (web).
+# security (web) runs the npm audits when the diff touches apps/web/** or
+# .github/**, and when path detection fails. A python-only change skips it.
+# A skipped required check still passes. A real advisory fails the check and
+# blocks merge to main. Registry retries stay on this job so a transient npm
+# outage does not fail quality (web) or test (web).
+# Other jobs for a stack are skipped when the change does not touch that
+# stack. If detection fails, the suite runs.
 name: CI
 
 on:
@@ -49,9 +53,75 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    name: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      python: ${{ steps.filter.outputs.python }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          # Full history so the filter can diff against the base commit.
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Resolve diff base
+        id: diffbase
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            git fetch --no-tags origin "$PR_BASE_SHA"
+            sha="$(git merge-base "$PR_BASE_SHA" HEAD)"
+          else
+            sha="$PUSH_BEFORE"
+          fi
+          echo "sha=${sha}" >> "$GITHUB_OUTPUT"
+      - name: Detect changed stacks
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d  # v4.0.3
+        id: filter
+        with:
+          # Git, not the pull-request files API. That API returned
+          # "diff is temporarily unavailable" on run 39772726954 and
+          # skipped every later job. An empty token selects the git path.
+          # pull_request handling always runs `git diff base..head`. A
+          # branch name does not select the merge-base on this pin. The
+          # step above passes the merge-base SHA, so a stale pull request
+          # does not light a stack that only moved on the base branch.
+          token: ""
+          base: ${{ steps.diffbase.outputs.sha }}
+          # docs/ is python: mkdocs build and tests/test_docs_links.py read it.
+          # .github/ runs both stacks, because this workflow is what changed.
+          filters: |
+            python:
+              - 'src/**'
+              - 'scripts/**'
+              - 'tests/**'
+              - 'asap-compliance/**'
+              - 'examples/**'
+              - 'apps/example-agent/**'
+              - 'docs/**'
+              - 'mkdocs.yml'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - '.github/**'
+            web:
+              - 'apps/web/**'
+              - '.github/**'
+
   lint-transport-growth:
     name: lint transport growth (D4)
     runs-on: ubuntu-latest
+    needs: [changes]
+    # Run the suite when detection itself fails, so a filter error cannot
+    # skip the required checks.
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.python == 'true') }}
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -61,6 +131,8 @@ jobs:
   quality-python:
     name: quality (python)
     runs-on: ubuntu-latest
+    needs: [changes]
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.python == 'true') }}
     timeout-minutes: 14
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -85,6 +157,8 @@ jobs:
   quality-web:
     name: quality (web)
     runs-on: ubuntu-latest
+    needs: [changes]
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.web == 'true') }}
     timeout-minutes: 18
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -153,6 +227,8 @@ jobs:
   test-python:
     name: test (python)
     runs-on: ubuntu-latest
+    needs: [changes]
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.python == 'true') }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -204,6 +280,8 @@ jobs:
   test-web:
     name: test (web)
     runs-on: ubuntu-latest
+    needs: [changes]
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.web == 'true') }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -251,6 +329,8 @@ jobs:
   security:
     name: security
     runs-on: ubuntu-latest
+    needs: [changes]
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.python == 'true') }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -270,6 +350,10 @@ jobs:
   security-web:
     name: security (web)
     runs-on: ubuntu-latest
+    needs: [changes]
+    # Required on Protect main. A web-only diff skips the Python security
+    # job and still runs this audit. Fail open when changes itself fails.
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.web == 'true') }}
     timeout-minutes: 18
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
