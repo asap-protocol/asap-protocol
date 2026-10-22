@@ -124,7 +124,7 @@ npx audit-ci --config audit-ci.jsonc
 }
 ```
 
-The `sharp` override forces Next's nested `sharp` up to `>=0.35.4` (GHSA-rgj7-g3m4-5g8c / libheif). Keep the direct `sharp` dependency aligned. **16.3.4** is the August 2026 security line (GHSA-p293-qw3h-jr36, GHSA-2xp9-vwfh-vxw4); do not stay on 16.2.x. Nested `"next": { "postcss": "..." }` is unnecessary on 16.3.4 (Next already declares PostCSS 8.5.23+). The `fflate` override addresses **CVE-2026-45820**; `baseline-browser-mapping` addresses **CVE-2026-45819**.
+The `sharp` override forces Next's nested `sharp` up to `>=0.35.4` (GHSA-rgj7-g3m4-5g8c / libheif). Keep the direct `sharp` dependency aligned. **16.3.4** is the August 2026 security line (GHSA-p293-qw3h-jr36, GHSA-2xp9-vwfh-vxw4); do not stay on 16.2.x. Nested `"next": { "postcss": "..." }` is unnecessary on 16.3.4 (Next already declares PostCSS 8.5.23+). The `fflate` override addresses **CVE-2026-45820**; `baseline-browser-mapping` addresses **CVE-2026-45819**. The `vite` override pins **8.1.6**, the first 8.1 release that clears **GHSA-587h-7wmj-h5pm** (vulnerable range `>=8.0.0 <=8.1.5`). Vite is a Vitest devDependency. Later minors patch that advisory at 8.2.4 and 8.3.3; this repo stays on the 8.1 patch the lock already resolved.
 
 If a PostCSS or sharp override breaks `next build`, stop and report — do not silently adopt a preview/canary Next.
 
