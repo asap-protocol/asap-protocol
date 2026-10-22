@@ -351,6 +351,8 @@ jobs:
     name: security (web)
     runs-on: ubuntu-latest
     needs: [changes]
+    # Required on Protect main. A web-only diff skips the Python security
+    # job and still runs this audit. Fail open when changes itself fails.
     if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.web == 'true') }}
     timeout-minutes: 18
     steps:
