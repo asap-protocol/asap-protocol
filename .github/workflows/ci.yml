@@ -158,16 +158,24 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Setup Python
         uses: ./.github/actions/setup-python
-      # One pass. b7ed79ff (2026-01-31) dropped -n after KeyError:
-      # WorkerController. That lock already had pytest-cov 7.0.0,
-      # pytest-xdist 3.8.0, and coverage 7.13.1 (pytest 9.0.2). This lock
-      # matches except pytest 9.0.3. Run 39772718697 did not reproduce the
-      # crash. MCP adapter tests run in this same pass.
+      # One pass for the suite, except the subprocess test below.
+      # b7ed79ff (2026-01-31) dropped -n after KeyError: WorkerController.
+      # That lock already had pytest-cov 7.0.0, pytest-xdist 3.8.0, and
+      # coverage 7.13.1 (pytest 9.0.2). This lock matches except pytest 9.0.3.
+      # Run 39772718697 did not reproduce the crash.
       - name: Run tests with coverage
         env:
           PYTHONPATH: ${{ github.workspace }}/src:${{ github.workspace }}
-        run: uv run pytest -n auto --tb=short --cov=asap --cov-report=xml
+        run: uv run pytest -n auto --tb=short --cov=asap --cov-report=xml --deselect tests/adapters/mcp/test_stdio_integration.py::test_subprocess_example_server_secure_action_denied_without_jwt
         timeout-minutes: 12
+      # 5d5a2c5b kept tests/adapters/mcp/ off xdist after PR 233. The other
+      # adapter tests stayed in the parallel run. This one starts
+      # `uv run python examples/mcp_auth_bridge/server.py`. --cov-append
+      # adds it to the .coverage file the coverage job reads.
+      - name: Run MCP subprocess test
+        env:
+          PYTHONPATH: ${{ github.workspace }}/src:${{ github.workspace }}
+        run: uv run pytest tests/adapters/mcp/test_stdio_integration.py::test_subprocess_example_server_secure_action_denied_without_jwt -v --tb=short --cov=asap --cov-append --cov-report=xml
       # .coverage is hidden; upload-artifact skips it unless this flag is set.
       # relative_files = true (pyproject.toml) stores paths like src/asap/...
       # The coverage job resolves those after its own checkout. Leave
