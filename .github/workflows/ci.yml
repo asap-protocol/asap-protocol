@@ -1,5 +1,7 @@
 # CI: quality (lint+typecheck), transport surface lint (D4), test, coverage, security.
-# 7 jobs total. Branch protection: require quality (python), lint transport growth (D4), quality (web), test (python), test (web), coverage, security.
+# Branch protection on main requires quality (python), quality (web), test (python),
+# test (web), coverage, and security. security (web) is not a required check:
+# an npm registry outage there does not block the web quality or test jobs.
 name: CI
 
 on:
@@ -137,12 +139,6 @@ jobs:
           # Compile-only placeholder: `src/auth.ts` throws if AUTH_SECRET is missing
           # or shorter than 32 chars. Not used to sign tokens in this job.
           AUTH_SECRET: ci-quality-web-build-placeholder-not-a-secret
-      - name: npm audit (production, moderate+)
-        run: npm audit --omit=dev --audit-level=moderate
-        working-directory: apps/web
-      - name: npm audit (all deps, high+)
-        run: npx audit-ci --config audit-ci.jsonc
-        working-directory: apps/web
 
   test-python:
     name: test (python)
@@ -247,3 +243,80 @@ jobs:
         run: uv run pip-audit --ignore-vuln CVE-2026-4539 --ignore-vuln CVE-2026-4963 --ignore-vuln CVE-2026-2654 --ignore-vuln PYSEC-2024-271 --ignore-vuln PYSEC-2026-89 --ignore-vuln PYSEC-2025-183
       - name: Scan for security issues (bandit)
         run: uv run bandit -r src/ -ll
+
+  security-web:
+    name: security (web)
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+        working-directory: apps/web
+      # npm 10 (bundled with Node 20) falls back to the retired
+      # /-/npm/v1/security/audits/quick endpoint (HTTP 410) when the bulk
+      # advisory response is rejected. npm 11 removed that fallback
+      # (npm/cli#7911). Install it only for the audit steps so npm ci stays
+      # on the Node 20 toolchain.
+      - name: Use npm 11 for audit
+        run: npm install -g npm@11.21.0
+      # The bulk advisory endpoint can return 503. npm then waits out its
+      # own backoff and exits 1. Retry only that registry failure so a
+      # real advisory still fails on the first report. 2026-10-22 run
+      # 39713963470 failed this way after npm 11 was installed.
+      - name: npm audit (production, moderate+)
+        working-directory: apps/web
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4; do
+            set +e
+            output="$(npm audit --omit=dev --audit-level=moderate --fetch-retries=1 --fetch-retry-mintimeout=5000 --fetch-retry-maxtimeout=15000 2>&1)"
+            status=$?
+            set -e
+            printf '%s\n' "$output"
+            if [ "$status" -eq 0 ]; then
+              exit 0
+            fi
+            if ! printf '%s\n' "$output" | grep -Eq 'Service Unavailable|audit endpoint returned an error|ECONNRESET|ETIMEDOUT|ENOTFOUND'; then
+              exit "$status"
+            fi
+            if [ "$attempt" -eq 4 ]; then
+              exit "$status"
+            fi
+            echo "npm registry audit unavailable (attempt ${attempt}); retrying in 20s"
+            sleep 20
+          done
+      # audit-ci prints "code undefined" and drops the registry body when
+      # npm audit exits on a 503 (run 39714743928). Fail that call fast,
+      # then retry. "Failed security audit" is a real advisory and stops.
+      - name: npm audit (all deps, high+)
+        working-directory: apps/web
+        run: |
+          set -euo pipefail
+          npm config set fetch-retries 0
+          npm config set fetch-retry-mintimeout 2000
+          npm config set fetch-retry-maxtimeout 5000
+          for attempt in 1 2 3 4; do
+            set +e
+            output="$(npx --yes audit-ci@7 --config audit-ci.jsonc --retry-count=1 2>&1)"
+            status=$?
+            set -e
+            printf '%s\n' "$output"
+            if [ "$status" -eq 0 ]; then
+              exit 0
+            fi
+            if printf '%s\n' "$output" | grep -q 'Failed security audit'; then
+              exit "$status"
+            fi
+            if [ "$attempt" -eq 4 ]; then
+              exit "$status"
+            fi
+            echo "audit-ci registry error (attempt ${attempt}); retrying in 20s"
+            sleep 20
+          done
