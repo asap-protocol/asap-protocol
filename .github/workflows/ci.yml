@@ -59,7 +59,6 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
-      pull-requests: read
     outputs:
       python: ${{ steps.filter.outputs.python }}
       web: ${{ steps.filter.outputs.web }}
@@ -69,6 +68,21 @@ jobs:
           # Full history so the filter can diff against the base commit.
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Resolve diff base
+        id: diffbase
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            git fetch --no-tags origin "$PR_BASE_SHA"
+            sha="$(git merge-base "$PR_BASE_SHA" HEAD)"
+          else
+            sha="$PUSH_BEFORE"
+          fi
+          echo "sha=${sha}" >> "$GITHUB_OUTPUT"
       - name: Detect changed stacks
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d  # v4.0.3
         id: filter
@@ -76,8 +90,12 @@ jobs:
           # Git, not the pull-request files API. That API returned
           # "diff is temporarily unavailable" on run 39772726954 and
           # skipped every later job. An empty token selects the git path.
+          # pull_request handling always runs `git diff base..head`. A
+          # branch name does not select the merge-base on this pin. The
+          # step above passes the merge-base SHA, so a stale pull request
+          # does not light a stack that only moved on the base branch.
           token: ""
-          base: ${{ github.event.pull_request.base.sha || github.event.before }}
+          base: ${{ steps.diffbase.outputs.sha }}
           # docs/ is python: mkdocs build and tests/test_docs_links.py read it.
           # .github/ runs both stacks, because this workflow is what changed.
           filters: |
