@@ -276,6 +276,30 @@ class TestReactivateAgent:
         with pytest.raises(ValueError, match="absolute lifetime"):
             reactivate_agent(a, _host())
 
+    def test_reactivate_absolute_lifetime_boundary_is_exclusive(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """``reactivate_agent`` repeats ``now - created_at > absolute_lifetime``.
+
+        Equality still reactivates. One microsecond later raises. A case two
+        days past a one-day limit stays red if that copy flips from ``>`` to
+        ``>=``.
+        """
+        created = datetime(2024, 1, 1, tzinfo=timezone.utc)
+        lifetime = timedelta(days=1)
+        clock = {"instant": created + lifetime}
+
+        def _now() -> datetime:
+            return clock["instant"]
+
+        monkeypatch.setattr("asap.auth.identity._utc_now", _now)
+        agent = _agent(status="expired", absolute_lifetime=lifetime, created_at=created)
+        assert reactivate_agent(agent, _host()).status == "active"
+
+        clock["instant"] = created + lifetime + timedelta(microseconds=1)
+        with pytest.raises(ValueError, match="absolute lifetime"):
+            reactivate_agent(agent, _host())
+
     def test_revoked_agent_raises(self) -> None:
         a = _agent(status="revoked")
         with pytest.raises(ValueError, match="permanently revoked"):

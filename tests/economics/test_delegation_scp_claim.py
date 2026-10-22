@@ -1,8 +1,9 @@
 """Delegation ``scp`` must be a JSON array of scope strings.
 
 ``validate_delegation`` replaces any non-list ``scp`` with ``[]`` before the
-scope check. A string that names the requested action, an object, or JSON
-null must not grant that action. List-valued ``scp`` is already covered.
+scope check. A string that names the requested action, or an object whose key
+is that action, must not grant it. JSON null is not a lock: an empty scope
+list already denies, so dropping ``isinstance(scp, list)`` still rejects null.
 """
 
 from __future__ import annotations
@@ -60,8 +61,8 @@ def test_validate_delegation_accepts_list_scp() -> None:
 
 @pytest.mark.parametrize(
     "scp_claim",
-    ["task.execute", {"task.execute": True}, None],
-    ids=["string", "object", "null"],
+    ["task.execute", {"task.execute": True}],
+    ids=["string", "object"],
 )
 def test_validate_delegation_rejects_non_list_scp(scp_claim: object) -> None:
     """A non-list ``scp`` fails closed even when it names the requested action."""

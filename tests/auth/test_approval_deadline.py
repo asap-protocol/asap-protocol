@@ -3,7 +3,7 @@
 ``_refresh_expired`` treats ``now >= created_at + expires_in`` as expired.
 Existing coverage jumps 60 seconds past a 30 second TTL, so swapping ``>=``
 for ``>`` would still pass. These cases pin the deadline instant and the
-second before it.
+microsecond before it.
 """
 
 from __future__ import annotations
@@ -34,10 +34,10 @@ def _install_clock(monkeypatch: pytest.MonkeyPatch, instant: datetime) -> dict[s
 
 
 @pytest.mark.asyncio
-async def test_approve_one_second_before_deadline_succeeds(
+async def test_approve_one_microsecond_before_deadline_succeeds(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A pending request is still approvable one second before ``expires_in``."""
+    """A pending request is still approvable one microsecond before ``expires_in``."""
     store = InMemoryApprovalStore()
     clock = _install_clock(monkeypatch, _ISSUED_AT)
     await create_device_authorization(
@@ -46,7 +46,8 @@ async def test_approve_one_second_before_deadline_succeeds(
         ["read"],
         expires_in=_EXPIRES_IN_SECONDS,
     )
-    clock["instant"] = _ISSUED_AT + timedelta(seconds=_EXPIRES_IN_SECONDS - 1)
+    deadline = _ISSUED_AT + timedelta(seconds=_EXPIRES_IN_SECONDS)
+    clock["instant"] = deadline - timedelta(microseconds=1)
 
     assert await check_approval_status(store, "edge-open") == "pending"
     await store.approve("edge-open", "user-1")
@@ -69,9 +70,10 @@ async def test_approve_at_exact_deadline_is_expired(monkeypatch: pytest.MonkeyPa
     with pytest.raises(ValueError, match="Approval request expired"):
         await store.approve("edge-approve", "user-1")
 
-    state = await store.get("edge-approve")
-    assert state is not None
-    assert state.status == "expired"
+    # get() runs _refresh_expired again, so it would report expired even if
+    # approve raised without storing the row.
+    stored = store._by_agent["edge-approve"]
+    assert stored.status == "expired"
     assert await check_approval_status(store, "edge-approve") == "expired"
 
 
@@ -91,7 +93,7 @@ async def test_deny_at_exact_deadline_is_expired(monkeypatch: pytest.MonkeyPatch
     with pytest.raises(ValueError, match="Approval request expired"):
         await store.deny("edge-deny", "too late")
 
-    state = await store.get("edge-deny")
-    assert state is not None
-    assert state.status == "expired"
-    assert state.deny_reason is None
+    # Same as approve: read the stored row, not get(), which refreshes again.
+    stored = store._by_agent["edge-deny"]
+    assert stored.status == "expired"
+    assert stored.deny_reason is None
