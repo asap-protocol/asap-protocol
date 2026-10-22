@@ -42,7 +42,8 @@ Tag [`v2.5.8`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.
 - **`apps/web` audit CI** — ``quality (web)`` installs npm 11.21.0 before
   ``npm audit`` and ``audit-ci``. ``audit-ci.jsonc`` sets
   ``package-manager`` to ``npm``. npm 10 (Node 20) and pnpm 9 still call
-  the retired ``/-/npm/v1/security/audits/quick`` endpoint.
+  the retired ``/-/npm/v1/security/audits/quick`` endpoint. The production
+  audit retries a registry 503 and still fails immediately on a real advisory.
 
 ### Quality
 

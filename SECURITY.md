@@ -99,7 +99,7 @@ CI (`quality-web`) runs both of the following after `npm ci` and treats failures
 ```bash
 cd apps/web
 npm install -g npm@11.21.0  # Node 20 ships npm 10, which falls back to the retired quick audit endpoint
-npm audit --omit=dev --audit-level=moderate
+npm audit --omit=dev --audit-level=moderate  # CI retries a registry 503; a real advisory still fails immediately
 npx --yes audit-ci@7 --config audit-ci.jsonc  # package-manager is npm; do not let auto mode pick pnpm
 ```
 
