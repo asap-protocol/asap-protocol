@@ -40,7 +40,11 @@ def _websocket() -> WebSocket:
 async def test_heartbeat_pings_when_idle_equals_stale_timeout(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Silence equal to the stale timeout still receives a ping."""
+    """Silence equal to the stale timeout still receives a ping.
+
+    The send mock sets ``closed`` so the loop can return. That event is the
+    exit latch, not proof the socket stayed open. The lock is the ping.
+    """
     _freeze_heartbeat_clock(monkeypatch, _LAST_RECEIVED + STALE_CONNECTION_TIMEOUT)
     closed = asyncio.Event()
     websocket = _websocket()
@@ -55,7 +59,6 @@ async def test_heartbeat_pings_when_idle_equals_stale_timeout(
 
     websocket.send_text.assert_awaited_once()
     assert sent == [json.dumps({"type": HEARTBEAT_FRAME_TYPE_PING})]
-    assert closed.is_set()
 
 
 @pytest.mark.asyncio

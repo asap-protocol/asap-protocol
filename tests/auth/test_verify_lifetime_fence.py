@@ -190,10 +190,14 @@ async def test_verify_agent_jwt_slides_at_absolute_lifetime(
     _assert_slid(result, stored)
 
 
-async def test_verify_agent_jwt_revokes_one_microsecond_past_absolute_lifetime(
+async def test_verify_agent_jwt_rejects_one_microsecond_past_absolute_lifetime(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """One microsecond past absolute lifetime is agent_revoked and does not slide."""
+    """One microsecond past absolute lifetime returns agent_revoked.
+
+    The stored row stays active. ``verify_agent_jwt`` does not persist a revoke
+    and does not slide ``last_used_at``.
+    """
     lifetime = timedelta(days=1)
     result, stored = await _verify_at_instant(
         monkeypatch,
