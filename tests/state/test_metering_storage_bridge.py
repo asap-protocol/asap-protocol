@@ -11,14 +11,17 @@ Contract under test:
 - ``query`` returns ``UsageEvent`` rows for the agent/time window;
 - ``aggregate`` returns a state ``UsageAggregate`` for the matching agent and an
   empty one when no data matches;
-- period ``h`` excludes events older than one hour.
+- period ``h`` excludes events older than one hour;
+- period ``week`` / ``w`` excludes events older than seven days.
 """
 
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from asap.economics.metering import UsageMetrics
+import pytest
+
+from asap.economics.metering import UsageAggregateByAgent, UsageMetrics
 from asap.economics.storage import InMemoryMeteringStorage
 from asap.state.metering import MeteringStorageBridge, UsageAggregate, UsageEvent
 from asap.state.metering import UsageMetrics as StateUsageMetrics
@@ -117,6 +120,45 @@ class TestMeteringStorageBridgeAggregate:
         assert agg.total_api_calls == 3
         assert agg.total_tasks == 1
 
+    async def test_aggregate_selects_requested_agent_when_several_exist(self) -> None:
+        """Pick the requested agent when aggregate returns every agent, not the first row.
+
+        Storage queries already filter by agent. This double returns both rows so
+        the bridge's own match is what keeps ``agent_a`` totals off ``agent_z``.
+        """
+
+        class _EveryAgent:
+            async def aggregate(
+                self,
+                group_by: str,
+                filters: object = None,
+            ) -> list[UsageAggregateByAgent]:
+                return [
+                    UsageAggregateByAgent(
+                        agent_id="agent_a",
+                        period="all",
+                        total_tokens=100,
+                        total_tasks=4,
+                        total_api_calls=4,
+                        total_duration_ms=4,
+                    ),
+                    UsageAggregateByAgent(
+                        agent_id="agent_z",
+                        period="all",
+                        total_tokens=7,
+                        total_tasks=1,
+                        total_api_calls=2,
+                        total_duration_ms=9,
+                    ),
+                ]
+
+        bridge = MeteringStorageBridge(_EveryAgent())
+        agg = await bridge.aggregate(agent_id="agent_z", period="hour")
+        assert agg.agent_id == "agent_z"
+        assert agg.total_tokens == 7
+        assert agg.total_tasks == 1
+        assert agg.total_api_calls == 2
+
     async def test_aggregate_no_matching_agent_returns_empty(self) -> None:
         bridge = MeteringStorageBridge(InMemoryMeteringStorage())
         agg = await bridge.aggregate(agent_id="nonexistent", period="day")
@@ -155,6 +197,76 @@ class TestMeteringStorageBridgeAggregate:
         assert agg.agent_id == "a1"
         assert agg.total_tokens == 15
         assert agg.total_api_calls == 1
+
+    async def test_aggregate_today_excludes_previous_utc_day(self) -> None:
+        """``today`` is the current UTC calendar day, not a rolling 24 hours."""
+        backend = InMemoryMeteringStorage()
+        bridge = MeteringStorageBridge(backend)
+        now = datetime.now(timezone.utc)
+        start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        await backend.record(
+            UsageMetrics(
+                task_id="yesterday",
+                agent_id="a1",
+                consumer_id="c1",
+                tokens_in=100,
+                tokens_out=100,
+                api_calls=4,
+                timestamp=start_of_today - timedelta(seconds=1),
+            )
+        )
+        await backend.record(
+            UsageMetrics(
+                task_id="today",
+                agent_id="a1",
+                consumer_id="c1",
+                tokens_in=5,
+                tokens_out=25,
+                api_calls=1,
+                timestamp=now,
+            )
+        )
+
+        agg = await bridge.aggregate(agent_id="a1", period="today")
+        assert agg.period == "today"
+        assert agg.total_tokens == 30
+        assert agg.total_tasks == 1
+        assert agg.total_api_calls == 1
+
+    @pytest.mark.parametrize("period", ["week", "w"])
+    async def test_aggregate_week_excludes_events_older_than_seven_days(self, period: str) -> None:
+        """Rolling week must drop usage from before the window and keep the recent task."""
+        backend = InMemoryMeteringStorage()
+        bridge = MeteringStorageBridge(backend)
+        now = datetime.now(timezone.utc)
+        await backend.record(
+            UsageMetrics(
+                task_id="stale",
+                agent_id="a1",
+                consumer_id="c1",
+                tokens_in=100,
+                tokens_out=100,
+                api_calls=4,
+                timestamp=now - timedelta(days=8),
+            )
+        )
+        await backend.record(
+            UsageMetrics(
+                task_id="recent",
+                agent_id="a1",
+                consumer_id="c1",
+                tokens_in=3,
+                tokens_out=4,
+                api_calls=1,
+                timestamp=now - timedelta(days=6),
+            )
+        )
+
+        agg = await bridge.aggregate(agent_id="a1", period=period)
+        assert agg.period == period
+        assert agg.total_tokens == 7
+        assert agg.total_api_calls == 1
+        assert agg.total_tasks == 1
 
     async def test_aggregate_unknown_period_no_time_filter(self) -> None:
         backend = InMemoryMeteringStorage()

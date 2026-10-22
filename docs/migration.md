@@ -1119,6 +1119,102 @@ Scope: [prd-v2.5.4-distribution-loop.md](../product/prd/prd-v2.5.4-distribution-
 
 ---
 
+### Upgrading from v2.5.7 to v2.5.8
+
+**v2.5.8 (security & coverage patch)** — **shipped**
+([tag `v2.5.8`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.8)) —
+records repository dependency overrides and regression tests already on
+``main``. This is **not** Formal Spec & Interop. There are **no
+wire-protocol or manifest schema** breaking changes relative to v2.5.7.
+
+#### What lands in v2.5.8
+
+- **Repository uv overrides** — this repo's ``[tool.uv]
+  override-dependencies`` pins ``aiohttp>=3.14.4,<4``,
+  ``certifi>=2026.10.19``, and ``pillow>=13.0.0``. ``pip install
+  asap-protocol==2.5.8`` and ``uv add asap-protocol`` in another project do
+  not apply those pins. The published requirement is the optional ``[mcp]``
+  extra, ``mcp>=1.30.0,<2``
+  ([#413](https://github.com/asap-protocol/asap-protocol/pull/413)).
+- **Web app** — ``apps/web`` npm override pins ``vite`` to ``8.1.6``. That
+  pin is this repository's web app, not a PyPI requirement
+  ([#413](https://github.com/asap-protocol/asap-protocol/pull/413)).
+- **Regression fences** — quota, replay, and nonce
+  ([#413](https://github.com/asap-protocol/asap-protocol/pull/413));
+  metering, SLA, usage, and delivery
+  ([#414](https://github.com/asap-protocol/asap-protocol/pull/414));
+  refresh, cache, and revocation
+  ([#415](https://github.com/asap-protocol/asap-protocol/pull/415));
+  expiry, receipt, and session
+  ([#416](https://github.com/asap-protocol/asap-protocol/pull/416));
+  lifetime and size
+  ([#417](https://github.com/asap-protocol/asap-protocol/pull/417)).
+- **npm / compliance** — `@asap-protocol/*` remain **2.4.1**;
+  `asap-compliance` remains **1.3.0**.
+
+#### Upgrade steps
+
+1. Bump with `pip install 'asap-protocol==2.5.8'` (or `uv add asap-protocol`).
+2. If you install the optional ``[mcp]`` extra, the floor is now
+   ``mcp>=1.30.0,<2``.
+3. TypeScript `@asap-protocol/*` packages remain at **2.4.1**;
+   `@asap-protocol/mcp-auth` HTTP/SSE middleware remains deferred.
+
+#### Backward compatibility
+
+- **Wire protocol**: Unchanged from v2.5.7.
+- **Breaking changes**: None for a typical ``asap-protocol`` install.
+  The ``aiohttp``, ``certifi``, and ``pillow`` pins are repository uv
+  overrides. The optional ``[mcp]`` extra requires ``mcp>=1.30.0,<2``.
+  The Vite pin applies only to ``apps/web`` in this repository.
+
+---
+
+### Upgrading from v2.5.6 to v2.5.7
+
+**v2.5.7 (quality & coverage patch)** — **shipped**
+([tag `v2.5.7`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.7)) —
+fixes batch HTTP rate-limit accounting, keeps CI security gates green with
+transitive dependency overrides and ``apps/web`` ``audit-ci``, and adds
+consolidated regression tests on ``main``. This is **not** Formal Spec &
+Interop. There are **no wire-protocol or manifest schema** breaking changes
+relative to v2.5.6.
+
+#### What lands in v2.5.7
+
+- **Rate limits** — ``ASAPRateLimiter.check_n`` charges ``cost=n`` on the
+  moving window ([#394](https://github.com/asap-protocol/asap-protocol/pull/394)).
+- **CI security** — ``uv`` override pins and ``apps/web`` ``audit-ci`` /
+  npm overrides ([#395](https://github.com/asap-protocol/asap-protocol/pull/395)
+  train).
+- **Regression tests** — transport/auth ([#395](https://github.com/asap-protocol/asap-protocol/pull/395),
+  [#397](https://github.com/asap-protocol/asap-protocol/pull/397),
+  [#394](https://github.com/asap-protocol/asap-protocol/pull/394)),
+  registry/compliance ([#389](https://github.com/asap-protocol/asap-protocol/pull/389)),
+  identity/economics/ingress ([#398](https://github.com/asap-protocol/asap-protocol/pull/398),
+  [#399](https://github.com/asap-protocol/asap-protocol/pull/399)).
+- **npm / compliance** — `@asap-protocol/*` remain **2.4.1**;
+  `asap-compliance` remains **1.3.0**.
+
+#### Upgrade steps
+
+1. Bump with `pip install 'asap-protocol==2.5.7'` (or `uv add asap-protocol`).
+2. **Batch rate limits** — if you use JSON-RPC batch or other ``check_n`` paths,
+   expect quota to reflect batch size (intended; may be stricter than v2.5.6).
+   With defaults (``DEFAULT_MAX_BATCH_SIZE`` 50 and ``10/second``), a single
+   batch can exceed the per-second window and raise ``RateLimitExceeded`` where
+   v2.5.6 could still accept it.
+3. TypeScript `@asap-protocol/*` packages remain at **2.4.1**;
+   `@asap-protocol/mcp-auth` HTTP/SSE middleware remains deferred.
+
+#### Backward compatibility
+
+- **Wire protocol**: Unchanged from v2.5.6.
+- **Breaking changes**: None for typical deployments. Stricter batch rate-limit
+  accounting only affects operators who were under-charging multi-item requests.
+
+---
+
 ### Upgrading from v2.5.5 to v2.5.6
 
 **v2.5.6 (security & quality patch)** — **shipped**

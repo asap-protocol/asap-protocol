@@ -262,6 +262,31 @@ async def test_verify_host_jwt_revoked_host_rejected() -> None:
 
 
 @pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
+async def test_verify_host_jwt_revoked_still_consumes_jti() -> None:
+    """A rejected revoked-host verify still records ``jti`` so the token cannot be retried."""
+    now = datetime.now(timezone.utc)
+    sk = Ed25519PrivateKey.generate()
+    hosts = InMemoryHostStore()
+    await hosts.save(
+        HostIdentity(
+            host_id="h1",
+            public_key=_public_jwk_dict(sk),
+            status="revoked",
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    token = create_host_jwt(sk, aud="x")
+    cache = JtiReplayCache()
+    first = await verify_host_jwt(token, hosts, jti_replay_cache=cache)
+    second = await verify_host_jwt(token, hosts, jti_replay_cache=cache)
+    assert not first.ok
+    assert first.error == "host revoked"
+    assert not second.ok
+    assert second.error == "jti replay detected"
+
+
+@pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
 async def test_verify_agent_jwt_success() -> None:
     """Valid agent JWT with matching host and active agent."""
     now = datetime.now(timezone.utc)
@@ -429,6 +454,32 @@ class _RotateAtTouchStartAgentStore(InMemoryAgentStore):
         current = self._agents.get(agent_id)
         if current is not None:
             self._agents[agent_id] = current.model_copy(update={"public_key": self._rotated_key})
+        return await super().touch_if_current(
+            agent_id,
+            expected_public_key,
+            last_used_at,
+            expected_host_id=expected_host_id,
+        )
+
+
+class _FailFirstTouchAgentStore(InMemoryAgentStore):
+    """First ``touch_if_current`` loses the race; the row stays active."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._rejected_touch = False
+
+    async def touch_if_current(
+        self,
+        agent_id: str,
+        expected_public_key: dict[str, Any],
+        last_used_at: datetime,
+        *,
+        expected_host_id: str,
+    ) -> AgentSession | None:
+        if not self._rejected_touch:
+            self._rejected_touch = True
+            return None
         return await super().touch_if_current(
             agent_id,
             expected_public_key,
@@ -741,6 +792,90 @@ async def test_verify_agent_jwt_jti_replay() -> None:
 
 
 @pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
+async def test_verify_host_jwt_exp_boundary_is_exclusive(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``exp`` is exclusive: valid one second before, rejected at the exp instant."""
+    t0 = 1_700_000_000.0
+    ttl = 30
+    monkeypatch.setattr("time.time", lambda: t0)
+    signing_key = Ed25519PrivateKey.generate()
+    still_valid = create_host_jwt(signing_key, aud="aud", ttl_seconds=ttl)
+    at_exp = create_host_jwt(signing_key, aud="aud", ttl_seconds=ttl)
+    hosts = InMemoryHostStore()
+
+    monkeypatch.setattr("time.time", lambda: t0 + ttl - 1)
+    accepted = await verify_host_jwt(still_valid, hosts)
+    assert accepted.ok
+
+    monkeypatch.setattr("time.time", lambda: t0 + ttl)
+    rejected = await verify_host_jwt(at_exp, hosts)
+    assert not rejected.ok
+    assert rejected.error == "token expired or missing exp"
+
+
+@pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
+async def test_verify_agent_jwt_exp_boundary_is_exclusive(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Agent JWT lifetime uses the same exclusive ``exp`` instant as Host JWTs."""
+    t0 = 1_700_000_000.0
+    monkeypatch.setattr("time.time", lambda: t0)
+    early_agents = InMemoryAgentStore()
+    early_hosts, early_token, _early_pub = await _seed_verify_agent_jwt(early_agents)
+    late_agents = InMemoryAgentStore()
+    late_hosts, late_token, _late_pub = await _seed_verify_agent_jwt(late_agents)
+
+    monkeypatch.setattr("time.time", lambda: t0 + AGENT_JWT_TTL_SECONDS - 1)
+    accepted = await verify_agent_jwt(early_token, early_hosts, early_agents)
+    assert accepted.ok
+
+    monkeypatch.setattr("time.time", lambda: t0 + AGENT_JWT_TTL_SECONDS)
+    rejected = await verify_agent_jwt(late_token, late_hosts, late_agents)
+    assert not rejected.ok
+    assert rejected.error == "token expired or missing exp"
+
+
+@pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
+async def test_verify_agent_jwt_failed_slide_still_consumes_jti() -> None:
+    """A lost session slide burns ``jti`` so the same token cannot be retried."""
+    agents = _FailFirstTouchAgentStore()
+    hosts, token, _agent_pub = await _seed_verify_agent_jwt(agents)
+    cache = JtiReplayCache()
+    first = await verify_agent_jwt(token, hosts, agents, jti_replay_cache=cache)
+    assert not first.ok
+    assert first.error == "agent session changed during verification"
+    stored = await agents.get("a1")
+    assert stored is not None and stored.status == "active"
+    second = await verify_agent_jwt(token, hosts, agents, jti_replay_cache=cache)
+    assert not second.ok
+    assert second.error == "jti replay detected"
+
+
+@pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
+async def test_verify_host_jwt_read_only_jti_does_not_consume_until_spend() -> None:
+    """In-memory polling may reuse a Host JWT until a recording route spends it."""
+    now = datetime.now(timezone.utc)
+    host_sk = Ed25519PrivateKey.generate()
+    hosts = InMemoryHostStore()
+    await hosts.save(
+        HostIdentity(
+            host_id="host-readonly-jti",
+            public_key=_public_jwk_dict(host_sk),
+            status="active",
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    token = create_host_jwt(host_sk, aud="aud", ttl_seconds=120)
+    cache = JtiReplayCache()
+    for _ in range(2):
+        poll = await verify_host_jwt(token, hosts, jti_replay_cache=cache, record_jti=False)
+        assert poll.ok
+    spend = await verify_host_jwt(token, hosts, jti_replay_cache=cache, record_jti=True)
+    assert spend.ok
+    replay = await verify_host_jwt(token, hosts, jti_replay_cache=cache, record_jti=False)
+    assert not replay.ok
+    assert replay.error == "jti replay detected"
+
+
+@pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
 async def test_verify_host_jwt_rejects_wrong_typ() -> None:
     """Agent JWT must not pass host verifier typ check."""
     now = datetime.now(timezone.utc)
@@ -808,7 +943,11 @@ def test_jti_replay_cache_rejects_blank_jti() -> None:
 
 
 def test_jti_replay_cache_max_size_evicts_oldest_expiry_first() -> None:
-    """Beyond ``max_size``, earliest-expiring entries are dropped (memory cap)."""
+    """Beyond ``max_size``, earliest-expiring entries are dropped (memory cap).
+
+    This only checks that the cache stays at ``max_size``. Which key is dropped
+    is locked in ``tests/auth/test_jti_replay_eviction.py``.
+    """
     cache = JtiReplayCache(ttl_seconds=90.0, max_size=2)
     assert cache.check_and_record("p", "a")
     assert cache.check_and_record("p", "b")
@@ -1254,6 +1393,51 @@ async def test_verify_agent_jwt_idle_expiry_does_not_slide_session() -> None:
     stored = await agents.get("a1")
     assert stored is not None
     assert stored.status == "active"
+    assert stored.last_used_at == stale
+
+
+@pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
+async def test_verify_agent_jwt_idle_expiry_consumes_jti() -> None:
+    """Idle expiry rejects the token and still burns ``jti`` so it cannot be presented again."""
+    now = datetime.now(timezone.utc)
+    stale = now - timedelta(hours=2)
+    host_sk = Ed25519PrivateKey.generate()
+    host_pub = _public_jwk_dict(host_sk)
+    host_tp = jwk_thumbprint_sha256(host_pub)
+    agent_sk = Ed25519PrivateKey.generate()
+    hosts = InMemoryHostStore()
+    agents = InMemoryAgentStore()
+    await hosts.save(
+        HostIdentity(
+            host_id="h1",
+            public_key=host_pub,
+            status="active",
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    await agents.save(
+        AgentSession(
+            agent_id="a1",
+            host_id="h1",
+            public_key=_public_jwk_dict(agent_sk),
+            mode="delegated",
+            status="active",
+            created_at=stale,
+            session_ttl=timedelta(minutes=30),
+            last_used_at=stale,
+        )
+    )
+    token = create_agent_jwt(agent_sk, host_thumbprint=host_tp, agent_id="a1", aud="a")
+    cache = JtiReplayCache()
+    first = await verify_agent_jwt(token, hosts, agents, jti_replay_cache=cache)
+    second = await verify_agent_jwt(token, hosts, agents, jti_replay_cache=cache)
+    assert not first.ok
+    assert first.error == "agent_expired"
+    assert not second.ok
+    assert second.error == "jti replay detected"
+    stored = await agents.get("a1")
+    assert stored is not None
     assert stored.last_used_at == stale
 
 

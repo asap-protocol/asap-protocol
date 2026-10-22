@@ -98,8 +98,9 @@ CI job `security (web)` runs both of the following after `npm ci`. A non-zero ex
 
 ```bash
 cd apps/web
-npm audit --omit=dev --audit-level=moderate
-npx audit-ci --config audit-ci.jsonc
+npm install -g npm@11.21.0  # Node 20 ships npm 10, which falls back to the retired quick audit endpoint
+npm audit --omit=dev --audit-level=moderate  # CI retries a registry 503; a real advisory still fails immediately
+npx --no-install audit-ci --config audit-ci.jsonc  # lockfile binary (audit-ci 7.1.0); config forces npm
 ```
 
 - **Production graph** (`--omit=dev`): moderate and above fail `security (web)`.
@@ -134,7 +135,9 @@ CI runs `pip-audit` after a sync that **excludes** the optional extras `crewai` 
 
 `uv sync --frozen --all-extras --dev --no-extra crewai --no-extra llamaindex` then `uv run pip-audit --ignore-vuln CVE-2026-4539 --ignore-vuln CVE-2026-4963 --ignore-vuln CVE-2026-2654 --ignore-vuln PYSEC-2024-271 --ignore-vuln PYSEC-2026-89 --ignore-vuln PYSEC-2025-183` (matches CI).
 
-Security floors live in `tool.uv.override-dependencies` (with per-CVE comments in `pyproject.toml`) so lock refreshes cannot regress them; recent additions: `mkdocs-material>=9.7.7` (PYSEC-2026-3864 / CVE-2026-73295), `pymdown-extensions>=11.0.1` (CVE-2026-61632), `pyasn1>=0.6.4` (PYSEC-2026-3455/3456/3457), `aiohttp>=3.14.4,<4` (CVE-2026-111063–111066 / CVE-2026-111748–111750 / GHSA-2g87-pp6c-29x5), `certifi>=2026.10.19` (PYSEC-2026-4320), `pillow>=13.0.0` (Pillow 12.3.0 advisories fixed in 13.0.0), `mcp>=1.30.0,<2` (CVE-2026-59951), and `h2>=4.4.1` (PYSEC-2026-3628).
+Security floors live in `tool.uv.override-dependencies` (with per-CVE comments in `pyproject.toml`) so lock refreshes cannot regress them; recent additions: `mkdocs-material>=9.7.7` (PYSEC-2026-3864 / CVE-2026-73295), `pymdown-extensions>=11.0.1` (CVE-2026-61632), `pyasn1>=0.6.4` (PYSEC-2026-3455/3456/3457), `aiohttp>=3.14.4,<4` (CVE-2026-111063–111066 / CVE-2026-111748–111750 / GHSA-2g87-pp6c-29x5), `certifi>=2026.10.19` (PYSEC-2026-4320), `pillow>=13.0.0` (Pillow 12.3.0 advisories fixed in 13.0.0), `mcp>=1.30.0,<2` (CVE-2026-59951), `opentelemetry-api>=1.45.1` (CVE-2026-114603), and `h2>=4.4.1` (PYSEC-2026-3628).
+
+**CVE-2026-114603 (opentelemetry-api)**: Resolved via direct floor and override (`opentelemetry-api>=1.45.1`; prior lock 1.39.1). `opentelemetry-sdk` 1.45.1 requires that API version, so the SDK, OTLP exporter, and instrumentation packages move to the matching `1.45.1` / `0.66b1` release.
 
 **CVE-2026-4539 (Pygments)**: CI uses `--ignore-vuln CVE-2026-4539` until a patched `pygments` release on PyPI resolves the advisory (`tool.uv.override-dependencies` prefers `pygments>=2.20.0` when resolvable).
 

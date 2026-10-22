@@ -3,9 +3,9 @@
 > **Product Requirements Document**
 >
 > **Version**: 2.5.5
-> **Status**: PLANNED — **next** after Dist Loop (soft inputs shipped 2026-07-18)
+> **Status**: PLANNED — **next** product train (soft inputs shipped 2026-07-18). **Filename is historical** — it is **not** the PyPI library tag; shipped library line is **2.5.8** as of 2026-10-21.
 > **Created**: 2026-03-20 (origin in `prd-v2.4-adoption.md`); **rescoped**: 2026-06-22 → v2.5.3; **2026-07-08 → v2.5.5**
-> **Last Updated**: 2026-07-18
+> **Last Updated**: 2026-10-21
 > **Parent train**: [prd-v2.5-roadmap.md](./prd-v2.5-roadmap.md)
 > **Predecessor**: [prd-v2.5.4-distribution-loop.md](./prd-v2.5.4-distribution-loop.md) (✅ shipped — soft narrative/examples)
 > **Successor**: [prd-v3.0-economy.md](./prd-v3.0-economy.md)

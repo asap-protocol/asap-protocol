@@ -1,6 +1,6 @@
 [project]
 name = "asap-protocol"
-version = "2.5.6"
+version = "2.5.8"
 description = "Async Simple Agent Protocol - A streamlined protocol for agent-to-agent communication"
 authors = [
     {name = "ASAP Protocol Contributors"}
@@ -40,11 +40,13 @@ dependencies = [
     "watchfiles>=0.21.0",
     "websockets>=12.0",
     "brotli>=1.2.0",
-    "opentelemetry-api>=1.20",
-    "opentelemetry-sdk>=1.20",
-    "opentelemetry-instrumentation-fastapi>=0.41",
-    "opentelemetry-instrumentation-httpx>=0.41",
-    "opentelemetry-exporter-otlp-proto-grpc>=1.20",
+    # Floor 1.45.1 for CVE-2026-114603. SDK 1.45.1 requires this API;
+    # instrumentation 0.66b1 is the matching release.
+    "opentelemetry-api>=1.45.1",
+    "opentelemetry-sdk>=1.45.1",
+    "opentelemetry-instrumentation-fastapi>=0.66b1",
+    "opentelemetry-instrumentation-httpx>=0.66b1",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.45.1",
 ]
 
 [project.optional-dependencies]
@@ -160,6 +162,7 @@ Issues = "https://github.com/asap-protocol/asap-protocol/issues"
 # - pydantic-ai>=1.107.7,<2 for CVE-2026-107287–107291
 # - werkzeug>=3.1.9 for CVE-2026-102598
 # - fsspec>=2026.6.0 for CVE-2026-104851
+# - opentelemetry-api>=1.45.1 for CVE-2026-114603 (SDK and instrumentation move with it)
 [tool.uv]
 override-dependencies = [
     "aiohttp>=3.14.4,<4",
@@ -199,6 +202,7 @@ override-dependencies = [
     "pydantic-ai>=1.107.7,<2",
     "werkzeug>=3.1.9",
     "fsspec>=2026.6.0",
+    "opentelemetry-api>=1.45.1",
 ]
 
 [project.scripts]

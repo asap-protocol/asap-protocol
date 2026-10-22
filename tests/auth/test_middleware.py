@@ -68,6 +68,39 @@ def test_oauth2_middleware_validates_extra_path_prefixes() -> None:
     assert protected.status_code == 401
 
 
+def test_oauth2_middleware_skips_host_jwt_agent_routes() -> None:
+    """``/asap/agent/*`` stays on Host JWT; sibling paths under ``/asap`` do not."""
+    app = FastAPI()
+
+    @app.get("/asap")
+    async def asap() -> dict[str, str]:
+        return {"status": "ok"}
+
+    @app.get("/asap/agent/register")
+    async def register() -> dict[str, str]:
+        return {"status": "ok"}
+
+    @app.get("/asap/agentx")
+    async def sibling() -> dict[str, str]:
+        return {"status": "ok"}
+
+    app.add_middleware(
+        OAuth2Middleware,
+        jwks_uri="https://auth.example.com/jwks.json",
+        path_prefix="/asap",
+        jwks_fetcher=lambda uri: _mock_jwks_fetcher(uri),
+    )
+
+    with TestClient(app) as client:
+        identity = client.get("/asap/agent/register")
+        sibling_response = client.get("/asap/agentx")
+        protected = client.get("/asap")
+
+    assert identity.status_code == 200
+    assert sibling_response.status_code == 401
+    assert protected.status_code == 401
+
+
 _cached_mock_jwks: jwk.KeySet | None = None
 
 
@@ -283,6 +316,87 @@ def test_oauth2_middleware_returns_403_when_scope_insufficient() -> None:
 
     assert response.status_code == 403
     assert response.json() == {"detail": "Insufficient scope"}
+
+
+@pytest.mark.parametrize("scope_claim", [42, {"asap:execute": True}])
+def test_oauth2_middleware_rejects_non_string_scope_claim(scope_claim: object) -> None:
+    """A non-string, non-list ``scope`` claim fail-closes to insufficient scope."""
+    key = jwk.RSAKey.generate_key(2048, private=True)
+    key_set = jwk.KeySet.import_key_set({"keys": [key.as_dict(private=False)]})
+
+    async def jwks_fetcher(_uri: str) -> jwk.KeySet:
+        return key_set
+
+    app = _minimal_app()
+    app.add_middleware(
+        OAuth2Middleware,
+        jwks_uri="https://auth.example.com/jwks.json",
+        required_scope="asap:execute",
+        path_prefix="/asap",
+        jwks_fetcher=jwks_fetcher,
+    )
+    now = int(time.time())
+    token = jose_jwt.encode(
+        {"alg": "RS256", "typ": "JWT"},
+        {
+            "sub": "urn:asap:agent:weird-scope",
+            "scope": scope_claim,
+            "exp": now + 3600,
+            "iat": now,
+        },
+        key,
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/asap", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Insufficient scope"}
+
+
+def test_oauth2_middleware_skips_global_scope_on_extra_prefixes() -> None:
+    """Operator prefixes keep their own scope check and do not inherit ``asap:admin``."""
+    key = jwk.RSAKey.generate_key(2048, private=True)
+    key_set = jwk.KeySet.import_key_set({"keys": [key.as_dict(private=False)]})
+
+    async def jwks_fetcher(_uri: str) -> jwk.KeySet:
+        return key_set
+
+    app = FastAPI()
+
+    @app.get("/usage")
+    async def usage() -> dict[str, str]:
+        return {"status": "ok"}
+
+    @app.get("/asap")
+    async def asap() -> dict[str, str]:
+        return {"status": "ok"}
+
+    app.add_middleware(
+        OAuth2Middleware,
+        jwks_uri="https://auth.example.com/jwks.json",
+        path_prefix="/asap",
+        required_scope="asap:admin",
+        extra_path_prefixes=("/usage",),
+        jwks_fetcher=jwks_fetcher,
+    )
+    now = int(time.time())
+    token = jose_jwt.encode(
+        {"alg": "RS256", "typ": "JWT"},
+        {"sub": "urn:asap:agent:operator", "scope": "asap:execute", "exp": now + 3600, "iat": now},
+        key,
+    )
+    headers = {"Authorization": f"Bearer {token}"}
+
+    with TestClient(app) as client:
+        operator = client.get("/usage", headers=headers)
+        protocol = client.get("/asap", headers=headers)
+        anonymous = client.get("/usage")
+
+    assert operator.status_code == 200
+    assert protocol.status_code == 403
+    assert protocol.json() == {"detail": "Insufficient scope"}
+    assert anonymous.status_code == 401
 
 
 async def test_oauth2_middleware_returns_503_when_jwks_fetch_fails() -> None:

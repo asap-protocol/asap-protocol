@@ -82,6 +82,47 @@ class TestURLValidation:
         with pytest.raises(WebhookURLValidationError, match="blocked address range"):
             await validate_agent_endpoint_url("wss://127.0.0.1/events", require_https=True)
 
+    async def test_ws_rewrite_rejected_when_https_required(self) -> None:
+        """Cleartext ws:// must become http and fail the registry https requirement."""
+        with (
+            _patch_async_getaddrinfo(_public_addrinfo()),
+            pytest.raises(WebhookURLValidationError, match="Scheme 'http' is not allowed"),
+        ):
+            await validate_agent_endpoint_url("ws://example.com/events", require_https=True)
+
+    async def test_wss_userinfo_does_not_hide_loopback(self) -> None:
+        """Userinfo must not stop the rewritten URL from seeing a loopback host."""
+        with pytest.raises(WebhookURLValidationError, match="blocked address range"):
+            await validate_agent_endpoint_url(
+                "wss://user:pass@127.0.0.1/events",
+                require_https=True,
+            )
+
+    async def test_wss_ipv4_mapped_private_literal_blocked(self) -> None:
+        """Bracketed IPv4-mapped literals must survive the wss-to-https rewrite."""
+        with pytest.raises(WebhookURLValidationError, match="blocked address range"):
+            await validate_agent_endpoint_url(
+                "wss://[::ffff:10.0.0.1]/events",
+                require_https=True,
+            )
+
+    async def test_wss_dns_rebinding_blocked_after_scheme_rewrite(self) -> None:
+        """Scheme rewrite must keep the hostname so a private DNS answer still fails."""
+        private = [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.0.0.8", 0)),
+        ]
+        with (
+            _patch_async_getaddrinfo(private),
+            pytest.raises(
+                WebhookURLValidationError,
+                match=r"events\.example\.com.*10\.0\.0\.8",
+            ),
+        ):
+            await validate_agent_endpoint_url(
+                "wss://events.example.com/asap/events",
+                require_https=True,
+            )
+
     async def test_ftp_scheme_blocked(self) -> None:
         with pytest.raises(WebhookURLValidationError, match="Scheme 'ftp' is not allowed"):
             await validate_callback_url("ftp://example.com/file", require_https=False)
@@ -128,6 +169,25 @@ class TestURLValidation:
             await validate_callback_url("https://[::1]/hook")
 
     @pytest.mark.parametrize(
+        "url",
+        [
+            "https://[::]/hook",
+            "https://[fe80::1]/hook",
+            "https://[fea0::1]/hook",
+            "https://[fc00::1]/hook",
+            "https://0.0.0.0/hook",
+            "https://0.0.0.1/hook",
+            "https://127.0.0.2/hook",
+            "https://[::ffff:127.0.0.1]/hook",
+            "wss://[fea0::1]/events",
+        ],
+    )
+    async def test_blocks_noncanonical_private_literals(self, url: str) -> None:
+        """Block ::, fe80::/10, ULA, and non-canonical loopback before DNS."""
+        with pytest.raises(WebhookURLValidationError, match="blocked address range"):
+            await validate_agent_endpoint_url(url)
+
+    @pytest.mark.parametrize(
         "ip",
         [
             "::ffff:192.168.1.1",
@@ -161,6 +221,27 @@ class TestURLValidation:
             pytest.raises(WebhookURLValidationError, match="::ffff:192.168.1.1"),
         ):
             await validate_callback_url("https://rebind.example.com/hook")
+
+    async def test_mixed_public_and_private_dns_is_blocked(self) -> None:
+        """One private answer rejects the host even when another answer is public."""
+        mixed = [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 0)),
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("192.168.1.1", 0)),
+        ]
+        with (
+            _patch_async_getaddrinfo(mixed),
+            pytest.raises(WebhookURLValidationError, match="192.168.1.1"),
+        ):
+            await validate_callback_url("https://dual.example.com/hook")
+
+    async def test_unique_local_aaaa_is_blocked(self) -> None:
+        """An AAAA answer inside fc00::/7 is a private address."""
+        ula = [(socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("fd00::1", 0, 0, 0))]
+        with (
+            _patch_async_getaddrinfo(ula),
+            pytest.raises(WebhookURLValidationError, match="fd00::1"),
+        ):
+            await validate_callback_url("https://ula.example.com/hook")
 
     async def test_dns_resolution_failure_raises(self) -> None:
         with (
@@ -681,6 +762,39 @@ class TestWebhookRetryManager:
 
         # Verify the bucket exists for this URL
         assert self._URL in manager._url_buckets
+
+    async def test_partial_refill_waits_only_for_the_missing_token(self) -> None:
+        """A fractional token shortfall sleeps for (1 - tokens) / rate, then delivers."""
+        clock = {"now": 8_000.0}
+        sleeps: list[float] = []
+
+        def fake_monotonic() -> float:
+            return clock["now"]
+
+        async def fake_sleep(delay: float) -> None:
+            if delay <= 0 or len(sleeps) >= 2:
+                raise AssertionError(f"rate-limit wait made no progress: {delay} after {sleeps}")
+            sleeps.append(delay)
+            clock["now"] += delay
+
+        policy = RetryPolicy(max_retries=0, base_delay=0.0, max_delay=0.0, rate_per_second=4.0)
+        delivery = _make_mock_delivery([_ok_result(self._URL)])
+        manager = WebhookRetryManager(delivery, policy=policy)
+
+        with (
+            patch("asap.transport.webhook.time.monotonic", side_effect=fake_monotonic),
+            patch("asap.transport.webhook.asyncio.sleep", side_effect=fake_sleep),
+        ):
+            bucket = manager._get_bucket(self._URL)
+            for _ in range(4):
+                assert bucket.consume() is True
+            # 0.25 tokens left. The real wait is 0.1875s; tokens/rate would be 0.0625s.
+            clock["now"] += 0.0625
+            result = await manager.deliver_with_retry(self._URL, self._PAYLOAD)
+
+        assert result.success is True
+        assert sleeps == [0.1875]
+        assert delivery.deliver.call_count == 1
 
     def test_bucket_cap_evicts_oldest_url_and_resets_its_limit(self) -> None:
         """The 10k cap drops the oldest URL, so that URL's limit starts over.

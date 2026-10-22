@@ -1,6 +1,9 @@
 {
   // Dev-toolchain only (eslint-config-next, shadcn CLI): fast-glob → micromatch → braces.
   // GHSA-vfj7-8cjw-p6xm: no fixed braces release on npm at audit time; production graph is clean.
+  // Force npm: apps/web also has pnpm-lock.yaml, and audit-ci auto mode would
+  // run pnpm, which still calls the retired /-/npm/v1/security/audits/quick endpoint.
   "high": true,
+  "package-manager": "npm",
   "allowlist": ["GHSA-vfj7-8cjw-p6xm"]
 }
