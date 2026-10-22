@@ -153,15 +153,26 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Setup Python
         uses: ./.github/actions/setup-python
-      - name: Run tests
+      # One pass: pytest-xdist 3.8 and pytest-cov 7 no longer hit the
+      # WorkerController INTERNALERROR that forced a serial coverage job
+      # (b7ed79ff, 2026-01-31). MCP adapter tests run in this same pass.
+      - name: Run tests with coverage
         env:
           PYTHONPATH: ${{ github.workspace }}/src:${{ github.workspace }}
-        run: uv run pytest -n auto --tb=short --ignore=tests/adapters/mcp/
+        run: uv run pytest -n auto --tb=short --cov=asap --cov-report=xml
         timeout-minutes: 12
-      - name: Run MCP adapter tests
-        env:
-          PYTHONPATH: ${{ github.workspace }}/src:${{ github.workspace }}
-        run: uv run pytest tests/adapters/mcp/ -v --tb=short
+      # .coverage is hidden; upload-artifact skips it unless this flag is set.
+      # The coverage job reads it from the same GitHub workspace path.
+      - name: Upload coverage data
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: python-coverage
+          path: |
+            coverage.xml
+            .coverage
+          include-hidden-files: true
+          retention-days: 1
+          if-no-files-found: error
       - name: Run compliance tests
         env:
           PYTHONPATH: ${{ github.workspace }}/src:${{ github.workspace }}:${{ github.workspace }}/asap-compliance
@@ -198,27 +209,21 @@ jobs:
   coverage:
     name: coverage
     runs-on: ubuntu-latest
-    needs: [quality-python, lint-transport-growth]
-    timeout-minutes: 18
+    needs: [test-python]
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      # Source files must be present: coverage report resolves the paths
+      # stored in .coverage, which are absolute workspace paths from the
+      # test job. GitHub-hosted runners use the same workspace path.
+      - name: Download coverage data
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          name: python-coverage
       - name: Setup Python
         uses: ./.github/actions/setup-python
-      - name: Run tests with coverage
-        env:
-          PYTHONPATH: ${{ github.workspace }}/src:${{ github.workspace }}
-        run: |
-          for i in 1 2; do
-            echo "Coverage attempt $i/2"
-            if uv run pytest --tb=short --cov=asap --cov-report=xml --cov-fail-under=85; then
-              echo "Coverage passed on attempt $i"
-              exit 0
-            fi
-            echo "Coverage attempt $i failed, retrying..."
-          done
-          echo "Coverage failed after 2 attempts"
-          exit 1
-        timeout-minutes: 15
+      - name: Enforce coverage threshold
+        run: uv run coverage report --fail-under=85
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5  # v7.1.1
         with:
