@@ -39,6 +39,10 @@ Tag [`v2.5.8`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.
   (GHSA-587h-7wmj-h5pm and the other launch-editor advisories on Vite
   8.0.0–8.1.5). This pin is the web app in this repository, not a PyPI
   requirement.
+- **`apps/web` audit CI** — ``quality (web)`` installs npm 11.21.0 before
+  ``npm audit`` and ``audit-ci``. ``audit-ci.jsonc`` sets
+  ``package-manager`` to ``npm``. npm 10 (Node 20) and pnpm 9 still call
+  the retired ``/-/npm/v1/security/audits/quick`` endpoint.
 
 ### Quality
 

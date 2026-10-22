@@ -137,11 +137,18 @@ jobs:
           # Compile-only placeholder: `src/auth.ts` throws if AUTH_SECRET is missing
           # or shorter than 32 chars. Not used to sign tokens in this job.
           AUTH_SECRET: ci-quality-web-build-placeholder-not-a-secret
+      # npm 10 (bundled with Node 20) falls back to the retired
+      # /-/npm/v1/security/audits/quick endpoint (HTTP 410) when the bulk
+      # advisory response is rejected. npm 11 removed that fallback
+      # (npm/cli#7911). Install it only for the audit steps so npm ci and
+      # the Next build stay on the Node 20 toolchain.
+      - name: Use npm 11 for audit
+        run: npm install -g npm@11.21.0
       - name: npm audit (production, moderate+)
         run: npm audit --omit=dev --audit-level=moderate
         working-directory: apps/web
       - name: npm audit (all deps, high+)
-        run: npx audit-ci --config audit-ci.jsonc
+        run: npx --yes audit-ci@7 --config audit-ci.jsonc
         working-directory: apps/web
 
   test-python:
