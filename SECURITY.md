@@ -134,7 +134,7 @@ CI runs `pip-audit` after a sync that **excludes** the optional extras `crewai` 
 
 `uv sync --frozen --all-extras --dev --no-extra crewai --no-extra llamaindex` then `uv run pip-audit --ignore-vuln CVE-2026-4539 --ignore-vuln CVE-2026-4963 --ignore-vuln CVE-2026-2654 --ignore-vuln PYSEC-2024-271 --ignore-vuln PYSEC-2026-89 --ignore-vuln PYSEC-2025-183` (matches CI).
 
-Security floors live in `tool.uv.override-dependencies` (with per-CVE comments in `pyproject.toml`) so lock refreshes cannot regress them; recent additions: `mkdocs-material>=9.7.7` (PYSEC-2026-3864 / CVE-2026-73295), `pymdown-extensions>=11.0.1` (CVE-2026-61632), `pyasn1>=0.6.4` (PYSEC-2026-3455/3456/3457), `aiohttp>=3.14.3` (PYSEC-2026-3545/3546/3547), and `h2>=4.4.1` (PYSEC-2026-3628).
+Security floors live in `tool.uv.override-dependencies` (with per-CVE comments in `pyproject.toml`) so lock refreshes cannot regress them; recent additions: `mkdocs-material>=9.7.7` (PYSEC-2026-3864 / CVE-2026-73295), `pymdown-extensions>=11.0.1` (CVE-2026-61632), `pyasn1>=0.6.4` (PYSEC-2026-3455/3456/3457), `aiohttp>=3.14.4,<4` (CVE-2026-111063–111066 / CVE-2026-111748–111750 / GHSA-2g87-pp6c-29x5), `certifi>=2026.10.19` (PYSEC-2026-4320), `pillow>=13.0.0` (Pillow 12.3.0 advisories fixed in 13.0.0), `mcp>=1.30.0,<2` (CVE-2026-59951), and `h2>=4.4.1` (PYSEC-2026-3628).
 
 **CVE-2026-4539 (Pygments)**: CI uses `--ignore-vuln CVE-2026-4539` until a patched `pygments` release on PyPI resolves the advisory (`tool.uv.override-dependencies` prefers `pygments>=2.20.0` when resolvable).
 
@@ -152,7 +152,7 @@ Security floors live in `tool.uv.override-dependencies` (with per-CVE comments i
 
 **PYSEC-2026-2132 (click)**: Resolved via override (`click>=8.3.3`) — transitive via typer / uvicorn / mkdocs stacks.
 
-**PYSEC-2026-2253–2257 (pillow)**: Resolved via override (`pillow>=12.3.0`; prior floor was `>=12.2.0` for CVE-2026-40192) — transitive via pdf/vision stacks.
+**PYSEC-2026-2253–2257 (pillow)**: Resolved via override (`pillow>=13.0.0`; prior floor was `>=12.3.0` for those advisories and `>=12.2.0` for CVE-2026-40192) — transitive via pdf/vision stacks. **13.0.0** also clears the Pillow 12.3.0 advisories pip-audit reported in October 2026 (CVE-2026-112390 and related). Pillow 13 drops Python 3.10; this project requires Python 3.13+. The repository does not call the removed APIs (`Image._show`, `ExifTags.IFD.Makernote`, saving I-mode images as PNG). Transitive consumers declare `pillow` with no upper bound below 13.
 
 **CVE-2026-46678 / PYSEC-2026-3692 / PYSEC-2026-3693 (pydantic-ai, optional `[pydanticai]` extra)**: Resolved via `[pydanticai]` extra floor `pydantic-ai>=1.106.0,<2` (prior floor `>=1.99.0`; 1.102.0 in lock as of 2026-06).
 
@@ -168,7 +168,11 @@ Security floors live in `tool.uv.override-dependencies` (with per-CVE comments i
 
 **PYSEC-2025-183 (pyjwt, transitive via `[mcp]`)**: CI uses `--ignore-vuln PYSEC-2025-183` — advisory is **disputed by the supplier** (minimum key length is application-defined); override already pins `pyjwt>=2.12.0,<3` for CVE-2026-32597.
 
-**CVE-2026-52869 / CVE-2026-52870 / CVE-2026-59950 (mcp, optional `[mcp]` extra)**: Resolved by raising the `[mcp]` floor to `mcp>=1.28.1` (lock 1.28.1 as of 2026-07-18).
+**CVE-2026-111063–111066 / CVE-2026-111748–111750 / GHSA-2g87-pp6c-29x5 (aiohttp)**: Resolved via override (`aiohttp>=3.14.4,<4`; lock 3.14.5). The prior floor `>=3.14.3` covered PYSEC-2026-3545/3546/3547. aiohttp 3.14.5 pulls `yarl>=1.23`; the lock is `yarl` 1.25.1.
+
+**PYSEC-2026-4320 (certifi)**: Resolved via override (`certifi>=2026.10.19`; lock 2026.10.19) — transitive via requests / httpx.
+
+**CVE-2026-52869 / CVE-2026-52870 / CVE-2026-59950 / CVE-2026-59951 (mcp, optional `[mcp]` extra)**: Resolved by `mcp>=1.30.0,<2` (extra and override; lock 1.30.0). **CVE-2026-59951** is also fixed in `mcp>=2.2.0`, but 2.x replaces `mcp.server.fastmcp` with a migration shim and depends on `httpx2`. `asap-mcp-server` imports `FastMCP` from `mcp.server.fastmcp`, which 1.30.0 still provides. Do not drop the `<2` cap to clear this advisory.
 
 **PYSEC-2024-271 (flask-cors, transitive via `locust` in dev/benchmarks)**: CI uses `--ignore-vuln PYSEC-2024-271` — log-injection when debug logging is enabled; **6.0.2 is latest on PyPI** with no fixed release listed. Not on the runtime agent-server path.
 
@@ -201,6 +205,7 @@ We pin **upper bounds** on the security- and protocol-sensitive libraries listed
 | `pyjwt` (override) | `>=2.12.0,<3` | CVE-2026-32597 baseline; v3 changes default `options` behavior for token introspection |
 | `webauthn` (optional extra) | `>=2.6,<3` | Assertion/attestation verification for SELF-002 |
 | `pydantic` | `>=2.12.5,<3` | Model validation contract across all payloads; v3 is a breaking rewrite |
+| `mcp` (optional extra + override) | `>=1.30.0,<2` | CVE-2026-59951 baseline; v2 replaces `mcp.server.fastmcp` and depends on `httpx2` |
 
 **Bumping a pinned upper bound**:
 1. Read the upstream release notes and diff the deprecations / security-impacting changes
