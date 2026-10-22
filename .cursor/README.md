@@ -25,23 +25,20 @@ When instructions conflict, follow this order:
 
 ## Canonical commands
 
-Match CI (`.github/workflows/ci.yml`). Do **not** combine `-n auto` with `--cov` (pytest-xdist + coverage causes INTERNALERROR).
+Match CI (`.github/workflows/ci.yml`). The test job collects coverage with `-n auto` and `--cov` in one run. The coverage job only enforces the 85% floor and uploads the report.
 
 ```bash
-# Fast test run (parallel, no coverage) — same as CI test job
-uv run pytest -n auto --tb=short
-
-# Coverage (dedicated run, no xdist) — same as CI coverage job
-uv run pytest --tb=short --cov=asap --cov-report=xml --cov-fail-under=85
+# Tests and coverage — same suite as CI test (python), with the floor applied locally
+uv run pytest -n auto --tb=short --cov=asap --cov-report=xml --cov-fail-under=85
 
 # Pre-push quality gate (see git-commits.mdc for full list)
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy src/ scripts/ tests/
-uv run pytest --tb=short --cov=asap --cov-report=xml --cov-fail-under=85
+uv run pytest -n auto --tb=short --cov=asap --cov-report=xml --cov-fail-under=85
 ```
 
-Web app changes (`apps/web/`): also run `npm run lint`, `npx tsc --noEmit`, `npx vitest run`, `npm run build`.
+Web app changes (`apps/web/`): also run `npm run lint`, `npx tsc --noEmit`, `npm run test:coverage`, `npm run build`.
 
 ## When to read what
 

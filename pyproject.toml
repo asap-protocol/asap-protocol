@@ -347,8 +347,9 @@ addopts = [
     "--strict-markers",
     "--strict-config",
 ]
-# Coverage options: use explicitly when needed (e.g., pytest --tb=short --cov=asap --cov-report=xml --cov-fail-under=85)
-# NOT included in addopts to avoid conflicts with pytest-xdist (-n auto)
+# Coverage options: use explicitly when needed
+# (e.g. pytest -n auto --tb=short --cov=asap --cov-report=xml --cov-fail-under=85).
+# NOT included in addopts: a partial test run would fail the project-wide floor.
 testpaths = ["tests"]
 # Note: benchmarks/ excluded from testpaths - Locust monkey-patches gevent/ssl which
 # conflicts with pytest-xdist. Run benchmarks separately: uv run pytest benchmarks/

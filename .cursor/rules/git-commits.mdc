@@ -47,7 +47,7 @@ Before pushing to the repository, always run the full CI check suite locally to 
 1. **Linting**: `uv run ruff check .` - Verify code style and catch common errors
 2. **Formatting**: `uv run ruff format --check .` - Ensure consistent code formatting (or `uv run ruff format .` to auto-fix)
 3. **Type Checking**: `uv run mypy src/ scripts/ tests/` - Validate type annotations (strict for src/scripts, relaxed for tests)
-4. **Tests**: `uv run pytest --tb=short --cov=asap --cov-report=xml --cov-fail-under=85` - Run full test suite with coverage (no `-n auto`; see `.cursor/README.md`)
+4. **Tests**: `uv run pytest -n auto --tb=short --cov=asap --cov-report=xml --cov-fail-under=85` - Run full test suite with coverage (same command as CI; see `.cursor/README.md`)
 5. **Security**: `uv sync --frozen --all-extras --dev --no-extra crewai --no-extra llamaindex && uv run pip-audit --ignore-vuln CVE-2026-4539 --ignore-vuln CVE-2026-4963 --ignore-vuln CVE-2026-2654 --ignore-vuln PYSEC-2024-271 --ignore-vuln PYSEC-2026-89 --ignore-vuln PYSEC-2025-183` — same as the CI security job (see `SECURITY.md`); use full `uv sync --frozen --all-extras --dev` when auditing optional integration extras separately
 
 ### Pre-Push CI Verification (Web App / TypeScript)
@@ -55,7 +55,7 @@ Before pushing to the repository, always run the full CI check suite locally to 
 If you modified files in `apps/web/`:
 1. **Linting**: `npm run lint` or `npx eslint .`
 2. **Type Checking**: `npx tsc --noEmit`
-3. **Tests**: `npx vitest run` (or `npm test`)
+3. **Tests**: `npm run test:coverage` (same as CI; applies the thresholds in `apps/web/vitest.config.ts`)
 4. **Build Verification**: `npm run build` (Ensures Next.js builds successfully)
 
 **Quick Fix Commands**:

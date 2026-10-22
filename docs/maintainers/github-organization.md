@@ -105,7 +105,7 @@ Configured via the Rulesets API on `asap-protocol/asap-protocol` (not classic br
 - Dismiss stale reviews on new pushes
 - Block force pushes (`non_fast_forward`)
 - Restrict branch deletion
-- Required status checks (strict): `quality (python)`, `quality (web)`, `test (python)`, `test (web)`, `coverage`, `security` (job names from `.github/workflows/ci.yml`)
+- Required status checks (strict): `quality (python)`, `quality (web)`, `test (python)`, `test (web)`, `coverage`, `security` (job names from `.github/workflows/ci.yml`). `security (web)` runs for web changes but is not a required check.
 
 **Bypass actors** (can bypass ruleset rules when needed):
 

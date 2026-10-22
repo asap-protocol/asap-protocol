@@ -16,14 +16,14 @@ uv run pytest tests/transport/integration/test_rate_limiting.py -v
 # Run specific test
 uv run pytest tests/transport/integration/test_rate_limiting.py::TestRateLimiting::test_requests_within_limit_succeed -v
 
-# Fast parallel run (CI test job — no coverage)
-uv run pytest -n auto --tb=short
+# Tests and coverage (same suite as the CI test job, floor applied locally)
+uv run pytest -n auto --tb=short --cov=asap --cov-report=xml --cov-fail-under=85
 
-# Coverage (dedicated run — do NOT combine with -n auto; see below)
-uv run pytest --tb=short --cov=asap --cov-report=html
+# HTML report, still parallel
+uv run pytest -n auto --tb=short --cov=asap --cov-report=html
 ```
 
-> **Coverage and xdist:** Do not pass `--cov` together with `-n auto`. pytest-xdist + coverage can cause `INTERNALERROR` (exit code 3). CI uses two jobs: parallel tests without coverage, then a separate coverage run. Canonical commands: [`.cursor/README.md`](../.cursor/README.md#canonical-commands) and `testing-standards.mdc`.
+> **Coverage and xdist:** CI collects coverage in the parallel test job. Do not put `--cov` in pytest `addopts`; a partial run would be judged against the project-wide 85% floor. Canonical commands: [`.cursor/README.md`](../.cursor/README.md#canonical-commands) and `testing-standards.mdc`.
 
 **Why `uv run pytest` instead of `pytest`?**
 
@@ -698,16 +698,16 @@ Fixtures ensure test isolation by:
 
 ### Parallel Execution
 
-Run tests in parallel with pytest-xdist (fast feedback; **no coverage**):
+Run tests in parallel with pytest-xdist. Add `--cov` on a full run when you want the CI coverage number:
 ```bash
-# Automatic worker count (recommended — same as CI test job)
-uv run pytest -n auto --tb=short
+# Automatic worker count (same suite as the CI test job)
+uv run pytest -n auto --tb=short --cov=asap --cov-report=xml --cov-fail-under=85
 
-# Specific number of workers
+# Specific number of workers, no coverage (faster local loop)
 uv run pytest -n 4 --tb=short
 ```
 
-Do **not** add `--cov` to parallel runs. For coverage, use a separate command (see the canonical commands at the top of this guide or [CI Integration](#ci-integration)).
+Do **not** add `--cov` to pytest `addopts`. A partial file run would fail the project-wide floor (see [CI Integration](#ci-integration)).
 
 **Benefits**:
 - Faster execution on multi-core systems
@@ -880,13 +880,13 @@ To run all brotli-related tests, install dev dependencies (brotli is in `[projec
 
 ## CI Integration
 
-CI (`.github/workflows/ci.yml`) runs tests and coverage in **separate jobs**:
+CI (`.github/workflows/ci.yml`) collects coverage in the parallel test job. The coverage job only enforces the floor and uploads the report:
 
 | Job | Command |
 |-----|---------|
-| **test** | `uv run pytest -n auto --tb=short` |
-| **coverage** | `uv run pytest --tb=short --cov=asap --cov-report=xml --cov-fail-under=85` |
+| **test (python)** | `uv run pytest -n auto --tb=short --cov=asap --cov-report=xml` |
+| **coverage** | `uv run coverage report --fail-under=85` on the artifact from the test job |
 
-Local pre-push mirrors the coverage job; use `-n auto` only for the fast test pass.
+Local pre-push applies the floor in that same parallel run: `uv run pytest -n auto --tb=short --cov=asap --cov-report=xml --cov-fail-under=85`.
 
 See `.github/workflows/ci.yml` for linting, formatting, type checking, and security steps.
