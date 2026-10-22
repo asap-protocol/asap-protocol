@@ -155,15 +155,6 @@ describe('fetchUserRegistrationIssues', () => {
     mockListForRepo.mockResolvedValue({
       data: [
         {
-          id: 1,
-          number: 10,
-          title: 'Register: mine',
-          html_url: 'https://github.com/owner/repo/issues/10',
-          state: 'open',
-          user: { login: 'testuser' },
-          pull_request: undefined,
-        },
-        {
           id: 2,
           number: 11,
           title: 'Register: theirs',
@@ -188,6 +179,15 @@ describe('fetchUserRegistrationIssues', () => {
           html_url: 'https://github.com/owner/repo/issues/13',
           state: 'open',
           user: null,
+          pull_request: undefined,
+        },
+        {
+          id: 1,
+          number: 10,
+          title: 'Register: mine',
+          html_url: 'https://github.com/owner/repo/issues/10',
+          state: 'open',
+          user: { login: 'testuser' },
           pull_request: undefined,
         },
       ],

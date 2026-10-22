@@ -71,6 +71,9 @@ async def test_ack_does_not_retransmit_until_timeout_passes(
 
     pending = transport._pending_acks["env-ack-fence"]
     assert send.await_count == 1
+    sent = send.await_args
+    assert sent is not None
+    assert sent.args[0].id == "env-ack-fence"
     assert pending.retries == 1
     assert pending.sent_at == clock[0]
     breaker.record_failure.assert_not_called()

@@ -150,11 +150,11 @@ class TestProcessRevocationRun:
         assert result["valid"] is True
 
     def test_rejects_urn_that_is_not_an_agent_urn(self, tmp_path: Path) -> None:
-        """A non-URN id is rejected before it can be appended to the revocation list."""
+        """A URN that is not an agent URN is rejected before the list is rewritten."""
         registry_path = tmp_path / "registry.json"
         revoked_path = tmp_path / "revoked_agents.json"
         output_path = tmp_path / "result.json"
-        bad_id = "https://evil.example/agent"
+        bad_id = "urn:asap:user:alice"
         original_revoked = json.dumps({"revoked": [], "version": "1.0"})
 
         registry_path.write_text(json.dumps([{"id": bad_id, "name": "not-an-agent-urn"}]))

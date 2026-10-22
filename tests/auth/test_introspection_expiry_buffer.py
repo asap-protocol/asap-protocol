@@ -90,18 +90,20 @@ async def test_introspect_refetches_token_at_expiry_buffer(
 async def test_introspect_reuses_token_one_second_past_expiry_buffer(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """One second past the buffer, the same opaque token is served from cache."""
-    _freeze_introspection_clock(monkeypatch, _FROZEN_NOW)
+    """One second past the buffer is a hit; the next second refetches a new subject."""
+    clock = {"now": _FROZEN_NOW}
+    monkeypatch.setattr("asap.auth.introspection.time.time", lambda: clock["now"])
     calls = {"count": 0}
     exp = int(_FROZEN_NOW) + int(EXPIRY_BUFFER_SECONDS) + 1
 
     def handler(request: httpx.Request) -> httpx.Response:
         calls["count"] += 1
+        subject = "cached-subject" if calls["count"] == 1 else f"refetched-{calls['count']}"
         return httpx.Response(
             status_code=200,
             json={
                 "active": True,
-                "sub": "cached-subject",
+                "sub": subject,
                 "scope": "asap:read",
                 "exp": exp,
             },
@@ -114,3 +116,9 @@ async def test_introspect_reuses_token_one_second_past_expiry_buffer(
     assert first is not None and first.sub == "cached-subject"
     assert second is not None and second.sub == "cached-subject"
     assert calls["count"] == 1
+
+    clock["now"] = _FROZEN_NOW + 1
+    third = await introspector.introspect("opaque-fresh")
+
+    assert calls["count"] == 2
+    assert third is not None and third.sub != "cached-subject"

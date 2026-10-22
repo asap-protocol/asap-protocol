@@ -57,3 +57,25 @@ def test_delegation_rejects_at_exact_exp_second(monkeypatch: pytest.MonkeyPatch)
     expired = validate_delegation(token, "task.execute", public_key_resolver=resolve_key)
     assert expired.success is False
     assert expired.error == "Token expired"
+
+
+def test_non_positive_exp_skips_expiry_on_a_valid_signature() -> None:
+    """``exp <= 0`` is cleared, so a signed token is not rejected as expired."""
+    private_key, public_key = generate_keypair()
+    token = create_delegation_jwt(
+        delegator_urn="urn:asap:agent:delegator",
+        delegate_urn="urn:asap:agent:delegate",
+        scopes=["task.execute"],
+        constraints=DelegationConstraints(
+            expires_at=datetime.fromtimestamp(0, tz=timezone.utc),
+        ),
+        private_key=private_key,
+        token_id="del_exp_non_positive",
+    )
+
+    def resolve_key(_issuer: str) -> Ed25519PublicKey:
+        return public_key
+
+    result = validate_delegation(token, "task.execute", public_key_resolver=resolve_key)
+    assert result.success is True
+    assert result.error is None
