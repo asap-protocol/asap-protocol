@@ -5,7 +5,7 @@
 > **Version**: 2.5.x
 > **Status**: ACTIVE
 > **Created**: 2026-06-22
-> **Last Updated**: 2026-09-11
+> **Last Updated**: 2026-10-21
 >
 > **Predecessor**: [prd-v2.4.1-security-hardening.md](./prd-v2.4.1-security-hardening.md) (✅ shipped 2026-06-14)
 > **Successor (long-term)**: [prd-v3.0-economy.md](./prd-v3.0-economy.md)

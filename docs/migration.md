@@ -1123,17 +1123,21 @@ Scope: [prd-v2.5.4-distribution-loop.md](../product/prd/prd-v2.5.4-distribution-
 
 **v2.5.8 (security & coverage patch)** — **shipped**
 ([tag `v2.5.8`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.8)) —
-raises dependency floors flagged by CI audits after v2.5.7 and records
-regression fences already on ``main``. This is **not** Formal Spec &
-Interop. There are **no wire-protocol or manifest schema** breaking changes
-relative to v2.5.7.
+records repository dependency overrides and regression tests already on
+``main``. This is **not** Formal Spec & Interop. There are **no
+wire-protocol or manifest schema** breaking changes relative to v2.5.7.
 
 #### What lands in v2.5.8
 
-- **Python floors** — ``aiohttp>=3.14.4,<4``, ``certifi>=2026.10.19``,
-  ``pillow>=13.0.0``, and optional ``[mcp]`` ``mcp>=1.30.0,<2``
+- **Repository uv overrides** — this repo's ``[tool.uv]
+  override-dependencies`` pins ``aiohttp>=3.14.4,<4``,
+  ``certifi>=2026.10.19``, and ``pillow>=13.0.0``. ``pip install
+  asap-protocol==2.5.8`` and ``uv add asap-protocol`` in another project do
+  not apply those pins. The published requirement is the optional ``[mcp]``
+  extra, ``mcp>=1.30.0,<2``
   ([#413](https://github.com/asap-protocol/asap-protocol/pull/413)).
-- **Web app** — ``apps/web`` overrides pin ``vite`` to ``8.1.6``
+- **Web app** — ``apps/web`` npm override pins ``vite`` to ``8.1.6``. That
+  pin is this repository's web app, not a PyPI requirement
   ([#413](https://github.com/asap-protocol/asap-protocol/pull/413)).
 - **Regression fences** — quota, replay, and nonce
   ([#413](https://github.com/asap-protocol/asap-protocol/pull/413));
@@ -1159,9 +1163,10 @@ relative to v2.5.7.
 #### Backward compatibility
 
 - **Wire protocol**: Unchanged from v2.5.7.
-- **Breaking changes**: None for typical deployments. The new floors only
-  affect installs that pull ``aiohttp``, ``certifi``, ``pillow``, the
-  ``[mcp]`` extra, or the in-repo web app.
+- **Breaking changes**: None for a typical ``asap-protocol`` install.
+  The ``aiohttp``, ``certifi``, and ``pillow`` pins are repository uv
+  overrides. The optional ``[mcp]`` extra requires ``mcp>=1.30.0,<2``.
+  The Vite pin applies only to ``apps/web`` in this repository.
 
 ---
 

@@ -18,9 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.5.8] - 2026-10-21
 
-**Security & coverage patch** — raise dependency floors that CI audits
-flagged after v2.5.7, and record the regression fences that landed on
-`main` via
+**Security & coverage patch** — record the repository dependency overrides
+and regression tests that landed on `main` after v2.5.7 via
 [#413](https://github.com/asap-protocol/asap-protocol/pull/413)–[#417](https://github.com/asap-protocol/asap-protocol/pull/417).
 This is **not** Formal Spec & Interop. npm `@asap-protocol/*` packages remain
 at **2.4.1**. PyPI `asap-compliance` remains **1.3.0**.
@@ -29,35 +28,40 @@ Tag [`v2.5.8`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.
 
 ### Security
 
-- **Python floors (#413)** — ``uv`` overrides and the optional ``[mcp]`` extra
-  move to ``aiohttp>=3.14.4,<4`` (CVE-2026-111063 and related),
-  ``certifi>=2026.10.19`` (PYSEC-2026-4320), ``pillow>=13.0.0``
-  (CVE-2026-112395 / 112397 / 112400 / 112404 / 112895 / 112896 / 112897 /
-  112899), and ``mcp>=1.30.0,<2`` (CVE-2026-59951).
+- **Repository uv overrides and `[mcp]` extra (#413)** —
+  ``[tool.uv] override-dependencies`` pins ``aiohttp>=3.14.4,<4``
+  (CVE-2026-111063 and related), ``certifi>=2026.10.19`` (PYSEC-2026-4320),
+  and ``pillow>=13.0.0`` (CVE-2026-112395 / 112397 / 112400 / 112404 /
+  112895 / 112896 / 112897 / 112899). Those overrides apply in this
+  repository. They are not requirements of the published wheel. The
+  optional ``[mcp]`` extra requires ``mcp>=1.30.0,<2`` (CVE-2026-59951).
 - **`apps/web` Vite (#413)** — npm override pins ``vite`` to ``8.1.6``
   (GHSA-587h-7wmj-h5pm and the other launch-editor advisories on Vite
-  8.0.0–8.1.5).
+  8.0.0–8.1.5). This pin is the web app in this repository, not a PyPI
+  requirement.
 
 ### Quality
 
-- **Quota, replay, and nonce (#413)** — batch ``check_n`` cost, webhook
-  partial refill, truncated signing keys, JTI eviction, nonce expiry, and
-  discovery health.
-- **Metering, SLA, usage, and delivery (#414)** — metering windows, SLA
-  boundaries, audit queries, delegation schema upgrade, usage pagination,
-  webhook status band, batch size, OpenAPI schema depth, and snapshot-loop
-  edges.
-- **Refresh, cache, and revocation (#415)** — OAuth refresh on the buffer
-  second, introspection cache expiry, discovery and registry cache TTL,
-  delegation expiry, ack timeout, revocation of a non-agent URN, and dashboard
-  action edges.
-- **Expiry, receipt, and session (#416)** — receipt reads at exact expiry,
-  registration receipts, reactivation lifetime, approval deadlines, host JWT
-  skew, scope-claim types, envelope timestamps, and compliance preflight
-  edges.
-- **Lifetime and size (#417)** — verify and reactivate lifetime edges, blank
-  IssueOps fields, request and decompressed size caps, WebSocket idle and
-  heartbeat fences, and truncated key age.
+- **Quota, replay, and nonce regression tests (#413)** — webhook partial
+  refill, truncated public keys, JTI eviction, nonce expiry, and discovery
+  health. Batch ``check_n`` cost shipped in v2.5.7.
+- **Metering, SLA, usage, and delivery regression tests (#414)** — metering
+  windows, SLA boundaries, audit queries, the existing one-time
+  ``delegate_urn`` column add, usage pagination, webhook status band, batch
+  size, OpenAPI schema depth, and snapshot-loop edges.
+- **Refresh, cache, and revocation regression tests (#415)** — OAuth refresh
+  on the buffer second, introspection cache expiry, discovery and registry
+  cache TTL, delegation expiry, ack timeout, revocation of a non-agent URN,
+  and dashboard action edges.
+- **Expiry, receipt, and session regression tests (#416)** — receipt reads
+  at exact expiry, registration receipts, reactivation lifetime, approval
+  deadlines, host JWT skew, scope-claim types, envelope timestamps, and
+  compliance preflight edges.
+- **Lifetime and size regression tests (#417)** — verify and reactivate
+  lifetime edges, blank IssueOps fields, request and decompressed size caps,
+  WebSocket idle and heartbeat fences, and truncated key age
+  (``timedelta.days`` inside ``warn_if_key_old``, distinct from the truncated
+  public-key fence in #413).
 
 ### Migration
 
