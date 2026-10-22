@@ -170,9 +170,34 @@ jobs:
             echo "npm registry audit unavailable (attempt ${attempt}); retrying in 20s"
             sleep 20
           done
+      # audit-ci prints "code undefined" and drops the registry body when
+      # npm audit exits on a 503 (run 39714743928). Fail that call fast,
+      # then retry. "Failed security audit" is a real advisory and stops.
       - name: npm audit (all deps, high+)
-        run: npx --yes audit-ci@7 --config audit-ci.jsonc
         working-directory: apps/web
+        run: |
+          set -euo pipefail
+          npm config set fetch-retries 0
+          npm config set fetch-retry-mintimeout 2000
+          npm config set fetch-retry-maxtimeout 5000
+          for attempt in 1 2 3 4; do
+            set +e
+            output="$(npx --yes audit-ci@7 --config audit-ci.jsonc --retry-count=1 2>&1)"
+            status=$?
+            set -e
+            printf '%s\n' "$output"
+            if [ "$status" -eq 0 ]; then
+              exit 0
+            fi
+            if printf '%s\n' "$output" | grep -q 'Failed security audit'; then
+              exit "$status"
+            fi
+            if [ "$attempt" -eq 4 ]; then
+              exit "$status"
+            fi
+            echo "audit-ci registry error (attempt ${attempt}); retrying in 20s"
+            sleep 20
+          done
 
   test-python:
     name: test (python)
