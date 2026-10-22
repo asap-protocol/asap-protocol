@@ -155,9 +155,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Setup Python
         uses: ./.github/actions/setup-python
-      # One pass: pytest-xdist 3.8 and pytest-cov 7 no longer hit the
-      # WorkerController INTERNALERROR that forced a serial coverage job
-      # (b7ed79ff, 2026-01-31). MCP adapter tests run in this same pass.
+      # One pass. b7ed79ff (2026-01-31) dropped -n after KeyError:
+      # WorkerController. That lock already had pytest-cov 7.0.0,
+      # pytest-xdist 3.8.0, and coverage 7.13.1 (pytest 9.0.2). This lock
+      # matches except pytest 9.0.3. Run 39772718697 did not reproduce the
+      # crash. MCP adapter tests run in this same pass.
       - name: Run tests with coverage
         env:
           PYTHONPATH: ${{ github.workspace }}/src:${{ github.workspace }}
