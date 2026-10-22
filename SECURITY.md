@@ -89,12 +89,12 @@ We aim to review and merge security updates according to the following target ti
 We continuously monitor dependencies using:
 - **Dependabot**: Automated security updates and alerts
 - **pip-audit**: Integrated into CI pipeline for vulnerability scanning (Python)
-- **npm audit**: Blocking steps on the `quality (web)` CI job for `apps/web/`
+- **npm audit**: `security (web)` for `apps/web/`. Protect main requires that check. A real advisory fails it and blocks merge to `main`.
 - **GitHub Security Advisories**: Public database of known vulnerabilities
 
 ### npm audit policy (`apps/web/`)
 
-CI (`quality-web`) runs both of the following after `npm ci` and treats failures as blocking:
+CI job `security (web)` runs both of the following after `npm ci`. A non-zero exit fails that job. Protect main requires `security (web)`, so the failure blocks merge to `main`:
 
 ```bash
 cd apps/web
@@ -102,8 +102,8 @@ npm audit --omit=dev --audit-level=moderate
 npx audit-ci --config audit-ci.jsonc
 ```
 
-- **Production graph** (`--omit=dev`): moderate and above must be clean.
-- **Full graph** (including devDependencies): high and above must be clean, enforced via `audit-ci` and `apps/web/audit-ci.jsonc` (same allowlist as CI). Raw `npm audit --audit-level=high` may still list dev-only advisories with no fixed release.
+- **Production graph** (`--omit=dev`): moderate and above fail `security (web)`.
+- **Full graph** (including devDependencies): high and above fail `security (web)`, enforced via `audit-ci` and `apps/web/audit-ci.jsonc` (same allowlist as CI). Raw `npm audit --audit-level=high` may still list dev-only advisories with no fixed release.
 - Prefer range-compatible updates via `npm install` / `npm audit fix` (never `npm audit fix --force`).
 - Do **not** downgrade `next` to satisfy transitive advisories. For Next **16.3.4**, pin fixed transitive deps via npm overrides with an unscoped `next` key — a versioned key like `next@16.2.10` pins nested copies of `next` and breaks `npm ci` (ERESOLVE) on every Next bump:
 
