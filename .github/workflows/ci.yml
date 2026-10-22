@@ -193,9 +193,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
         working-directory: apps/web
-      - name: Vitest
-        run: npm test
-        working-directory: apps/web
+      # test:coverage applies the thresholds in apps/web/vitest.config.ts.
+      # A second plain vitest run only repeated the same files.
       - name: Vitest coverage
         run: npm run test:coverage
         working-directory: apps/web
