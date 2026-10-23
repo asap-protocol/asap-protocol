@@ -9,16 +9,11 @@ list returns the default document.
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
 import pytest
 
-_SCRIPTS_DIR = str(Path(__file__).resolve().parents[2] / "scripts")
-if _SCRIPTS_DIR not in sys.path:
-    sys.path.insert(0, _SCRIPTS_DIR)
-
-from lib.registry_io import load_registry, load_revoked, save_registry  # noqa: E402
+from scripts.lib.registry_io import load_registry, load_revoked, save_registry
 
 _AGENT: dict[str, str] = {"id": "urn:asap:agent:a:b", "name": "B"}
 
