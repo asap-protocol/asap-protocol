@@ -56,14 +56,9 @@ function Carousel({
     },
     plugins
   );
-  const [canScrollPrev, setCanScrollPrev] = React.useState(false);
-  const [canScrollNext, setCanScrollNext] = React.useState(false);
-
-  const onSelect = React.useCallback((api: CarouselApi) => {
-    if (!api) return;
-    setCanScrollPrev(api.canScrollPrev());
-    setCanScrollNext(api.canScrollNext());
-  }, []);
+  // eslint-config-next 16.4 rejects setState in the subscribe effect below.
+  // The epoch only exists so select/reInit render the flags read from Embla.
+  const [, bumpScrollFlags] = React.useReducer((epoch: number): number => epoch + 1, 0);
 
   const scrollPrev = React.useCallback(() => {
     api?.scrollPrev();
@@ -93,14 +88,20 @@ function Carousel({
 
   React.useEffect(() => {
     if (!api) return;
-    onSelect(api);
+    const onSelect = (): void => {
+      bumpScrollFlags();
+    };
     api.on('reInit', onSelect);
     api.on('select', onSelect);
 
     return () => {
-      api?.off('select', onSelect);
+      api.off('reInit', onSelect);
+      api.off('select', onSelect);
     };
-  }, [api, onSelect]);
+  }, [api, bumpScrollFlags]);
+
+  const canScrollPrev = api?.canScrollPrev() ?? false;
+  const canScrollNext = api?.canScrollNext() ?? false;
 
   return (
     <CarouselContext.Provider

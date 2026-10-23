@@ -193,6 +193,61 @@ class TestBatchServer(NoRateLimitTestBase):
 class TestBatchRateLimiting:
     """Batch requests consume N rate-limit hits."""
 
+    def _limited_app(self, limits: list[str], *, max_batch_size: int = 5) -> Any:
+        """Build an app whose route limiter uses an isolated in-memory store."""
+        limiter = create_test_limiter(limits, key_func=get_remote_address)
+        app = create_app(
+            _make_manifest(),
+            rate_limit="100000/minute",
+            max_batch_size=max_batch_size,
+        )
+        app.state.limiter = limiter
+        return app
+
+    async def test_empty_batch_does_not_spend_quota(self) -> None:
+        """An empty batch is rejected before check_n, so the next call still fits."""
+        app = self._limited_app(["1/minute"])
+        env = _make_envelope()
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            rejected = await client.post("/asap", content=json.dumps([]))
+            allowed = await client.post("/asap", json=_make_rpc_request(env, "ok"))
+
+        assert rejected.status_code == 200
+        assert "empty batch" in rejected.json()["error"]["data"]["reason"]
+        assert allowed.status_code == 200
+
+    async def test_oversized_batch_does_not_spend_quota(self) -> None:
+        """A batch past max_batch_size is rejected before check_n."""
+        app = self._limited_app(["1/minute"], max_batch_size=5)
+        env = _make_envelope()
+        oversized = [_make_rpc_request(env, f"r{index}") for index in range(6)]
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            rejected = await client.post("/asap", content=json.dumps(oversized))
+            allowed = await client.post("/asap", json=_make_rpc_request(env, "ok"))
+
+        assert rejected.status_code == 200
+        assert "exceeds max" in rejected.json()["error"]["data"]["reason"]
+        assert allowed.status_code == 200
+
+    async def test_invalid_utf8_body_is_a_parse_error_and_debits_one_hit(self) -> None:
+        """Non-UTF-8 bodies are parse errors and consume one limiter hit, not zero or two."""
+        app = self._limited_app(["1/minute"])
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            bad = await client.post(
+                "/asap",
+                content=b"\xff\xfe\x00",
+                headers={"content-type": "application/json"},
+            )
+            again = await client.post("/asap", json=_make_rpc_request(_make_envelope(), "next"))
+
+        assert bad.status_code == 200
+        assert bad.json()["error"]["code"] == PARSE_ERROR
+        assert "Invalid UTF-8" in bad.text
+        assert again.status_code == 429
+
     async def test_batch_rate_limit_check_n(self) -> None:
         """check_n on the rate limiter is invoked for batch length."""
         manifest = _make_manifest()

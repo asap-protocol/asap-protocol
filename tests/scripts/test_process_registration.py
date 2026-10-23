@@ -15,12 +15,12 @@ from asap.crypto.signing import sign_manifest
 from asap.discovery.registry import LiteRegistry
 from asap.models.entities import Capability, Endpoint, Manifest, Skill
 
+from scripts.lib.registry_io import load_registry, save_registry
 from scripts.process_registration import (
     fetch_manifest,
     parse_issue_body,
     run,
 )
-from lib.registry_io import load_registry, save_registry
 
 
 def _load_lite_registry_file(path: Path) -> LiteRegistry:

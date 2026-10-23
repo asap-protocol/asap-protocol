@@ -4,30 +4,26 @@ Thanks for helping out! Here's how to get started quickly.
 
 ## Quick Start
 
-1.  **Setup**: You need `uv` installed. Use `--dev` so that dev dependencies (pytest-xdist, ruff, mypy, etc.) are installed and local test runs match CI (including `pytest -n auto`).
+1.  **Setup**: You need `uv` installed. Use `--dev` so that dev dependencies (pytest-xdist, ruff, mypy, etc.) are installed. Local test runs use the fast loop in [Canonical commands](.cursor/README.md#canonical-commands). Keep `serial_mcp` out of `pytest -n auto`.
     ```bash
     git clone https://github.com/asap-protocol/asap-protocol.git
     cd asap-protocol
     uv sync --all-extras --dev
     ```
 
-2.  **Verify** (CI has two jobs: fast **test** with `-n auto`, and **coverage** with `--cov`):
-    ```bash
-    uv run pytest -n auto --tb=short
-    ```
-    For coverage locally: `uv run pytest --tb=short --cov=asap --cov-report=xml --cov-fail-under=85`
+2.  **Verify**: run the local floor in [Canonical commands](.cursor/README.md#canonical-commands).
 
 ## Development Workflow
 
 -   **Linting & Formatting**: `uv run ruff check .` and `uv run ruff format .`
 -   **Type Checking**: `uv run mypy src/ scripts/ tests/`
--   **Testing**: `uv run pytest -n auto --tb=short` (same as CI test job, fast). For coverage: `uv run pytest --tb=short --cov=asap --cov-report=xml --cov-fail-under=85` (same as CI coverage job; do not combine `-n` with `--cov` due to known xdist+cov bug).
+-   **Testing**: [Canonical commands](.cursor/README.md#canonical-commands). The coverage job enforces the 85% floor on the CI test job's artifact.
 
 ## Pull Requests
 
 1.  **Branch**: Create a feature branch (`git checkout -b feature/my-cool-feature`).
 2.  **Commit**: Use [Conventional Commits](https://www.conventionalcommits.org/) (e.g., `feat: add awesome feature`, `fix: resolve crash`).
-3.  **Test**: Ensure `uv run pytest -n auto --tb=short` passes (same as CI test job).
+3.  **Test**: The local floor in [Canonical commands](.cursor/README.md#canonical-commands) passes.
 4.  **Push**: Open a PR on GitHub.
 
 ## Testing
@@ -55,7 +51,7 @@ Tests are organized into three categories:
 
 2. **For rate limiting tests**: Use aggressive monkeypatch fixtures (see [Testing Guide](docs/testing.md))
 
-3. **Run with parallel execution**: Use `pytest -n auto` for process-level isolation (CI test job uses this; coverage is collected in a separate CI job without -n to avoid xdist+cov INTERNALERROR).
+3. **Run with parallel execution**: Use the fast loop in [Canonical commands](.cursor/README.md#canonical-commands). `serial_mcp` stays out of `-n auto`.
 
 ### Test Isolation Strategy
 
@@ -71,7 +67,7 @@ See the [Testing Guide](docs/testing.md) for complete details on:
 - Using fixtures
 - Troubleshooting test interference
 
-**Troubleshooting**: If you see `unrecognized arguments: -n`, run `uv sync --all-extras --dev` so pytest-xdist is installed. CI uses two jobs: **test** (`pytest -n auto --tb=short`) for fast feedback and **coverage** (`pytest --tb=short --cov=asap --cov-report=xml --cov-fail-under=85`) for Codecov; do not combine `-n` with `--cov` locally (known xdist+cov bug).
+**Troubleshooting**: If you see `unrecognized arguments: -n`, run `uv sync --all-extras --dev` so pytest-xdist is installed. CI commands are in [Canonical commands](.cursor/README.md#canonical-commands). The coverage job enforces the 85% floor on the test job's artifact and uploads it.
 
 ## Guidelines
 

@@ -101,15 +101,7 @@ uv run python -m asap.examples.run_demo
 
 ## Testing
 
-```bash
-uv run pytest -n auto --tb=short
-```
-
-With coverage (separate run — do not combine with `-n auto`):
-
-```bash
-uv run pytest --tb=short --cov=asap --cov-report=term-missing --cov-fail-under=85
-```
+Fast loop, local coverage floor, and the CI argv are the [canonical commands](.cursor/README.md#canonical-commands).
 
 [Testing Guide](https://github.com/asap-protocol/asap-protocol/blob/main/docs/testing.md) (structure, fixtures, property/load/chaos tests). [Contributing](https://github.com/asap-protocol/asap-protocol/blob/main/CONTRIBUTING.md) (dev setup, CI).
 

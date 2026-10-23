@@ -25,23 +25,30 @@ When instructions conflict, follow this order:
 
 ## Canonical commands
 
-Match CI (`.github/workflows/ci.yml`). Do **not** combine `-n auto` with `--cov` (pytest-xdist + coverage causes INTERNALERROR).
+These are the only pytest argv to copy. Other docs link here.
+
+`serial_mcp` starts `examples/mcp_auth_bridge/server.py` in a subprocess. It stays out of pytest-xdist. The coverage floor is 85, applied by `coverage report` in CI and by the second command of the local floor.
 
 ```bash
-# Fast test run (parallel, no coverage) — same as CI test job
-uv run pytest -n auto --tb=short
+# Fast local loop
+uv run pytest -n auto --tb=short -m "not serial_mcp"
+uv run pytest -m serial_mcp --tb=short
 
-# Coverage (dedicated run, no xdist) — same as CI coverage job
-uv run pytest --tb=short --cov=asap --cov-report=xml --cov-fail-under=85
+# Local floor (pre-push). The second command judges the combined data file.
+uv run pytest -n auto --tb=short --cov=asap --cov-report=xml -m "not serial_mcp"
+uv run pytest -m serial_mcp --tb=short --cov=asap --cov-append --cov-report=xml --cov-fail-under=85
 
-# Pre-push quality gate (see git-commits.mdc for full list)
+# CI test (python). The coverage job then runs: uv run coverage report --fail-under=85
+uv run pytest -n auto --tb=short --cov=asap --cov-report=xml -m "not serial_mcp"
+uv run pytest -m serial_mcp -v --tb=short --cov=asap --cov-append --cov-report=xml
+
+# Pre-push quality gate, besides the local floor above (see git-commits.mdc)
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy src/ scripts/ tests/
-uv run pytest --tb=short --cov=asap --cov-report=xml --cov-fail-under=85
 ```
 
-Web app changes (`apps/web/`): also run `npm run lint`, `npx tsc --noEmit`, `npx vitest run`, `npm run build`.
+Web app changes (`apps/web/`): also run `npm run lint`, `npx tsc --noEmit`, `npm run test:coverage`, `npm run build`.
 
 ## When to read what
 
