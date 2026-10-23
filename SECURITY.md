@@ -185,7 +185,9 @@ Security floors live in `tool.uv.override-dependencies` (with per-CVE comments i
 
 **pip**: `tool.uv.override-dependencies` requires `pip>=26.2` so **PYSEC-2026-3721** (and earlier **CVE-2026-3219** / **PYSEC-2026-196**) no longer require a `pip-audit` ignore.
 
-**PYSEC-2026-3447 (setuptools)**: Resolved via override (`setuptools>=83.0.0`) — transitive build/tooling path; `82.0.0` is the last vulnerable release listed by OSV.
+**PYSEC-2026-3447 / GHSA-xmj3-9gf7-h52w (setuptools)**: Resolved via override (`setuptools>=84.1.0`) — transitive build/tooling path. `82.0.0` was the last release listed for PYSEC-2026-3447. GHSA-xmj3-9gf7-h52w affects `>=38.2.2,<84.1.0` (Windows path escape in `Wheel.install_as_egg` via `namespace_packages.txt`); 84.1.0 validates those entries as dotted module names.
+
+**GHSA-7xgj-8392-5q4r (fastmcp)**: Resolved via override (`fastmcp>=3.4.10,<4`). `pydantic-ai` pulls FastMCP through the `fastmcp` extra on `pydantic-ai-slim`. 3.4.10 backports authorization of transformed components. Stay on 3.x; 4.x is a separate line. Do not add a `pip-audit` ignore for this advisory.
 
 If you install `[crewai]` or `[llamaindex]`, run `pip-audit` separately on that environment and expect possible advisories until upstream publishes patched releases. Integration tests for those extras still run in CI with the full dependency tree.
 
