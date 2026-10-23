@@ -129,6 +129,8 @@ The `sharp` override forces Next's nested `sharp` up to `>=0.35.4` (GHSA-rgj7-g3
 
 **GHSA-mrhx-c7xc-m3w5 (zod)**: `security (web)` fails on `zod` before 4.6.6. Production `zod` is `^4.6.7`. The shadcn CLI at 3.8.5 nested Zod 3.25.76, and `audit-ci` flags that copy on the full graph. `shadcn` 4.22.1 depends on Zod 4 and hoists the patched package. Do not force Zod 4 onto shadcn 3: that CLI calls `ZodObject.deepPartial`, which Zod 4 removed.
 
+**GHSA-27r3-jxmh-p828 (body-parser)**: `audit-ci` fails on `body-parser` 2.3.0, pulled by Express 5 in the dev graph (`@modelcontextprotocol/sdk`). The range is `>=2.0.0 <2.4.0`. The override `body-parser` `^2.4.0` clears it. Production `npm audit --omit=dev` does not see this copy.
+
 If a PostCSS or sharp override breaks `next build`, stop and report — do not silently adopt a preview/canary Next.
 
 **Prettier**: CI runs `npm run format:check` only on changed TS/TSX under `apps/web/` (`fetch-depth: 0`). `quality (web)` checks out the same ref as `changes` (the pull-request head SHA, or `github.sha` on a push), so the working tree and the file list are one commit. The diff is two-dot (`base_sha..HEAD`). On a pull request `base_sha` is `merge-base(base.sha, HEAD)`, not the pull-request base SHA; those two differ when the branch is behind the base. On a push `base_sha` is `github.event.before`. A missing or all-zero `before` uses `HEAD^` inside `changes`. A push to the default branch must not use `merge-base(HEAD, origin/main)`, because that merge-base is `HEAD` and the diff is empty. If `changes` does not write `base_sha`, the Prettier step fails. Full-tree Prettier is intentionally not gated (historical drift). Pass paths locally: `npm run format:check -- <files>`.
@@ -185,7 +187,9 @@ Security floors live in `tool.uv.override-dependencies` (with per-CVE comments i
 
 **pip**: `tool.uv.override-dependencies` requires `pip>=26.2` so **PYSEC-2026-3721** (and earlier **CVE-2026-3219** / **PYSEC-2026-196**) no longer require a `pip-audit` ignore.
 
-**PYSEC-2026-3447 (setuptools)**: Resolved via override (`setuptools>=83.0.0`) — transitive build/tooling path; `82.0.0` is the last vulnerable release listed by OSV.
+**PYSEC-2026-3447 / GHSA-xmj3-9gf7-h52w (setuptools)**: Resolved via override (`setuptools>=84.1.0`) — transitive build/tooling path. `82.0.0` was the last release listed for PYSEC-2026-3447. GHSA-xmj3-9gf7-h52w affects `>=38.2.2,<84.1.0` (Windows path escape in `Wheel.install_as_egg` via `namespace_packages.txt`); 84.1.0 validates those entries as dotted module names.
+
+**GHSA-7xgj-8392-5q4r (fastmcp)**: Resolved via override (`fastmcp>=3.4.10,<4`). `pydantic-ai` pulls FastMCP through the `fastmcp` extra on `pydantic-ai-slim`. 3.4.10 backports authorization of transformed components. Stay on 3.x; 4.x is a separate line. Do not add a `pip-audit` ignore for this advisory.
 
 If you install `[crewai]` or `[llamaindex]`, run `pip-audit` separately on that environment and expect possible advisories until upstream publishes patched releases. Integration tests for those extras still run in CI with the full dependency tree.
 
