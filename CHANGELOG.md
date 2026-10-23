@@ -34,6 +34,7 @@ Tag [`v2.5.9`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.
   GHSA-7xgj-8392-5q4r) and `setuptools>=84.1.0` (lock 84.2.1,
   GHSA-xmj3-9gf7-h52w). Another project's `pip install asap-protocol==2.5.9`
   does not apply these pins.
+- **`apps/web` `fast-uri`** — override `^3.1.9` (GHSA-w74x-v6f9-j3xg and the other 3.1.8 advisories).
 - **`apps/web`** — Next.js and `eslint-config-next` **16.4.3**
   (GHSA-2464-fhr4-w9xw, GHSA-p3m5-59mp-jv5r, GHSA-673q-mjm6-r5xr), `zod`
   **4.6.7** (GHSA-mrhx-c7xc-m3w5), `shadcn` **4.22.1**, and `body-parser`

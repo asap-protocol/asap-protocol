@@ -1137,7 +1137,8 @@ changes relative to v2.5.8.
   project does not apply those pins
   ([#426](https://github.com/asap-protocol/asap-protocol/pull/426)).
 - **Web app** — Next.js **16.4.3**, ``zod`` **4.6.7**, ``shadcn`` **4.22.1**,
-  and ``body-parser`` **^2.4.0**. Those pins are this repository's web app,
+  ``body-parser`` **^2.4.0**, and ``fast-uri`` **^3.1.9**. Those pins are
+  this repository's web app,
   not PyPI requirements
   ([#425](https://github.com/asap-protocol/asap-protocol/pull/425),
   [#426](https://github.com/asap-protocol/asap-protocol/pull/426)).

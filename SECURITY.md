@@ -112,7 +112,7 @@ npx --no-install audit-ci --config audit-ci.jsonc  # lockfile binary (audit-ci 7
 "overrides": {
   "sharp": "^0.35.5",
   "source-map-js": "^1.2.2",
-  "fast-uri": "^3.1.6",
+  "fast-uri": "^3.1.9",
   "nanoid": "^3.3.18",
   "postcss": "^8.5.23",
   "brace-expansion": "^5.0.9",
@@ -128,6 +128,8 @@ npx --no-install audit-ci --config audit-ci.jsonc  # lockfile binary (audit-ci 7
 The `sharp` override forces Next's nested `sharp` up to `>=0.35.4` (GHSA-rgj7-g3m4-5g8c / libheif). Keep the direct `sharp` dependency aligned. **16.4.3** is the October 2026 security line (GHSA-2464-fhr4-w9xw, GHSA-p3m5-59mp-jv5r, GHSA-673q-mjm6-r5xr; first patched in 16.4.1). Do not stay on 16.3.x. Nested `"next": { "postcss": "..." }` is unnecessary on 16.4.3 (Next already declares PostCSS 8.5.23+). The `fflate` override addresses **CVE-2026-45820**; `baseline-browser-mapping` addresses **CVE-2026-45819**. The `vite` override pins **8.1.6**, the first 8.1 release that clears **GHSA-587h-7wmj-h5pm** (vulnerable range `>=8.0.0 <=8.1.5`). Vite is a Vitest devDependency. Later minors patch that advisory at 8.2.4 and 8.3.3; this repo stays on the 8.1 patch the lock already resolved.
 
 **GHSA-mrhx-c7xc-m3w5 (zod)**: `security (web)` fails on `zod` before 4.6.6. Production `zod` is `^4.6.7`. The shadcn CLI at 3.8.5 nested Zod 3.25.76, and `audit-ci` flags that copy on the full graph. `shadcn` 4.22.1 depends on Zod 4 and hoists the patched package. Do not force Zod 4 onto shadcn 3: that CLI calls `ZodObject.deepPartial`, which Zod 4 removed.
+
+**GHSA-w74x-v6f9-j3xg / GHSA-xhq7-xmqj-769h / GHSA-wjr9-j795-jxcr / GHSA-333x-w4r6-6crp (fast-uri)**: Production `npm audit` fails on `fast-uri` 3.1.8 (range `3.0.0`–`3.1.8`). The override is `^3.1.9`.
 
 **GHSA-27r3-jxmh-p828 (body-parser)**: `audit-ci` fails on `body-parser` 2.3.0, pulled by Express 5 in the dev graph (`@modelcontextprotocol/sdk`). The range is `>=2.0.0 <2.4.0`. The override `body-parser` `^2.4.0` clears it. Production `npm audit --omit=dev` does not see this copy.
 
