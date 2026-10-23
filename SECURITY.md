@@ -106,7 +106,7 @@ npx --no-install audit-ci --config audit-ci.jsonc  # lockfile binary (audit-ci 7
 - **Production graph** (`--omit=dev`): moderate and above fail `security (web)`.
 - **Full graph** (including devDependencies): high and above fail `security (web)`, enforced via `audit-ci` and `apps/web/audit-ci.jsonc` (same allowlist as CI). Raw `npm audit --audit-level=high` may still list dev-only advisories with no fixed release.
 - Prefer range-compatible updates via `npm install` / `npm audit fix` (never `npm audit fix --force`).
-- Do **not** downgrade `next` to satisfy transitive advisories. For Next **16.3.4**, pin fixed transitive deps via npm overrides with an unscoped `next` key — a versioned key like `next@16.2.10` pins nested copies of `next` and breaks `npm ci` (ERESOLVE) on every Next bump:
+- Do **not** downgrade `next` to satisfy transitive advisories. For Next **16.4.3**, pin fixed transitive deps via npm overrides with an unscoped `next` key — a versioned key like `next@16.2.10` pins nested copies of `next` and breaks `npm ci` (ERESOLVE) on every Next bump:
 
 ```json
 "overrides": {
@@ -125,7 +125,7 @@ npx --no-install audit-ci --config audit-ci.jsonc  # lockfile binary (audit-ci 7
 }
 ```
 
-The `sharp` override forces Next's nested `sharp` up to `>=0.35.4` (GHSA-rgj7-g3m4-5g8c / libheif). Keep the direct `sharp` dependency aligned. **16.3.4** is the August 2026 security line (GHSA-p293-qw3h-jr36, GHSA-2xp9-vwfh-vxw4); do not stay on 16.2.x. Nested `"next": { "postcss": "..." }` is unnecessary on 16.3.4 (Next already declares PostCSS 8.5.23+). The `fflate` override addresses **CVE-2026-45820**; `baseline-browser-mapping` addresses **CVE-2026-45819**. The `vite` override pins **8.1.6**, the first 8.1 release that clears **GHSA-587h-7wmj-h5pm** (vulnerable range `>=8.0.0 <=8.1.5`). Vite is a Vitest devDependency. Later minors patch that advisory at 8.2.4 and 8.3.3; this repo stays on the 8.1 patch the lock already resolved.
+The `sharp` override forces Next's nested `sharp` up to `>=0.35.4` (GHSA-rgj7-g3m4-5g8c / libheif). Keep the direct `sharp` dependency aligned. **16.4.3** is the October 2026 security line (GHSA-2464-fhr4-w9xw, GHSA-p3m5-59mp-jv5r, GHSA-673q-mjm6-r5xr; first patched in 16.4.1). Do not stay on 16.3.x. Nested `"next": { "postcss": "..." }` is unnecessary on 16.4.3 (Next already declares PostCSS 8.5.23+). The `fflate` override addresses **CVE-2026-45820**; `baseline-browser-mapping` addresses **CVE-2026-45819**. The `vite` override pins **8.1.6**, the first 8.1 release that clears **GHSA-587h-7wmj-h5pm** (vulnerable range `>=8.0.0 <=8.1.5`). Vite is a Vitest devDependency. Later minors patch that advisory at 8.2.4 and 8.3.3; this repo stays on the 8.1 patch the lock already resolved.
 
 If a PostCSS or sharp override breaks `next build`, stop and report — do not silently adopt a preview/canary Next.
 
