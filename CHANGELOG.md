@@ -16,6 +16,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.5.9] - 2026-10-23
+
+**Security & CI patch** — promote `development` onto `main` after v2.5.8.
+Dependency floors, the `security (web)` job, and regression fences. This is
+**not** Formal Spec & Interop. npm `@asap-protocol/*` packages remain at
+**2.4.1**. PyPI `asap-compliance` remains **1.3.0**.
+Tag [`v2.5.9`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.9)
+· PyPI `asap-protocol==2.5.9`.
+
+### Security
+
+- **Direct floors** — `brotli>=1.2.1` (PYSEC-2026-4322 / GHSA-9v8h-qqgm-4m35)
+  and `opentelemetry-api>=1.45.1` (CVE-2026-114603), with the matching SDK,
+  exporter, and instrumentation releases. These are published requirements.
+- **Repository uv overrides** — `fastmcp>=3.4.10,<4` (lock 3.4.11,
+  GHSA-7xgj-8392-5q4r) and `setuptools>=84.1.0` (lock 84.2.1,
+  GHSA-xmj3-9gf7-h52w). Another project's `pip install asap-protocol==2.5.9`
+  does not apply these pins.
+- **`apps/web`** — Next.js and `eslint-config-next` **16.4.3**
+  (GHSA-2464-fhr4-w9xw, GHSA-p3m5-59mp-jv5r, GHSA-673q-mjm6-r5xr), `zod`
+  **4.6.7** (GHSA-mrhx-c7xc-m3w5), `shadcn` **4.22.1**, and `body-parser`
+  **^2.4.0** (GHSA-27r3-jxmh-p828). These pins are this repository's web
+  app, not PyPI requirements
+  ([#425](https://github.com/asap-protocol/asap-protocol/pull/425),
+  [#426](https://github.com/asap-protocol/asap-protocol/pull/426)).
+
+### CI
+
+- **One diff base** — the path filter and Prettier share `base_sha`. Pull
+  requests use `merge-base`. `quality (web)` checks out the pull-request
+  head. An empty base fails the format step
+  ([#425](https://github.com/asap-protocol/asap-protocol/pull/425)).
+- **Stack jobs** — unchanged stacks are skipped; a failed `changes` job
+  still runs the suite
+  ([#420](https://github.com/asap-protocol/asap-protocol/pull/420)).
+- **Coverage** — collected in the parallel test run. `serial_mcp` stays out
+  of xdist and is appended with `--cov-append`. The coverage job enforces
+  `--fail-under=85`
+  ([#419](https://github.com/asap-protocol/asap-protocol/pull/419)).
+- **`security (web)`** — npm audits for `apps/web` live in their own job.
+  Protect main requires it.
+
+### Quality
+
+- **Auth, billing, and registry fences (#423)** — identity binding, keys,
+  delegation allow-list and reissue, metering windows, usage intervals,
+  registry IO, batch, auth helpers, and circuit-open refresh.
+- **SLA and JWT fences (#426)** — oldest SLA timestamp on memory and SQLite,
+  legacy `alg: EdDSA` plus a real signature flip, and host/agent
+  `alg: Ed25519`.
+
+### Migration
+
+- **v2.5.8 → v2.5.9**: See [migration guide](docs/migration.md#upgrading-from-v258-to-v259).
+  No wire-protocol or manifest schema breaking changes. Installs pick up
+  `brotli>=1.2.1` and `opentelemetry-api>=1.45.1`.
+
+---
+
 ## [2.5.8] - 2026-10-21
 
 **Security & coverage patch** — record the repository dependency overrides

@@ -1119,6 +1119,56 @@ Scope: [prd-v2.5.4-distribution-loop.md](../product/prd/prd-v2.5.4-distribution-
 
 ---
 
+### Upgrading from v2.5.8 to v2.5.9
+
+**v2.5.9 (security & CI patch)** — **shipped**
+([tag `v2.5.9`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.9)) —
+promotes the `development` line onto ``main``. This is **not** Formal Spec
+& Interop. There are **no wire-protocol or manifest schema** breaking
+changes relative to v2.5.8.
+
+#### What lands in v2.5.9
+
+- **Published requirements** — ``brotli>=1.2.1`` (PYSEC-2026-4322) and
+  ``opentelemetry-api>=1.45.1`` (CVE-2026-114603), with the matching SDK and
+  instrumentation packages.
+- **Repository uv overrides** — ``fastmcp>=3.4.10,<4`` and
+  ``setuptools>=84.1.0``. ``pip install asap-protocol==2.5.9`` in another
+  project does not apply those pins
+  ([#426](https://github.com/asap-protocol/asap-protocol/pull/426)).
+- **Web app** — Next.js **16.4.3**, ``zod`` **4.6.7**, ``shadcn`` **4.22.1**,
+  and ``body-parser`` **^2.4.0**. Those pins are this repository's web app,
+  not PyPI requirements
+  ([#425](https://github.com/asap-protocol/asap-protocol/pull/425),
+  [#426](https://github.com/asap-protocol/asap-protocol/pull/426)).
+- **CI** — one diff base for the path filter and Prettier, stack skipping,
+  coverage inside the test job, and a required ``security (web)`` job
+  ([#419](https://github.com/asap-protocol/asap-protocol/pull/419),
+  [#420](https://github.com/asap-protocol/asap-protocol/pull/420),
+  [#425](https://github.com/asap-protocol/asap-protocol/pull/425)).
+- **Regression fences** — auth, billing, and registry
+  ([#423](https://github.com/asap-protocol/asap-protocol/pull/423));
+  SLA oldest timestamp and legacy JWT algorithms
+  ([#426](https://github.com/asap-protocol/asap-protocol/pull/426)).
+- **npm / compliance** — `@asap-protocol/*` remain **2.4.1**;
+  `asap-compliance` remains **1.3.0**.
+
+#### Upgrade steps
+
+1. Bump with `pip install 'asap-protocol==2.5.9'` (or `uv add asap-protocol`).
+2. TypeScript `@asap-protocol/*` packages remain at **2.4.1**;
+   `@asap-protocol/mcp-auth` HTTP/SSE middleware remains deferred.
+
+#### Backward compatibility
+
+- **Wire protocol**: Unchanged from v2.5.8.
+- **Breaking changes**: None for a typical ``asap-protocol`` install.
+  The ``fastmcp`` and ``setuptools`` pins are repository uv overrides.
+  The Next.js, ``zod``, ``shadcn``, and ``body-parser`` pins apply only to
+  ``apps/web`` in this repository.
+
+---
+
 ### Upgrading from v2.5.7 to v2.5.8
 
 **v2.5.8 (security & coverage patch)** — **shipped**

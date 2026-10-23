@@ -10,7 +10,7 @@ Sprint roadmaps and release checklists per protocol version. Pair each folder wi
 |--------|-----|--------|
 | _(none)_ — create [v2.5.5/](./v2.5.5/) at Formal Spec kickoff | [prd-v2.5.5-formal-spec-interop.md](../../product/prd/prd-v2.5.5-formal-spec-interop.md) | **NEXT** |
 
-Library patches **v2.5.6**, **v2.5.7**, and **v2.5.8** shipped on `main` without an `engineering/tasks/v2.5.6/`, `v2.5.7/`, or `v2.5.8/` folder (release/docs only; see `CHANGELOG.md` `[2.5.6]` / `[2.5.7]` / `[2.5.8]`). The **v2.5.5/** task folder name is reserved for Formal Spec kickoff, not the latest PyPI version.
+Library patches **v2.5.6**, **v2.5.7**, **v2.5.8**, and **v2.5.9** shipped on `main` without an `engineering/tasks/v2.5.6/`, `v2.5.7/`, `v2.5.8/`, or `v2.5.9/` folder (release/docs only; see `CHANGELOG.md` `[2.5.6]` / `[2.5.7]` / `[2.5.8]` / `[2.5.9]`). The **v2.5.5/** task folder name is reserved for Formal Spec kickoff, not the latest PyPI version.
 
 ---
 
