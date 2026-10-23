@@ -15,15 +15,11 @@ uv run pytest tests/transport/integration/test_rate_limiting.py -v
 
 # Run specific test
 uv run pytest tests/transport/integration/test_rate_limiting.py::TestRateLimiting::test_requests_within_limit_succeed -v
-
-# Fast parallel run (CI test job — no coverage)
-uv run pytest -n auto --tb=short
-
-# Coverage (dedicated run — do NOT combine with -n auto; see below)
-uv run pytest --tb=short --cov=asap --cov-report=html
 ```
 
-> **Coverage and xdist:** Do not pass `--cov` together with `-n auto`. pytest-xdist + coverage can cause `INTERNALERROR` (exit code 3). CI uses two jobs: parallel tests without coverage, then a separate coverage run. Canonical commands: [`.cursor/README.md`](../.cursor/README.md#canonical-commands) and `testing-standards.mdc`.
+Fast loop, local floor, and the CI argv: [Canonical commands](../.cursor/README.md#canonical-commands).
+
+> **Coverage and xdist:** Do not put `--cov` in pytest `addopts`; a partial run would be judged against the project-wide 85% floor. `serial_mcp` stays out of `-n auto`.
 
 **Why `uv run pytest` instead of `pytest`?**
 
@@ -207,14 +203,7 @@ The ASAP Protocol test suite uses a **three-pronged approach** to ensure complet
 
 We use `pytest-xdist` to run tests in separate processes, providing complete isolation at the process level. This is the primary mechanism for preventing interference.
 
-**Usage**:
-```bash
-# Run tests in parallel with automatic worker count
-uv run pytest -n auto
-
-# Run with specific number of workers
-uv run pytest -n 4
-```
+**Usage**: use the fast loop in [Canonical commands](../.cursor/README.md#canonical-commands). Pass `-n 4` instead of `-n auto` when you want a fixed worker count. Keep `-m "not serial_mcp"` on any xdist run.
 
 **Benefits**:
 - Complete process-level isolation
@@ -698,16 +687,9 @@ Fixtures ensure test isolation by:
 
 ### Parallel Execution
 
-Run tests in parallel with pytest-xdist (fast feedback; **no coverage**):
-```bash
-# Automatic worker count (recommended — same as CI test job)
-uv run pytest -n auto --tb=short
+Run tests in parallel with pytest-xdist via the [canonical commands](../.cursor/README.md#canonical-commands).
 
-# Specific number of workers
-uv run pytest -n 4 --tb=short
-```
-
-Do **not** add `--cov` to parallel runs. For coverage, use a separate command (see the canonical commands at the top of this guide or [CI Integration](#ci-integration)).
+Do **not** add `--cov` to pytest `addopts`. A partial file run would fail the project-wide floor (see [CI Integration](#ci-integration)).
 
 **Benefits**:
 - Faster execution on multi-core systems
@@ -866,27 +848,22 @@ To run all brotli-related tests, install dev dependencies (brotli is in `[projec
 
 **Solution**:
 1. Ensure tests use isolated fixtures (`isolated_limiter_factory`, `replace_global_limiter`)
-2. Run with pytest-xdist for process isolation: `pytest -n auto`
+2. Run with pytest-xdist for process isolation, using the fast loop in [Canonical commands](../.cursor/README.md#canonical-commands)
 3. Check that rate limiting tests are in `test_rate_limiting.py`
 4. Verify non-rate-limiting tests inherit from `NoRateLimitTestBase`
 
 ### Slow Test Execution
 
 **Solution**:
-1. Use parallel execution: `pytest -n auto`
+1. Use the fast loop in [Canonical commands](../.cursor/README.md#canonical-commands)
 2. Run only relevant tests during development
 3. Use `pytest --lf` to run only failed tests from last run
 4. Use `pytest --ff` to run failed tests first, then others
 
 ## CI Integration
 
-CI (`.github/workflows/ci.yml`) runs tests and coverage in **separate jobs**:
+CI (`.github/workflows/ci.yml`) collects coverage in the test job. The parallel run excludes `serial_mcp`; a second in-process run appends that marker with `--cov-append`. The coverage job enforces the floor with `uv run coverage report --fail-under=85` and uploads the report.
 
-| Job | Command |
-|-----|---------|
-| **test** | `uv run pytest -n auto --tb=short` |
-| **coverage** | `uv run pytest --tb=short --cov=asap --cov-report=xml --cov-fail-under=85` |
-
-Local pre-push mirrors the coverage job; use `-n auto` only for the fast test pass.
+The argv is the CI block in [Canonical commands](../.cursor/README.md#canonical-commands). Local pre-push is the local floor in that same section.
 
 See `.github/workflows/ci.yml` for linting, formatting, type checking, and security steps.

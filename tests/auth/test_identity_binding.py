@@ -326,3 +326,33 @@ def test_identity_binding_disabled_when_manifest_id_none() -> None:
         )
 
     assert response.status_code == 200
+
+
+def test_custom_claim_whitespace_is_stripped_before_compare() -> None:
+    """Padding around the manifest id still binds; padding does not allow a different id."""
+    key = jwk.RSAKey.generate_key(2048, private=True)
+    key_set = jwk.KeySet.import_key_set({"keys": [key.as_dict(private=False)]})
+
+    async def jwks(_: str) -> jwk.KeySet:
+        return key_set
+
+    app = _minimal_app(manifest_id="urn:asap:agent:bot", jwks_fetcher=jwks)
+    match = _make_token(
+        key,
+        extra_claims={DEFAULT_CUSTOM_CLAIM: "  urn:asap:agent:bot  "},
+    )
+    mismatch = _make_token(
+        key,
+        extra_claims={DEFAULT_CUSTOM_CLAIM: "  urn:asap:agent:other  "},
+    )
+
+    with TestClient(app) as client:
+        allowed = client.get("/asap", headers={"Authorization": f"Bearer {match}"})
+        denied = client.get("/asap", headers={"Authorization": f"Bearer {mismatch}"})
+
+    assert allowed.status_code == 200
+    assert denied.status_code == 403
+    assert denied.json()["detail"] == (
+        "Identity mismatch: custom claim does not match agent manifest "
+        "(expected: urn:asap:agent:bot)"
+    )

@@ -69,11 +69,11 @@ Repeat the same scenarios covered by CI without running the full suite:
 
 ## 9. Full Test Suite
 
-- [ ] `uv run pytest -n auto --tb=short` — expect **all passed**, a small number **skipped** (rate-limit isolation / optional markers); update counts below when you run.
+- [ ] Fast loop in [Canonical commands](../.cursor/README.md#canonical-commands) — expect **all passed**, a small number **skipped** (rate-limit isolation / optional markers); update counts below when you run.
 
 **Reference run (local, 2026-04-16)**: `2953 passed`, `7 skipped` in ~130s without `-n auto`.
 
-- [ ] Optional coverage (CI-parity, no xdist): `uv run pytest --tb=short --cov=asap --cov-report=term-missing --cov-fail-under=85`
+- [ ] Local floor in [Canonical commands](../.cursor/README.md#canonical-commands). CI applies the floor with `uv run coverage report --fail-under=85`.
 
 ## 10. Lint & Type Check
 

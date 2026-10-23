@@ -21,7 +21,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from asap.economics.metering import UsageMetrics
+from asap.economics.metering import UsageAggregateByAgent, UsageMetrics
 from asap.economics.storage import InMemoryMeteringStorage
 from asap.state.metering import MeteringStorageBridge, UsageAggregate, UsageEvent
 from asap.state.metering import UsageMetrics as StateUsageMetrics
@@ -119,6 +119,45 @@ class TestMeteringStorageBridgeAggregate:
         assert agg.total_tokens == 30
         assert agg.total_api_calls == 3
         assert agg.total_tasks == 1
+
+    async def test_aggregate_selects_requested_agent_when_several_exist(self) -> None:
+        """Pick the requested agent when aggregate returns every agent, not the first row.
+
+        Storage queries already filter by agent. This double returns both rows so
+        the bridge's own match is what keeps ``agent_a`` totals off ``agent_z``.
+        """
+
+        class _EveryAgent:
+            async def aggregate(
+                self,
+                group_by: str,
+                filters: object = None,
+            ) -> list[UsageAggregateByAgent]:
+                return [
+                    UsageAggregateByAgent(
+                        agent_id="agent_a",
+                        period="all",
+                        total_tokens=100,
+                        total_tasks=4,
+                        total_api_calls=4,
+                        total_duration_ms=4,
+                    ),
+                    UsageAggregateByAgent(
+                        agent_id="agent_z",
+                        period="all",
+                        total_tokens=7,
+                        total_tasks=1,
+                        total_api_calls=2,
+                        total_duration_ms=9,
+                    ),
+                ]
+
+        bridge = MeteringStorageBridge(_EveryAgent())
+        agg = await bridge.aggregate(agent_id="agent_z", period="hour")
+        assert agg.agent_id == "agent_z"
+        assert agg.total_tokens == 7
+        assert agg.total_tasks == 1
+        assert agg.total_api_calls == 2
 
     async def test_aggregate_no_matching_agent_returns_empty(self) -> None:
         bridge = MeteringStorageBridge(InMemoryMeteringStorage())
