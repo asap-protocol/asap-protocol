@@ -171,7 +171,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           # Full history so Prettier can diff the shared base SHA.
+          # Same ref as `changes`: the pull-request head, not the merge commit.
+          # format:check reads this tree, so the file list must name this commit.
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
         with:
@@ -185,21 +188,19 @@ jobs:
         working-directory: apps/web
         env:
           DIFF_BASE: ${{ needs.changes.outputs.base_sha }}
-          DIFF_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
-          # Same SHA and two-dot comparison as the path filter. An empty base
-          # means `changes` failed before writing the output; use this checkout.
-          if [ -n "$DIFF_BASE" ]; then
-            BASE="$DIFF_BASE"
-            HEAD_REV="$DIFF_HEAD"
-          else
-            BASE="$(git rev-parse HEAD^)"
-            HEAD_REV="$(git rev-parse HEAD)"
+          # Two-dot diff against the shared base, then format:check on this
+          # checkout. An empty base means `changes` died before writing the SHA.
+          # HEAD^ would cover only the last commit of a multi-commit push.
+          if [ -z "${DIFF_BASE}" ]; then
+            echo "DIFF_BASE is empty; expected the base SHA from the changes job." >&2
+            exit 1
           fi
-          echo "Prettier base=${BASE} head=${HEAD_REV}"
+          HEAD_REV="$(git rev-parse HEAD)"
+          echo "Prettier base=${DIFF_BASE} head=${HEAD_REV}"
           mapfile -t FILES < <(
-            git -C "${GITHUB_WORKSPACE}" diff --name-only --diff-filter=ACMR "${BASE}..${HEAD_REV}" -- \
+            git -C "${GITHUB_WORKSPACE}" diff --name-only --diff-filter=ACMR "${DIFF_BASE}..${HEAD_REV}" -- \
               'apps/web/**/*.ts' 'apps/web/**/*.tsx' \
               | sed 's|^apps/web/||'
           )
