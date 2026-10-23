@@ -4,7 +4,7 @@ Thanks for helping out! Here's how to get started quickly.
 
 ## Quick Start
 
-1.  **Setup**: You need `uv` installed. Use `--dev` so that dev dependencies (pytest-xdist, ruff, mypy, etc.) are installed and local test runs match CI (including `pytest -n auto`).
+1.  **Setup**: You need `uv` installed. Use `--dev` so that dev dependencies (pytest-xdist, ruff, mypy, etc.) are installed. Local test runs use the fast loop in [Canonical commands](.cursor/README.md#canonical-commands). Keep `serial_mcp` out of `pytest -n auto`.
     ```bash
     git clone https://github.com/asap-protocol/asap-protocol.git
     cd asap-protocol

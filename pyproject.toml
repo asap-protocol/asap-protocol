@@ -362,7 +362,7 @@ addopts = [
 # Coverage flags stay out of addopts: a partial run would fail the project-wide floor.
 # Commands: .cursor/README.md#canonical-commands
 markers = [
-    "serial_mcp: MCP example-server subprocess. Exclude from pytest-xdist; CI runs it in-process with --cov-append.",
+    "serial_mcp: MCP example server started as a subprocess. Keep the test out of pytest-xdist; CI runs pytest for it outside xdist with --cov-append.",
 ]
 testpaths = ["tests"]
 # Note: benchmarks/ excluded from testpaths - Locust monkey-patches gevent/ssl which

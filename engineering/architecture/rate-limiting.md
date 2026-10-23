@@ -153,16 +153,9 @@ test = [
 
 ### Usage
 
-```bash
-# Run tests in parallel (auto-detect CPU count)
-pytest -n auto
+Parallel runs follow the fast loop in [Canonical commands](../../.cursor/README.md#canonical-commands). That loop passes `-m "not serial_mcp"` together with `-n auto`. Use `-n 4` with the same marker for a fixed worker count. Use `-n 0` for a one-process debug run; the `serial_mcp` test can run in that process.
 
-# Run with specific number of workers
-pytest -n 4
-
-# Disable parallel execution (useful for debugging)
-pytest -n 0
-```
+`pytest -n auto` without the marker starts `test_subprocess_example_server_secure_action_denied_without_jwt` under xdist. That is the flake `serial_mcp` exists to avoid.
 
 ### CI Configuration
 
@@ -340,7 +333,7 @@ Use the **decision tree** and **critical rules** in `.cursor/rules/testing-rate-
 
 - [ ] Chose pattern from decision tree (rate-limiting test? → moderate limits + dedicated file; else → high limits or `NoRateLimitTestBase`).
 - [ ] Applied aggressive monkeypatch per the rule (both modules, before creating app, unique storage, `app.state.limiter`).
-- [ ] Test organization: rate-limiting tests in dedicated file; process isolation (`pytest -n auto`); fixture scope `function`, not `module`.
+- [ ] Test organization: rate-limiting tests in dedicated file; process isolation (`uv run pytest -n auto -m "not serial_mcp"`); fixture scope `function`, not `module`.
 
 ---
 
