@@ -60,10 +60,18 @@ def _signed_token(alg: str) -> tuple[str, Ed25519PublicKey]:
 
 
 def _tamper_signature(token: str) -> str:
-    """Flip the last signature character without changing the segment count."""
+    """Flip the first signature character so the Ed25519 bytes actually change.
+
+    The last base64url character of a 64-byte signature is padding (``A``,
+    ``Q``, ``g``, or ``w``). Replacing a trailing ``A`` with ``B`` decodes to
+    the same 64 bytes, and joserfc can reject the alphabet before it checks
+    the signature.
+    """
     header, payload, signature = token.split(".")
-    replacement = "A" if signature[-1:] != "A" else "B"
-    return f"{header}.{payload}.{signature[:-1]}{replacement}"
+    if len(signature) < 2:
+        raise AssertionError(f"JWT signature segment is too short to flip: {signature!r}")
+    flipped = "A" if signature[0] != "A" else "B"
+    return f"{header}.{payload}.{flipped}{signature[1:]}"
 
 
 def test_validate_delegation_accepts_legacy_eddsa_header() -> None:

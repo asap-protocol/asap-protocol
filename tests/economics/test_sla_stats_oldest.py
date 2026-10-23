@@ -17,6 +17,7 @@ import pytest
 from asap.economics.sla import SLABreach, SLAMetrics
 from asap.economics.sla_storage import InMemorySLAStorage, SQLiteSLAStorage
 
+_FEBRUARY = datetime(2026, 2, 1, 0, 0, 0, 500000, tzinfo=timezone.utc)
 _MARCH = datetime(2026, 3, 1, 0, 0, 0, 500000, tzinfo=timezone.utc)
 _JUNE = datetime(2026, 6, 15, 12, 0, 0, 500000, tzinfo=timezone.utc)
 _AUGUST = datetime(2026, 8, 1, 0, 0, 0, 500000, tzinfo=timezone.utc)
@@ -32,12 +33,12 @@ def _open_store(backend: str, tmp_path: Path) -> InMemorySLAStorage | SQLiteSLAS
     raise ValueError(f"backend must be 'memory' or 'sqlite', got {backend!r}")
 
 
-def _metric(period_start: datetime) -> SLAMetrics:
-    """One metrics row whose window begins at ``period_start``."""
+def _metric(period_start: datetime, period_end: datetime | None = None) -> SLAMetrics:
+    """One metrics row. ``period_end`` defaults to one hour after the start."""
     return SLAMetrics(
         agent_id="urn:asap:agent:sla-oldest",
         period_start=period_start,
-        period_end=period_start + _HOUR,
+        period_end=period_start + _HOUR if period_end is None else period_end,
         uptime_percent=99.0,
         latency_p95_ms=10,
         error_rate_percent=0.1,
@@ -46,10 +47,10 @@ def _metric(period_start: datetime) -> SLAMetrics:
     )
 
 
-def _breach(detected_at: datetime) -> SLABreach:
+def _breach(detected_at: datetime, breach_id: str = "breach-oldest") -> SLABreach:
     """One breach row detected at ``detected_at``."""
     return SLABreach(
-        id="breach-oldest",
+        id=breach_id,
         agent_id="urn:asap:agent:sla-oldest",
         breach_type="latency",
         threshold="500ms",
@@ -126,5 +127,36 @@ async def test_stats_oldest_uses_the_only_populated_table(
 
     stats = await store.stats()
 
+    assert stats.total_events == 1
+    assert stats.oldest_timestamp == expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("backend", ["memory", "sqlite"])
+async def test_stats_oldest_breach_is_min_detected_at(backend: str, tmp_path: Path) -> None:
+    """Two breaches must keep the earlier ``detected_at``. ``MAX`` would return August."""
+    store = _open_store(backend, tmp_path)
+    await store.record_breach(_breach(_AUGUST, "breach-late"))
+    await store.record_breach(_breach(_MARCH, "breach-early"))
+
+    stats = await store.stats()
+
+    assert stats.total_events == 2
+    assert stats.oldest_timestamp == _MARCH
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("backend", ["memory", "sqlite"])
+async def test_stats_oldest_period_end_counts_only_in_memory(backend: str, tmp_path: Path) -> None:
+    """Memory mins ``period_end``. SQLite reads ``period_start`` and ``detected_at`` only.
+
+    A later end cannot be the minimum, so this window ends before it starts.
+    """
+    store = _open_store(backend, tmp_path)
+    await store.record_metrics(_metric(_MARCH, _FEBRUARY))
+
+    stats = await store.stats()
+
+    expected = _FEBRUARY if backend == "memory" else _MARCH
     assert stats.total_events == 1
     assert stats.oldest_timestamp == expected
