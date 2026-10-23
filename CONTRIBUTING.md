@@ -11,22 +11,19 @@ Thanks for helping out! Here's how to get started quickly.
     uv sync --all-extras --dev
     ```
 
-2.  **Verify** (CI collects coverage in the parallel test run):
-    ```bash
-    uv run pytest -n auto --tb=short --cov=asap --cov-report=xml --cov-fail-under=85
-    ```
+2.  **Verify**: run the local floor in [Canonical commands](.cursor/README.md#canonical-commands).
 
 ## Development Workflow
 
 -   **Linting & Formatting**: `uv run ruff check .` and `uv run ruff format .`
 -   **Type Checking**: `uv run mypy src/ scripts/ tests/`
--   **Testing**: `uv run pytest -n auto --tb=short --cov=asap --cov-report=xml --cov-fail-under=85` (same suite as the CI test job; the coverage job enforces the 85% floor on that result).
+-   **Testing**: [Canonical commands](.cursor/README.md#canonical-commands). The coverage job enforces the 85% floor on the CI test job's artifact.
 
 ## Pull Requests
 
 1.  **Branch**: Create a feature branch (`git checkout -b feature/my-cool-feature`).
 2.  **Commit**: Use [Conventional Commits](https://www.conventionalcommits.org/) (e.g., `feat: add awesome feature`, `fix: resolve crash`).
-3.  **Test**: Ensure `uv run pytest -n auto --tb=short --cov=asap --cov-report=xml --cov-fail-under=85` passes (same suite as the CI test job).
+3.  **Test**: The local floor in [Canonical commands](.cursor/README.md#canonical-commands) passes.
 4.  **Push**: Open a PR on GitHub.
 
 ## Testing
@@ -54,7 +51,7 @@ Tests are organized into three categories:
 
 2. **For rate limiting tests**: Use aggressive monkeypatch fixtures (see [Testing Guide](docs/testing.md))
 
-3. **Run with parallel execution**: Use `pytest -n auto` for process-level isolation. CI collects coverage in that same parallel run.
+3. **Run with parallel execution**: Use the fast loop in [Canonical commands](.cursor/README.md#canonical-commands). `serial_mcp` stays out of `-n auto`.
 
 ### Test Isolation Strategy
 
@@ -70,7 +67,7 @@ See the [Testing Guide](docs/testing.md) for complete details on:
 - Using fixtures
 - Troubleshooting test interference
 
-**Troubleshooting**: If you see `unrecognized arguments: -n`, run `uv sync --all-extras --dev` so pytest-xdist is installed. The CI test job runs `uv run pytest -n auto --tb=short --cov=asap --cov-report=xml`. The coverage job enforces the 85% floor on that result and uploads it.
+**Troubleshooting**: If you see `unrecognized arguments: -n`, run `uv sync --all-extras --dev` so pytest-xdist is installed. CI commands are in [Canonical commands](.cursor/README.md#canonical-commands). The coverage job enforces the 85% floor on the test job's artifact and uploads it.
 
 ## Guidelines
 

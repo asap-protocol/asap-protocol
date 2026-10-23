@@ -18,7 +18,7 @@
 
 ```bash
 uv sync                                     # Install dependencies
-uv run pytest -n auto --tb=short            # Fast local run. CI also passes --cov=asap --cov-report=xml.
+# Tests: .cursor/README.md#canonical-commands (fast loop, then local floor)
 uv run uvicorn asap.transport.server:app --reload  # Start dev server
 uv run mypy src/ scripts/ tests/ && uv run ruff check src/  # Verify quality
 ```

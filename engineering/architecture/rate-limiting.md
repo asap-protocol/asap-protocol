@@ -166,11 +166,7 @@ pytest -n 0
 
 ### CI Configuration
 
-```yaml
-# .github/workflows/ci.yml (coverage is collected in the parallel test job)
-- name: Run tests with coverage
-  run: uv run pytest -n auto --tb=short --cov=asap --cov-report=xml
-```
+The test argv is the [canonical commands](../../.cursor/README.md#canonical-commands) block. The coverage job runs `uv run coverage report --fail-under=85` on that artifact.
 
 ---
 
