@@ -209,9 +209,14 @@ async def test_stdio_secure_action_denied_wrong_capability_in_jwt(
     assert CAPABILITY_DENIED in _call_tool_result_text(response)
 
 
+@pytest.mark.serial_mcp
 @pytest.mark.asyncio
 async def test_subprocess_example_server_secure_action_denied_without_jwt() -> None:
-    """Subprocess smoke: protected tool without JWT fails on example stdio server."""
+    """Subprocess smoke: protected tool without JWT fails on example stdio server.
+
+    Marked ``serial_mcp`` so CI keeps it out of pytest-xdist. The example
+    server is a child process (``uv run python examples/mcp_auth_bridge/server.py``).
+    """
     server_command = ["uv", "run", "python", str(_EXAMPLE_SERVER)]
     client = MCPClient(
         server_command,
