@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Delegation JWT parsing returns a rejection instead of `AttributeError` when the payload is JSON `null`, an array, a number, a boolean, or a string. `validate_delegation` uses the same parser.
+- Carousel previous/next flags stay in sync when `scrollTo` runs before the `select` listener (including inside `setApi`).
 
 ### CI
 

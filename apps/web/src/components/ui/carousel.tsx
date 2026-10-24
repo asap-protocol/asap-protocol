@@ -56,9 +56,34 @@ function Carousel({
     },
     plugins
   );
-  // eslint-config-next 16.4 rejects setState in the subscribe effect below.
-  // The epoch only exists so select/reInit render the flags read from Embla.
-  const [, bumpScrollFlags] = React.useReducer((epoch: number): number => epoch + 1, 0);
+  // Embla emits `select` synchronously from scrollTo. A child effect, or
+  // scrollTo inside setApi, runs before a useEffect listener. eslint-config-next
+  // 16.4 also rejects setState in that effect. useSyncExternalStore re-reads
+  // the snapshot after subscribe, so a scroll that landed first still updates.
+  const subscribeToScroll = React.useCallback(
+    (onStoreChange: () => void): (() => void) => {
+      if (!api) {
+        return () => undefined;
+      }
+      api.on('reInit', onStoreChange);
+      api.on('select', onStoreChange);
+      return () => {
+        api.off('reInit', onStoreChange);
+        api.off('select', onStoreChange);
+      };
+    },
+    [api]
+  );
+  const canScrollPrev = React.useSyncExternalStore(
+    subscribeToScroll,
+    () => api?.canScrollPrev() ?? false,
+    () => false
+  );
+  const canScrollNext = React.useSyncExternalStore(
+    subscribeToScroll,
+    () => api?.canScrollNext() ?? false,
+    () => false
+  );
 
   const scrollPrev = React.useCallback(() => {
     api?.scrollPrev();
@@ -85,23 +110,6 @@ function Carousel({
     if (!api || !setApi) return;
     setApi(api);
   }, [api, setApi]);
-
-  React.useEffect(() => {
-    if (!api) return;
-    const onSelect = (): void => {
-      bumpScrollFlags();
-    };
-    api.on('reInit', onSelect);
-    api.on('select', onSelect);
-
-    return () => {
-      api.off('reInit', onSelect);
-      api.off('select', onSelect);
-    };
-  }, [api, bumpScrollFlags]);
-
-  const canScrollPrev = api?.canScrollPrev() ?? false;
-  const canScrollNext = api?.canScrollNext() ?? false;
 
   return (
     <CarouselContext.Provider
