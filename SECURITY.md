@@ -118,7 +118,7 @@ npx --no-install audit-ci --config audit-ci.jsonc  # lockfile binary (audit-ci 7
   "brace-expansion": "^5.0.9",
   "ip-address": "^10.3.1",
   "js-yaml": "^4.3.1",
-  "undici": "^7.29.0",
+  "undici": "^7.30.1",
   "fflate": "^0.8.3",
   "baseline-browser-mapping": "^2.11.0",
   "browserslist": "^4.28.9"
@@ -133,9 +133,11 @@ The `sharp` override forces Next's nested `sharp` up to `>=0.35.4` (GHSA-rgj7-g3
 
 **GHSA-27r3-jxmh-p828 (body-parser)**: `audit-ci` fails on `body-parser` 2.3.0, pulled by Express 5 in the dev graph (`@modelcontextprotocol/sdk`). The range is `>=2.0.0 <2.4.0`. The override `body-parser` `^2.4.0` clears it. Production `npm audit --omit=dev` does not see this copy.
 
+**GHSA-xjj6-f33q-929c (undici)**: `audit-ci` fails on `undici` 7.30.0 (range `>=7.18.0 <7.30.1`). The same release also covers GHSA-4qv8-2p9j-2685 and GHSA-f72v-6w45-q472. The override `^7.29.0` still resolved 7.30.0. The floor is `^7.30.1`. This copy is dev-only; production `npm audit --omit=dev` does not see it.
+
 If a PostCSS or sharp override breaks `next build`, stop and report — do not silently adopt a preview/canary Next.
 
-**Prettier**: CI runs `npm run format:check` only on changed TS/TSX under `apps/web/` (`fetch-depth: 0`). `quality (web)` checks out the same ref as `changes` (the pull-request head SHA, or `github.sha` on a push), so the working tree and the file list are one commit. The diff is two-dot (`base_sha..HEAD`). On a pull request `base_sha` is `merge-base(base.sha, HEAD)`, not the pull-request base SHA; those two differ when the branch is behind the base. On a push `base_sha` is `github.event.before`. A missing or all-zero `before` uses `HEAD^` inside `changes`. A push to the default branch must not use `merge-base(HEAD, origin/main)`, because that merge-base is `HEAD` and the diff is empty. If `changes` does not write `base_sha`, the Prettier step fails. Full-tree Prettier is intentionally not gated (historical drift). Pass paths locally: `npm run format:check -- <files>`.
+**Prettier**: CI runs `npm run format:check` only on changed TS/TSX under `apps/web/` (`fetch-depth: 0`). The pathspec is `apps/web/*.ts`, `apps/web/*.tsx`, `apps/web/**/*.ts`, and `apps/web/**/*.tsx`. `**` does not match a file that sits directly in `apps/web/`, so the single-star patterns cover `next.config.ts`, `playwright.config.ts`, `vitest.config.ts`, and `vitest.setup.ts`. `quality (web)` checks out the same ref as `changes` (the pull-request head SHA, or `github.sha` on a push), so the working tree and the file list are one commit. The diff is two-dot (`base_sha..HEAD`). On a pull request `base_sha` is `merge-base(base.sha, HEAD)`, not the pull-request base SHA; those two differ when the branch is behind the base. On a push `base_sha` is `github.event.before`. A missing or all-zero `before` uses `HEAD^` inside `changes`. A push to the default branch must not use `merge-base(HEAD, origin/main)`, because that merge-base is `HEAD` and the diff is empty. If `changes` does not write `base_sha`, the Prettier step fails. Full-tree Prettier is intentionally not gated (historical drift). Pass paths locally: `npm run format:check -- <files>`.
 
 CI runs `pip-audit` after a sync that **excludes** the optional extras `crewai` and `llamaindex`, because those graphs currently pull transitive packages (`diskcache`, `nltk`) that OSV still lists with no fixed release on PyPI. To match the security job locally:
 

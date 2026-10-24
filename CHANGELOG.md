@@ -16,6 +16,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.5.10] - 2026-10-23
+
+**Security & correctness patch** — late review on v2.5.9. This is **not**
+Formal Spec & Interop. npm `@asap-protocol/*` packages remain at **2.4.1**.
+PyPI `asap-compliance` remains **1.3.0**.
+Tag [`v2.5.10`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.10)
+· PyPI `asap-protocol==2.5.10`.
+
+### Fixed
+
+- Delegation JWT parsing returns a rejection instead of `AttributeError` when the payload is JSON `null`, an array, a number, a boolean, or a string. `validate_delegation` and `get_jti_from_jwt` share that parser
+  ([#428](https://github.com/asap-protocol/asap-protocol/pull/428)).
+- Carousel previous/next flags use `useSyncExternalStore`, so they stay in sync when `scrollTo` runs before the `select` listener (including inside `setApi`)
+  ([#428](https://github.com/asap-protocol/asap-protocol/pull/428)).
+
+### CI
+
+- Prettier's changed-file pathspec includes TypeScript files that sit directly in `apps/web/` (`next.config.ts`, `playwright.config.ts`, `vitest.config.ts`, `vitest.setup.ts`)
+  ([#428](https://github.com/asap-protocol/asap-protocol/pull/428)).
+
+### Security
+
+- **Published library behavior** — the delegation JWT rejection above is the behavior change in `asap-protocol==2.5.10`. `brotli>=1.2.1` and `opentelemetry-api>=1.45.1` already shipped in 2.5.9. This release does not add new published dependency floors.
+- **Satellite locks** — `apps/example-agent`, `asap-compliance`, and `apps/registry-bot` follow the floors already published in 2.5.9: `brotli` 1.2.1, OpenTelemetry 1.45.1 (instrumentation 0.66b1), `cryptography` 50.0.2, and `joserfc` 1.7.7. The locks now record editable `asap-protocol` 2.5.10. The example-agent CI job syncs with `--frozen`.
+- **`apps/web` `undici`** — override `^7.30.1` (GHSA-xjj6-f33q-929c). `^7.29.0` still resolved 7.30.0. Dev graph only; not a PyPI requirement.
+
+### Migration
+
+- **v2.5.9 → v2.5.10**: See [migration guide](docs/migration.md#upgrading-from-v259-to-v2510).
+  No wire-protocol or manifest schema breaking changes.
+
+---
+
 ## [2.5.9] - 2026-10-23
 
 **Security & CI patch** — promote `development` onto `main` after v2.5.8.

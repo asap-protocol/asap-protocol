@@ -49,9 +49,10 @@ Between **v2.4.1** (security patch) and **v3.0** (economy), the project needs a 
 | **v2.5.7** | Quality & coverage patch | Batch rate-limit `check_n`, CI security gates, regression tests #394–#399 | `CHANGELOG.md` `[2.5.7]` (no Formal Spec PRD) | **✅ Shipped** 2026-10-11 — tag [`v2.5.7`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.7) |
 | **v2.5.8** | Security & coverage patch | Dependency floors (aiohttp, certifi, pillow, mcp, Vite) and regression fences #413–#417 | `CHANGELOG.md` `[2.5.8]` (no Formal Spec PRD) | **✅ Shipped** 2026-10-21 — tag [`v2.5.8`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.8) |
 | **v2.5.9** | Security & CI patch | `brotli` / OpenTelemetry floors, `security (web)`, regression fences #419–#426 | `CHANGELOG.md` `[2.5.9]` (no Formal Spec PRD) | **✅ Shipped** 2026-10-23 — tag [`v2.5.9`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.9) |
-| Formal Spec & Interop | Formal Spec & Interop | RFC spec, introspection, privacy, cross-protocol | [prd-v2.5.5-formal-spec-interop.md](./prd-v2.5.5-formal-spec-interop.md) | **Next** (post-2.5.9; filename historical — create `engineering/tasks/v2.5.5/` at kickoff) |
+| **v2.5.10** | Security & correctness patch | Non-object delegation JWTs, `undici` `^7.30.1`, satellite locks on the 2.5.9 floors | `CHANGELOG.md` `[2.5.10]` (no Formal Spec PRD) | **✅ Shipped** 2026-10-23 — tag [`v2.5.10`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.10) |
+| Formal Spec & Interop | Formal Spec & Interop | RFC spec, introspection, privacy, cross-protocol | [prd-v2.5.5-formal-spec-interop.md](./prd-v2.5.5-formal-spec-interop.md) | **Next** (post-2.5.10; filename historical — create `engineering/tasks/v2.5.5/` at kickoff) |
 
-**Execution rule:** **v2.5.0–v2.5.9** shipped (library **2.5.9** is the latest security/CI patch). **Next:** Formal Spec ([prd-v2.5.5-formal-spec-interop.md](./prd-v2.5.5-formal-spec-interop.md); filename historical, not this library tag). **v3.0** remains trigger-gated ([prd-v3.0-economy.md](./prd-v3.0-economy.md)).
+**Execution rule:** **v2.5.0–v2.5.10** shipped (library **2.5.10** is the latest security/correctness patch). **Next:** Formal Spec ([prd-v2.5.5-formal-spec-interop.md](./prd-v2.5.5-formal-spec-interop.md); filename historical, not this library tag). **v3.0** remains trigger-gated ([prd-v3.0-economy.md](./prd-v3.0-economy.md)).
 
 **Patch tags (not minor releases):** [`v2.5.0.1`](https://github.com/adriannoes/asap-protocol/releases/tag/v2.5.0.1) republished **`asap-compliance` 1.3.0** only; `pyproject.toml` remained **2.5.0**. **`@asap-protocol/mcp-auth`** (npm) is still deferred — future npm patch TBD (do not confuse with tag `v2.5.0.1`).
 
@@ -127,6 +128,7 @@ Narrativa pública: **ASAP não substitui MCP** — fornece a camada de identida
 
 | Date | Change |
 |------|--------|
+| 2026-10-23 | **Library 2.5.10 shipped** — security/correctness patch (tag `v2.5.10`); Formal Spec stays **next** under historical filename `prd-v2.5.5-formal-spec-interop.md` |
 | 2026-10-23 | **Library 2.5.9 shipped** — security/CI patch (tag `v2.5.9`); Formal Spec stays **next** under historical filename `prd-v2.5.5-formal-spec-interop.md` |
 | 2026-10-21 | **Library 2.5.8 shipped** — security/coverage patch (tag `v2.5.8`); Formal Spec stays **next** under historical filename `prd-v2.5.5-formal-spec-interop.md` |
 | 2026-10-11 | **Library 2.5.7 shipped** — quality/coverage patch (tag `v2.5.7`); Formal Spec stays **next** under historical filename `prd-v2.5.5-formal-spec-interop.md` |
