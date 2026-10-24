@@ -11,7 +11,10 @@ import base64
 from datetime import datetime, timezone
 
 import pytest
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+    Ed25519PrivateKey,
+    Ed25519PublicKey,
+)
 
 from asap.economics.delegation import (
     DelegationConstraints,
@@ -85,3 +88,36 @@ def test_get_jti_from_jwt_missing_claim_returns_none() -> None:
 def test_get_jti_from_jwt_malformed_returns_none(token: str) -> None:
     """Wrong segment counts and undecodable payloads return None."""
     assert get_jti_from_jwt(token) is None
+
+
+_NON_OBJECT_PAYLOADS = (b"null", b"[]", b"42", b"true", b'"x"')
+
+
+def _compact_token(payload: bytes) -> str:
+    """Build an unverified compact JWT whose payload is the given JSON bytes."""
+    header = _b64url(b'{"alg":"EdDSA"}')
+    body = _b64url(payload)
+    return f"{header}.{body}.sig"
+
+
+@pytest.mark.parametrize("payload", _NON_OBJECT_PAYLOADS)
+def test_get_jti_from_jwt_non_object_payload_returns_none(payload: bytes) -> None:
+    """JSON null, arrays, numbers, bools, and strings are not claim maps."""
+    assert get_jti_from_jwt(_compact_token(payload)) is None
+
+
+@pytest.mark.parametrize("payload", _NON_OBJECT_PAYLOADS)
+def test_validate_delegation_non_object_payload_is_rejected(payload: bytes) -> None:
+    """A non-object payload is a rejected token, and the key resolver is not called."""
+
+    def unexpected_key(issuer: str) -> Ed25519PublicKey:
+        raise AssertionError(f"resolver called for {issuer}")
+
+    result = validate_delegation(
+        _compact_token(payload),
+        "task.execute",
+        public_key_resolver=unexpected_key,
+    )
+
+    assert result.success is False
+    assert result.error == "Invalid or malformed token"

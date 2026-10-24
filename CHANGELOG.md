@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Delegation JWT parsing returns a rejection instead of `AttributeError` when the payload is JSON `null`, an array, a number, a boolean, or a string. `validate_delegation` uses the same parser.
+
 ### Follow-up (planned)
 
 - **Formal Spec & Interop** — RFC spec, introspection, privacy ([prd-v2.5.5-formal-spec-interop.md](product/prd/prd-v2.5.5-formal-spec-interop.md)).

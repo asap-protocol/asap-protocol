@@ -99,6 +99,10 @@ def _parse_claim_from_jwt(token: str, claim: str) -> Optional[str]:
             return None
         payload_bytes = _b64url_decode(parts[1])
         claims = json.loads(payload_bytes.decode("utf-8"))
+        # JSON null, arrays, numbers, bools, and strings have no claim map.
+        # .get would raise AttributeError, which callers do not catch.
+        if not isinstance(claims, dict):
+            return None
         val = claims.get(claim)
         return str(val) if val is not None else None
     except (ValueError, KeyError, TypeError, json.JSONDecodeError):
