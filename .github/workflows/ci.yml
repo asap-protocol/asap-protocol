@@ -199,8 +199,12 @@ jobs:
           fi
           HEAD_REV="$(git rev-parse HEAD)"
           echo "Prettier base=${DIFF_BASE} head=${HEAD_REV}"
+          # `**` does not match a file that sits directly in apps/web/.
+          # The single-star pathspec covers next.config.ts, playwright.config.ts,
+          # vitest.config.ts, and vitest.setup.ts.
           mapfile -t FILES < <(
             git -C "${GITHUB_WORKSPACE}" diff --name-only --diff-filter=ACMR "${DIFF_BASE}..${HEAD_REV}" -- \
+              'apps/web/*.ts' 'apps/web/*.tsx' \
               'apps/web/**/*.ts' 'apps/web/**/*.tsx' \
               | sed 's|^apps/web/||'
           )
