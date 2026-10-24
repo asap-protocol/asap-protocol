@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Prettier's changed-file pathspec includes TypeScript files that sit directly in `apps/web/` (`next.config.ts`, `playwright.config.ts`, `vitest.config.ts`, `vitest.setup.ts`).
 
+### Security
+
+- `apps/example-agent`, `asap-compliance`, and `apps/registry-bot` locks now resolve editable `asap-protocol` 2.5.9. That moves `brotli` to 1.2.1, OpenTelemetry to 1.45.1 (instrumentation 0.66b1), `cryptography` to 50.0.2, and `joserfc` to 1.7.7 where the old lock was below the published floor. The example-agent CI job syncs with `--frozen`.
+
 ### Follow-up (planned)
 
 - **Formal Spec & Interop** — RFC spec, introspection, privacy ([prd-v2.5.5-formal-spec-interop.md](product/prd/prd-v2.5.5-formal-spec-interop.md)).
