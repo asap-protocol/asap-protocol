@@ -118,7 +118,7 @@ npx --no-install audit-ci --config audit-ci.jsonc  # lockfile binary (audit-ci 7
   "brace-expansion": "^5.0.9",
   "ip-address": "^10.3.1",
   "js-yaml": "^4.3.1",
-  "undici": "^7.29.0",
+  "undici": "^7.30.1",
   "fflate": "^0.8.3",
   "baseline-browser-mapping": "^2.11.0",
   "browserslist": "^4.28.9"
@@ -132,6 +132,8 @@ The `sharp` override forces Next's nested `sharp` up to `>=0.35.4` (GHSA-rgj7-g3
 **GHSA-w74x-v6f9-j3xg / GHSA-xhq7-xmqj-769h / GHSA-wjr9-j795-jxcr / GHSA-333x-w4r6-6crp (fast-uri)**: Production `npm audit` fails on `fast-uri` 3.1.8 (range `3.0.0`–`3.1.8`). The override is `^3.1.9`.
 
 **GHSA-27r3-jxmh-p828 (body-parser)**: `audit-ci` fails on `body-parser` 2.3.0, pulled by Express 5 in the dev graph (`@modelcontextprotocol/sdk`). The range is `>=2.0.0 <2.4.0`. The override `body-parser` `^2.4.0` clears it. Production `npm audit --omit=dev` does not see this copy.
+
+**GHSA-xjj6-f33q-929c (undici)**: `audit-ci` fails on `undici` 7.30.0 (range `>=7.18.0 <7.30.1`). The same release also covers GHSA-4qv8-2p9j-2685 and GHSA-f72v-6w45-q472. The override `^7.29.0` still resolved 7.30.0. The floor is `^7.30.1`. This copy is dev-only; production `npm audit --omit=dev` does not see it.
 
 If a PostCSS or sharp override breaks `next build`, stop and report — do not silently adopt a preview/canary Next.
 

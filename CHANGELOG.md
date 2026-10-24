@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 - `apps/example-agent`, `asap-compliance`, and `apps/registry-bot` locks now resolve editable `asap-protocol` 2.5.9. That moves `brotli` to 1.2.1, OpenTelemetry to 1.45.1 (instrumentation 0.66b1), `cryptography` to 50.0.2, and `joserfc` to 1.7.7 where the old lock was below the published floor. The example-agent CI job syncs with `--frozen`.
+- `apps/web` override `undici` is `^7.30.1` (GHSA-xjj6-f33q-929c). `^7.29.0` still resolved 7.30.0. The copy is on the dev graph.
 
 ### Follow-up (planned)
 
