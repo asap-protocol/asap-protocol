@@ -7,26 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-
-- Delegation JWT parsing returns a rejection instead of `AttributeError` when the payload is JSON `null`, an array, a number, a boolean, or a string. `validate_delegation` uses the same parser.
-- Carousel previous/next flags stay in sync when `scrollTo` runs before the `select` listener (including inside `setApi`).
-
-### CI
-
-- Prettier's changed-file pathspec includes TypeScript files that sit directly in `apps/web/` (`next.config.ts`, `playwright.config.ts`, `vitest.config.ts`, `vitest.setup.ts`).
-
-### Security
-
-- `apps/example-agent`, `asap-compliance`, and `apps/registry-bot` locks now resolve editable `asap-protocol` 2.5.9. That moves `brotli` to 1.2.1, OpenTelemetry to 1.45.1 (instrumentation 0.66b1), `cryptography` to 50.0.2, and `joserfc` to 1.7.7 where the old lock was below the published floor. The example-agent CI job syncs with `--frozen`.
-- `apps/web` override `undici` is `^7.30.1` (GHSA-xjj6-f33q-929c). `^7.29.0` still resolved 7.30.0. The copy is on the dev graph.
-
 ### Follow-up (planned)
 
 - **Formal Spec & Interop** — RFC spec, introspection, privacy ([prd-v2.5.5-formal-spec-interop.md](product/prd/prd-v2.5.5-formal-spec-interop.md)).
 - `@asap-protocol/mcp-auth` HTTP/SSE middleware (deferred from v2.5.0 — see [2.5.0] TypeScript note and [typescript-mcp-auth-spike.md](engineering/tasks/v2.5.0/typescript-mcp-auth-spike.md)).
 - Collapse the dual `UsageMetrics`/`InMemoryMeteringStore` pair retained in S1 for API stability.
 - Reduce the `asap.transport.client` package aggregate LOC below the S2 target.
+
+---
+
+## [2.5.10] - 2026-10-23
+
+**Security & correctness patch** — late review on v2.5.9. This is **not**
+Formal Spec & Interop. npm `@asap-protocol/*` packages remain at **2.4.1**.
+PyPI `asap-compliance` remains **1.3.0**.
+Tag [`v2.5.10`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.10)
+· PyPI `asap-protocol==2.5.10`.
+
+### Fixed
+
+- Delegation JWT parsing returns a rejection instead of `AttributeError` when the payload is JSON `null`, an array, a number, a boolean, or a string. `validate_delegation` and `get_jti_from_jwt` share that parser
+  ([#428](https://github.com/asap-protocol/asap-protocol/pull/428)).
+- Carousel previous/next flags use `useSyncExternalStore`, so they stay in sync when `scrollTo` runs before the `select` listener (including inside `setApi`)
+  ([#428](https://github.com/asap-protocol/asap-protocol/pull/428)).
+
+### CI
+
+- Prettier's changed-file pathspec includes TypeScript files that sit directly in `apps/web/` (`next.config.ts`, `playwright.config.ts`, `vitest.config.ts`, `vitest.setup.ts`)
+  ([#428](https://github.com/asap-protocol/asap-protocol/pull/428)).
+
+### Security
+
+- **Published library behavior** — the delegation JWT rejection above is the behavior change in `asap-protocol==2.5.10`. `brotli>=1.2.1` and `opentelemetry-api>=1.45.1` already shipped in 2.5.9. This release does not add new published dependency floors.
+- **Satellite locks** — `apps/example-agent`, `asap-compliance`, and `apps/registry-bot` follow the floors already published in 2.5.9: `brotli` 1.2.1, OpenTelemetry 1.45.1 (instrumentation 0.66b1), `cryptography` 50.0.2, and `joserfc` 1.7.7. The locks now record editable `asap-protocol` 2.5.10. The example-agent CI job syncs with `--frozen`.
+- **`apps/web` `undici`** — override `^7.30.1` (GHSA-xjj6-f33q-929c). `^7.29.0` still resolved 7.30.0. Dev graph only; not a PyPI requirement.
+
+### Migration
+
+- **v2.5.9 → v2.5.10**: See [migration guide](docs/migration.md#upgrading-from-v259-to-v2510).
+  No wire-protocol or manifest schema breaking changes.
 
 ---
 

@@ -1119,6 +1119,52 @@ Scope: [prd-v2.5.4-distribution-loop.md](../product/prd/prd-v2.5.4-distribution-
 
 ---
 
+### Upgrading from v2.5.9 to v2.5.10
+
+**v2.5.10 (security & correctness patch)** — **shipped**
+([tag `v2.5.10`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.10)) —
+records the late review on v2.5.9. This is **not** Formal Spec
+& Interop. There are **no wire-protocol or manifest schema** breaking
+changes relative to v2.5.9.
+
+#### What lands in v2.5.10
+
+- **Published behavior** — ``validate_delegation`` and ``get_jti_from_jwt``
+  reject a compact JWT whose payload is JSON ``null``, an array, a number,
+  a boolean, or a string, instead of raising ``AttributeError``. That is
+  the library behavior change in this patch.
+- **Published requirements** — unchanged from v2.5.9. ``brotli>=1.2.1`` and
+  ``opentelemetry-api>=1.45.1`` (with the matching SDK and instrumentation)
+  already shipped in 2.5.9. This patch does not raise those floors again.
+- **Repository locks** — ``apps/example-agent``, ``asap-compliance``, and
+  ``apps/registry-bot`` now resolve those 2.5.9 floors (``brotli`` 1.2.1,
+  OpenTelemetry 1.45.1 / instrumentation 0.66b1, ``cryptography`` 50.0.2,
+  ``joserfc`` 1.7.7) and record editable ``asap-protocol`` 2.5.10. Another
+  project's ``pip install asap-protocol==2.5.10`` does not rewrite those
+  satellite locks.
+- **Web app** — ``undici`` override ``^7.30.1`` (GHSA-xjj6-f33q-929c).
+  Prettier checks TypeScript files that sit directly in ``apps/web/``.
+  Carousel scroll flags use ``useSyncExternalStore``. Those changes are
+  this repository, not PyPI requirements.
+- **npm / compliance** — `@asap-protocol/*` remain **2.4.1**;
+  `asap-compliance` remains **1.3.0**.
+
+#### Upgrade steps
+
+1. Bump with `pip install 'asap-protocol==2.5.10'` (or `uv add asap-protocol`).
+2. TypeScript `@asap-protocol/*` packages remain at **2.4.1**;
+   `@asap-protocol/mcp-auth` HTTP/SSE middleware remains deferred.
+
+#### Backward compatibility
+
+- **Wire protocol**: Unchanged from v2.5.9.
+- **Breaking changes**: None for a typical ``asap-protocol`` install.
+  A caller that depended on ``AttributeError`` for a non-object JWT payload
+  now gets a rejection or ``None``. The ``undici`` pin applies only to
+  ``apps/web`` in this repository.
+
+---
+
 ### Upgrading from v2.5.8 to v2.5.9
 
 **v2.5.9 (security & CI patch)** — **shipped**
