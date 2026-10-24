@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Prettier's changed-file pathspec includes TypeScript files that sit directly in `apps/web/` (`next.config.ts`, `playwright.config.ts`, `vitest.config.ts`, `vitest.setup.ts`).
 
+### Security
+
+- `apps/web` override `undici` is `^7.30.1` (GHSA-xjj6-f33q-929c). `^7.29.0` still resolved 7.30.0. The copy is on the dev graph.
+
 ### Follow-up (planned)
 
 - **Formal Spec & Interop** — RFC spec, introspection, privacy ([prd-v2.5.5-formal-spec-interop.md](product/prd/prd-v2.5.5-formal-spec-interop.md)).
