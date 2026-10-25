@@ -388,6 +388,7 @@ class TestProcessRegistrationRun:
         assert entry.skills == ["web_research", "summarization"]
         assert "http" in entry.endpoints
         assert entry.endpoints["manifest"] == "https://example.com/manifest.json"
+        assert "ws" not in entry.endpoints
 
     def test_valid_issue_with_optionals_passes_through(
         self,

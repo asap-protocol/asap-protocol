@@ -9,6 +9,7 @@ import pytest
 
 from asap.auth.capabilities import CapabilityDefinition, CapabilityRegistry
 from asap.transport.agent_routes import (
+    _parse_agent_controls_browser,
     apply_capability_specs_to_registry,
     parse_capability_registration_body,
 )
@@ -121,3 +122,21 @@ class TestApplyCapabilitySpecsToRegistry:
             [{"name": "file:read"}],
         )
         assert registry.get_grants("agent-1")[0].expires_at is None
+
+
+class TestAgentControlsBrowserFlag:
+    """The browser-control gate accepts JSON true and nothing else."""
+
+    @pytest.mark.parametrize(
+        ("raw", "enabled"),
+        [
+            ({}, False),
+            ({"agent_controls_browser": True}, True),
+            ({"agent_controls_browser": False}, False),
+            ({"agent_controls_browser": "true"}, False),
+            ({"agent_controls_browser": 1}, False),
+        ],
+    )
+    def test_accepts_json_true_only(self, raw: dict[str, Any], enabled: bool) -> None:
+        """String and numeric truthy values must not skip the WebAuthn browser gate."""
+        assert _parse_agent_controls_browser(raw) is enabled
