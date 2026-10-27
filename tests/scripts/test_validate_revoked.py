@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
+
+import pytest
 
 from scripts.validate_revoked import validate_revoked
 
@@ -59,3 +62,18 @@ def test_validate_revoked_rejects_schema_violation(tmp_path: Path) -> None:
 
     assert len(errors) >= 1
     assert any("revoked" in err for err in errors)
+
+
+@pytest.mark.parametrize("root", [[], None, True, 0, "revoked"])
+def test_validate_revoked_rejects_non_object_root(tmp_path: Path, root: Any) -> None:
+    """A non-object revocation file is not an empty allow-list.
+
+    ``is_revoked`` ignores a non-object payload. The CI validator must reject
+    that shape before it can be published as ``revoked_agents.json``.
+    """
+    revoked_path = tmp_path / "revoked_agents.json"
+    revoked_path.write_text(json.dumps(root))
+
+    errors = validate_revoked(revoked_path)
+
+    assert errors == ["Root must be a JSON object with 'revoked' and 'version'."]
