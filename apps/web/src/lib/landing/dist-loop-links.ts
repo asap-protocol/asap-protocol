@@ -57,6 +57,9 @@ export const CURRENT_RELEASE_VERSION = '2.5.10';
 /** Short label for {@link CURRENT_RELEASE_VERSION}. This patch is not Formal Spec. */
 export const CURRENT_RELEASE_TAGLINE = 'Security & correctness';
 
+/** Ribbon detail for the published behavior in {@link CURRENT_RELEASE_VERSION}. */
+export const CURRENT_RELEASE_DETAIL = 'delegation JWTs';
+
 /** v2.5.10 migration note. */
 export const DOCS_MIGRATION_2510_URL = githubBlobMain(
   'docs/migration.md#upgrading-from-v259-to-v2510'
@@ -68,3 +71,12 @@ export const CHANGELOG_2510_URL = githubBlobMain('CHANGELOG.md#2510---2026-10-23
 /** GitHub Release for v2.5.10. */
 export const RELEASE_2510_URL =
   'https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.10';
+
+/** Homepage release link. Alias of the shipped tag so the label and href stay one bump. */
+export const CURRENT_RELEASE_URL = RELEASE_2510_URL;
+
+/** Homepage migration link for {@link CURRENT_RELEASE_VERSION}. */
+export const CURRENT_MIGRATION_URL = DOCS_MIGRATION_2510_URL;
+
+/** Homepage changelog link for {@link CURRENT_RELEASE_VERSION}. */
+export const CURRENT_CHANGELOG_URL = CHANGELOG_2510_URL;

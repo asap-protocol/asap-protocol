@@ -7,8 +7,8 @@ import Link from 'next/link';
 import { HOMEPAGE_HERO_CTA_IDS } from '@/lib/telemetry/homepage-cta-ids';
 import {
   CURRENT_RELEASE_TAGLINE,
+  CURRENT_RELEASE_URL,
   CURRENT_RELEASE_VERSION,
-  RELEASE_2510_URL,
 } from '@/lib/landing/dist-loop-links';
 import { EXTERNAL_LINK_FOCUS_CLASS, OpensInNewTabHint } from '@/components/links/opens-in-new-tab';
 import { cn } from '@/lib/utils';
@@ -24,10 +24,10 @@ export function HeroSection() {
           <div className="animate-in fade-in slide-in-from-bottom-5 flex flex-col justify-center space-y-8 text-center duration-700 ease-out lg:text-left">
             <div className="space-y-4">
               <Link
-                href={RELEASE_2510_URL}
+                href={CURRENT_RELEASE_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                data-cta={HOMEPAGE_HERO_CTA_IDS.distLoopBadge}
+                data-cta={HOMEPAGE_HERO_CTA_IDS.releaseBadge2510}
                 aria-label={`View ASAP Protocol v${CURRENT_RELEASE_VERSION} release on GitHub`}
                 className={cn('inline-flex', EXTERNAL_LINK_FOCUS_CLASS)}
               >

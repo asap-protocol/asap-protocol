@@ -7,8 +7,10 @@
 export const HOMEPAGE_HERO_CTA_IDS = {
   /** Legacy release-tag badge id — retained for historical CTR dashboards. */
   releaseBadge: 'hero-release-badge',
-  /** Hero badge for the Build for agents guide (not a version tag). */
+  /** v2.5.4 Dist Loop hero badge — retained for historical CTR dashboards. */
   distLoopBadge: 'hero-dist-loop-badge',
+  /** v2.5.10 release badge (HeroSection). */
+  releaseBadge2510: 'hero-release-2510',
   /** Primary CTA for the Build for agents guide. */
   buildForAgents: 'hero-build-for-agents',
   /** Primary CTA for examples/starters. */
@@ -115,4 +117,5 @@ export const HOMEPAGE_CTA_IDS = [
   // Appended so earlier homepage_cta_ids indexes stay stable.
   WHATS_NEW_RIBBON_CTA_IDS.docsMigration2510,
   WHATS_NEW_RIBBON_CTA_IDS.releaseChangelog2510,
+  HOMEPAGE_HERO_CTA_IDS.releaseBadge2510,
 ] as const;

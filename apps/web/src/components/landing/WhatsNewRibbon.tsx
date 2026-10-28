@@ -2,10 +2,11 @@ import Link from 'next/link';
 import { WHATS_NEW_RIBBON_CTA_IDS } from '@/lib/telemetry/homepage-cta-ids';
 import {
   BUILD_FOR_AGENTS_GUIDE_URL,
-  CHANGELOG_2510_URL,
+  CURRENT_CHANGELOG_URL,
+  CURRENT_MIGRATION_URL,
+  CURRENT_RELEASE_DETAIL,
   CURRENT_RELEASE_TAGLINE,
   CURRENT_RELEASE_VERSION,
-  DOCS_MIGRATION_2510_URL,
   GITHUB_BLOB_MAIN,
   GITHUB_TREE_MAIN,
   STARTERS_URL,
@@ -76,7 +77,7 @@ const PILLS: Pill[] = [
   },
   {
     label: 'Migration',
-    href: DOCS_MIGRATION_2510_URL,
+    href: CURRENT_MIGRATION_URL,
     icon: ShieldCheck,
     external: true,
     dataCta: WHATS_NEW_RIBBON_CTA_IDS.docsMigration2510,
@@ -130,7 +131,7 @@ const PILLS: Pill[] = [
   },
   {
     label: 'Changelog',
-    href: CHANGELOG_2510_URL,
+    href: CURRENT_CHANGELOG_URL,
     icon: GitBranch,
     external: true,
     dataCta: WHATS_NEW_RIBBON_CTA_IDS.releaseChangelog2510,
@@ -140,7 +141,7 @@ const PILLS: Pill[] = [
 export function WhatsNewRibbon() {
   return (
     <aside
-      aria-label={`What's new in ASAP Protocol v${CURRENT_RELEASE_VERSION}`}
+      aria-label={`Latest release v${CURRENT_RELEASE_VERSION}`}
       className="w-full border-y border-zinc-900 bg-zinc-950"
     >
       <div className="container mx-auto flex max-w-5xl flex-col gap-4 px-4 py-8 md:flex-row md:items-center md:gap-4 md:px-6 md:py-10">
@@ -148,10 +149,10 @@ export function WhatsNewRibbon() {
           <Sparkles className="h-4 w-4 shrink-0 text-indigo-400" aria-hidden />
           <div className="flex flex-col">
             <span className="font-mono text-xs tracking-wider text-indigo-400 uppercase">
-              What&apos;s new in v{CURRENT_RELEASE_VERSION}
+              Latest release v{CURRENT_RELEASE_VERSION}
             </span>
             <span className="text-xs text-zinc-500">
-              {CURRENT_RELEASE_TAGLINE} · delegation JWTs
+              {CURRENT_RELEASE_TAGLINE} · {CURRENT_RELEASE_DETAIL}
             </span>
           </div>
         </div>
