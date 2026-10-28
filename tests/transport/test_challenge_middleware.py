@@ -70,6 +70,22 @@ def test_default_manifest_discovery_url_builds_wellknown() -> None:
     )
 
 
+def test_default_manifest_discovery_url_uses_origin_only() -> None:
+    """The manifest URL is the endpoint origin plus the well-known path.
+
+    A non-default port and an IPv6 literal stay in the authority. The ASAP
+    path is not placed in front of ``/.well-known``.
+    """
+    assert (
+        default_manifest_discovery_url("  https://api.example:8443/v1/asap  ")
+        == "https://api.example:8443/.well-known/asap/manifest.json"
+    )
+    assert (
+        default_manifest_discovery_url("https://[2001:db8::10]:9443/asap")
+        == "https://[2001:db8::10]:9443/.well-known/asap/manifest.json"
+    )
+
+
 def test_default_manifest_discovery_url_invalid_raises() -> None:
     with pytest.raises(ValueError, match="Invalid ASAP endpoint"):
         default_manifest_discovery_url("not-a-url")
@@ -139,6 +155,38 @@ def test_challenge_middleware_applies_to_all_paths_when_no_prefix_configured() -
     )
     r = TestClient(app).get("/misc/protected")
     assert "ASAP" in r.headers.get("WWW-Authenticate", "")
+
+
+def test_request_state_blank_override_keeps_default_discovery() -> None:
+    """A blank or non-string override must not replace the configured discovery URL."""
+    app = FastAPI()
+    default_discovery = "https://default.test/m.json"
+
+    @app.get("/asap/capability/x")
+    async def capability_x(request: Request) -> JSONResponse:
+        kind = request.headers.get("x-override-kind")
+        if kind == "blank":
+            request.state.asap_challenge_discovery_url = "  \t"
+        elif kind == "padded":
+            request.state.asap_challenge_discovery_url = "  https://override.test/m.json  "
+        elif kind == "number":
+            request.state.asap_challenge_discovery_url = 42
+        return JSONResponse(status_code=401, content={})
+
+    app.add_middleware(
+        WWWAuthenticateASAPMiddleware,
+        default_discovery_url=default_discovery,
+        path_prefixes=("/asap/capability",),
+    )
+    client = TestClient(app)
+
+    def discovery_for(kind: str) -> str | None:
+        response = client.get("/asap/capability/x", headers={"x-override-kind": kind})
+        return parse_www_authenticate_asap(response.headers.get("www-authenticate"))
+
+    assert discovery_for("blank") == default_discovery
+    assert discovery_for("padded") == "https://override.test/m.json"
+    assert discovery_for("number") == default_discovery
 
 
 def test_request_state_override_discovery() -> None:
