@@ -3,11 +3,16 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { DistLoopPrimaryCtas } from '@/components/landing/DistLoopPrimaryCtas';
 import { FeaturesSection } from '@/components/landing/FeaturesSection';
+import { HeroSection } from '@/components/landing/HeroSection';
 import { WhatsNewRibbon } from '@/components/landing/WhatsNewRibbon';
 import {
   BUILD_FOR_AGENTS_GUIDE_URL,
-  CHANGELOG_254_URL,
-  DOCS_MIGRATION_254_URL,
+  CURRENT_CHANGELOG_URL,
+  CURRENT_MIGRATION_URL,
+  CURRENT_RELEASE_DETAIL,
+  CURRENT_RELEASE_TAGLINE,
+  CURRENT_RELEASE_URL,
+  CURRENT_RELEASE_VERSION,
   STARTERS_URL,
 } from '@/lib/landing/dist-loop-links';
 
@@ -45,15 +50,31 @@ describe('Dist Loop landing link contract', () => {
     expect(starters).toHaveAttribute('rel', 'noopener noreferrer');
   });
 
-  it('keeps WhatsNewRibbon Dist Loop docs pills on canonical GitHub URLs', () => {
+  it('points the hero badge at the v2.5.10 GitHub release', () => {
+    render(<HeroSection />);
+
+    const badge = screen.getByRole('link', {
+      name: /view asap protocol v2\.5\.10 release on github/i,
+    });
+    expect(badge).toHaveAttribute('href', CURRENT_RELEASE_URL);
+    expect(badge.getAttribute('href')).toContain(`v${CURRENT_RELEASE_VERSION}`);
+    expect(badge).toHaveAttribute('data-cta', 'hero-release-2510');
+    expect(badge).toHaveTextContent(`v${CURRENT_RELEASE_VERSION} — ${CURRENT_RELEASE_TAGLINE}`);
+  });
+
+  it('keeps WhatsNewRibbon docs pills on canonical GitHub URLs for v2.5.10', () => {
     render(<WhatsNewRibbon />);
 
     const ribbon = screen.getByRole('complementary', {
-      name: /what's new in asap protocol v2\.5\.4/i,
+      name: /latest release v2\.5\.10/i,
     });
 
-    expect(linkByCta(ribbon, 'docs-migration-254')).toHaveAttribute('href', DOCS_MIGRATION_254_URL);
-    expect(linkByCta(ribbon, 'release-changelog-254')).toHaveAttribute('href', CHANGELOG_254_URL);
+    expect(ribbon).toHaveTextContent(`${CURRENT_RELEASE_TAGLINE} · ${CURRENT_RELEASE_DETAIL}`);
+    expect(linkByCta(ribbon, 'docs-migration-2510')).toHaveAttribute('href', CURRENT_MIGRATION_URL);
+    expect(linkByCta(ribbon, 'release-changelog-2510')).toHaveAttribute(
+      'href',
+      CURRENT_CHANGELOG_URL
+    );
     expect(linkByCta(ribbon, 'docs-build-for-agents')).toHaveAttribute(
       'href',
       BUILD_FOR_AGENTS_GUIDE_URL

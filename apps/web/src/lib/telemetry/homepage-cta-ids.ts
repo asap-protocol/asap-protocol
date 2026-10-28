@@ -7,8 +7,10 @@
 export const HOMEPAGE_HERO_CTA_IDS = {
   /** Legacy release-tag badge id — retained for historical CTR dashboards. */
   releaseBadge: 'hero-release-badge',
-  /** Hero badge for the Build for agents guide (not a version tag). */
+  /** v2.5.4 Dist Loop hero badge — retained for historical CTR dashboards. */
   distLoopBadge: 'hero-dist-loop-badge',
+  /** v2.5.10 release badge (HeroSection). */
+  releaseBadge2510: 'hero-release-2510',
   /** Primary CTA for the Build for agents guide. */
   buildForAgents: 'hero-build-for-agents',
   /** Primary CTA for examples/starters. */
@@ -29,8 +31,10 @@ export const WHATS_NEW_RIBBON_CTA_IDS = {
   docsMigration250: 'docs-migration-250', // retained for historical CTR dashboards
   /** v2.5.3 migration pill — retained for historical CTR dashboards. */
   docsMigration253: 'docs-migration-253',
-  /** v2.5.4 migration pill (WhatsNewRibbon). */
+  /** v2.5.4 migration pill — retained for historical CTR dashboards. */
   docsMigration254: 'docs-migration-254',
+  /** v2.5.10 migration pill (WhatsNewRibbon). */
+  docsMigration2510: 'docs-migration-2510',
   docsOpenapi: 'docs-openapi',
   docsTypescript: 'docs-typescript',
   docsWorkflowConnectors: 'docs-workflow-connectors',
@@ -47,8 +51,10 @@ export const WHATS_NEW_RIBBON_CTA_IDS = {
   docsCapabilitiesEscalation: 'docs-capabilities-escalation',
   /** Generic changelog pill id — retained for historical CTR dashboards. */
   releaseChangelogGithub: 'release-changelog-github',
-  /** v2.5.4 changelog pill (WhatsNewRibbon). */
+  /** v2.5.4 changelog pill — retained for historical CTR dashboards. */
   releaseChangelog254: 'release-changelog-254',
+  /** v2.5.10 changelog pill (WhatsNewRibbon). */
+  releaseChangelog2510: 'release-changelog-2510',
 } as const;
 
 /** How it Works section primary CTAs (guide + starters). */
@@ -108,4 +114,8 @@ export const HOMEPAGE_CTA_IDS = [
   HOW_IT_WORKS_CTA_IDS.viewStarters,
   WHATS_NEW_RIBBON_CTA_IDS.releaseChangelogGithub,
   WHATS_NEW_RIBBON_CTA_IDS.releaseChangelog254,
+  // Appended so earlier homepage_cta_ids indexes stay stable.
+  WHATS_NEW_RIBBON_CTA_IDS.docsMigration2510,
+  WHATS_NEW_RIBBON_CTA_IDS.releaseChangelog2510,
+  HOMEPAGE_HERO_CTA_IDS.releaseBadge2510,
 ] as const;
