@@ -2,8 +2,10 @@ import Link from 'next/link';
 import { WHATS_NEW_RIBBON_CTA_IDS } from '@/lib/telemetry/homepage-cta-ids';
 import {
   BUILD_FOR_AGENTS_GUIDE_URL,
-  CHANGELOG_254_URL,
-  DOCS_MIGRATION_254_URL,
+  CHANGELOG_2510_URL,
+  CURRENT_RELEASE_TAGLINE,
+  CURRENT_RELEASE_VERSION,
+  DOCS_MIGRATION_2510_URL,
   GITHUB_BLOB_MAIN,
   GITHUB_TREE_MAIN,
   STARTERS_URL,
@@ -74,10 +76,10 @@ const PILLS: Pill[] = [
   },
   {
     label: 'Migration',
-    href: DOCS_MIGRATION_254_URL,
+    href: DOCS_MIGRATION_2510_URL,
     icon: ShieldCheck,
     external: true,
-    dataCta: WHATS_NEW_RIBBON_CTA_IDS.docsMigration254,
+    dataCta: WHATS_NEW_RIBBON_CTA_IDS.docsMigration2510,
   },
   {
     label: 'MCP Auth Bridge',
@@ -128,17 +130,17 @@ const PILLS: Pill[] = [
   },
   {
     label: 'Changelog',
-    href: CHANGELOG_254_URL,
+    href: CHANGELOG_2510_URL,
     icon: GitBranch,
     external: true,
-    dataCta: WHATS_NEW_RIBBON_CTA_IDS.releaseChangelog254,
+    dataCta: WHATS_NEW_RIBBON_CTA_IDS.releaseChangelog2510,
   },
 ];
 
 export function WhatsNewRibbon() {
   return (
     <aside
-      aria-label="What's new in ASAP Protocol v2.5.4 Distribution Loop"
+      aria-label={`What's new in ASAP Protocol v${CURRENT_RELEASE_VERSION}`}
       className="w-full border-y border-zinc-900 bg-zinc-950"
     >
       <div className="container mx-auto flex max-w-5xl flex-col gap-4 px-4 py-8 md:flex-row md:items-center md:gap-4 md:px-6 md:py-10">
@@ -146,10 +148,10 @@ export function WhatsNewRibbon() {
           <Sparkles className="h-4 w-4 shrink-0 text-indigo-400" aria-hidden />
           <div className="flex flex-col">
             <span className="font-mono text-xs tracking-wider text-indigo-400 uppercase">
-              What&apos;s new in v2.5.4
+              What&apos;s new in v{CURRENT_RELEASE_VERSION}
             </span>
             <span className="text-xs text-zinc-500">
-              Distribution Loop · starters + Build for agents
+              {CURRENT_RELEASE_TAGLINE} · delegation JWTs
             </span>
           </div>
         </div>

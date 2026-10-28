@@ -21,7 +21,9 @@ describe('homepage-cta-ids Dist Loop extensions', () => {
     expect(WHATS_NEW_RIBBON_CTA_IDS.docsBuildForAgents).toBe('docs-build-for-agents');
     expect(WHATS_NEW_RIBBON_CTA_IDS.docsStarters).toBe('docs-starters');
     expect(WHATS_NEW_RIBBON_CTA_IDS.docsMigration254).toBe('docs-migration-254');
+    expect(WHATS_NEW_RIBBON_CTA_IDS.docsMigration2510).toBe('docs-migration-2510');
     expect(WHATS_NEW_RIBBON_CTA_IDS.releaseChangelog254).toBe('release-changelog-254');
+    expect(WHATS_NEW_RIBBON_CTA_IDS.releaseChangelog2510).toBe('release-changelog-2510');
     expect(HOW_IT_WORKS_CTA_IDS.buildForAgents).toBe('how-it-works-build-for-agents');
     expect(HOW_IT_WORKS_CTA_IDS.viewStarters).toBe('how-it-works-view-starters');
   });
@@ -34,7 +36,9 @@ describe('homepage-cta-ids Dist Loop extensions', () => {
     expect(shell.has('docs-build-for-agents')).toBe(true);
     expect(shell.has('docs-starters')).toBe(true);
     expect(shell.has('docs-migration-254')).toBe(true);
+    expect(shell.has('docs-migration-2510')).toBe(true);
     expect(shell.has('release-changelog-254')).toBe(true);
+    expect(shell.has('release-changelog-2510')).toBe(true);
     expect(shell.has('how-it-works-build-for-agents')).toBe(true);
     expect(shell.has('how-it-works-view-starters')).toBe(true);
     // Legacy ids must remain for dashboard continuity.

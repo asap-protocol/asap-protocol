@@ -37,13 +37,34 @@ export const BUILD_FOR_AGENTS_GUIDE_URL = githubBlobMain('docs/guides/build-for-
 /** Thin starter pack index. */
 export const STARTERS_URL = githubTreeMain('examples/starters');
 
-/** v2.5.4 migration note. */
+/** v2.5.4 migration note. Kept for the Dist Loop link contract. */
 export const DOCS_MIGRATION_254_URL = githubBlobMain(
   'docs/migration.md#upgrading-from-v253-to-v254'
 );
 
-/** Changelog anchor for [2.5.4]. */
+/** Changelog anchor for [2.5.4]. Kept for the Dist Loop link contract. */
 export const CHANGELOG_254_URL = githubBlobMain('CHANGELOG.md#254---2026-07-18');
 
-/** GitHub Release for v2.5.4. */
+/** GitHub Release for v2.5.4. Kept for the Dist Loop link contract. */
 export const RELEASE_254_URL = 'https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.4';
+
+/**
+ * Latest shipped library release shown on the homepage.
+ * Bump with the PyPI tag. Anchors match `docs/index.md`.
+ */
+export const CURRENT_RELEASE_VERSION = '2.5.10';
+
+/** Short label for {@link CURRENT_RELEASE_VERSION}. This patch is not Formal Spec. */
+export const CURRENT_RELEASE_TAGLINE = 'Security & correctness';
+
+/** v2.5.10 migration note. */
+export const DOCS_MIGRATION_2510_URL = githubBlobMain(
+  'docs/migration.md#upgrading-from-v259-to-v2510'
+);
+
+/** Changelog anchor for [2.5.10] (2026-10-23). */
+export const CHANGELOG_2510_URL = githubBlobMain('CHANGELOG.md#2510---2026-10-23');
+
+/** GitHub Release for v2.5.10. */
+export const RELEASE_2510_URL =
+  'https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.10';
