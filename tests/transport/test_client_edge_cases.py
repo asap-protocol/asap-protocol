@@ -95,6 +95,10 @@ class TestParseMaxAge:
         assert _parse_max_age_from_cache_control("public, max-age=86400") == 86400.0
         assert _parse_max_age_from_cache_control("max-age=999999") == 86400.0
 
+    def test_max_age_is_case_insensitive_and_allows_spaces(self) -> None:
+        """Cache-Control directives are case-insensitive and allow spaces around '='."""
+        assert _parse_max_age_from_cache_control("Public, MAX-AGE = 120") == 120
+
 
 class TestSendRetryOnServerError:
     """Tests for send() retry behavior on server errors."""
