@@ -245,6 +245,56 @@ async def test_oidc_jwks_integration_rejects_invalid_token() -> None:
         await validator.validate_token(token)
 
 
+@pytest.mark.parametrize("field", ["issuer", "token_endpoint", "jwks_uri"])
+@pytest.mark.parametrize("value", ["", 12, ["https://auth.example.com"]])
+async def test_discover_rejects_blank_or_non_string_required_fields(
+    field: str,
+    value: object,
+) -> None:
+    """Empty and non-string discovery fields use the missing-required error.
+
+    ``""`` is a string, so dropping the emptiness check accepts it. ``12`` and a
+    list are truthy, so dropping the string check lets Pydantic raise instead.
+    """
+    document = _discovery_response()
+    document[field] = value
+
+    def mock_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=document)
+
+    discovery = OIDCDiscovery(
+        "https://auth.example.com",
+        transport=httpx.MockTransport(mock_handler),
+    )
+
+    with pytest.raises(ValueError, match=f"missing required '{field}'"):
+        await discovery.discover()
+
+
+@pytest.mark.parametrize(
+    "scopes",
+    ["openid asap:execute", True, {"openid": True}],
+)
+async def test_discover_drops_non_list_scopes_supported(scopes: object) -> None:
+    """A string, bool, or object of scopes does not become the supported list.
+
+    Iterating a string would advertise one scope per character.
+    """
+    document = _discovery_response()
+    document["scopes_supported"] = scopes
+
+    def mock_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=document)
+
+    discovery = OIDCDiscovery(
+        "https://auth.example.com",
+        transport=httpx.MockTransport(mock_handler),
+    )
+    config = await discovery.discover()
+
+    assert config.scopes_supported == []
+
+
 async def test_oidc_discover_raises_on_missing_jwks_uri() -> None:
     """Verify discover() raises ValueError when jwks_uri is missing."""
     data = _discovery_response()
