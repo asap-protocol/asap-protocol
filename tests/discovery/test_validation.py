@@ -128,6 +128,13 @@ class TestValidateManifestSchema:
         with pytest.raises(ManifestValidationError):
             validate_manifest_schema(data)
 
+    def test_invalid_sla_percentage_raises(self) -> None:
+        """A manifest SLA percentage that is not numeric fails schema validation."""
+        data = _make_valid_manifest_dict()
+        data["sla"] = {"availability": "not-a-percent", "max_error_rate": ""}
+        with pytest.raises(ManifestValidationError, match="Invalid percentage string"):
+            validate_manifest_schema(data)
+
     def test_missing_endpoints_raises(self) -> None:
         """Missing endpoints field raises ManifestValidationError."""
         data = _make_valid_manifest_dict()
