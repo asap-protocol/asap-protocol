@@ -750,6 +750,47 @@ def test_oauth2_middleware_rejects_string_numeric_past_exp() -> None:
     assert response.json() == {"detail": "Invalid authentication token"}
 
 
+def test_oauth2_middleware_rejects_string_numeric_future_exp() -> None:
+    """A future NumericDate encoded as a string must stay invalid.
+
+    RFC 7519 NumericDate is a JSON number. ``int()`` on this claim would treat
+    it as an unexpired lifetime and accept the bearer token. A past numeric
+    string is already rejected by the expiry comparison after coercion, so it
+    does not lock the type check.
+    """
+    key = jwk.RSAKey.generate_key(2048, private=True)
+    key_set = jwk.KeySet.import_key_set({"keys": [key.as_dict(private=False)]})
+
+    async def jwks_fetcher(_uri: str) -> jwk.KeySet:
+        return key_set
+
+    app = _minimal_app()
+    app.add_middleware(
+        OAuth2Middleware,
+        jwks_uri="https://auth.example.com/jwks.json",
+        path_prefix="/asap",
+        jwks_fetcher=jwks_fetcher,
+    )
+
+    future = str(int(time.time()) + 3600)
+    token = jose_jwt.encode(
+        {"alg": "RS256", "typ": "JWT"},
+        {
+            "sub": "urn:asap:agent:client",
+            "scope": "asap:execute",
+            "exp": future,
+            "iat": int(time.time()),
+        },
+        key,
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/asap", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Invalid authentication token"}
+
+
 def test_oauth2_middleware_rejects_zero_exp_claim() -> None:
     """exp:0 is epoch NumericDate and must not bypass expiry checks."""
     key = jwk.RSAKey.generate_key(2048, private=True)
