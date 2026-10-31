@@ -27,6 +27,7 @@ from asap.crypto.keys import (
     load_public_key_from_base64,
     public_key_to_base64,
     serialize_private_key,
+    warn_if_key_file_permissions_loose,
     warn_if_key_old,
 )
 
@@ -128,6 +129,46 @@ def test_load_private_key_from_file_missing_raises() -> None:
     """load_private_key_from_file_sync raises FileNotFoundError for missing file."""
     with pytest.raises(FileNotFoundError):
         load_private_key_from_file_sync("/nonexistent/key.pem")
+
+
+@pytest.mark.parametrize(
+    ("mode", "warns"),
+    [
+        (0o600, False),
+        (0o640, True),
+        (0o604, True),
+    ],
+)
+def test_key_file_permission_warning_uses_group_and_other_bits(
+    tmp_path: Path,
+    mode: int,
+    warns: bool,
+) -> None:
+    """Owner-only mode 0600 stays quiet. Group-read and other-read each warn.
+
+    Group-read 0640 and other-read 0604 each log ``key_file_permissions_loose``.
+    Those two modes split the group bits from the other bits.
+    """
+    key_file = tmp_path / f"key-{mode:o}.pem"
+    key_file.write_bytes(b"not-a-real-key")
+    key_file.chmod(mode)
+    assert key_file.stat().st_mode & 0o777 == mode
+
+    with patch("asap.crypto.keys.logger") as mock_logger:
+        warn_if_key_file_permissions_loose(key_file)
+
+    if warns:
+        mock_logger.warning.assert_called_once()
+        assert mock_logger.warning.call_args.args[0] == "key_file_permissions_loose"
+        return
+    mock_logger.warning.assert_not_called()
+
+
+def test_key_file_permission_warning_ignores_missing_path(tmp_path: Path) -> None:
+    """A missing path does not raise and does not log a permission warning."""
+    with patch("asap.crypto.keys.logger") as mock_logger:
+        warn_if_key_file_permissions_loose(tmp_path / "missing.pem")
+    mock_logger.warning.assert_not_called()
 
 
 def test_load_private_key_from_file_logs_warning_when_permissions_loose(
