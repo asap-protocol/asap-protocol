@@ -52,6 +52,20 @@ async def _yield_with_receiver(
     yield envelope
 
 
+async def _yield_with_cls(
+    cls: object, envelope: Envelope, manifest: Manifest
+) -> AsyncIterator[Envelope]:
+    """Unbound async generator whose first parameter is named cls."""
+    yield envelope
+
+
+async def _yield_with_other_name(
+    receiver: object, envelope: Envelope, manifest: Manifest
+) -> AsyncIterator[Envelope]:
+    """Three parameters whose first name is not self or cls."""
+    yield envelope
+
+
 async def _coroutine_not_generator(envelope: Envelope, manifest: Manifest) -> Envelope:
     """Async function that returns once and never yields."""
     return envelope
@@ -77,6 +91,23 @@ class TestValidateStreamingHandler:
     def test_accepts_three_parameter_when_first_is_self(self) -> None:
         """(self, envelope, manifest) is allowed for methods defined as functions."""
         validate_streaming_handler(_yield_with_receiver)
+
+    def test_register_accepts_cls_and_rejects_other_three_parameter_names(self) -> None:
+        """``cls`` is an allow-list name. Any other third parameter is not.
+
+        ``test_accepts_three_parameter_when_first_is_self`` still passes if
+        ``cls`` is removed, and it does not reject a receiver named something else.
+        Registration must also refuse the callable so a skipped validator cannot
+        store it.
+        """
+        registry = HandlerRegistry()
+        registry.register_streaming_handler("task.request", _yield_with_cls)
+        assert registry.has_streaming_handler("task.request") is True
+
+        rejected = HandlerRegistry()
+        with pytest.raises(TypeError, match="3 parameters"):
+            rejected.register_streaming_handler("task.request", _yield_with_other_name)
+        assert rejected.has_streaming_handler("task.request") is False
 
     def test_rejects_non_callable(self) -> None:
         """Non-callables fail before signature inspection."""
