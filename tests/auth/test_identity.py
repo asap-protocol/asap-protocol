@@ -648,6 +648,43 @@ async def test_touch_if_current_refuses_malformed_expected_key() -> None:
     assert stored.public_key == public_key
 
 
+async def test_save_rejects_malformed_expected_public_key() -> None:
+    """Compare-and-set fails closed when the expected JWK cannot be thumbprinted.
+
+    A missing OKP member raises ``KeyError``. An unknown ``kty`` raises
+    ``ValueError``. Narrowing the handler to one of those types would let the
+    other overwrite the stored row. ``test_touch_if_current_refuses_malformed_expected_key``
+    only covers the touch path.
+    """
+    store = InMemoryAgentStore()
+    now = _utc_now()
+    public_key = make_ed25519_jwk()
+    session = AgentSession(
+        agent_id="a1",
+        host_id="h1",
+        public_key=public_key,
+        mode="delegated",
+        status="pending",
+        created_at=now,
+    )
+    await store.save(session)
+    active = session.model_copy(update={"status": "active", "activated_at": now})
+    malformed_keys: tuple[dict[str, str], ...] = (
+        {"kty": "OKP"},
+        {"kty": "not-a-key-type"},
+    )
+    for expected in malformed_keys:
+        with pytest.raises(
+            StaleAgentPublicKeyError,
+            match="cannot compare public_key thumbprints for agent 'a1'",
+        ):
+            await store.save(active, expected_public_key=expected)
+    stored = await store.get("a1")
+    assert stored is not None
+    assert stored.status == "pending"
+    assert stored.public_key == public_key
+
+
 def test_jwk_thumbprint_sha256_is_deterministic() -> None:
     """Same JWK dict always yields the same thumbprint."""
     jwk_dict = {"crv": "Ed25519", "kty": "OKP", "x": "dGVzdA"}

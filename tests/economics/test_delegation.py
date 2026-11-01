@@ -441,6 +441,42 @@ class TestValidateDelegation:
         assert result.delegator == "urn:asap:agent:a"
         assert result.delegate == "urn:asap:agent:b"
 
+    def test_empty_aud_array_has_no_delegate(
+        self,
+        sample_constraints: DelegationConstraints,
+    ) -> None:
+        """An empty ``aud`` array is no delegate. It must not index the list.
+
+        ``test_aud_claim_array_extracts_first_element`` uses a one-element
+        array, so ``aud[0]`` without the empty check still passes that test.
+        """
+        private_key, public_key = generate_keypair()
+        now = datetime.now(timezone.utc)
+        claims: dict[str, Any] = {
+            "iss": "urn:asap:agent:a",
+            "aud": [],
+            "jti": "del_aud_empty_test",
+            "iat": int(now.timestamp()),
+            "exp": int(sample_constraints.expires_at.timestamp()),
+            "scp": ["task.execute"],
+        }
+        token = jose_jwt.encode(
+            {"alg": JWT_ALG, "typ": "JWT"},
+            claims,
+            ed25519_to_okp(private_key),
+            algorithms=[JWT_ALG],
+        )
+
+        result = validate_delegation(
+            token,
+            "task.execute",
+            public_key_resolver=lambda _iss: public_key,
+        )
+
+        assert result.success is True
+        assert result.delegator == "urn:asap:agent:a"
+        assert result.delegate is None
+
     def test_expired_rejected(
         self,
         sample_constraints: DelegationConstraints,

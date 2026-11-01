@@ -98,6 +98,29 @@ class TestCorrelationBinding:
         with pytest.raises(ProtocolCorrelationError):
             assert_correlation_binds(_REQUEST_ID, result)
 
+    def test_mcp_resource_data_mismatch_rejected_on_both_paths(self) -> None:
+        """MCP resource payloads bind on unary receive and on the stream path.
+
+        ``test_mcp_tool_result_mismatch_rejected`` only covers ``mcptoolresult``.
+        Dropping ``mcpresourcedata`` from the bound set would accept another
+        request's resource body under concurrency.
+        """
+        payload = {
+            "resource_uri": "https://example.com/docs/guide",
+            "content": {"text": "resource-body"},
+        }
+        mismatched = _envelope("mcp.resource.data", payload, _OTHER_ID)
+        with pytest.raises(ProtocolCorrelationError) as exc_info:
+            assert_correlation_binds(_REQUEST_ID, mismatched)
+        assert exc_info.value.request_id == _REQUEST_ID
+        assert exc_info.value.correlation_id == _OTHER_ID
+        with pytest.raises(ProtocolCorrelationError):
+            assert_stream_correlation_binds(_REQUEST_ID, mismatched)
+
+        matched = _envelope("mcp.resource.data", payload, _REQUEST_ID)
+        assert_correlation_binds(_REQUEST_ID, matched)
+        assert_stream_correlation_binds(_REQUEST_ID, matched)
+
     def test_missing_correlation_id_on_bound_type_rejected(self) -> None:
         response = _envelope("task.response", _task_response(), None)
         with pytest.raises(ProtocolCorrelationError) as exc_info:
