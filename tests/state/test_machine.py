@@ -235,3 +235,25 @@ class TestTransition:
         assert sample_task.status == original_status
         # New task should have new status
         assert updated_task.status == ModelTaskStatus.WORKING
+
+    def test_transition_advances_updated_at_and_keeps_created_at(self, sample_task: Task) -> None:
+        """A real status change stamps updated_at and leaves created_at alone."""
+        past = datetime(2020, 1, 1, tzinfo=timezone.utc)
+        task = sample_task.model_copy(update={"created_at": past, "updated_at": past})
+
+        updated = transition(task, TaskStatus.WORKING)
+
+        assert updated.status == ModelTaskStatus.WORKING
+        assert updated.created_at == past
+        assert task.updated_at == past
+        assert updated.updated_at > past
+
+    def test_transition_rejects_staying_in_the_same_status(self, sample_task: Task) -> None:
+        """Repeating the current status is not a transition."""
+        with pytest.raises(InvalidTransitionError) as exc_info:
+            transition(sample_task, TaskStatus.SUBMITTED)
+
+        error = exc_info.value
+        assert error.from_state == "submitted"
+        assert error.to_state == "submitted"
+        assert sample_task.status == ModelTaskStatus.SUBMITTED
