@@ -142,6 +142,32 @@ def test_require_scope_returns_401_when_no_oauth2_claims() -> None:
     assert "WWW-Authenticate" in response.headers
 
 
+def test_require_scope_rejects_scope_that_only_contains_the_name() -> None:
+    """``asap:admin`` is not granted by a longer name or by the bare suffix ``admin``."""
+    app = FastAPI()
+
+    class NeighborScopeMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request: Request, call_next: Any) -> Any:
+            request.state.oauth2_claims = OAuth2Claims(
+                sub="urn:asap:agent:client",
+                scope=["asap:administrator", "admin"],
+                exp=0,
+            )
+            return await call_next(request)
+
+    app.add_middleware(NeighborScopeMiddleware)
+
+    @app.get("/admin", dependencies=[Depends(require_scope(SCOPE_ADMIN))])
+    async def admin_route() -> dict[str, str]:
+        return {"status": "ok"}
+
+    with TestClient(app) as client:
+        response = client.get("/admin")
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Insufficient scope"}
+
+
 def test_require_scope_returns_401_when_oauth2_claims_wrong_type() -> None:
     """require_scope raises 401 when request.state.oauth2_claims is set but not OAuth2Claims."""
     app = FastAPI()
