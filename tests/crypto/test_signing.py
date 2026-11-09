@@ -146,12 +146,14 @@ def test_verify_manifest_valid_with_explicit_public_key() -> None:
     assert verify_manifest(signed_no_pk, public_key=public_key) is True
 
 
-@pytest.mark.parametrize("alg", ["Ed25519", "ED25519"])
-def test_verify_manifest_rejects_uppercase_ed25519_label(alg: str) -> None:
+@pytest.mark.parametrize("alg", ["Ed25519", "ED25519", "ed25519x"])
+def test_verify_manifest_rejects_non_exact_ed25519_label(alg: str) -> None:
     """The allow-list is the exact string ``ed25519``.
 
-    Case-folding would verify the same signature bytes. ``rs256`` in
-    ``test_verify_manifest_unsupported_alg_raises`` still fails after folding.
+    Case-folding would verify the same signature bytes. ``Ed25519`` and
+    ``ED25519`` still fail ``startswith(\"ed25519\")``. ``ed25519x`` would not.
+    ``rs256`` in ``test_verify_manifest_unsupported_alg_raises`` still fails
+    after folding.
     """
     manifest = _sample_manifest()
     private_key, public_key = generate_keypair()
