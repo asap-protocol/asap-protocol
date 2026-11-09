@@ -73,7 +73,8 @@
     "browserslist": "^4.28.9",
     "source-map-js": "^1.2.2",
     "vite": "8.1.6",
-    "body-parser": "^2.4.0"
+    "body-parser": "^2.4.0",
+    "systeminformation": "^5.33.16"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1",
