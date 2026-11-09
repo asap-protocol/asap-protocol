@@ -397,3 +397,26 @@ async def test_webauthn_challenge_rejects_blank_and_non_string(challenge: object
     assert result.detail == "webauthn.challenge must be a non-empty string"
     assert result.http_status == 400
     assert verifier.calls == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("challenge", ["", "   "])
+async def test_blank_webauthn_challenge_is_forbidden_on_browser_gate(challenge: str) -> None:
+    """A real verifier plus browser control rejects a blank challenge with 403.
+
+    ``test_webauthn_challenge_rejects_blank_and_non_string`` uses a verifier
+    without ``__asap_performs_real_webauthn__``, so ``browser_gate`` stays
+    false and that test pins 400.
+    """
+    seen: list[bool] = []
+    result = await check_webauthn_for_approval_path(
+        [],
+        {"webauthn": {"challenge": challenge, "response": {}}},
+        None,
+        _recording_real_verifier(seen),
+        host_id="urn:asap:host:1",
+        agent_controls_browser=True,
+    )
+    assert result.detail == "webauthn.challenge must be a non-empty string"
+    assert result.http_status == 403
+    assert seen == []
