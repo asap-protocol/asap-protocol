@@ -360,3 +360,40 @@ def test_select_browser_controls_device_when_unlinked() -> None:
         )
         == "device_authorization"
     )
+
+
+class _RecordingVerifier(WebAuthnVerifier):
+    """Verifier that records challenges. A rejected challenge must not reach it."""
+
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    async def verify(
+        self,
+        challenge: str,
+        response: Any,
+        *,
+        host_id: str | None = None,
+        require_user_verification: bool = False,
+    ) -> bool:
+        _ = (response, host_id, require_user_verification)
+        self.calls.append(challenge)
+        return True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("challenge", ["   ", "\t\n", 42, None])
+async def test_webauthn_challenge_rejects_blank_and_non_string(challenge: object) -> None:
+    """Whitespace and non-strings are a 400 and never reach the verifier."""
+    verifier = _RecordingVerifier()
+    result = await check_webauthn_for_approval_path(
+        ["admin.task"],
+        {"webauthn": {"challenge": challenge, "response": {}}},
+        FreshSessionConfig(require_webauthn_for=["admin.task"]),
+        verifier,
+        host_id="urn:asap:host:x",
+        agent_controls_browser=False,
+    )
+    assert result.detail == "webauthn.challenge must be a non-empty string"
+    assert result.http_status == 400
+    assert verifier.calls == []

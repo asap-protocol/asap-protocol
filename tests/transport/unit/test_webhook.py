@@ -651,7 +651,7 @@ class TestWebhookRetryManager:
 
     # -- No retry on 4xx --
 
-    @pytest.mark.parametrize("status", [400, 401, 403, 404, 422])
+    @pytest.mark.parametrize("status", [400, 401, 403, 404, 422, 429])
     async def test_no_retry_on_4xx(self, status: int) -> None:
         delivery = _make_mock_delivery([_client_error(self._URL, status)])
         manager = WebhookRetryManager(delivery, policy=self._FAST_POLICY)

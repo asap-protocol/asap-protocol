@@ -52,6 +52,13 @@ async def _yield_with_receiver(
     yield envelope
 
 
+async def _yield_with_class(
+    cls: object, envelope: Envelope, manifest: Manifest
+) -> AsyncIterator[Envelope]:
+    """Unbound async generator whose first parameter is named cls."""
+    yield envelope
+
+
 async def _coroutine_not_generator(envelope: Envelope, manifest: Manifest) -> Envelope:
     """Async function that returns once and never yields."""
     return envelope
@@ -77,6 +84,10 @@ class TestValidateStreamingHandler:
     def test_accepts_three_parameter_when_first_is_self(self) -> None:
         """(self, envelope, manifest) is allowed for methods defined as functions."""
         validate_streaming_handler(_yield_with_receiver)
+
+    def test_accepts_three_parameter_when_first_is_cls(self) -> None:
+        """(cls, envelope, manifest) is allowed for class-style streaming handlers."""
+        validate_streaming_handler(_yield_with_class)
 
     def test_rejects_non_callable(self) -> None:
         """Non-callables fail before signature inspection."""
