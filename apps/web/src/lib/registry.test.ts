@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { fetchRegistry, fetchRevokedUrns, resolveRegistryFetchUrl } from '@/lib/registry';
+import {
+  REGISTRY_REVALIDATE_SECONDS,
+  fetchRegistry,
+  fetchRevokedUrns,
+  resolveRegistryFetchUrl,
+} from '@/lib/registry';
 
 describe('resolveRegistryFetchUrl', () => {
   beforeEach(() => {
@@ -87,12 +92,10 @@ describe('fetchRegistry', () => {
     const agents = await fetchRegistry();
 
     expect(agents).toHaveLength(1);
-    expect(agents[0].endpoints).toEqual(
-      expect.objectContaining({
-        asap: 'https://example.com/seed/0/asap',
-        http: 'https://example.com/seed/0/asap',
-      })
-    );
+    expect(agents[0].endpoints).toEqual({
+      asap: 'https://example.com/seed/0/asap',
+      http: 'https://example.com/seed/0/asap',
+    });
     expect(agents[0].version).toBe('2.0');
     expect(agents[0].capabilities.skills).toEqual([{ id: 'code_review', description: '' }]);
     expect(agents[0]).not.toHaveProperty('owner_email');
@@ -118,12 +121,10 @@ describe('fetchRegistry', () => {
 
     const agents = await fetchRegistry();
 
-    expect(agents[0].endpoints).toEqual(
-      expect.objectContaining({
-        asap: 'https://preferred.example/asap',
-        http: 'https://legacy.example/asap',
-      })
-    );
+    expect(agents[0].endpoints).toEqual({
+      asap: 'https://preferred.example/asap',
+      http: 'https://legacy.example/asap',
+    });
     expect(agents[0].version).toBe('1.0.0');
     expect(agents[0].capabilities.asap_version).toBe('1.0.0');
   });
@@ -135,9 +136,10 @@ describe('fetchRegistry', () => {
 
     expect(agents).toHaveLength(1);
     expect(agents[0].id).toBe('urn:asap:agent:seed:agent-0');
-    expect(agents[0].endpoints).toEqual(
-      expect.objectContaining({ asap: 'https://example.com/seed/0/asap' })
-    );
+    expect(agents[0].endpoints).toEqual({
+      asap: 'https://example.com/seed/0/asap',
+      http: 'https://example.com/seed/0/asap',
+    });
   });
 
   it('returns an empty list on 404 without logging a fetch error', async () => {
@@ -171,6 +173,7 @@ describe('fetchRegistry', () => {
     );
 
     await expect(fetchRegistry()).resolves.toEqual([]);
+    expect(console.error).toHaveBeenCalledTimes(1);
     expect(console.error).toHaveBeenCalledWith('Error fetching registry:', expect.any(Error));
   });
 });
@@ -190,24 +193,60 @@ describe('fetchRevokedUrns', () => {
   });
 
   it('returns the urn set from a valid payload', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        jsonResponse({
-          revoked: [{ urn: 'urn:asap:agent:seed:agent-0' }, { urn: 'urn:asap:agent:seed:agent-1' }],
-        })
-      )
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        revoked: [{ urn: 'urn:asap:agent:seed:agent-0' }, { urn: 'urn:asap:agent:seed:agent-1' }],
+      })
     );
+    vi.stubGlobal('fetch', fetchMock);
 
     await expect(fetchRevokedUrns()).resolves.toEqual(
       new Set(['urn:asap:agent:seed:agent-0', 'urn:asap:agent:seed:agent-1'])
     );
+    expect(fetchMock).toHaveBeenCalledWith(REMOTE_REVOKED_URL, {
+      next: { revalidate: REGISTRY_REVALIDATE_SECONDS },
+    });
   });
 
   it('returns an empty set on 404 without logging', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(new Response(null, { status: 404, statusText: 'Not Found' }))
+    );
+
+    await expect(fetchRevokedUrns()).resolves.toEqual(new Set());
+    expect(console.error).not.toHaveBeenCalled();
+  });
+
+  it('returns an empty set and logs once when the revoked list responds with 500', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(null, { status: 500, statusText: 'Server Error' }))
+    );
+
+    await expect(fetchRevokedUrns()).resolves.toEqual(new Set());
+    expect(console.error).toHaveBeenCalledTimes(1);
+    expect(console.error).toHaveBeenCalledWith('Failed to fetch revoked list: Server Error');
+  });
+
+  it('returns an empty set and logs when the revoked payload is not JSON', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('not-json', { status: 200, statusText: 'OK' }))
+    );
+
+    await expect(fetchRevokedUrns()).resolves.toEqual(new Set());
+    expect(console.error).toHaveBeenCalledTimes(1);
+    expect(console.error).toHaveBeenCalledWith(
+      'Error fetching revoked list:',
+      expect.any(SyntaxError)
+    );
+  });
+
+  it('returns an empty set without logging when revoked is not an array', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(jsonResponse({ revoked: { urn: 'urn:asap:agent:x' } }))
     );
 
     await expect(fetchRevokedUrns()).resolves.toEqual(new Set());
