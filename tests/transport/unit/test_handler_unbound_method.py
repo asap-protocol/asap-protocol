@@ -37,10 +37,21 @@ def test_validate_handler_accepts_function_whose_first_parameter_is_cls() -> Non
 
 
 def test_validate_handler_rejects_three_parameters_without_self_or_cls() -> None:
-    """Three parameters are not enough when the first name is neither self nor cls."""
+    """Three parameters are accepted only when the first name is self or cls.
 
-    def handle(ctx: object, envelope: Envelope, manifest: Manifest) -> Envelope:
+    ``ctx`` misses a prefix check. ``selfish`` and ``cls_extra`` stay valid if
+    the allow-list uses ``startswith`` or containment.
+    """
+
+    def ctx(ctx: object, envelope: Envelope, manifest: Manifest) -> Envelope:
         return envelope
 
-    with pytest.raises(TypeError, match="3 parameters"):
-        validate_handler(handle)
+    def selfish(selfish: object, envelope: Envelope, manifest: Manifest) -> Envelope:
+        return envelope
+
+    def cls_extra(cls_extra: object, envelope: Envelope, manifest: Manifest) -> Envelope:
+        return envelope
+
+    for handle in (ctx, selfish, cls_extra):
+        with pytest.raises(TypeError, match="3 parameters"):
+            validate_handler(handle)

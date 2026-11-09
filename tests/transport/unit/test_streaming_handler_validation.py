@@ -73,6 +73,20 @@ async def _yield_with_other_name(
     yield envelope
 
 
+async def _yield_with_selfish(
+    selfish: object, envelope: Envelope, manifest: Manifest
+) -> AsyncIterator[Envelope]:
+    """First parameter starts with ``self`` but is not the allow-list name."""
+    yield envelope
+
+
+async def _yield_with_cls_extra(
+    cls_extra: object, envelope: Envelope, manifest: Manifest
+) -> AsyncIterator[Envelope]:
+    """First parameter starts with ``cls`` but is not the allow-list name."""
+    yield envelope
+
+
 async def _coroutine_not_generator(envelope: Envelope, manifest: Manifest) -> Envelope:
     """Async function that returns once and never yields."""
     return envelope
@@ -107,7 +121,8 @@ class TestValidateStreamingHandler:
         """``cls`` is an allow-list name. Any other third parameter is not.
 
         ``test_accepts_three_parameter_when_first_is_self`` still passes if
-        ``cls`` is removed, and it does not reject a receiver named something else.
+        ``cls`` is removed. ``receiver`` misses a prefix check. ``selfish`` and
+        ``cls_extra`` stay registered if the allow-list uses ``startswith``.
         Registration must also refuse the callable so a skipped validator cannot
         store it.
         """
@@ -115,10 +130,11 @@ class TestValidateStreamingHandler:
         registry.register_streaming_handler("task.request", _yield_with_cls)
         assert registry.has_streaming_handler("task.request") is True
 
-        rejected = HandlerRegistry()
-        with pytest.raises(TypeError, match="3 parameters"):
-            rejected.register_streaming_handler("task.request", _yield_with_other_name)
-        assert rejected.has_streaming_handler("task.request") is False
+        for candidate in (_yield_with_other_name, _yield_with_selfish, _yield_with_cls_extra):
+            rejected = HandlerRegistry()
+            with pytest.raises(TypeError, match="3 parameters"):
+                rejected.register_streaming_handler("task.request", candidate)
+            assert rejected.has_streaming_handler("task.request") is False
 
     def test_rejects_non_callable(self) -> None:
         """Non-callables fail before signature inspection."""
