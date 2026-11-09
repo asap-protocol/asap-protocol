@@ -146,3 +146,24 @@ class TestCorrelationBinding:
             with pytest.raises(ProtocolCorrelationError) as stream_exc:
                 assert_stream_correlation_binds(_REQUEST_ID, response)
             assert stream_exc.value.correlation_id == correlation_id
+
+    def test_empty_correlation_id_on_bound_type_rejected(self) -> None:
+        """An empty id never reaches ``Envelope`` validation and still fails both paths.
+
+        ``if not response.correlation_id: return`` would accept this input.
+        """
+        response = Envelope.model_construct(
+            asap_version="0.1",
+            sender="urn:asap:agent:server",
+            recipient="urn:asap:agent:client",
+            payload_type="task.response",
+            payload=_task_response(),
+            correlation_id="",
+        )
+        with pytest.raises(ProtocolCorrelationError) as exc_info:
+            assert_correlation_binds(_REQUEST_ID, response)
+        assert exc_info.value.request_id == _REQUEST_ID
+        assert exc_info.value.correlation_id == ""
+        with pytest.raises(ProtocolCorrelationError) as stream_exc:
+            assert_stream_correlation_binds(_REQUEST_ID, response)
+        assert stream_exc.value.correlation_id == ""
