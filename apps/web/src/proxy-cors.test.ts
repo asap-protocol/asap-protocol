@@ -37,16 +37,22 @@ describe('proxy CORS allowlist', () => {
     }
   });
 
-  it('rejects a different localhost port when NODE_ENV is test', async () => {
+  it('rejects another loopback port when NODE_ENV is test', async () => {
     vi.stubEnv('NODE_ENV', 'test');
     vi.stubEnv('NEXT_PUBLIC_APP_URL', 'http://localhost:3000');
     try {
       const { default: proxy } = await import('@/proxy');
-      const otherPort = createRequest('/api/health-check', {
+      const localhostOtherPort = createRequest('/api/health-check', {
         origin: 'http://localhost:3001',
       });
-      const denied = (await proxy(otherPort, middlewareContext)) as Response;
-      expect(denied.status).toBe(403);
+      const deniedLocalhost = (await proxy(localhostOtherPort, middlewareContext)) as Response;
+      expect(deniedLocalhost.status).toBe(403);
+
+      const loopbackOtherPort = createRequest('/api/health-check', {
+        origin: 'http://127.0.0.1:3001',
+      });
+      const deniedLoopback = (await proxy(loopbackOtherPort, middlewareContext)) as Response;
+      expect(deniedLoopback.status).toBe(403);
 
       const configured = createRequest('/api/health-check', {
         origin: 'http://localhost:3000',
@@ -83,8 +89,10 @@ describe('proxy CORS allowlist', () => {
     expect(res.status).toBe(204);
     expect(await res.text()).toBe('');
     expect(res.headers.get('Access-Control-Allow-Origin')).toBe('http://localhost:3000');
-    expect(res.headers.get('Access-Control-Allow-Methods')).toContain('OPTIONS');
-    expect(res.headers.get('Access-Control-Allow-Headers')).toContain('Authorization');
+    expect(res.headers.get('Access-Control-Allow-Methods')).toBe('GET, POST, PUT, DELETE, OPTIONS');
+    expect(res.headers.get('Access-Control-Allow-Headers')).toBe(
+      'Content-Type, Authorization, X-Requested-With'
+    );
     expect(res.headers.get('Access-Control-Max-Age')).toBe('86400');
   });
 
