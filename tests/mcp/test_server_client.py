@@ -307,8 +307,7 @@ async def test_mcp_tool_exception_text_follows_debug_mode(
     shown = await server._handle_tools_call(call)
     assert shown["isError"] is True
     shown_text = shown["content"][0]["text"]
-    assert "division" in shown_text.lower()
-    assert shown_text != "Internal tool error"
+    assert shown_text == "division by zero"
 
 
 @pytest.mark.asyncio
