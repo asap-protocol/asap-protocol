@@ -42,9 +42,14 @@ def test_remote_rpc_string_alternative_agents_is_not_a_failover_list() -> None:
     assert err.details == {}
 
 
-@pytest.mark.parametrize("code_value", ["error", 123, "ASAP:rpc/remote_error"])
+@pytest.mark.parametrize("code_value", ["error", 123, "ASAP:rpc/peer_overloaded"])
 def test_remote_rpc_code_field_requires_lowercase_asap_prefix(code_value: object) -> None:
-    """``data.code`` overrides taxonomy only when it starts with ``asap:``."""
+    """``data.code`` overrides taxonomy only when it starts with ``asap:``.
+
+    The uppercase value must stay distinct after ``str.lower()``. JSON-RPC
+    ``-32040`` already defaults to ``asap:rpc/remote_error``, so a peer code
+    that lowercases to that default would not catch a case-folding check.
+    """
     err = remote_rpc_error_from_json(
         -32040,
         "resource exhausted",
