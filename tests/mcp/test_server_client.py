@@ -1,13 +1,19 @@
 """Integration tests for MCP server and client (stdio)."""
 
+from __future__ import annotations
+
 import asyncio
 import json
 import sys
+from typing import TYPE_CHECKING
 
 import pytest
 
 from asap.mcp.client import MCPClient
 from asap.mcp.server import MCPServer
+
+if TYPE_CHECKING:
+    from _pytest.monkeypatch import MonkeyPatch
 
 
 @pytest.mark.asyncio
@@ -268,9 +274,8 @@ async def test_mcp_server_handle_tools_call_returns_dict_as_json_text() -> None:
     assert result["content"][0]["text"] == '{"a": 1, "b": 2}'
 
 
-@pytest.mark.asyncio
-async def test_mcp_server_handle_tools_call_tool_raises_returns_is_error() -> None:
-    """Tool that raises returns isError true; message is sanitized unless ASAP_DEBUG."""
+def _tool_that_divides_by_zero() -> MCPServer:
+    """Return a server whose only tool raises ZeroDivisionError."""
     server = MCPServer(name="t", version="0.1.0")
     server.register_tool(
         "raises",
@@ -278,10 +283,32 @@ async def test_mcp_server_handle_tools_call_tool_raises_returns_is_error() -> No
         {"type": "object", "additionalProperties": False},
         description="Raises",
     )
-    result = await server._handle_tools_call({"name": "raises", "arguments": {}})
-    assert result["isError"] is True
-    text = result["content"][0].get("text", "") if result["content"] else ""
-    assert text == "Internal tool error" or "division" in text.lower() or "zero" in text.lower()
+    return server
+
+
+@pytest.mark.asyncio
+async def test_mcp_tool_exception_text_follows_debug_mode(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """Tool failures stay generic unless debug mode is on.
+
+    Always returning ``str(e)`` would leak ``division by zero``. Always
+    returning the generic message would hide the exception when debug is on.
+    """
+    server = _tool_that_divides_by_zero()
+    call = {"name": "raises", "arguments": {}}
+
+    monkeypatch.setattr("asap.mcp.server.is_debug_mode", lambda: False)
+    hidden = await server._handle_tools_call(call)
+    assert hidden["isError"] is True
+    assert hidden["content"][0]["text"] == "Internal tool error"
+
+    monkeypatch.setattr("asap.mcp.server.is_debug_mode", lambda: True)
+    shown = await server._handle_tools_call(call)
+    assert shown["isError"] is True
+    shown_text = shown["content"][0]["text"]
+    assert "division" in shown_text.lower()
+    assert shown_text != "Internal tool error"
 
 
 @pytest.mark.asyncio
