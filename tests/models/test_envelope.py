@@ -321,3 +321,33 @@ class TestEnvelope:
         }
         with pytest.raises(ValidationError):
             Envelope.model_validate(data)
+
+    def test_empty_correlation_id_is_not_a_pairing_token(self) -> None:
+        """Bound responses reject ``correlation_id=""``; requests may omit a pair.
+
+        The gate is ``not correlation_id``, so an empty string is missing.
+        Treating only ``None`` as missing would let a response through with no
+        request id for transport pairing.
+        """
+        from asap.models.envelope import Envelope
+
+        request = Envelope(
+            asap_version="0.1",
+            sender="urn:asap:agent:a",
+            recipient="urn:asap:agent:b",
+            payload_type="task.request",
+            payload={"conversation_id": "conv_1", "skill_id": "s1", "input": {}},
+            correlation_id="",
+        )
+        assert request.correlation_id == ""
+
+        with pytest.raises(ValidationError) as exc_info:
+            Envelope(
+                asap_version="0.1",
+                sender="urn:asap:agent:a",
+                recipient="urn:asap:agent:b",
+                payload_type="task.response",
+                payload={"task_id": "t1", "status": "completed", "result": {"ok": True}},
+                correlation_id="",
+            )
+        assert "must have correlation_id" in exc_info.value.errors()[0]["msg"]
