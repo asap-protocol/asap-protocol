@@ -400,18 +400,23 @@ def test_custom_claim_must_equal_manifest_id() -> None:
 def test_blank_custom_claim_does_not_use_the_allowlist(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A present blank claim stays a mismatch when sub is on the allowlist."""
+    """A present blank claim stays a mismatch when sub is on the allowlist.
+
+    ``\"   \"`` is truthy, so a guard of ``if claim_value:`` still returns 403.
+    ``\"\"`` is falsy and would fall through to the subject map.
+    """
     monkeypatch.setenv(
         "ASAP_AUTH_SUBJECT_MAP",
         '{"urn:asap:agent:bot": "auth0|abc123"}',
     )
     app, key = _app_and_key()
-    token = _make_token(
-        key,
-        sub="auth0|abc123",
-        extra_claims={DEFAULT_CUSTOM_CLAIM: "   "},
-    )
-    _deny_identity(app, token)
+    for claim in ("   ", ""):
+        token = _make_token(
+            key,
+            sub="auth0|abc123",
+            extra_claims={DEFAULT_CUSTOM_CLAIM: claim},
+        )
+        _deny_identity(app, token)
 
 
 def test_allowlist_string_match_is_exact(monkeypatch: pytest.MonkeyPatch) -> None:
