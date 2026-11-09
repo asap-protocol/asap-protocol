@@ -201,6 +201,29 @@ class TestCheckVersionCompatibility:
         with pytest.raises(ManifestValidationError):
             check_version_compatibility(manifest, min_asap_version="0.9")
 
+    def test_version_order_compares_numeric_components(self) -> None:
+        """1.10 is newer than 1.9. Text order would reject the newer agent."""
+        check_version_compatibility(
+            _make_manifest(asap_version="1.10"),
+            min_asap_version="1.9",
+        )
+        older = _make_manifest(asap_version="1.9")
+        with pytest.raises(ManifestValidationError, match="older than required") as exc_info:
+            check_version_compatibility(older, min_asap_version="1.10")
+        assert exc_info.value.field == "capabilities.asap_version"
+
+    def test_equivalent_release_versions_are_compatible(self) -> None:
+        """2 and 2.0.0 name the same release."""
+        check_version_compatibility(_make_manifest(asap_version="2"), min_asap_version="2.0.0")
+        check_version_compatibility(_make_manifest(asap_version="2.0.0"), min_asap_version="2")
+
+    def test_prerelease_does_not_meet_the_final_release(self) -> None:
+        """A release candidate is older than the final version with the same numbers."""
+        manifest = _make_manifest(asap_version="1.10.0rc1")
+        with pytest.raises(ManifestValidationError, match="older than required") as exc_info:
+            check_version_compatibility(manifest, min_asap_version="1.10.0")
+        assert exc_info.value.field == "capabilities.asap_version"
+
 
 # --------------------------------------------------------------------------- #
 # manifest_supports_skill
@@ -237,6 +260,23 @@ class TestManifestSupportsSkill:
         assert manifest_supports_skill(manifest, "search") is True
         assert manifest_supports_skill(manifest, "translate") is True
         assert manifest_supports_skill(manifest, "nonexistent") is False
+
+    def test_skill_id_match_is_exact_and_case_sensitive(self) -> None:
+        """Neighboring or differently cased ids are not the declared skill."""
+        manifest = _make_manifest(
+            skills=[
+                Skill(id="echo_admin", description="Admin"),
+                Skill(id="Echo", description="Cased"),
+            ]
+        )
+        assert manifest_supports_skill(manifest, "echo") is False
+        assert manifest_supports_skill(manifest, "e") is False
+        assert manifest_supports_skill(manifest, "echo_admin") is True
+        assert manifest_supports_skill(manifest, "Echo") is True
+        narrow = _make_manifest(skills=[Skill(id="echo", description="Echo")])
+        assert manifest_supports_skill(narrow, "echo_admin") is False
+        with pytest.raises(ManifestValidationError, match="does not support required skill 'echo'"):
+            require_skill(manifest, "echo")
 
 
 # --------------------------------------------------------------------------- #
