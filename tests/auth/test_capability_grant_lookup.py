@@ -50,6 +50,11 @@ def test_constraint_equality_and_membership_are_exact() -> None:
     assert contained[0].operator == "in"
     assert contained[0].message == ("role: 'administrator' not in allowed values ['admin']")
 
+    empty_list = validate_constraints({"role": {"in": []}}, {"role": "admin"})
+    assert len(empty_list) == 1
+    assert empty_list[0].operator == "in"
+    assert empty_list[0].message == "role: 'admin' not in allowed values []"
+
     not_forbidden = validate_constraints(
         {"role": {"not_in": ["admin"]}},
         {"role": "administrator"},
