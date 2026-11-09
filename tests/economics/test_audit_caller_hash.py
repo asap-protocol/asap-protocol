@@ -8,6 +8,7 @@ verify after a SQLite round trip.
 
 from __future__ import annotations
 
+import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -25,6 +26,8 @@ _TS = datetime(2026, 4, 2, 15, 4, tzinfo=timezone.utc)
 _WHEN = datetime(2026, 1, 1, tzinfo=timezone.utc)
 _URN = "urn:asap:agent:audit-reseal"
 _DETAILS: dict[str, Any] = {"b": 1, "a": 2}
+_CANONICAL_STAMP = "2026-04-02T15:04:00+00:00"
+_CANONICAL_DETAILS = '{"a": 2, "b": 1}'
 
 
 def _store(backend: str, tmp_path: Path) -> InMemoryAuditStore | SQLiteAuditStore:
@@ -34,6 +37,11 @@ def _store(backend: str, tmp_path: Path) -> InMemoryAuditStore | SQLiteAuditStor
     if backend == "sqlite":
         return SQLiteAuditStore(db_path=str(tmp_path / "audit-reseal.db"))
     raise ValueError(f"backend must be 'memory' or 'sqlite', got {backend!r}")
+
+
+def _digest(canonical: str) -> str:
+    """SHA-256 hex of a canonical audit string, independent of the helper."""
+    return hashlib.sha256(canonical.encode()).hexdigest()
 
 
 def _forged(operation: str, details: dict[str, Any] | None = None) -> AuditEntry:
@@ -57,10 +65,12 @@ async def test_append_reseals_caller_supplied_chain_fields(backend: str, tmp_pat
 
     assert first.prev_hash == ""
     assert first.hash != "deadbeef"
-    assert first.hash == compute_entry_hash("", _TS, "task.request", _DETAILS)
+    first_canonical = f"|{_CANONICAL_STAMP}|task.request|{_CANONICAL_DETAILS}"
+    assert first.hash == _digest(first_canonical)
     assert second.prev_hash == first.hash
     assert second.hash != "deadbeef"
-    assert second.hash == compute_entry_hash(first.hash, _TS, "task.complete", _DETAILS)
+    second_canonical = f"{first.hash}|{_CANONICAL_STAMP}|task.complete|{_CANONICAL_DETAILS}"
+    assert second.hash == _digest(second_canonical)
     assert await store.verify_chain() is True
 
 
