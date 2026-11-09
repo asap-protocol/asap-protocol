@@ -35,7 +35,10 @@ def test_allowed_binaries_none_disables_validation() -> None:
 
 
 def test_allowed_binaries_uses_the_final_path_component() -> None:
-    """Only the final path component is compared, and the compare is case-sensitive."""
+    """Only the final path component is compared, and the compare is exact.
+
+    ``curl`` and ``Python3`` miss a prefix check. ``python3-extra`` does not.
+    """
     with pytest.raises(ValueError, match="binary 'curl' not in allowed_binaries"):
         MCPClient(
             ["python3/../curl", "-m", "server"],
@@ -43,6 +46,8 @@ def test_allowed_binaries_uses_the_final_path_component() -> None:
         )
     with pytest.raises(ValueError, match="binary 'Python3' not in allowed_binaries"):
         MCPClient(["Python3"], allowed_binaries=frozenset({"python3"}))
+    with pytest.raises(ValueError, match="binary 'python3-extra' not in allowed_binaries"):
+        MCPClient(["python3-extra"], allowed_binaries=frozenset({"python3"}))
 
     client = MCPClient(
         ["python3/../python3"],
