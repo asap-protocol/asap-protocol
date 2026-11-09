@@ -15,6 +15,8 @@ from asap.transport.client import ASAPClient
         "ws://127.0.0.1@evil.example/asap",
         "http://localhost.evil.example",
         "http://127.0.0.1.evil.example",
+        "http://evil.localhost",
+        "http://evil.127.0.0.1",
         "http://notlocalhost",
         "http://[::ffff:127.0.0.1]",
         "HTTP://example.com",
@@ -51,4 +53,15 @@ def test_userinfo_does_not_hide_a_loopback_hostname() -> None:
     """Credentials in the URL do not change a loopback hostname."""
     client = ASAPClient("http://evil.example@127.0.0.1:9")
     assert client.base_url == "http://evil.example@127.0.0.1:9"
+    assert client.require_https is True
+
+
+@pytest.mark.parametrize("base_url", ["http://[::1]", "http://[::1]:80"])
+def test_ipv6_loopback_cleartext_is_accepted(base_url: str) -> None:
+    """``ASAPClient`` allows ``::1`` from the hostname, including a non-default port.
+
+    ``netloc`` for the second URL is ``[::1]:80`` while ``hostname`` is ``::1``.
+    """
+    client = ASAPClient(base_url)
+    assert client.base_url == base_url
     assert client.require_https is True
