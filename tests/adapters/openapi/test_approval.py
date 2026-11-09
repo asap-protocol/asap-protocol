@@ -166,15 +166,25 @@ def test_resolve_approval_strength_strips_verb_and_ignores_unknown_operation_id(
 
 
 def test_collect_webauthn_skips_operations_without_a_webauthn_rule() -> None:
-    """An empty approval map does not mark every capability as WebAuthn-required."""
-    skill = Skill(id="capA", description="delete a record")
+    """An empty approval map does not mark a capability as WebAuthn-required.
+
+    A spec that omits ``operationId`` is stored as ``None``. That missing id
+    is not itself a WebAuthn rule.
+    """
     caps = [
         OpenAPICapability(
-            skill=skill,
+            skill=Skill(id="capA", description="delete a record"),
             http_method="delete",
             path_template="/a",
             execution_kind=OpenAPIExecutionKind.SYNC,
             operation_id="delA",
+        ),
+        OpenAPICapability(
+            skill=Skill(id="capMissingOp", description="delete without an operation id"),
+            http_method="delete",
+            path_template="/missing",
+            execution_kind=OpenAPIExecutionKind.SYNC,
+            operation_id=None,
         ),
     ]
     assert collect_webauthn_required_capability_names(caps, {}) == []
