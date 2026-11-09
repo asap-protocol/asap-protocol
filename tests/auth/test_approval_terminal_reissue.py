@@ -110,3 +110,55 @@ async def test_approved_ciba_request_is_replaced() -> None:
     assert row.status == "pending"
     assert row.approved_by is None
     assert row.binding_message == "second prompt"
+
+
+@pytest.mark.asyncio
+async def test_denied_ciba_request_is_replaced() -> None:
+    """A denied CIBA row is replaced instead of returned as the live challenge."""
+    store = InMemoryApprovalStore()
+    await create_ciba_approval(store, _AGENT, ["read"], binding_message="first prompt")
+    await store.deny(_AGENT, "no trust")
+
+    fresh = await create_ciba_approval(store, _AGENT, ["read"], binding_message="second prompt")
+
+    assert fresh.binding_message == "second prompt"
+    row = await store.get(_AGENT)
+    assert row is not None
+    assert row.status == "pending"
+    assert row.deny_reason is None
+    assert row.binding_message == "second prompt"
+
+
+@pytest.mark.asyncio
+async def test_expired_ciba_request_is_replaced(monkeypatch: pytest.MonkeyPatch) -> None:
+    """After the deadline, the same agent gets a new pending CIBA prompt."""
+    frozen = datetime(2026, 10, 1, 12, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr("asap.auth.approval._utcnow", lambda: frozen)
+    store = InMemoryApprovalStore()
+    first = await create_ciba_approval(
+        store,
+        _AGENT,
+        ["read"],
+        binding_message="first prompt",
+        expires_in=30,
+    )
+    assert first.binding_message == "first prompt"
+
+    monkeypatch.setattr(
+        "asap.auth.approval._utcnow",
+        lambda: frozen + timedelta(seconds=60),
+    )
+    fresh = await create_ciba_approval(
+        store,
+        _AGENT,
+        ["read"],
+        binding_message="second prompt",
+        expires_in=30,
+    )
+
+    assert fresh.binding_message == "second prompt"
+    row = await store.get(_AGENT)
+    assert row is not None
+    assert row.status == "pending"
+    assert row.approved_by is None
+    assert row.binding_message == "second prompt"
