@@ -22,8 +22,9 @@ def _entry(category: str) -> RegistryEntry:
 def test_padded_category_strips_before_canonical_match() -> None:
     """Padding around a known category becomes the canonical label.
 
-    Padding around an unknown category is removed and the label is kept.
+    Padding around an unknown category is removed and the original case is kept.
+    A title-case unknown label would stay green under ``str.title()``.
     """
     assert _entry("  coding  ").category == "Coding"
     assert _entry("\tResearch\n").category == "Research"
-    assert _entry("  Robotics  ").category == "Robotics"
+    assert _entry("  OBSERVABILITY  ").category == "OBSERVABILITY"
