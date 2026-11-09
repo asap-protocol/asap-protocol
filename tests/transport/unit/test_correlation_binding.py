@@ -127,3 +127,22 @@ class TestCorrelationBinding:
             assert_correlation_binds(_REQUEST_ID, response)
         assert exc_info.value.correlation_id is None
         assert exc_info.value.request_id == _REQUEST_ID
+
+    def test_correlation_id_match_is_exact(self) -> None:
+        """A neighboring, cased, or padded id does not bind on either pairing path."""
+        near_misses = (
+            f"{_REQUEST_ID}-extra",
+            _REQUEST_ID.upper(),
+            f" {_REQUEST_ID}",
+            f"{_REQUEST_ID} ",
+            _REQUEST_ID[:-1],
+        )
+        for correlation_id in near_misses:
+            response = _envelope("task.response", _task_response(), correlation_id)
+            with pytest.raises(ProtocolCorrelationError) as exc_info:
+                assert_correlation_binds(_REQUEST_ID, response)
+            assert exc_info.value.request_id == _REQUEST_ID
+            assert exc_info.value.correlation_id == correlation_id
+            with pytest.raises(ProtocolCorrelationError) as stream_exc:
+                assert_stream_correlation_binds(_REQUEST_ID, response)
+            assert stream_exc.value.correlation_id == correlation_id
