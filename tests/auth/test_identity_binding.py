@@ -431,11 +431,16 @@ def test_allowlist_string_match_is_exact(monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 def test_allowlist_list_match_is_exact(monkeypatch: pytest.MonkeyPatch) -> None:
-    """List allowlist membership is exact for neighboring and cased subjects."""
+    """List allowlist membership is exact for neighboring, cased, and padded subjects."""
     monkeypatch.setenv(
         "ASAP_AUTH_SUBJECT_MAP",
         '{"urn:asap:agent:bot": ["auth0|abc123-admin"]}',
     )
     app, key = _app_and_key()
-    for sub in ("auth0|abc123", "auth0|abc123-admin-extra", "Auth0|abc123-admin"):
+    for sub in (
+        "auth0|abc123",
+        "auth0|abc123-admin-extra",
+        "Auth0|abc123-admin",
+        "auth0|abc123-admin ",
+    ):
         _deny_identity(app, _make_token(key, sub=sub))
