@@ -112,6 +112,24 @@ def test_agents_array_rejects_duplicate_agent_ids(tmp_path: Path) -> None:
     assert any(entry["id"] in error for error in errors)
 
 
+def test_agents_array_rejects_non_object_entries(tmp_path: Path) -> None:
+    """Scalars in an agents array are errors. They must not be skipped or crash CI.
+
+    ``test_agents_list_invalid_urn`` only covers a dict with a bad id. Removing
+    the object check calls ``.get`` on a string and aborts the file.
+    """
+    entry_path = REGISTRY_FIXTURES_DIR / "shellclaw-v1.0-entry.json"
+    entry = json.loads(entry_path.read_text(encoding="utf-8"))
+    path = tmp_path / "mixed-agents.json"
+    path.write_text(json.dumps([entry, "not-an-object", 42]), encoding="utf-8")
+
+    errors = validate_registry(path, allow_agents_array=True)
+
+    assert "agents[1]: must be an object" in errors
+    assert "agents[2]: must be an object" in errors
+    assert not any(error.startswith("agents[0]") for error in errors)
+
+
 def test_agents_list_invalid_urn(tmp_path: Path) -> None:
     """Malformed agent id in array format reports agents[i].id."""
     bad = [
