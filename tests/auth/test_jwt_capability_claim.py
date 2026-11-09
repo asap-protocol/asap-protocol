@@ -9,7 +9,8 @@ def test_jwt_capabilities_claim_is_a_list_of_strings() -> None:
     """Only string entries in a list count as capability names.
 
     A dict claim must not become its keys. A string claim must not become
-    its characters. Non-string list entries are dropped.
+    its characters. Non-string list entries are dropped. An empty string is
+    a real entry: ``if entry`` would drop it.
     """
     listed = JwtVerifyResult(
         ok=True,
@@ -29,9 +30,9 @@ def test_jwt_capabilities_claim_is_a_list_of_strings() -> None:
 
     mixed = JwtVerifyResult(
         ok=True,
-        claims={"capabilities": ["file:read", 99, True, None, "file:write"]},
+        claims={"capabilities": ["file:read", 99, True, None, "", "file:write"]},
     )
-    assert mixed.capabilities == ["file:read", "file:write"]
+    assert mixed.capabilities == ["file:read", "", "file:write"]
 
     assert JwtVerifyResult(ok=True, claims={}).capabilities == []
     assert JwtVerifyResult(ok=True).capabilities == []
