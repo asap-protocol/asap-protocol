@@ -128,10 +128,24 @@ class TestValidateManifestSchema:
         with pytest.raises(ManifestValidationError):
             validate_manifest_schema(data)
 
-    def test_invalid_sla_percentage_raises(self) -> None:
-        """A manifest SLA percentage that is not numeric fails schema validation."""
+    @pytest.mark.parametrize(
+        ("field_name", "bad_value"),
+        [
+            ("availability", "not-a-percent"),
+            ("max_error_rate", ""),
+            ("availability", "99% extra"),
+            ("max_error_rate", "1%2"),
+        ],
+    )
+    def test_invalid_sla_percentage_raises(self, field_name: str, bad_value: str) -> None:
+        """Each SLA percentage field fails on its own, including trailing junk.
+
+        One manifest with both fields invalid still raises if either name stays
+        on the validator. ``99% extra`` and ``1%2`` match once ``$`` is removed
+        from ``_PERCENTAGE_RE``.
+        """
         data = _make_valid_manifest_dict()
-        data["sla"] = {"availability": "not-a-percent", "max_error_rate": ""}
+        data["sla"] = {field_name: bad_value}
         with pytest.raises(ManifestValidationError, match="Invalid percentage string"):
             validate_manifest_schema(data)
 
