@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from asap.auth.agent_jwt import JwtVerifyResult
 from asap.mcp.auth import protect_server
 from asap.mcp.auth.errors import CAPABILITY_DENIED, CONSTRAINT_VIOLATION
 from asap.auth.capabilities import CapabilityDefinition, CapabilityGrant, CapabilityRegistry
@@ -26,6 +27,7 @@ from tests.adapters.mcp.helpers import (
 
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
+    from _pytest.monkeypatch import MonkeyPatch
 
 pytestmark = pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
 
@@ -233,3 +235,36 @@ async def test_denied_grant_does_not_log_authorized(
 
     assert CAPABILITY_DENIED in error_text(result)
     assert "mcp.tool.authorized" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_grant_check_denies_verified_token_without_agent(
+    echo_mcp_server: MCPServer,
+    host_store: InMemoryHostStore,
+    agent_store: InMemoryAgentStore,
+    capability_registry: CapabilityRegistry,
+    register_capability: Callable[..., CapabilityDefinition],
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """Grant enforcement fails closed when verification has no agent session.
+
+    A token can verify as ``ok`` with ``agent is None``. The gate must deny
+    that call before it reads ``agent.agent_id`` or runs the tool.
+    """
+    register_capability("echo", description="Echo tool capability")
+    protected = protect_server(
+        echo_mcp_server,
+        build_grant_auth_config(host_store, agent_store, capability_registry),
+    )
+
+    async def verify_without_agent(*_args: object, **_kwargs: object) -> JwtVerifyResult:
+        return JwtVerifyResult(ok=True, claims={"capabilities": ["echo"]}, agent=None)
+
+    monkeypatch.setattr(
+        "asap.mcp.auth.protected_server.verify_agent_jwt",
+        verify_without_agent,
+    )
+    result = await protected._handle_tools_call(
+        tool_call_params("echo", arguments={"message": "should-not-run"}, jwt="opaque-token")
+    )
+    assert error_text(result) == f"{CAPABILITY_DENIED}: missing agent identity for grant check"
