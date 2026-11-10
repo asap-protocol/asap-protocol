@@ -22,11 +22,11 @@ _NEIGHBORS: tuple[str, ...] = (
 )
 
 
-def _envelope(nonce: str) -> Envelope:
-    """Build a request envelope whose only variable is the nonce."""
+def _envelope(nonce: str, sender: str = "urn:asap:agent:test") -> Envelope:
+    """Build a request envelope whose only variables are the nonce and sender."""
     return Envelope(
         asap_version="0.1",
-        sender="urn:asap:agent:test",
+        sender=sender,
         recipient="urn:asap:agent:test",
         payload_type="TaskRequest",
         payload={"conversation_id": "c1", "skill_id": "s1", "input": {}},
@@ -35,7 +35,7 @@ def _envelope(nonce: str) -> Envelope:
 
 
 def test_nonce_replay_key_match_is_exact() -> None:
-    """Only the identical nonce is a replay; neighbors stay first use."""
+    """Only the identical nonce is a replay, including reuse by another sender."""
     store = InMemoryNonceStore()
     validate_envelope_nonce(_envelope(_EXACT_NONCE), store)
     with pytest.raises(InvalidNonceError) as exc_info:
@@ -43,3 +43,9 @@ def test_nonce_replay_key_match_is_exact() -> None:
     assert exc_info.value.nonce == _EXACT_NONCE
     for nonce in _NEIGHBORS:
         validate_envelope_nonce(_envelope(nonce), store)
+    with pytest.raises(InvalidNonceError) as other_sender:
+        validate_envelope_nonce(
+            _envelope(_EXACT_NONCE, sender="urn:asap:agent:other"),
+            store,
+        )
+    assert other_sender.value.nonce == _EXACT_NONCE
