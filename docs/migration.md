@@ -1131,11 +1131,16 @@ changes relative to v2.5.10.
 
 - **Published behavior** — OAuth2 client-credentials token fetch uses the
   HTTP stack Authlib 1.9 binds (``httpx``, or ``httpx2`` when that package
-  is installed, including via the ``[pydanticai]`` extra). Timeouts,
-  injected transports, and the documented ``HTTPError`` /
-  ``HTTPStatusError`` types come from ``authlib_httpx_module()``. A
-  transport built from the other stack raises ``TypeError`` before the
-  request.
+  is installed, including via the ``[pydanticai]`` extra). Timeouts and
+  injected transports come from ``authlib_httpx_module()``. A rejected
+  token response, including HTTP 401 ``invalid_client``, raises
+  ``authlib.integrations.base_client.OAuthError``. Network failures raise
+  that module's ``HTTPError`` (``ConnectError`` for a refused connection).
+  ``HTTPStatusError`` is not the credential-rejection path. A transport
+  built from the other stack raises ``TypeError`` before the request.
+  The ``transport`` parameter is annotated as ``Any`` because ``httpx``
+  and ``httpx2`` do not share ``AsyncBaseTransport``; the runtime check
+  is the contract.
 - **Published requirements** — ``authlib>=1.9.1,<2`` (locked 1.9.5) and
   ``joserfc>=1.7.6,<2`` (locked 1.8.0).
 - **Repository overrides** — ``dnspython>=2.9.0``, ``filelock>=4.2.1``

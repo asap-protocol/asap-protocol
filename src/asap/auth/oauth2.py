@@ -13,7 +13,6 @@ import time
 from types import ModuleType
 from typing import Any, Optional, cast
 
-import httpx
 from authlib.integrations.httpx_client import AsyncOAuth2Client
 from pydantic import Field
 
@@ -127,9 +126,7 @@ def _oauth_client_timeout() -> object:
     return cast(object, timeout_cls(_TOKEN_ENDPOINT_TIMEOUT_SECONDS))
 
 
-def _require_authlib_transport(
-    transport: httpx.AsyncBaseTransport,
-) -> httpx.AsyncBaseTransport:
+def _require_authlib_transport(transport: object) -> object:
     """Reject a transport from the HTTP stack Authlib did not bind."""
     base = getattr(_AUTHLIB_HTTPX, "AsyncBaseTransport", None)
     if isinstance(base, type) and isinstance(transport, base):
@@ -151,7 +148,9 @@ class OAuth2ClientCredentials:
     Internally uses Authlib's AsyncOAuth2Client (see ADR-12). Token requests
     use the HTTP stack that client is bound to (``authlib_httpx_module()``):
     ``httpx``, or ``httpx2`` when that package is installed. Timeouts and
-    transports come from that module.
+    transports come from that module. ``transport`` is annotated as ``Any``
+    because those stacks do not share ``AsyncBaseTransport``. The runtime
+    check accepts only the bound stack and raises ``TypeError`` otherwise.
 
     Example:
         >>> client = OAuth2ClientCredentials(
@@ -170,7 +169,7 @@ class OAuth2ClientCredentials:
         token_url: str,
         *,
         scope: Optional[str] = None,
-        transport: Optional[httpx.AsyncBaseTransport] = None,
+        transport: Any = None,
     ) -> None:
         self._client_id = client_id
         self._client_secret = client_secret
@@ -194,11 +193,13 @@ class OAuth2ClientCredentials:
             Token that is valid for at least TOKEN_REFRESH_BUFFER_SECONDS.
 
         Raises:
-            httpx.HTTPStatusError: Token endpoint returned an error status
-                from the HTTP stack Authlib bound (``authlib_httpx_module()``).
-                The class is ``httpx.HTTPStatusError``, or
-                ``httpx2.HTTPStatusError`` when ``httpx2`` is installed.
-            httpx.HTTPError: Network or transport error from that same stack.
+            authlib.integrations.base_client.OAuthError: Token endpoint
+                rejected the request, including HTTP 401 ``invalid_client``.
+                Catching only ``HTTPStatusError`` misses this path.
+            httpx.HTTPError: Network or transport failure from the HTTP stack
+                Authlib bound (``authlib_httpx_module()``). The class is
+                ``httpx.HTTPError``, or ``httpx2.HTTPError`` when ``httpx2``
+                is installed. ``ConnectError`` is the connection case.
         """
         if self._cached_token is not None and not self._cached_token.is_expired(
             buffer_seconds=TOKEN_REFRESH_BUFFER_SECONDS
@@ -223,11 +224,13 @@ class OAuth2ClientCredentials:
             Token with access_token, expires_at, and token_type.
 
         Raises:
-            httpx.HTTPStatusError: Token endpoint returned an error status
-                from the HTTP stack Authlib bound (``authlib_httpx_module()``).
-                The class is ``httpx.HTTPStatusError``, or
-                ``httpx2.HTTPStatusError`` when ``httpx2`` is installed.
-            httpx.HTTPError: Network or transport error from that same stack.
+            authlib.integrations.base_client.OAuthError: Token endpoint
+                rejected the request, including HTTP 401 ``invalid_client``.
+                Catching only ``HTTPStatusError`` misses this path.
+            httpx.HTTPError: Network or transport failure from the HTTP stack
+                Authlib bound (``authlib_httpx_module()``). The class is
+                ``httpx.HTTPError``, or ``httpx2.HTTPError`` when ``httpx2``
+                is installed. ``ConnectError`` is the connection case.
         """
         requested_scope = scope or self._scope
 
