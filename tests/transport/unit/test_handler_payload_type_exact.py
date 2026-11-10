@@ -17,12 +17,16 @@ from asap.models.payloads import TaskRequest
 from asap.transport.handlers import Handler, HandlerNotFoundError, HandlerRegistry, StreamingHandler
 
 _REGISTERED = "task.request"
-# Contained in the registered name, or a name that contains it.
+# Longer, shorter, and folded aliases. Folding turns Task.Request into the
+# same key as task.request; dispatch still looks up the raw string.
 _NEIGHBORS: tuple[str, ...] = (
     "task.request.admin",
     "task.requestextra",
     "task.re",
     "equest",
+    "Task.Request",
+    "TaskRequest",
+    " task.request ",
 )
 
 
@@ -101,3 +105,22 @@ async def test_stream_dispatch_payload_type_match_is_exact(sample_manifest: Mani
     assert calls == [_REGISTERED]
     assert registry.has_streaming_handler(_REGISTERED) is True
     assert all(registry.has_streaming_handler(payload_type) is False for payload_type in _NEIGHBORS)
+
+
+async def test_async_dispatch_payload_type_match_is_exact(sample_manifest: Manifest) -> None:
+    """POST /asap uses dispatch_async, which repeats the raw-string lookup."""
+    calls: list[str] = []
+    registry = HandlerRegistry()
+    registry.register(_REGISTERED, _sync_handler(calls))
+
+    delivered = await registry.dispatch_async(_envelope(_REGISTERED), sample_manifest)
+
+    assert delivered.payload_type == _REGISTERED
+    assert calls == [_REGISTERED]
+    for payload_type in _NEIGHBORS:
+        with pytest.raises(HandlerNotFoundError) as caught:
+            await registry.dispatch_async(_envelope(payload_type), sample_manifest)
+        assert caught.value.payload_type == payload_type
+    assert calls == [_REGISTERED]
+    assert registry.has_handler(_REGISTERED) is True
+    assert all(registry.has_handler(payload_type) is False for payload_type in _NEIGHBORS)
