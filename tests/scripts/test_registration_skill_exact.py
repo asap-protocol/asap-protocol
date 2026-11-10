@@ -62,7 +62,7 @@ def _http_client(payload: dict[str, Any]) -> MagicMock:
     return client
 
 
-def _run(tmp_path: Path, *, skills: str, skill_ids: list[str]) -> dict[str, Any]:
+def _run(tmp_path: Path, *, skills: str, skill_ids: list[str]) -> tuple[dict[str, Any], Any]:
     registry_path = tmp_path / "registry.json"
     registry_path.write_text("[]")
     output_path = tmp_path / "result.json"
@@ -80,20 +80,42 @@ def _run(tmp_path: Path, *, skills: str, skill_ids: list[str]) -> dict[str, Any]
             output_path=str(output_path),
             registry_path=str(registry_path),
         )
-    assert json.loads(registry_path.read_text()) == []
+    registry: Any = json.loads(registry_path.read_text())
     loaded: dict[str, Any] = json.loads(output_path.read_text())
-    return loaded
+    return loaded, registry
 
 
 def test_registration_rejects_skill_case_neighbor(tmp_path: Path) -> None:
     """``Echo`` does not satisfy a manifest skill id of ``echo``."""
-    result = _run(tmp_path, skills="Echo", skill_ids=["echo"])
+    result, registry = _run(tmp_path, skills="Echo", skill_ids=["echo"])
+    assert registry == []
     assert result["valid"] is False
     assert "Skill 'Echo' not declared in manifest" in result["errors"]
 
 
 def test_registration_rejects_skill_prefix_neighbor(tmp_path: Path) -> None:
     """``web_research_extra`` does not satisfy ``web_research``."""
-    result = _run(tmp_path, skills="web_research_extra", skill_ids=["web_research"])
+    result, registry = _run(tmp_path, skills="web_research_extra", skill_ids=["web_research"])
+    assert registry == []
     assert result["valid"] is False
     assert "Skill 'web_research_extra' not declared in manifest" in result["errors"]
+
+
+def test_registration_rejects_skill_proper_prefix(tmp_path: Path) -> None:
+    """``web`` is not a prefix match for manifest skill id ``web_research``."""
+    result, registry = _run(tmp_path, skills="web", skill_ids=["web_research"])
+    assert registry == []
+    assert result["valid"] is False
+    assert "Skill 'web' not declared in manifest" in result["errors"]
+
+
+def test_registration_accepts_the_exact_skill_id(tmp_path: Path) -> None:
+    """``echo`` is declared, so registration succeeds and writes one agent."""
+    result, registry = _run(tmp_path, skills="echo", skill_ids=["echo"])
+    assert result["valid"] is True
+    assert result["errors"] == ""
+    assert isinstance(registry, dict)
+    agents = registry["agents"]
+    assert isinstance(agents, list)
+    assert len(agents) == 1
+    assert agents[0]["id"] == "urn:asap:agent:testuser:my-agent"
