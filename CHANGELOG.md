@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **OAuth2 client credentials** — token fetch uses the HTTP stack Authlib 1.9 binds (`httpx`, or `httpx2` when that package is installed, including via the `[pydanticai]` extra). Timeouts, injected transports, and the documented `HTTPError` / `HTTPStatusError` types come from that stack (`authlib_httpx_module()`). A transport from the other stack raises `TypeError` before the request.
+
 ### Follow-up (planned)
 
 - **Formal Spec & Interop** — RFC spec, introspection, privacy ([prd-v2.5.5-formal-spec-interop.md](product/prd/prd-v2.5.5-formal-spec-interop.md)).

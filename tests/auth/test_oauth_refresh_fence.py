@@ -7,10 +7,16 @@ second refreshes a cached token and one second later reuses it.
 
 from __future__ import annotations
 
-import httpx
 import pytest
 
-from asap.auth.oauth2 import TOKEN_REFRESH_BUFFER_SECONDS, OAuth2ClientCredentials, Token
+from asap.auth.oauth2 import (
+    TOKEN_REFRESH_BUFFER_SECONDS,
+    OAuth2ClientCredentials,
+    Token,
+    authlib_httpx_module,
+)
+
+_http = authlib_httpx_module()
 
 _NOW = 1_700_000_000.0
 
@@ -30,7 +36,7 @@ def test_refresh_buffer_expires_on_the_equal_second(monkeypatch: pytest.MonkeyPa
     assert still_fresh.is_expired(buffer_seconds=buffer) is False
 
 
-def _credentials(handler: httpx.MockTransport) -> OAuth2ClientCredentials:
+def _credentials(handler: _http.MockTransport) -> OAuth2ClientCredentials:
     return OAuth2ClientCredentials(
         client_id="client",
         client_secret="secret",
@@ -46,9 +52,9 @@ async def test_get_valid_token_refreshes_on_the_equal_second(
     monkeypatch.setattr("asap.auth.oauth2.time.time", lambda: _NOW)
     calls = {"count": 0}
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: _http.Request) -> _http.Response:
         calls["count"] += 1
-        return httpx.Response(
+        return _http.Response(
             status_code=200,
             json={
                 "access_token": f"refreshed-{calls['count']}",
@@ -58,7 +64,7 @@ async def test_get_valid_token_refreshes_on_the_equal_second(
         )
 
     buffer = TOKEN_REFRESH_BUFFER_SECONDS
-    client = _credentials(httpx.MockTransport(handler))
+    client = _credentials(_http.MockTransport(handler))
     boundary = _token(int(_NOW) + buffer)
     client._cached_token = boundary
     refreshed = await client.get_valid_token()
