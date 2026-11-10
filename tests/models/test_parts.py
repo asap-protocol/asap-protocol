@@ -306,6 +306,29 @@ class TestFilePart:
             "file://" in error_detail["msg"].lower() or "not allowed" in error_detail["msg"].lower()
         )
 
+    @pytest.mark.parametrize(
+        "uri",
+        [
+            "  file:///etc/passwd",
+            "\tfile:///etc/passwd",
+            "  FILE:///etc/passwd",
+        ],
+    )
+    def test_file_part_uri_rejects_padded_file_scheme(self, uri: str) -> None:
+        """Leading whitespace must not bypass the local-file scheme check.
+
+        ``strip`` and ``lower`` both run before the ``file://`` prefix test.
+        ``  FILE:///etc/passwd`` is still rejected.
+
+        Example:
+            >>> FilePart(type="file", uri="  FILE:///etc/passwd", mime_type="text/plain")
+        """
+        from asap.models.parts import FilePart
+
+        with pytest.raises(ValidationError) as exc_info:
+            FilePart(type="file", uri=uri, mime_type="text/plain")
+        assert "not allowed" in exc_info.value.errors()[0]["msg"].lower()
+
     def test_file_part_uri_accepts_valid_uris(self) -> None:
         """Test that FilePart accepts asap://, https://, and data: URIs."""
         from asap.models.parts import FilePart
