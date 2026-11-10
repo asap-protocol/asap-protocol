@@ -9,16 +9,16 @@ from __future__ import annotations
 
 from urllib.parse import parse_qs
 
-import httpx
+from asap.auth.oauth2 import OAuth2ClientCredentials, authlib_httpx_module
 
-from asap.auth.oauth2 import OAuth2ClientCredentials
+_http = authlib_httpx_module()
 
 _TOKEN_URL = "https://auth.example.com/oauth/token"
 _CONSTRUCTOR_SCOPE = "asap:read"
 _CALL_SCOPE = "asap:execute asap:admin"
 
 
-def _scope_of(request: httpx.Request) -> str:
+def _scope_of(request: _http.Request) -> str:
     """Return the single ``scope`` form field from a token request."""
     parsed = parse_qs(request.content.decode())
     values = parsed.get("scope")
@@ -27,12 +27,12 @@ def _scope_of(request: httpx.Request) -> str:
     return values[0]
 
 
-def _transport(seen: list[str]) -> httpx.MockTransport:
+def _transport(seen: list[str]) -> _http.MockTransport:
     """Token endpoint that records the scope it was asked for."""
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: _http.Request) -> _http.Response:
         seen.append(_scope_of(request))
-        return httpx.Response(
+        return _http.Response(
             status_code=200,
             json={
                 "access_token": "scoped-token",
@@ -41,10 +41,10 @@ def _transport(seen: list[str]) -> httpx.MockTransport:
             },
         )
 
-    return httpx.MockTransport(handler)
+    return _http.MockTransport(handler)
 
 
-def _client(transport: httpx.MockTransport, scope: str | None) -> OAuth2ClientCredentials:
+def _client(transport: _http.MockTransport, scope: str | None) -> OAuth2ClientCredentials:
     """Client credentials client bound to ``transport``."""
     return OAuth2ClientCredentials(
         client_id="test-client",
