@@ -17,11 +17,13 @@ _NEIGHBOR_URLS: tuple[str, ...] = (
     "HTTPS://peer.example/asap",
     "https://peer.example/asap ",
     " https://peer.example/asap",
+    "https://peer.example/asap/",
+    "https://user:secret@peer.example/asap",
 )
 
 
 def test_circuit_breaker_registry_url_match_is_exact() -> None:
-    """Neighbor URLs keep a closed breaker when the exact URL is open."""
+    """Neighbor URLs, a trailing slash, and userinfo stay on a closed breaker."""
     registry = CircuitBreakerRegistry()
     primary = registry.get_or_create(_EXACT_URL, threshold=1, timeout=60.0)
     primary.record_failure()
