@@ -29,8 +29,10 @@ dependencies = [
     "pydantic>=2.12.5,<3",
     "fastapi>=0.136.1",
     "httpx[http2]>=0.28.1",
-    "authlib>=1.6.12,<2",
-    "joserfc>=1.6.7,<2",
+    # Floor 1.9.1 for PYSEC-2026-4354–4360 / CVE-2026-96760 / CVE-2026-116672.
+    "authlib>=1.9.1,<2",
+    # Floor 1.7.6 for CVE-2026-119284 (1.7.5 covers CVE-2026-119283; prior CVE-2026-48990 at >=1.6.7).
+    "joserfc>=1.7.6,<2",
     "uvicorn>=0.34",
     "python-ulid>=3.0",
     "packaging>=25.0",
@@ -70,7 +72,7 @@ docs = [
     "mkdocs-material>=9.7.7",
     "mkdocstrings[python]>=0.27",
     "pymdown-extensions>=11.0.1",
-    "joserfc>=1.6.7,<2",
+    "joserfc>=1.7.6,<2",
     "python-engineio>=4.13.2",
     "python-socketio>=5.16.2",
 ]
@@ -130,7 +132,7 @@ Issues = "https://github.com/asap-protocol/asap-protocol/issues"
 # - anyio>=4.14.2 for PYSEC-2026-4024 / PYSEC-2026-4025
 # - aiohttp>=3.14.4,<4 for CVE-2026-111063–111066 / CVE-2026-111748–111750 / GHSA-2g87-pp6c-29x5 (prior: PYSEC-2026-3545/3546/3547 at >=3.14.3)
 # - zeroconf>=0.149.5 for CVE-2026-47180/47183/47184 ([dns-sd] extra)
-# - pyasn1>=0.6.4 for CVE-2026-30922 / CVE-2026-59885 / CVE-2026-59886 / PYSEC-2026-3455/3456/3457 (transitive, auth/JWT stack)
+# - pyasn1>=0.6.5 for CVE-2026-119194 / CVE-2026-119195 / CVE-2026-119196 / CVE-2026-119197 (prior: CVE-2026-30922 / CVE-2026-59885 / CVE-2026-59886 / PYSEC-2026-3455/3456/3457 at >=0.6.4; transitive, auth/JWT stack)
 # - tinytag>=2.2.1 for CVE-2026-32889
 # - cryptography>=50.0.0 for PYSEC-2026-3552 (PKCS7 Bleichenbacher; 3553/3554 fixed in 49.0.0; prior GHSA-537c-gmf6-5ccf at >=48.0.1)
 # - requests>=2.33.0 for CVE-2026-25645 (extract_zipped_paths temp file)
@@ -149,11 +151,14 @@ Issues = "https://github.com/asap-protocol/asap-protocol/issues"
 # - h2>=4.4.1 for PYSEC-2026-3628 (HTTP/2 HPACK; transitive via httpx[http2])
 # - python-dotenv>=1.2.2 for CVE-2026-28684 (transitive, e.g. pydantic-settings / uvicorn stacks)
 # - pydantic-settings>=2.14.2 for GHSA-4xgf-cpjx-pc3j (transitive, e.g. langchain / mcp stacks)
-# - msgpack>=1.2.1 for GHSA-6v7p-g79w-8964 (transitive, e.g. locust / cache stacks)
+# - msgpack>=1.2.3 for CVE-2026-114613 (prior: GHSA-6v7p-g79w-8964 at >=1.2.1; transitive, e.g. locust / cache stacks)
 # - idna>=3.15 for CVE-2026-45409 (DoS in idna.encode; transitive via httpx/requests)
 # - markdown>=3.10.2 for PYSEC-2026-89 (DoS in html.parser during Markdown parse; mkdocs stack)
 # - pymdown-extensions>=11.0.1 for CVE-2026-46338 (snippets base_path prefix bypass) and CVE-2026-61632 (mkdocs stack)
-# - joserfc>=1.6.7 for CVE-2026-48990 (JWT/JWS primitives; direct + override)
+# - joserfc>=1.7.6 for CVE-2026-119283 / CVE-2026-119284 (prior: CVE-2026-48990 at >=1.6.7; JWT/JWS primitives; direct + override)
+# - authlib>=1.9.1,<2 for PYSEC-2026-4354–4360 / CVE-2026-96760 / CVE-2026-116672 (direct dependency)
+# - dnspython>=2.9.0 for CVE-2026-114605 (transitive, e.g. email-validator)
+# - filelock>=4.2.1 for CVE-2026-112910 / CVE-2026-112909 (transitive, e.g. huggingface-hub / cachecontrol)
 # - python-engineio>=4.13.2 for CVE-2026-48802 / CVE-2026-48809 (transitive, locust stack)
 # - python-socketio>=5.16.2 for CVE-2026-48804 (transitive, locust stack)
 # - setuptools>=84.1.0 for GHSA-xmj3-9gf7-h52w (also covers PYSEC-2026-3447)
@@ -172,7 +177,7 @@ override-dependencies = [
     "certifi>=2026.10.19",
     "anyio>=4.14.2",
     "pyjwt>=2.14.0,<3",
-    "pyasn1>=0.6.4",
+    "pyasn1>=0.6.5",
     "tinytag>=2.2.1",
     "cryptography>=50.0.0,<51",
     "requests>=2.33.0",
@@ -193,8 +198,11 @@ override-dependencies = [
     "markdown>=3.10.2",
     "pymdown-extensions>=11.0.1",
     "pydantic-settings>=2.14.2",
-    "msgpack>=1.2.1",
-    "joserfc>=1.6.7,<2",
+    "msgpack>=1.2.3",
+    "joserfc>=1.7.6,<2",
+    "authlib>=1.9.1,<2",
+    "dnspython>=2.9.0",
+    "filelock>=4.2.1",
     "python-engineio>=4.13.2",
     "python-socketio>=5.16.2",
     "setuptools>=84.1.0",

@@ -145,7 +145,7 @@ CI runs `pip-audit` after a sync that **excludes** the optional extras `crewai` 
 
 `uv sync --frozen --all-extras --dev --no-extra crewai --no-extra llamaindex` then `uv run pip-audit --ignore-vuln CVE-2026-4539 --ignore-vuln CVE-2026-4963 --ignore-vuln CVE-2026-2654 --ignore-vuln PYSEC-2024-271 --ignore-vuln PYSEC-2026-89 --ignore-vuln PYSEC-2025-183` (matches CI).
 
-Security floors live in `tool.uv.override-dependencies` (with per-CVE comments in `pyproject.toml`) so lock refreshes cannot regress them; recent additions: `mkdocs-material>=9.7.7` (PYSEC-2026-3864 / CVE-2026-73295), `pymdown-extensions>=11.0.1` (CVE-2026-61632), `pyasn1>=0.6.4` (PYSEC-2026-3455/3456/3457), `aiohttp>=3.14.4,<4` (CVE-2026-111063–111066 / CVE-2026-111748–111750 / GHSA-2g87-pp6c-29x5), `certifi>=2026.10.19` (PYSEC-2026-4320), `pillow>=13.0.0` (Pillow 12.3.0 advisories fixed in 13.0.0), `mcp>=1.30.0,<2` (CVE-2026-59951), `opentelemetry-api>=1.45.1` (CVE-2026-114603), `h2>=4.4.1` (PYSEC-2026-3628), and `brotli>=1.2.1` (PYSEC-2026-4322 / GHSA-9v8h-qqgm-4m35).
+Security floors live in `tool.uv.override-dependencies` (with per-CVE comments in `pyproject.toml`) so lock refreshes cannot regress them; recent additions: `mkdocs-material>=9.7.7` (PYSEC-2026-3864 / CVE-2026-73295), `pymdown-extensions>=11.0.1` (CVE-2026-61632), `pyasn1>=0.6.5` (CVE-2026-119194 / CVE-2026-119195 / CVE-2026-119196 / CVE-2026-119197), `aiohttp>=3.14.4,<4` (CVE-2026-111063–111066 / CVE-2026-111748–111750 / GHSA-2g87-pp6c-29x5), `certifi>=2026.10.19` (PYSEC-2026-4320), `pillow>=13.0.0` (Pillow 12.3.0 advisories fixed in 13.0.0), `mcp>=1.30.0,<2` (CVE-2026-59951), `opentelemetry-api>=1.45.1` (CVE-2026-114603), `h2>=4.4.1` (PYSEC-2026-3628), and `brotli>=1.2.1` (PYSEC-2026-4322 / GHSA-9v8h-qqgm-4m35).
 
 **CVE-2026-114603 (opentelemetry-api)**: Resolved via direct floor and override (`opentelemetry-api>=1.45.1`; prior lock 1.39.1). `opentelemetry-sdk` 1.45.1 requires that API version, so the SDK, OTLP exporter, and instrumentation packages move to the matching `1.45.1` / `0.66b1` release.
 
@@ -159,7 +159,17 @@ Security floors live in `tool.uv.override-dependencies` (with per-CVE comments i
 
 **GHSA-537c-gmf6-5ccf / PYSEC-2026-3552–3554 (cryptography)**: Resolved by raising the pin to `cryptography>=50.0.0,<51` (direct dependency and override). 49.0.0 covers PYSEC-2026-3553/3554; **PYSEC-2026-3552** (PKCS7 Bleichenbacher) requires 50.0.0. Pair with `pyopenssl>=26.4.0` so the optional `[webauthn]` extra stays importable. Ed25519 usage in `asap.crypto` is unchanged across 48→50.
 
-**CVE-2026-48990 (joserfc)**: Resolved by raising the pin to `joserfc>=1.6.7,<2` (direct dependency and override).
+**CVE-2026-119283 / CVE-2026-119284 (joserfc)**: Resolved by raising the pin to `joserfc>=1.7.6,<2` (direct dependency and override; lock 1.8.0). 1.7.5 covers CVE-2026-119283. CVE-2026-119284 needs 1.7.6. The prior floor `>=1.6.7,<2` covered CVE-2026-48990.
+
+**PYSEC-2026-4354–4360 / CVE-2026-96760 / CVE-2026-116672 (authlib)**: Resolved by raising the pin to `authlib>=1.9.1,<2` (direct dependency and override; lock 1.9.5). 1.9.1 is the first release that fixes CVE-2026-116672 and PYSEC-2026-4356. Keep the `<2` cap: Authlib 2 reworks JWS header policy. Do not add a `pip-audit` ignore for these advisories.
+
+**CVE-2026-114605 (dnspython)**: Resolved via override (`dnspython>=2.9.0`; lock 2.9.2). Transitive, for example through email-validator.
+
+**CVE-2026-112910 / CVE-2026-112909 (filelock)**: Resolved via override (`filelock>=4.2.1`; lock 4.2.10). Transitive, for example through huggingface-hub and cachecontrol. 4.2.10 is a major bump from 3.20.3. No module under `src/`, `tests/`, `examples/`, or `scripts/` imports `FileLock`. The floor is override-only.
+
+**CVE-2026-114613 (msgpack)**: Resolved via override (`msgpack>=1.2.3`; lock 1.2.4). The prior floor `>=1.2.1` covered GHSA-6v7p-g79w-8964. Transitive, for example through locust and cache stacks.
+
+**CVE-2026-119194 / CVE-2026-119195 / CVE-2026-119196 / CVE-2026-119197 (pyasn1)**: Resolved via override (`pyasn1>=0.6.5`; lock 0.6.5). The prior floor `>=0.6.4` covered CVE-2026-30922 / CVE-2026-59885 / CVE-2026-59886 / PYSEC-2026-3455/3456/3457. Transitive, on the auth/JWT stack.
 
 **CVE-2026-48802 / CVE-2026-48809 (python-engineio, locust stack)**: Resolved via override (`python-engineio>=4.13.2`).
 
@@ -217,8 +227,8 @@ We pin **upper bounds** on the security- and protocol-sensitive libraries listed
 | Package | Pin | Why |
 |---------|-----|-----|
 | `cryptography` | `>=50.0.0,<51` | PYSEC-2026-3552 baseline (PKCS7); v47+ serialization API (Rust backend migration) |
-| `authlib` | `>=1.6.11,<2` | GHSA-jj8c-mmj3-mmgv baseline; v2 reworks JWS header policy |
-| `joserfc` | `>=1.6.7,<2` | CVE-2026-48990 baseline; JWT / JWS / JWE primitives powering Host JWT verification |
+| `authlib` | `>=1.9.1,<2` | PYSEC-2026-4354–4360 / CVE-2026-96760 / CVE-2026-116672; v2 reworks JWS header policy |
+| `joserfc` | `>=1.7.6,<2` | CVE-2026-119283 / CVE-2026-119284; prior CVE-2026-48990 at >=1.6.7 |
 | `pyjwt` (override) | `>=2.12.0,<3` | CVE-2026-32597 baseline; v3 changes default `options` behavior for token introspection |
 | `webauthn` (optional extra) | `>=2.6,<3` | Assertion/attestation verification for SELF-002 |
 | `pydantic` | `>=2.12.5,<3` | Model validation contract across all payloads; v3 is a breaking rewrite |
