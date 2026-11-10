@@ -1,6 +1,8 @@
 """Tests for Custom Claims identity binding.
 
-Covers: custom claim match/mismatch, allowlist fallback, malformed ASAP_AUTH_SUBJECT_MAP.
+Covers custom claim match and mismatch, allowlist fallback, and a malformed
+subject map. Claim and allowlist checks are exact: case, padding, and
+neighboring ids do not bind.
 """
 
 from __future__ import annotations
@@ -64,6 +66,31 @@ def _make_token(
     if extra_claims:
         claims.update(extra_claims)
     return jose_jwt.encode({"alg": "RS256", "typ": "JWT"}, claims, key)
+
+
+_MANIFEST_ID = "urn:asap:agent:bot"
+_IDENTITY_MISMATCH = (
+    f"Identity mismatch: custom claim does not match agent manifest (expected: {_MANIFEST_ID})"
+)
+
+
+def _app_and_key(manifest_id: str = _MANIFEST_ID) -> tuple[FastAPI, jwk.RSAKey]:
+    """Build a manifest-bound app and the RSA key that signs its tokens."""
+    key = jwk.RSAKey.generate_key(2048, private=True)
+    key_set = jwk.KeySet.import_key_set({"keys": [key.as_dict(private=False)]})
+
+    async def jwks(_: str) -> jwk.KeySet:
+        return key_set
+
+    return _minimal_app(manifest_id=manifest_id, jwks_fetcher=jwks), key
+
+
+def _deny_identity(app: FastAPI, token: str) -> None:
+    """Assert the token is rejected with the public identity-mismatch detail."""
+    with TestClient(app) as client:
+        response = client.get("/asap", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 403
+    assert response.json()["detail"] == _IDENTITY_MISMATCH
 
 
 def test_custom_claim_present_and_matches_manifest_succeeds() -> None:
@@ -356,3 +383,64 @@ def test_custom_claim_whitespace_is_stripped_before_compare() -> None:
         "Identity mismatch: custom claim does not match agent manifest "
         "(expected: urn:asap:agent:bot)"
     )
+
+
+def test_custom_claim_must_equal_manifest_id() -> None:
+    """Case and neighboring URN claims do not satisfy an exact manifest id."""
+    app, key = _app_and_key()
+    for claim in (
+        "urn:asap:agent:Bot",
+        "urn:asap:agent:bot-extra",
+        "urn:asap:agent:bo",
+    ):
+        token = _make_token(key, extra_claims={DEFAULT_CUSTOM_CLAIM: claim})
+        _deny_identity(app, token)
+
+
+def test_blank_custom_claim_does_not_use_the_allowlist(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A present blank claim stays a mismatch when sub is on the allowlist.
+
+    ``\"   \"`` is truthy, so a guard of ``if claim_value:`` still returns 403.
+    ``\"\"`` is falsy and would fall through to the subject map.
+    """
+    monkeypatch.setenv(
+        "ASAP_AUTH_SUBJECT_MAP",
+        '{"urn:asap:agent:bot": "auth0|abc123"}',
+    )
+    app, key = _app_and_key()
+    for claim in ("   ", ""):
+        token = _make_token(
+            key,
+            sub="auth0|abc123",
+            extra_claims={DEFAULT_CUSTOM_CLAIM: claim},
+        )
+        _deny_identity(app, token)
+
+
+def test_allowlist_string_match_is_exact(monkeypatch: pytest.MonkeyPatch) -> None:
+    """String allowlist entries do not match a shorter, longer, padded, or cased sub."""
+    monkeypatch.setenv(
+        "ASAP_AUTH_SUBJECT_MAP",
+        '{"urn:asap:agent:bot": "auth0|abc123"}',
+    )
+    app, key = _app_and_key()
+    for sub in ("auth0|abc", "auth0|abc123-extra", "Auth0|abc123", "auth0|abc123 "):
+        _deny_identity(app, _make_token(key, sub=sub))
+
+
+def test_allowlist_list_match_is_exact(monkeypatch: pytest.MonkeyPatch) -> None:
+    """List allowlist membership is exact for neighboring, cased, and padded subjects."""
+    monkeypatch.setenv(
+        "ASAP_AUTH_SUBJECT_MAP",
+        '{"urn:asap:agent:bot": ["auth0|abc123-admin"]}',
+    )
+    app, key = _app_and_key()
+    for sub in (
+        "auth0|abc123",
+        "auth0|abc123-admin-extra",
+        "Auth0|abc123-admin",
+        "auth0|abc123-admin ",
+    ):
+        _deny_identity(app, _make_token(key, sub=sub))

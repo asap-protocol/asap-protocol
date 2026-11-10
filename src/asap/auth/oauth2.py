@@ -8,10 +8,11 @@ Uses Authlib's AsyncOAuth2Client internally (ADR-12).
 """
 
 import asyncio
+import importlib
 import time
-from typing import Any, Optional
+from types import ModuleType
+from typing import Any, Optional, cast
 
-import httpx
 from authlib.integrations.httpx_client import AsyncOAuth2Client
 from pydantic import Field
 
@@ -22,6 +23,8 @@ logger = get_logger(__name__)
 
 TOKEN_REFRESH_BUFFER_SECONDS = 30
 DEFAULT_TOKEN_LIFETIME_SECONDS = 3600
+_TOKEN_ENDPOINT_TIMEOUT_SECONDS = 10.0
+_OAUTH_HTTP_PACKAGES = frozenset({"httpx", "httpx2"})
 
 
 class Token(ASAPBaseModel):
@@ -77,13 +80,77 @@ def _parse_token_response(raw_token: dict[str, Any]) -> Token:
     )
 
 
+def _resolve_authlib_httpx_module() -> ModuleType:
+    """Return the httpx package that bases Authlib's async OAuth client.
+
+    Authlib 1.9 subclasses ``httpx2.AsyncClient`` when that package imports,
+    and ``httpx.AsyncClient`` only as a fallback
+    (``authlib.integrations.httpx_client._compat``). The class ``__module__``
+    is the real package, including when Authlib aliases ``httpx`` as ``httpx2``.
+    """
+    for base in AsyncOAuth2Client.__mro__:
+        package_name = base.__module__.split(".", 1)[0]
+        if package_name in _OAUTH_HTTP_PACKAGES:
+            return importlib.import_module(package_name)
+    mro = [f"{cls.__module__}.{cls.__name__}" for cls in AsyncOAuth2Client.__mro__]
+    raise RuntimeError(
+        f"AsyncOAuth2Client is not a subclass of httpx.AsyncClient or httpx2.AsyncClient; mro={mro}"
+    )
+
+
+_AUTHLIB_HTTPX = _resolve_authlib_httpx_module()
+
+
+def authlib_httpx_module() -> ModuleType:
+    """Return the HTTP client module Authlib bound ``AsyncOAuth2Client`` to.
+
+    ``httpx2`` types are separate from ``httpx`` types. Build timeouts, mock
+    transports, responses, and ``HTTPError`` checks from this module. The
+    ``[pydanticai]`` extra installs ``httpx2`` through ``genai-prices``.
+
+    Example:
+        >>> from asap.auth.oauth2 import authlib_httpx_module
+        >>> http = authlib_httpx_module()
+        >>> timeout = http.Timeout(10.0)
+    """
+    return _AUTHLIB_HTTPX
+
+
+def _oauth_client_timeout() -> object:
+    """Build the token-endpoint timeout from Authlib's bound HTTP stack."""
+    timeout_cls = getattr(_AUTHLIB_HTTPX, "Timeout", None)
+    if not isinstance(timeout_cls, type):
+        raise RuntimeError(
+            f"{_AUTHLIB_HTTPX.__name__}.Timeout is {timeout_cls!r}; expected a class"
+        )
+    return cast(object, timeout_cls(_TOKEN_ENDPOINT_TIMEOUT_SECONDS))
+
+
+def _require_authlib_transport(transport: object) -> object:
+    """Reject a transport from the HTTP stack Authlib did not bind."""
+    base = getattr(_AUTHLIB_HTTPX, "AsyncBaseTransport", None)
+    if isinstance(base, type) and isinstance(transport, base):
+        return transport
+    actual = f"{type(transport).__module__}.{type(transport).__qualname__}"
+    expected = f"{_AUTHLIB_HTTPX.__name__}.AsyncBaseTransport"
+    raise TypeError(
+        f"OAuth transport {actual} is not a {expected}; "
+        f"Authlib bound AsyncOAuth2Client to {_AUTHLIB_HTTPX.__name__}"
+    )
+
+
 class OAuth2ClientCredentials:
     """OAuth2 client for client_credentials grant.
 
     Obtains access tokens from any standard OAuth2 token endpoint
     using the client_credentials flow (machine-to-machine auth).
 
-    Internally uses Authlib's AsyncOAuth2Client (see ADR-12).
+    Internally uses Authlib's AsyncOAuth2Client (see ADR-12). Token requests
+    use the HTTP stack that client is bound to (``authlib_httpx_module()``):
+    ``httpx``, or ``httpx2`` when that package is installed. Timeouts and
+    transports come from that module. ``transport`` is annotated as ``Any``
+    because those stacks do not share ``AsyncBaseTransport``. The runtime
+    check accepts only the bound stack and raises ``TypeError`` otherwise.
 
     Example:
         >>> client = OAuth2ClientCredentials(
@@ -102,12 +169,14 @@ class OAuth2ClientCredentials:
         token_url: str,
         *,
         scope: Optional[str] = None,
-        transport: Optional[httpx.AsyncBaseTransport] = None,
+        transport: Any = None,
     ) -> None:
         self._client_id = client_id
         self._client_secret = client_secret
         self._token_url = token_url
         self._scope = scope
+        if transport is not None:
+            transport = _require_authlib_transport(transport)
         self._transport = transport
         self._cached_token: Optional[Token] = None
         self._refresh_lock = asyncio.Lock()
@@ -124,8 +193,13 @@ class OAuth2ClientCredentials:
             Token that is valid for at least TOKEN_REFRESH_BUFFER_SECONDS.
 
         Raises:
-            httpx.HTTPStatusError: Token endpoint returned an error status.
-            httpx.HTTPError: Network or transport error.
+            authlib.integrations.base_client.OAuthError: Token endpoint
+                rejected the request, including HTTP 401 ``invalid_client``.
+                Catching only ``HTTPStatusError`` misses this path.
+            httpx.HTTPError: Network or transport failure from the HTTP stack
+                Authlib bound (``authlib_httpx_module()``). The class is
+                ``httpx.HTTPError``, or ``httpx2.HTTPError`` when ``httpx2``
+                is installed. ``ConnectError`` is the connection case.
         """
         if self._cached_token is not None and not self._cached_token.is_expired(
             buffer_seconds=TOKEN_REFRESH_BUFFER_SECONDS
@@ -150,12 +224,17 @@ class OAuth2ClientCredentials:
             Token with access_token, expires_at, and token_type.
 
         Raises:
-            httpx.HTTPStatusError: Token endpoint returned an error status.
-            httpx.HTTPError: Network or transport error.
+            authlib.integrations.base_client.OAuthError: Token endpoint
+                rejected the request, including HTTP 401 ``invalid_client``.
+                Catching only ``HTTPStatusError`` misses this path.
+            httpx.HTTPError: Network or transport failure from the HTTP stack
+                Authlib bound (``authlib_httpx_module()``). The class is
+                ``httpx.HTTPError``, or ``httpx2.HTTPError`` when ``httpx2``
+                is installed. ``ConnectError`` is the connection case.
         """
         requested_scope = scope or self._scope
 
-        kwargs: dict[str, Any] = {"timeout": httpx.Timeout(10.0)}
+        kwargs: dict[str, Any] = {"timeout": _oauth_client_timeout()}
         if self._transport is not None:
             kwargs["transport"] = self._transport
 

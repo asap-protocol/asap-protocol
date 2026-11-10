@@ -49,6 +49,43 @@ class TestNormalizeRecentCounts:
         with pytest.raises(ValueError, match="JSON object"):
             normalize_recent_counts([])
 
+    def test_rejects_bool_counts(self) -> None:
+        """``bool`` is an ``int`` subclass, so the explicit bool check must stay.
+
+        Example:
+            >>> normalize_recent_counts({"last_day": True, ...})  # raises ValueError
+        """
+        payload_true = {"last_day": True, "last_week": 1, "last_month": 1}
+        payload_false = {"last_day": False, "last_week": 1, "last_month": 1}
+        with pytest.raises(ValueError, match="must be numeric"):
+            normalize_recent_counts(payload_true)
+        with pytest.raises(ValueError, match="must be numeric"):
+            normalize_recent_counts(payload_false)
+
+    def test_parses_grouped_and_padded_integer_strings(self) -> None:
+        """Commas and surrounding space are presentation, not a different count.
+
+        Example:
+            >>> normalize_recent_counts({"last_day": "1,234", ...})["last_day"]
+            1234
+        """
+        data = {"last_day": "1,234", "last_week": " 10 ", "last_month": "0"}
+        assert normalize_recent_counts(data) == {
+            "last_day": 1234,
+            "last_week": 10,
+            "last_month": 0,
+        }
+
+    def test_rejects_decimal_string(self) -> None:
+        """A fractional string is not an integer download count.
+
+        Example:
+            >>> normalize_recent_counts({"last_day": "1.5", ...})  # raises ValueError
+        """
+        data = {"last_day": "1.5", "last_week": 1, "last_month": 1}
+        with pytest.raises(ValueError, match="integer string"):
+            normalize_recent_counts(data)
+
 
 class TestFetchPypiRecent:
     @patch("scripts.telemetry.collect_pypi.pypistats.recent")

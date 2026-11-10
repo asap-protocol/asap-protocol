@@ -453,6 +453,27 @@ class TestSLADefinition:
         with pytest.raises(ValidationError):
             SLADefinition(max_latency_p95_ms=-1)
 
+    @pytest.mark.parametrize(
+        ("field_name", "value"),
+        [
+            ("availability", ""),
+            ("availability", "   "),
+            ("availability", "not-a-percent"),
+            ("max_error_rate", ""),
+            ("max_error_rate", "banana"),
+        ],
+    )
+    def test_sla_definition_rejects_non_percentage_strings(
+        self, field_name: str, value: str
+    ) -> None:
+        """Availability and error rate must match the percentage pattern.
+
+        Empty and whitespace values are rejected too. Skipping the check when
+        the string is falsy would accept ``""``.
+        """
+        with pytest.raises(ValidationError, match="Invalid percentage string"):
+            SLADefinition(**{field_name: value})
+
     def test_sla_definition_zero_latency_accepted(self) -> None:
         """SLADefinition accepts zero max_latency_p95_ms (ge=0)."""
         sla = SLADefinition(max_latency_p95_ms=0)

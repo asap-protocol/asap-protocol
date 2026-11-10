@@ -98,9 +98,72 @@ class TestCorrelationBinding:
         with pytest.raises(ProtocolCorrelationError):
             assert_correlation_binds(_REQUEST_ID, result)
 
+    def test_mcp_resource_data_mismatch_rejected_on_both_paths(self) -> None:
+        """MCP resource payloads bind on unary receive and on the stream path.
+
+        ``test_mcp_tool_result_mismatch_rejected`` only covers ``mcptoolresult``.
+        Dropping ``mcpresourcedata`` from the bound set would accept another
+        request's resource body under concurrency.
+        """
+        payload = {
+            "resource_uri": "https://example.com/docs/guide",
+            "content": {"text": "resource-body"},
+        }
+        mismatched = _envelope("mcp.resource.data", payload, _OTHER_ID)
+        with pytest.raises(ProtocolCorrelationError) as exc_info:
+            assert_correlation_binds(_REQUEST_ID, mismatched)
+        assert exc_info.value.request_id == _REQUEST_ID
+        assert exc_info.value.correlation_id == _OTHER_ID
+        with pytest.raises(ProtocolCorrelationError):
+            assert_stream_correlation_binds(_REQUEST_ID, mismatched)
+
+        matched = _envelope("mcp.resource.data", payload, _REQUEST_ID)
+        assert_correlation_binds(_REQUEST_ID, matched)
+        assert_stream_correlation_binds(_REQUEST_ID, matched)
+
     def test_missing_correlation_id_on_bound_type_rejected(self) -> None:
         response = _envelope("task.response", _task_response(), None)
         with pytest.raises(ProtocolCorrelationError) as exc_info:
             assert_correlation_binds(_REQUEST_ID, response)
         assert exc_info.value.correlation_id is None
         assert exc_info.value.request_id == _REQUEST_ID
+
+    def test_correlation_id_match_is_exact(self) -> None:
+        """A neighboring, cased, or padded id does not bind on either pairing path."""
+        near_misses = (
+            f"{_REQUEST_ID}-extra",
+            _REQUEST_ID.upper(),
+            f" {_REQUEST_ID}",
+            f"{_REQUEST_ID} ",
+            _REQUEST_ID[:-1],
+        )
+        for correlation_id in near_misses:
+            response = _envelope("task.response", _task_response(), correlation_id)
+            with pytest.raises(ProtocolCorrelationError) as exc_info:
+                assert_correlation_binds(_REQUEST_ID, response)
+            assert exc_info.value.request_id == _REQUEST_ID
+            assert exc_info.value.correlation_id == correlation_id
+            with pytest.raises(ProtocolCorrelationError) as stream_exc:
+                assert_stream_correlation_binds(_REQUEST_ID, response)
+            assert stream_exc.value.correlation_id == correlation_id
+
+    def test_empty_correlation_id_on_bound_type_rejected(self) -> None:
+        """An empty id never reaches ``Envelope`` validation and still fails both paths.
+
+        ``if not response.correlation_id: return`` would accept this input.
+        """
+        response = Envelope.model_construct(
+            asap_version="0.1",
+            sender="urn:asap:agent:server",
+            recipient="urn:asap:agent:client",
+            payload_type="task.response",
+            payload=_task_response(),
+            correlation_id="",
+        )
+        with pytest.raises(ProtocolCorrelationError) as exc_info:
+            assert_correlation_binds(_REQUEST_ID, response)
+        assert exc_info.value.request_id == _REQUEST_ID
+        assert exc_info.value.correlation_id == ""
+        with pytest.raises(ProtocolCorrelationError) as stream_exc:
+            assert_stream_correlation_binds(_REQUEST_ID, response)
+        assert stream_exc.value.correlation_id == ""

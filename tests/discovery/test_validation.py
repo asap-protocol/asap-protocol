@@ -128,6 +128,27 @@ class TestValidateManifestSchema:
         with pytest.raises(ManifestValidationError):
             validate_manifest_schema(data)
 
+    @pytest.mark.parametrize(
+        ("field_name", "bad_value"),
+        [
+            ("availability", "not-a-percent"),
+            ("max_error_rate", ""),
+            ("availability", "99% extra"),
+            ("max_error_rate", "1%2"),
+        ],
+    )
+    def test_invalid_sla_percentage_raises(self, field_name: str, bad_value: str) -> None:
+        """Each SLA percentage field fails on its own, including trailing junk.
+
+        One manifest with both fields invalid still raises if either name stays
+        on the validator. ``99% extra`` and ``1%2`` match once ``$`` is removed
+        from ``_PERCENTAGE_RE``.
+        """
+        data = _make_valid_manifest_dict()
+        data["sla"] = {field_name: bad_value}
+        with pytest.raises(ManifestValidationError, match="Invalid percentage string"):
+            validate_manifest_schema(data)
+
     def test_missing_endpoints_raises(self) -> None:
         """Missing endpoints field raises ManifestValidationError."""
         data = _make_valid_manifest_dict()
@@ -194,6 +215,29 @@ class TestCheckVersionCompatibility:
         with pytest.raises(ManifestValidationError):
             check_version_compatibility(manifest, min_asap_version="0.9")
 
+    def test_version_order_compares_numeric_components(self) -> None:
+        """1.10 is newer than 1.9. Text order would reject the newer agent."""
+        check_version_compatibility(
+            _make_manifest(asap_version="1.10"),
+            min_asap_version="1.9",
+        )
+        older = _make_manifest(asap_version="1.9")
+        with pytest.raises(ManifestValidationError, match="older than required") as exc_info:
+            check_version_compatibility(older, min_asap_version="1.10")
+        assert exc_info.value.field == "capabilities.asap_version"
+
+    def test_equivalent_release_versions_are_compatible(self) -> None:
+        """2 and 2.0.0 name the same release."""
+        check_version_compatibility(_make_manifest(asap_version="2"), min_asap_version="2.0.0")
+        check_version_compatibility(_make_manifest(asap_version="2.0.0"), min_asap_version="2")
+
+    def test_prerelease_does_not_meet_the_final_release(self) -> None:
+        """A release candidate is older than the final version with the same numbers."""
+        manifest = _make_manifest(asap_version="1.10.0rc1")
+        with pytest.raises(ManifestValidationError, match="older than required") as exc_info:
+            check_version_compatibility(manifest, min_asap_version="1.10.0")
+        assert exc_info.value.field == "capabilities.asap_version"
+
 
 # --------------------------------------------------------------------------- #
 # manifest_supports_skill
@@ -230,6 +274,23 @@ class TestManifestSupportsSkill:
         assert manifest_supports_skill(manifest, "search") is True
         assert manifest_supports_skill(manifest, "translate") is True
         assert manifest_supports_skill(manifest, "nonexistent") is False
+
+    def test_skill_id_match_is_exact_and_case_sensitive(self) -> None:
+        """Neighboring or differently cased ids are not the declared skill."""
+        manifest = _make_manifest(
+            skills=[
+                Skill(id="echo_admin", description="Admin"),
+                Skill(id="Echo", description="Cased"),
+            ]
+        )
+        assert manifest_supports_skill(manifest, "echo") is False
+        assert manifest_supports_skill(manifest, "e") is False
+        assert manifest_supports_skill(manifest, "echo_admin") is True
+        assert manifest_supports_skill(manifest, "Echo") is True
+        narrow = _make_manifest(skills=[Skill(id="echo", description="Echo")])
+        assert manifest_supports_skill(narrow, "echo_admin") is False
+        with pytest.raises(ManifestValidationError, match="does not support required skill 'echo'"):
+            require_skill(manifest, "echo")
 
 
 # --------------------------------------------------------------------------- #

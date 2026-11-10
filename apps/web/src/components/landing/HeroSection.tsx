@@ -27,7 +27,7 @@ export function HeroSection() {
                 href={CURRENT_RELEASE_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                data-cta={HOMEPAGE_HERO_CTA_IDS.releaseBadge2510}
+                data-cta={HOMEPAGE_HERO_CTA_IDS.releaseBadge2511}
                 aria-label={`View ASAP Protocol v${CURRENT_RELEASE_VERSION} release on GitHub`}
                 className={cn('inline-flex', EXTERNAL_LINK_FOCUS_CLASS)}
               >

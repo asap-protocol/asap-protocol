@@ -9,8 +9,10 @@ export const HOMEPAGE_HERO_CTA_IDS = {
   releaseBadge: 'hero-release-badge',
   /** v2.5.4 Dist Loop hero badge — retained for historical CTR dashboards. */
   distLoopBadge: 'hero-dist-loop-badge',
-  /** v2.5.10 release badge (HeroSection). */
+  /** v2.5.10 release badge — retained for historical CTR dashboards. */
   releaseBadge2510: 'hero-release-2510',
+  /** v2.5.11 release badge (HeroSection). */
+  releaseBadge2511: 'hero-release-2511',
   /** Primary CTA for the Build for agents guide. */
   buildForAgents: 'hero-build-for-agents',
   /** Primary CTA for examples/starters. */
@@ -33,8 +35,10 @@ export const WHATS_NEW_RIBBON_CTA_IDS = {
   docsMigration253: 'docs-migration-253',
   /** v2.5.4 migration pill — retained for historical CTR dashboards. */
   docsMigration254: 'docs-migration-254',
-  /** v2.5.10 migration pill (WhatsNewRibbon). */
+  /** v2.5.10 migration pill — retained for historical CTR dashboards. */
   docsMigration2510: 'docs-migration-2510',
+  /** v2.5.11 migration pill (WhatsNewRibbon). */
+  docsMigration2511: 'docs-migration-2511',
   docsOpenapi: 'docs-openapi',
   docsTypescript: 'docs-typescript',
   docsWorkflowConnectors: 'docs-workflow-connectors',
@@ -53,8 +57,10 @@ export const WHATS_NEW_RIBBON_CTA_IDS = {
   releaseChangelogGithub: 'release-changelog-github',
   /** v2.5.4 changelog pill — retained for historical CTR dashboards. */
   releaseChangelog254: 'release-changelog-254',
-  /** v2.5.10 changelog pill (WhatsNewRibbon). */
+  /** v2.5.10 changelog pill — retained for historical CTR dashboards. */
   releaseChangelog2510: 'release-changelog-2510',
+  /** v2.5.11 changelog pill (WhatsNewRibbon). */
+  releaseChangelog2511: 'release-changelog-2511',
 } as const;
 
 /** How it Works section primary CTAs (guide + starters). */
@@ -118,4 +124,7 @@ export const HOMEPAGE_CTA_IDS = [
   WHATS_NEW_RIBBON_CTA_IDS.docsMigration2510,
   WHATS_NEW_RIBBON_CTA_IDS.releaseChangelog2510,
   HOMEPAGE_HERO_CTA_IDS.releaseBadge2510,
+  WHATS_NEW_RIBBON_CTA_IDS.docsMigration2511,
+  WHATS_NEW_RIBBON_CTA_IDS.releaseChangelog2511,
+  HOMEPAGE_HERO_CTA_IDS.releaseBadge2511,
 ] as const;

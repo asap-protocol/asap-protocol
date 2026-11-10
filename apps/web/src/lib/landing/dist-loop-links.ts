@@ -52,31 +52,43 @@ export const RELEASE_254_URL = 'https://github.com/asap-protocol/asap-protocol/r
  * Latest shipped library release shown on the homepage.
  * Bump with the PyPI tag. Anchors match `docs/index.md`.
  */
-export const CURRENT_RELEASE_VERSION = '2.5.10';
+export const CURRENT_RELEASE_VERSION = '2.5.11';
 
 /** Short label for {@link CURRENT_RELEASE_VERSION}. This patch is not Formal Spec. */
-export const CURRENT_RELEASE_TAGLINE = 'Security & correctness';
+export const CURRENT_RELEASE_TAGLINE = 'Security floors';
 
 /** Ribbon detail for the published behavior in {@link CURRENT_RELEASE_VERSION}. */
-export const CURRENT_RELEASE_DETAIL = 'delegation JWTs';
+export const CURRENT_RELEASE_DETAIL = 'Authlib 1.9';
 
-/** v2.5.10 migration note. */
+/** v2.5.10 migration note. Kept for historical CTR dashboards. */
 export const DOCS_MIGRATION_2510_URL = githubBlobMain(
   'docs/migration.md#upgrading-from-v259-to-v2510'
 );
 
-/** Changelog anchor for [2.5.10] (2026-10-23). */
+/** Changelog anchor for [2.5.10] (2026-10-23). Kept for historical CTR dashboards. */
 export const CHANGELOG_2510_URL = githubBlobMain('CHANGELOG.md#2510---2026-10-23');
 
-/** GitHub Release for v2.5.10. */
+/** GitHub Release for v2.5.10. Kept for historical CTR dashboards. */
 export const RELEASE_2510_URL =
   'https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.10';
 
+/** v2.5.11 migration note. */
+export const DOCS_MIGRATION_2511_URL = githubBlobMain(
+  'docs/migration.md#upgrading-from-v2510-to-v2511'
+);
+
+/** Changelog anchor for [2.5.11] (2026-11-09). */
+export const CHANGELOG_2511_URL = githubBlobMain('CHANGELOG.md#2511---2026-11-09');
+
+/** GitHub Release for v2.5.11. */
+export const RELEASE_2511_URL =
+  'https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.11';
+
 /** Homepage release link. Alias of the shipped tag so the label and href stay one bump. */
-export const CURRENT_RELEASE_URL = RELEASE_2510_URL;
+export const CURRENT_RELEASE_URL = RELEASE_2511_URL;
 
 /** Homepage migration link for {@link CURRENT_RELEASE_VERSION}. */
-export const CURRENT_MIGRATION_URL = DOCS_MIGRATION_2510_URL;
+export const CURRENT_MIGRATION_URL = DOCS_MIGRATION_2511_URL;
 
 /** Homepage changelog link for {@link CURRENT_RELEASE_VERSION}. */
-export const CURRENT_CHANGELOG_URL = CHANGELOG_2510_URL;
+export const CURRENT_CHANGELOG_URL = CHANGELOG_2511_URL;
