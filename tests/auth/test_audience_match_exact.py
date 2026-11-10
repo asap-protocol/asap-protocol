@@ -25,3 +25,11 @@ def test_audience_match_is_exact(audience: str) -> None:
     assert audience_matches_expected({"aud": audience}, _AUDIENCE) is False
     assert audience_matches_expected({"aud": [audience]}, [_AUDIENCE]) is False
     assert audience_matches_expected({"aud": _AUDIENCE}, [audience]) is False
+
+
+def test_audience_match_rejects_empty_and_non_string_lists() -> None:
+    """An empty list or a non-string entry is not an audience match."""
+    assert audience_matches_expected({"aud": []}, _AUDIENCE) is False
+    assert audience_matches_expected({"aud": [1]}, _AUDIENCE) is False
+    assert audience_matches_expected({"aud": []}, [_AUDIENCE]) is False
+    assert audience_matches_expected({"aud": [1]}, [_AUDIENCE]) is False
