@@ -42,7 +42,7 @@ Tag [`v2.5.11`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5
 
 ### CI
 
-- GitHub Actions group: `actions/setup-node` 7.1.0, `docker/login-action` 4.7.0, `astral-sh/setup-uv` 10.3.3, and `pypa/gh-action-pypi-publish` 1.14.3
+- GitHub Actions group: `actions/setup-node` 7.1.0, `docker/login-action` 4.7.0, `astral-sh/setup-uv` 10.3.3, and `pypa/gh-action-pypi-publish` 1.14.3. The composite `.github/actions/setup-python` action uses that same `setup-uv` 10.3.3 pin
   ([#453](https://github.com/asap-protocol/asap-protocol/pull/453)).
 
 ### Tests
