@@ -1119,6 +1119,60 @@ Scope: [prd-v2.5.4-distribution-loop.md](../product/prd/prd-v2.5.4-distribution-
 
 ---
 
+### Upgrading from v2.5.10 to v2.5.11
+
+**v2.5.11 (security floors patch)** — **shipped**
+([tag `v2.5.11`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.11)) —
+promotes the `development` line onto ``main``. This is **not** Formal Spec
+& Interop. There are **no wire-protocol or manifest schema** breaking
+changes relative to v2.5.10.
+
+#### What lands in v2.5.11
+
+- **Published behavior** — OAuth2 client-credentials token fetch uses the
+  HTTP stack Authlib 1.9 binds (``httpx``, or ``httpx2`` when that package
+  is installed, including via the ``[pydanticai]`` extra). Timeouts,
+  injected transports, and the documented ``HTTPError`` /
+  ``HTTPStatusError`` types come from ``authlib_httpx_module()``. A
+  transport built from the other stack raises ``TypeError`` before the
+  request.
+- **Published requirements** — ``authlib>=1.9.1,<2`` (locked 1.9.5) and
+  ``joserfc>=1.7.6,<2`` (locked 1.8.0).
+- **Repository overrides** — ``dnspython>=2.9.0``, ``filelock>=4.2.1``
+  (locked 4.2.10; major bump; no first-party ``FileLock`` import),
+  ``msgpack>=1.2.3``, and ``pyasn1>=0.6.5``. Another project's
+  ``pip install asap-protocol==2.5.11`` does not apply these pins.
+- **Repository locks** — ``apps/example-agent``, ``asap-compliance``, and
+  ``apps/registry-bot`` follow the authlib and joserfc floors and record
+  editable ``asap-protocol`` 2.5.11.
+- **Web app** — production and development npm groups refreshed.
+  ``systeminformation`` override ``^5.33.16`` (lock 5.33.19). GitHub
+  Actions pins move to setup-node 7.1.0, docker/login-action 4.7.0,
+  setup-uv 10.3.3, and gh-action-pypi-publish 1.14.3. Those changes are
+  this repository, not PyPI requirements.
+- **npm / compliance** — `@asap-protocol/*` remain **2.4.1**;
+  `asap-compliance` remains **1.3.0**.
+
+#### Upgrade steps
+
+1. Bump with `pip install 'asap-protocol==2.5.11'` (or `uv add asap-protocol`).
+2. If you inject an HTTP transport into the OAuth client and you install
+   ``httpx2`` (the ``[pydanticai]`` extra does), build that transport from
+   ``authlib_httpx_module()`` instead of a hard-coded ``httpx`` import.
+3. TypeScript `@asap-protocol/*` packages remain at **2.4.1**;
+   `@asap-protocol/mcp-auth` HTTP/SSE middleware remains deferred.
+
+#### Backward compatibility
+
+- **Wire protocol**: Unchanged from v2.5.10.
+- **Breaking changes**: None for a typical ``asap-protocol`` install that
+  does not inject an OAuth transport. A caller that passed an ``httpx``
+  transport while Authlib is bound to ``httpx2`` now gets ``TypeError``.
+  The ``filelock`` 4.x pin is a repository override, not a published
+  requirement.
+
+---
+
 ### Upgrading from v2.5.9 to v2.5.10
 
 **v2.5.10 (security & correctness patch)** — **shipped**

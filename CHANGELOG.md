@@ -7,20 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-
-- **OAuth2 client credentials** — token fetch uses the HTTP stack Authlib 1.9 binds (`httpx`, or `httpx2` when that package is installed, including via the `[pydanticai]` extra). Timeouts, injected transports, and the documented `HTTPError` / `HTTPStatusError` types come from that stack (`authlib_httpx_module()`). A transport from the other stack raises `TypeError` before the request.
-
-### Security
-
-- **Python dependency floors** — published `Requires-Dist` bumps: `authlib>=1.9.1,<2` (locked 1.9.5; PYSEC-2026-4354–4360 / CVE-2026-96760 / CVE-2026-116672) and `joserfc>=1.7.6,<2` (locked 1.8.0; CVE-2026-119283 / CVE-2026-119284). Override floors: `dnspython>=2.9.0` (2.9.2; CVE-2026-114605), `filelock>=4.2.1` (4.2.10; CVE-2026-112910 / CVE-2026-112909; major bump, no first-party `FileLock` import), `msgpack>=1.2.3` (1.2.4; CVE-2026-114613), and `pyasn1>=0.6.5` (0.6.5; CVE-2026-119194–119197). `apps/example-agent`, `apps/registry-bot`, and `asap-compliance` locks follow the authlib and joserfc floors. The `pip-audit` ignore list is unchanged.
-
 ### Follow-up (planned)
 
 - **Formal Spec & Interop** — RFC spec, introspection, privacy ([prd-v2.5.5-formal-spec-interop.md](product/prd/prd-v2.5.5-formal-spec-interop.md)).
 - `@asap-protocol/mcp-auth` HTTP/SSE middleware (deferred from v2.5.0 — see [2.5.0] TypeScript note and [typescript-mcp-auth-spike.md](engineering/tasks/v2.5.0/typescript-mcp-auth-spike.md)).
 - Collapse the dual `UsageMetrics`/`InMemoryMeteringStore` pair retained in S1 for API stability.
 - Reduce the `asap.transport.client` package aggregate LOC below the S2 target.
+
+---
+
+## [2.5.11] - 2026-11-09
+
+**Security floors patch** — promote `development` onto `main` after v2.5.10.
+Published Authlib and joserfc floors, OAuth token fetch on the HTTP stack
+Authlib binds, web and GitHub Actions bumps, and regression fences. This is
+**not** Formal Spec & Interop. npm `@asap-protocol/*` packages remain at
+**2.4.1**. PyPI `asap-compliance` remains **1.3.0**.
+Tag [`v2.5.11`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.11)
+· PyPI `asap-protocol==2.5.11`.
+
+### Fixed
+
+- **OAuth2 client credentials** — token fetch uses the HTTP stack Authlib 1.9 binds (`httpx`, or `httpx2` when that package is installed, including via the `[pydanticai]` extra). Timeouts, injected transports, and the documented `HTTPError` / `HTTPStatusError` types come from that stack (`authlib_httpx_module()`). A transport from the other stack raises `TypeError` before the request
+  ([#451](https://github.com/asap-protocol/asap-protocol/pull/451)).
+
+### Security
+
+- **Published floors** — `authlib>=1.9.1,<2` (locked 1.9.5; PYSEC-2026-4354–4360 / CVE-2026-96760 / CVE-2026-116672) and `joserfc>=1.7.6,<2` (locked 1.8.0; CVE-2026-119283 / CVE-2026-119284).
+- **Repository uv overrides** — `dnspython>=2.9.0` (2.9.2; CVE-2026-114605), `filelock>=4.2.1` (4.2.10; CVE-2026-112910 / CVE-2026-112909; major bump, no first-party `FileLock` import), `msgpack>=1.2.3` (1.2.4; CVE-2026-114613), and `pyasn1>=0.6.5` (0.6.5; CVE-2026-119194–119197). Another project's `pip install asap-protocol==2.5.11` does not apply these pins. The `pip-audit` ignore list is unchanged
+  ([#451](https://github.com/asap-protocol/asap-protocol/pull/451)).
+- **Satellite locks** — `apps/example-agent`, `apps/registry-bot`, and `asap-compliance` follow the authlib and joserfc floors and record editable `asap-protocol` 2.5.11.
+- **`apps/web`** — production and development npm groups refreshed. `systeminformation` override `^5.33.16` (lock 5.33.19; GHSA-3f7j-7jwc-fxfj). `vitest` `^4.1.12`. `@types/three` `^0.186.0`. These pins are this repository's web app, not PyPI requirements
+  ([#452](https://github.com/asap-protocol/asap-protocol/pull/452)).
+
+### CI
+
+- GitHub Actions group: `actions/setup-node` 7.1.0, `docker/login-action` 4.7.0, `astral-sh/setup-uv` 10.3.3, and `pypa/gh-action-pypi-publish` 1.14.3
+  ([#453](https://github.com/asap-protocol/asap-protocol/pull/453)).
+
+### Tests
+
+- Regression fences for identity, transport, discovery, economics, registry, CORS, and webhook contracts
+  ([#454](https://github.com/asap-protocol/asap-protocol/pull/454),
+  [#455](https://github.com/asap-protocol/asap-protocol/pull/455),
+  [#456](https://github.com/asap-protocol/asap-protocol/pull/456),
+  [#457](https://github.com/asap-protocol/asap-protocol/pull/457)).
+
+### Migration
+
+- **v2.5.10 → v2.5.11**: See [migration guide](docs/migration.md#upgrading-from-v2510-to-v2511).
+  No wire-protocol or manifest schema breaking changes.
 
 ---
 
