@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from asap.discovery.validation import validate_signed_manifest_response
+import pytest
+
+from asap.discovery.validation import (
+    ManifestValidationError,
+    validate_signed_manifest_response,
+)
 from asap.models.entities import Manifest
 
 
@@ -32,3 +37,10 @@ def test_string_signature_field_stays_on_the_plain_manifest_path() -> None:
     assert isinstance(result, Manifest)
     assert result.id == "urn:asap:agent:test"
     assert result.signature == "not-a-signed-wrapper"
+
+
+def test_manifest_key_without_signature_stays_on_the_plain_path() -> None:
+    """A ``manifest`` key alone does not enter signed-manifest verification."""
+    data = {"manifest": _plain_manifest()}
+    with pytest.raises(ManifestValidationError, match="Invalid manifest schema"):
+        validate_signed_manifest_response(data, verify_signature=True)
