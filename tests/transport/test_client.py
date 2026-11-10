@@ -488,6 +488,58 @@ class TestASAPClientErrorHandling:
         assert len(attempts) == 2
         assert response.payload_type == "task.response"
 
+    @pytest.mark.parametrize(
+        "error_data",
+        [
+            {"recoverable": True},
+            ["not", "an", "object"],
+            "retry me",
+        ],
+    )
+    async def test_send_does_not_retry_when_recoverable_hint_cannot_schedule(
+        self,
+        sample_request_envelope: Envelope,
+        error_data: dict[str, bool] | list[str] | str,
+    ) -> None:
+        """One attempt when the hint cannot schedule a delay.
+
+        Recoverable ``true`` without ``retry_after_ms`` must raise the remote
+        error. A non-object ``data`` value must not be unpacked as a hint map.
+        """
+        from asap.transport.client import ASAPClient, ASAPRemoteError
+
+        attempts: list[int] = []
+
+        def mock_transport(request: httpx.Request) -> httpx.Response:
+            attempts.append(1)
+            return httpx.Response(
+                status_code=200,
+                json={
+                    "jsonrpc": "2.0",
+                    "error": {
+                        "code": -32002,
+                        "message": "server asked to wait",
+                        "data": error_data,
+                    },
+                    "id": "req-1",
+                },
+            )
+
+        async with ASAPClient(
+            "http://localhost:8000",
+            transport=httpx.MockTransport(mock_transport),
+            max_retries=3,
+        ) as client:
+            with pytest.raises(ASAPRemoteError) as exc_info:
+                await client.send(sample_request_envelope)
+
+        assert len(attempts) == 1
+        if isinstance(error_data, dict):
+            assert exc_info.value.is_recoverable is True
+            assert exc_info.value.retry_after_ms is None
+        else:
+            assert exc_info.value.is_recoverable is False
+
     async def test_send_raises_on_http_error(self, sample_request_envelope: Envelope) -> None:
         """Test send() raises error on HTTP error status."""
         from asap.transport.client import ASAPClient, ASAPConnectionError

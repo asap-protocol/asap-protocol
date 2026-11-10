@@ -38,6 +38,30 @@ async def test_create_from_openapi_requires_exactly_one_spec_source() -> None:
 
 
 @pytest.mark.asyncio
+async def test_padded_absolute_server_url_is_not_joined_onto_the_spec_host() -> None:
+    """A padded absolute ``servers[0].url`` stays that origin, slash trimmed.
+
+    Leading spaces would otherwise fail the ``https://`` check and ``urljoin``
+    the value onto the spec host, leaving a trailing space on the upstream base.
+    """
+    payload = {
+        "openapi": "3.0.3",
+        "info": {"title": "T", "version": "1"},
+        "servers": [{"url": "  https://api.example/v1/  "}],
+        "paths": {
+            "/p": {"get": {"operationId": "p", "responses": {"200": {"description": "ok"}}}},
+        },
+    }
+    transport = _transport_json(payload)
+    async with httpx.AsyncClient(transport=transport) as client:
+        bundle = await create_from_openapi(
+            spec_url="https://spec.example/o.json",
+            http_client=client,
+        )
+    assert bundle.upstream_base_url == "https://api.example/v1"
+
+
+@pytest.mark.asyncio
 async def test_infer_upstream_from_servers_absolute_url() -> None:
     payload = {
         "openapi": "3.0.3",
