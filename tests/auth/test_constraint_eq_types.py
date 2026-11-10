@@ -22,3 +22,13 @@ def test_eq_constraint_does_not_coerce_numbers_and_strings() -> None:
 
     assert validate_constraints({"limit": 10}, {"limit": 10}) == []
     assert validate_constraints({"limit": "10"}, {"limit": "10"}) == []
+
+    folded = validate_constraints({"skill": "Echo"}, {"skill": "echo"})
+    assert len(folded) == 1
+    assert folded[0].operator == "eq"
+    assert folded[0].message == "skill: expected 'Echo', got 'echo'"
+
+    padded = validate_constraints({"skill": "echo"}, {"skill": "echo "})
+    assert len(padded) == 1
+    assert padded[0].operator == "eq"
+    assert padded[0].message == "skill: expected 'echo', got 'echo '"
