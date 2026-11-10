@@ -131,7 +131,9 @@ The `sharp` override forces Next's nested `sharp` up to `>=0.35.4` (GHSA-rgj7-g3
 
 **GHSA-w74x-v6f9-j3xg / GHSA-xhq7-xmqj-769h / GHSA-wjr9-j795-jxcr / GHSA-333x-w4r6-6crp (fast-uri)**: Production `npm audit` fails on `fast-uri` 3.1.8 (range `3.0.0`–`3.1.8`). The override is `^3.1.9`.
 
-**GHSA-27r3-jxmh-p828 (body-parser)**: `audit-ci` fails on `body-parser` 2.3.0, pulled by Express 5 in the dev graph (`@modelcontextprotocol/sdk`). The range is `>=2.0.0 <2.4.0`. The override `body-parser` `^2.4.0` clears it. Production `npm audit --omit=dev` does not see this copy.
+**GHSA-27r3-jxmh-p828 (body-parser)**: The advisory range is `>=2.0.0 <2.4.0`. This lock does not install `body-parser`, Express, or `@modelcontextprotocol/sdk`. `shadcn` 4.23.0 depends on `@modelcontextprotocol/server` `^2.3.1` (lock 2.4.0), and that package depends on `@modelcontextprotocol/core` and `zod` only. The previous lock installed `body-parser` 2.4.0 through Express 5.3.0 and `@modelcontextprotocol/sdk` 1.32.1 (`shadcn` 4.22.1). The override `body-parser` `^2.4.0` stays so a later refresh that brings the SDK back cannot install 2.3.0. Production `npm audit --omit=dev` does not see this package.
+
+**GHSA-3f7j-7jwc-fxfj (systeminformation)**: `audit-ci` fails on `systeminformation` before 5.33.16 (vulnerable range `< 5.33.16`). The only parent is `@dotenvx/dotenvx` 1.75.1, which still depends on `systeminformation` `^5.22.11`, so 5.33.15 still satisfies that parent. The lock resolves 5.33.19. The override `systeminformation` `^5.33.16` keeps the next refresh on the patched line. This copy is dev-only; production `npm audit --omit=dev` does not see it.
 
 **GHSA-xjj6-f33q-929c (undici)**: `audit-ci` fails on `undici` 7.30.0 (range `>=7.18.0 <7.30.1`). The same release also covers GHSA-4qv8-2p9j-2685 and GHSA-f72v-6w45-q472. The override `^7.29.0` still resolved 7.30.0. The floor is `^7.30.1`. This copy is dev-only; production `npm audit --omit=dev` does not see it.
 
