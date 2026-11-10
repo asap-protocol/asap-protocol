@@ -50,28 +50,28 @@ describe('Dist Loop landing link contract', () => {
     expect(starters).toHaveAttribute('rel', 'noopener noreferrer');
   });
 
-  it('points the hero badge at the v2.5.10 GitHub release', () => {
+  it('points the hero badge at the v2.5.11 GitHub release', () => {
     render(<HeroSection />);
 
     const badge = screen.getByRole('link', {
-      name: /view asap protocol v2\.5\.10 release on github/i,
+      name: /view asap protocol v2\.5\.11 release on github/i,
     });
     expect(badge).toHaveAttribute('href', CURRENT_RELEASE_URL);
     expect(badge.getAttribute('href')).toContain(`v${CURRENT_RELEASE_VERSION}`);
-    expect(badge).toHaveAttribute('data-cta', 'hero-release-2510');
+    expect(badge).toHaveAttribute('data-cta', 'hero-release-2511');
     expect(badge).toHaveTextContent(`v${CURRENT_RELEASE_VERSION} — ${CURRENT_RELEASE_TAGLINE}`);
   });
 
-  it('keeps WhatsNewRibbon docs pills on canonical GitHub URLs for v2.5.10', () => {
+  it('keeps WhatsNewRibbon docs pills on canonical GitHub URLs for v2.5.11', () => {
     render(<WhatsNewRibbon />);
 
     const ribbon = screen.getByRole('complementary', {
-      name: /latest release v2\.5\.10/i,
+      name: /latest release v2\.5\.11/i,
     });
 
     expect(ribbon).toHaveTextContent(`${CURRENT_RELEASE_TAGLINE} · ${CURRENT_RELEASE_DETAIL}`);
-    expect(linkByCta(ribbon, 'docs-migration-2510')).toHaveAttribute('href', CURRENT_MIGRATION_URL);
-    expect(linkByCta(ribbon, 'release-changelog-2510')).toHaveAttribute(
+    expect(linkByCta(ribbon, 'docs-migration-2511')).toHaveAttribute('href', CURRENT_MIGRATION_URL);
+    expect(linkByCta(ribbon, 'release-changelog-2511')).toHaveAttribute(
       'href',
       CURRENT_CHANGELOG_URL
     );

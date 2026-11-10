@@ -80,7 +80,7 @@ const PILLS: Pill[] = [
     href: CURRENT_MIGRATION_URL,
     icon: ShieldCheck,
     external: true,
-    dataCta: WHATS_NEW_RIBBON_CTA_IDS.docsMigration2510,
+    dataCta: WHATS_NEW_RIBBON_CTA_IDS.docsMigration2511,
   },
   {
     label: 'MCP Auth Bridge',
@@ -134,7 +134,7 @@ const PILLS: Pill[] = [
     href: CURRENT_CHANGELOG_URL,
     icon: GitBranch,
     external: true,
-    dataCta: WHATS_NEW_RIBBON_CTA_IDS.releaseChangelog2510,
+    dataCta: WHATS_NEW_RIBBON_CTA_IDS.releaseChangelog2511,
   },
 ];
 
