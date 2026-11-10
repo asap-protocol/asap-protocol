@@ -15,7 +15,20 @@ from asap.transport.jsonrpc import VERSION_INCOMPATIBLE
 from asap.transport.rate_limit import ASAPRateLimiter
 from asap.transport.server import create_app
 
-_LOOKALIKES = ("2.20", "2.2.0", "2.2extra", "v2.2")
+# 2.1 twins reject startswith("2.1") and a "2.1" <= token <= "2.2" range.
+# "2" rejects supported.startswith(token). "," is an empty token: a blank
+# ASAP-Version header is the omitted-header path and never reaches that check.
+_LOOKALIKES = (
+    "2.20",
+    "2.2.0",
+    "2.2extra",
+    "v2.2",
+    "2.10",
+    "2.1.0",
+    "2.1extra",
+    "2",
+    ",",
+)
 
 
 def _request_body(request_id: str) -> dict[str, object]:
