@@ -143,9 +143,9 @@ async def _save_active_agent(
 
 
 @pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
-@pytest.mark.parametrize("typ", ["HOST+JWT", "Host+jwt", " host+jwt", "host+jwt "])
+@pytest.mark.parametrize("typ", ["HOST+JWT", "Host+jwt", " host+jwt", "host+jwt ", "host", "jwt"])
 async def test_host_jwt_typ_match_is_exact(typ: str) -> None:
-    """``typ`` must be ``host+jwt``. Case and surrounding spaces stay invalid."""
+    """``typ`` must be ``host+jwt``. Case, spaces, and substrings stay invalid."""
     token = _sign_host_with_typ(Ed25519PrivateKey.generate(), typ)
     result = await verify_host_jwt(token, InMemoryHostStore())
     assert result.ok is False
@@ -153,9 +153,11 @@ async def test_host_jwt_typ_match_is_exact(typ: str) -> None:
 
 
 @pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
-@pytest.mark.parametrize("typ", ["AGENT+JWT", "Agent+jwt", " agent+jwt", "agent+jwt "])
+@pytest.mark.parametrize(
+    "typ", ["AGENT+JWT", "Agent+jwt", " agent+jwt", "agent+jwt ", "agent", "jwt"]
+)
 async def test_agent_jwt_typ_match_is_exact(typ: str) -> None:
-    """``typ`` must be ``agent+jwt`` even when the session would otherwise verify."""
+    """``typ`` must be ``agent+jwt``. A short token must not verify a real session."""
     hosts, agents, host_tp, agent_key = await _save_active_agent(_AGENT_ID)
     token = _sign_agent_with_typ(agent_key, host_tp, _AGENT_ID, typ)
     result = await verify_agent_jwt(token, hosts, agents)
