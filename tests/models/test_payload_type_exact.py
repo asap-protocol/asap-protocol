@@ -34,6 +34,7 @@ _TASK_REQUEST_ALIASES: tuple[str, ...] = (
     "task_request",
     "TASK.REQUEST",
     " task.request ",
+    "task-request",
 )
 # These stay distinct after that normalization.
 _TASK_REQUEST_NEIGHBORS: tuple[str, ...] = (
@@ -47,6 +48,7 @@ _CORRELATION_ALIASES: tuple[str, ...] = (
     "task_response",
     "TASK.RESPONSE",
     " task.response ",
+    "task-response",
 )
 _CORRELATION_NEIGHBORS: tuple[str, ...] = (
     "task.response.admin",
@@ -92,6 +94,8 @@ def test_correlation_requirement_follows_the_normalized_name() -> None:
     for payload_type in _CORRELATION_ALIASES:
         with pytest.raises(ValidationError, match="must have correlation_id"):
             _envelope(payload_type, _RESPONSE_BODY)
+        with pytest.raises(ValidationError, match="must have correlation_id"):
+            _envelope(payload_type, _RESPONSE_BODY, correlation_id="")
         paired = _envelope(payload_type, _RESPONSE_BODY, correlation_id="req-1")
         assert isinstance(paired.payload, TaskResponse)
         assert paired.correlation_id == "req-1"
