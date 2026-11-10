@@ -66,6 +66,10 @@ def test_memory_snapshot_task_id_match_is_exact() -> None:
     for task_id, _version, marker in _ROWS:
         _assert_marker(store.get(task_id), task_id, marker)
     assert store.list_versions(_EXACT_TASK) == [1]
+    for neighbor in ("Task_01", "task_01 ", " task_01"):
+        assert store.delete(neighbor) is True
+        _assert_marker(store.get(_EXACT_TASK), _EXACT_TASK, "exact")
+        assert store.get(neighbor) is None
     assert store.delete(_SHORTER_TASK) is True
     _assert_marker(store.get(_EXACT_TASK), _EXACT_TASK, "exact")
     _assert_marker(store.get("task_010"), "task_010", "longer")
@@ -81,6 +85,10 @@ async def _assert_async_isolation(
     for task_id, _version, marker in _ROWS:
         _assert_marker(await store.get(task_id), task_id, marker)
     assert await store.list_versions(_EXACT_TASK) == [1]
+    for neighbor in ("Task_01", "task_01 ", " task_01"):
+        assert await store.delete(neighbor) is True
+        _assert_marker(await store.get(_EXACT_TASK), _EXACT_TASK, "exact")
+        assert await store.get(neighbor) is None
     assert await store.delete(_SHORTER_TASK) is True
     _assert_marker(await store.get(_EXACT_TASK), _EXACT_TASK, "exact")
     _assert_marker(await store.get("task_010"), "task_010", "longer")
