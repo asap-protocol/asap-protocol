@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **OAuth2 client credentials** — token fetch uses the HTTP stack Authlib 1.9 binds (`httpx`, or `httpx2` when that package is installed, including via the `[pydanticai]` extra). Timeouts, injected transports, and the documented `HTTPError` / `HTTPStatusError` types come from that stack (`authlib_httpx_module()`). A transport from the other stack raises `TypeError` before the request.
+
+### Security
+
+- **Python dependency floors** — published `Requires-Dist` bumps: `authlib>=1.9.1,<2` (locked 1.9.5; PYSEC-2026-4354–4360 / CVE-2026-96760 / CVE-2026-116672) and `joserfc>=1.7.6,<2` (locked 1.8.0; CVE-2026-119283 / CVE-2026-119284). Override floors: `dnspython>=2.9.0` (2.9.2; CVE-2026-114605), `filelock>=4.2.1` (4.2.10; CVE-2026-112910 / CVE-2026-112909; major bump, no first-party `FileLock` import), `msgpack>=1.2.3` (1.2.4; CVE-2026-114613), and `pyasn1>=0.6.5` (0.6.5; CVE-2026-119194–119197). `apps/example-agent`, `apps/registry-bot`, and `asap-compliance` locks follow the authlib and joserfc floors. The `pip-audit` ignore list is unchanged.
+
 ### Follow-up (planned)
 
 - **Formal Spec & Interop** — RFC spec, introspection, privacy ([prd-v2.5.5-formal-spec-interop.md](product/prd/prd-v2.5.5-formal-spec-interop.md)).
