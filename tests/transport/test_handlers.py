@@ -45,6 +45,49 @@ class TestValidateHandler:
 
         validate_handler(HandlerClass())  # No raise
 
+    def test_register_accepts_unbound_self_and_cls_parameters(self) -> None:
+        """Unbound callables keep ``self`` or ``cls`` in ``inspect.signature``.
+
+        A bound ``HandlerClass()`` drops ``self``, so removing either name from
+        the allow-list still passes ``test_validate_handler_accepts_three_param_with_self``.
+        """
+        from asap.transport.handlers import HandlerRegistry
+
+        def with_self(self: object, envelope: Envelope, manifest: Manifest) -> Envelope:
+            return envelope
+
+        def with_cls(cls: object, envelope: Envelope, manifest: Manifest) -> Envelope:
+            return envelope
+
+        registry = HandlerRegistry()
+        registry.register("task.request", with_self)
+        registry.register("task.response", with_cls)
+        assert registry.has_handler("task.request") is True
+        assert registry.has_handler("task.response") is True
+
+    def test_register_rejects_three_parameters_without_self_or_cls(self) -> None:
+        """Exact ``self`` and ``cls`` names are the only three-parameter allow-list.
+
+        ``receiver`` misses a prefix check. ``selfish`` and ``cls_extra`` stay
+        registered if the allow-list uses ``startswith`` or containment.
+        """
+        from asap.transport.handlers import HandlerRegistry
+
+        def receiver(receiver: object, envelope: Envelope, manifest: Manifest) -> Envelope:
+            return envelope
+
+        def selfish(selfish: object, envelope: Envelope, manifest: Manifest) -> Envelope:
+            return envelope
+
+        def cls_extra(cls_extra: object, envelope: Envelope, manifest: Manifest) -> Envelope:
+            return envelope
+
+        for candidate in (receiver, selfish, cls_extra):
+            registry = HandlerRegistry()
+            with pytest.raises(TypeError, match="3 parameters"):
+                registry.register("task.request", candidate)
+            assert registry.has_handler("task.request") is False
+
     def test_validate_handler_rejects_non_callable(self) -> None:
         """Test that validate_handler rejects non-callable."""
         from asap.transport.handlers import validate_handler

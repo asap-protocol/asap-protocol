@@ -332,6 +332,19 @@ class TestCapabilityRegistry:
         assert len(r.violations) == 1
         assert r.violations[0].operator == "in"
 
+    def test_check_grant_allows_arguments_outside_the_constraint_set(
+        self, registry: CapabilityRegistry
+    ) -> None:
+        """Execute payloads may include fields the grant does not constrain."""
+        registry.grant("a1", "file:read", constraints={"path": {"in": ["/tmp"]}})
+        result = registry.check_grant(
+            "a1",
+            "file:read",
+            {"path": "/tmp", "mode": "write"},
+        )
+        assert result.allowed
+        assert result.violations == []
+
     def test_check_grant_constraints_reject_omitted_arguments(
         self, registry: CapabilityRegistry
     ) -> None:

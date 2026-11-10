@@ -250,6 +250,19 @@ class TestDecompressPayload:
         result = decompress_payload(compressed, "GZIP")
         assert result == original
 
+    def test_decompress_strips_encoding_padding(self) -> None:
+        """Spaces around an encoding still select gzip, including mixed case.
+
+        ``test_decompress_case_insensitive`` uses ``GZIP`` with no padding, so
+        it still passes when ``strip()`` is removed. ``  GZIP  `` needs both
+        ``strip()`` and case folding.
+        """
+        original = b"padded-encoding"
+        compressed = gzip.compress(original)
+        assert decompress_payload(compressed, "  gzip  ") == original
+        assert decompress_payload(compressed, "\tgzip\n") == original
+        assert decompress_payload(compressed, "  GZIP  ") == original
+
     def test_decompress_unsupported_encoding(self) -> None:
         """Verify error on unsupported encoding."""
         with pytest.raises(ValueError, match="Unsupported Content-Encoding"):

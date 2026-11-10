@@ -214,6 +214,31 @@ async def test_validate_jwt_raises_on_none_algorithm_token() -> None:
         validate_jwt(token, key_set)
 
 
+@pytest.mark.parametrize(
+    ("alg", "key_size"),
+    [("HS256", 32), ("HS384", 48), ("HS512", 64)],
+)
+def test_validate_jwt_rejects_hmac_when_hmac_key_is_present(alg: str, key_size: int) -> None:
+    """HMAC is outside the allowlist even when the signing key is in the set.
+
+    RFC 8725 section 3.2. Adding one HMAC alg to the decode allowlist would
+    accept that token. The ``alg: none`` case does not use a real HMAC key.
+    """
+    hmac_key = jwk.OctKey.import_key(b"a" * key_size)
+    key_set = jwk.KeySet([hmac_key])
+    # HS384 and HS512 are outside joserfc's recommended set, so the fixture
+    # must name the algorithm it is signing.
+    token = jose_jwt.encode(
+        {"alg": alg, "typ": "JWT"},
+        {"sub": "urn:asap:agent:test", "exp": int(time.time()) + 3600},
+        hmac_key,
+        algorithms=[alg],
+    )
+
+    with pytest.raises(JoseError):
+        validate_jwt(token, key_set)
+
+
 async def test_jwks_validator_fetch_keys() -> None:
     """Verify JWKSValidator.fetch_keys returns KeySet from endpoint."""
     key = jwk.RSAKey.generate_key(2048, private=True)

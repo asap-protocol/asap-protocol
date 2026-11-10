@@ -146,6 +146,29 @@ def test_verify_manifest_valid_with_explicit_public_key() -> None:
     assert verify_manifest(signed_no_pk, public_key=public_key) is True
 
 
+@pytest.mark.parametrize("alg", ["Ed25519", "ED25519", "ed25519x"])
+def test_verify_manifest_rejects_non_exact_ed25519_label(alg: str) -> None:
+    """The allow-list is the exact string ``ed25519``.
+
+    Case-folding would verify the same signature bytes. ``Ed25519`` and
+    ``ED25519`` still fail ``startswith(\"ed25519\")``. ``ed25519x`` would not.
+    ``rs256`` in ``test_verify_manifest_unsupported_alg_raises`` still fails
+    after folding.
+    """
+    manifest = _sample_manifest()
+    private_key, public_key = generate_keypair()
+    signed = sign_manifest(manifest, private_key)
+    bad_block = SignatureBlock.model_construct(alg=alg, signature=signed.signature.signature)
+    bad_signed = SignedManifest.model_construct(
+        manifest=signed.manifest,
+        signature=bad_block,
+        public_key=public_key_to_base64(public_key),
+    )
+    with pytest.raises(SignatureVerificationError, match="Only ed25519 is supported") as exc_info:
+        verify_manifest(bad_signed)
+    assert exc_info.value.details.get("alg") == alg
+
+
 def test_verify_manifest_unsupported_alg_raises() -> None:
     manifest = _sample_manifest()
     private_key, public_key = generate_keypair()

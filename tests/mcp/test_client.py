@@ -34,6 +34,28 @@ def test_allowed_binaries_none_disables_validation() -> None:
     assert client._server_command == ["any-binary", "arg"]
 
 
+def test_allowed_binaries_uses_the_final_path_component() -> None:
+    """Only the final path component is compared, and the compare is exact.
+
+    ``curl`` and ``Python3`` miss a prefix check. ``python3-extra`` does not.
+    """
+    with pytest.raises(ValueError, match="binary 'curl' not in allowed_binaries"):
+        MCPClient(
+            ["python3/../curl", "-m", "server"],
+            allowed_binaries=frozenset({"python3"}),
+        )
+    with pytest.raises(ValueError, match="binary 'Python3' not in allowed_binaries"):
+        MCPClient(["Python3"], allowed_binaries=frozenset({"python3"}))
+    with pytest.raises(ValueError, match="binary 'python3-extra' not in allowed_binaries"):
+        MCPClient(["python3-extra"], allowed_binaries=frozenset({"python3"}))
+
+    client = MCPClient(
+        ["python3/../python3"],
+        allowed_binaries=frozenset({"python3"}),
+    )
+    assert client._server_command[0] == "python3/../python3"
+
+
 @pytest.mark.asyncio
 async def test_client_send_without_connect_raises() -> None:
     """_send raises RuntimeError when not connected."""
