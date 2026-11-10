@@ -13,6 +13,7 @@ import pytest
 from asap.economics.delegation_storage import (
     DelegationStorageBase,
     InMemoryDelegationStorage,
+    IssuedSummary,
     SQLiteDelegationStorage,
 )
 
@@ -82,6 +83,35 @@ async def _assert_issuer_lists_are_exact(storage: DelegationStorageBase) -> None
     )
 
 
+def _summary_ids(summaries: list[IssuedSummary]) -> set[str]:
+    """Return issued-summary ids without depending on storage order."""
+    return {item.id for item in summaries}
+
+
+async def _assert_summary_and_delegator_are_exact(storage: DelegationStorageBase) -> None:
+    """List and revoke-gate copies use the same exact token and issuer ids."""
+    exact = await storage.list_issued_summaries(_EXACT_ISSUER)
+    assert _summary_ids(exact) == {_EXACT_TOKEN}
+    assert {item.delegate_urn for item in exact} == {_EXACT_DELEGATE}
+    assert _summary_ids(await storage.list_issued_summaries("urn:asap:agent:bot-010")) == {
+        "tok_010"
+    }
+    assert _summary_ids(await storage.list_issued_summaries("urn:asap:agent:bot-0")) == {"tok_0"}
+    assert _summary_ids(await storage.list_issued_summaries("URN:asap:agent:bot-01")) == {"Tok_01"}
+    assert _summary_ids(await storage.list_issued_summaries(_EXACT_DELEGATE)) == {_CHILD_TOKEN}
+    assert _summary_ids(await storage.list_issued_summaries(_SHORT_DELEGATE)) == {_NEIGHBOR_CHILD}
+    assert await storage.list_issued_summaries("urn:asap:agent:bot") == []
+
+    assert await storage.get_delegator(_EXACT_TOKEN) == _EXACT_ISSUER
+    assert await storage.get_delegator("tok_010") == "urn:asap:agent:bot-010"
+    assert await storage.get_delegator("tok_0") == "urn:asap:agent:bot-0"
+    assert await storage.get_delegator("Tok_01") == "URN:asap:agent:bot-01"
+    assert await storage.get_delegator("tok_01 ") == "urn:asap:agent:bot-01 "
+    assert await storage.get_delegator(" tok_01") == " urn:asap:agent:bot-01"
+    assert await storage.get_delegator(_CHILD_TOKEN) == _EXACT_DELEGATE
+    assert await storage.get_delegator("tok") is None
+
+
 async def _assert_revoked_token_is_exact(storage: DelegationStorageBase) -> None:
     """Revoking ``tok_01`` does not revoke a prefix, case, or padded token."""
     assert await storage.is_revoked(_EXACT_TOKEN) is True
@@ -106,6 +136,7 @@ async def test_delegation_token_and_issuer_match_are_exact(
     """Issuer lists, revocation, and cascade children use the full ids."""
     await _register_neighbor_delegations(delegation_storage)
     await _assert_issuer_lists_are_exact(delegation_storage)
+    await _assert_summary_and_delegator_are_exact(delegation_storage)
     await delegation_storage.revoke(_EXACT_TOKEN)
     await _assert_revoked_token_is_exact(delegation_storage)
     await delegation_storage.revoke_cascade(_EXACT_TOKEN)
