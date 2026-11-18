@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Weekly adoption telemetry (maintainer tooling)** — `telemetry-weekly.yml` has its Monday schedule back. The PyPI collector retries PyPI Stats HTTP 429, 5xx, and connection errors with backoff. If PyPI still fails, the snapshot records `pypi.fetch_error` and the job continues. A missing `TELEMETRY_GITHUB_TOKEN` still fails the job, now before any collector runs. Snapshots stay workflow artifacts only. See [docs/maintainers/telemetry.md](docs/maintainers/telemetry.md).
+
 ### Documentation
 
 - **v2.5.x train closed** at **2.5.11**. No more planned feature scope ships on 2.5.x; any further 2.5.x patch follows the release policy below.

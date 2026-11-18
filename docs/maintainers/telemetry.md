@@ -21,7 +21,7 @@ The above command installs Python deps from the lockfile and enables the PyPI co
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
-| `TELEMETRY_GITHUB_TOKEN` | **Yes** for full aggregate / CI | Maintainer PAT used by `aggregate.py` (preferred over `GITHUB_TOKEN`). Needs access to repo **traffic** (views/referrers), **issues** (labeled `adapter-request`), and summary endpoints. Classic PAT: **`repo`** (traffic needs push-equivalent access). Fine-grained: **Contents: Read**, **Issues: Read**, plus traffic as allowed for that token type. Store as a **repository Actions secret** named `TELEMETRY_GITHUB_TOKEN`. **Never commit this token.** |
+| `TELEMETRY_GITHUB_TOKEN` | **Yes** for full aggregate / CI | Maintainer PAT used by `aggregate.py` (preferred over `GITHUB_TOKEN`). Needs access to repo **traffic** (clones/referrers), **issues** (labeled `adapter-request`), and summary endpoints. Fine-grained: resource owner **`asap-protocol`**, repository **`asap-protocol/asap-protocol`**, **Administration: Read** (traffic endpoints), **Issues: Read**, **Metadata: Read**. Classic PAT: **`repo`** (traffic needs push-equivalent access). Store as a **repository Actions secret** named `TELEMETRY_GITHUB_TOKEN`. Without it the aggregate exits 1 before any collector runs. **Never commit this token.** |
 | `GITHUB_TOKEN` | Fallback only | Accepted by `collect_github.py` and by `aggregate.py --allow-github-skip` when `TELEMETRY_GITHUB_TOKEN` is unset. The default Actions `GITHUB_TOKEN` **cannot** read traffic; do not rely on it for promotion gates. |
 | `TELEMETRY_TOKEN` | For `/api/telemetry` only | Shared bearer for the Next.js route `apps/web/src/app/api/telemetry/route.ts`. Set in Vercel/hosting env; use the same value when calling the route locally or from `aggregate.py`. |
 | `TELEMETRY_SITE_ENDPOINT` | Optional | Full HTTPS URL to the deployed telemetry route, e.g. `https://example.com/api/telemetry`. Passed to `aggregate.py` or set as a CI **repository variable**. |
@@ -98,6 +98,8 @@ uv run python scripts/telemetry/aggregate.py --output-dir private/telemetry --al
 The script:
 
 - Collects the default npm (≥3) and PyPI (≥2) package sets.
+- Retries PyPI Stats HTTP 429, 5xx, and connection errors per package (4 attempts, waits of 10 s, 30 s, 90 s). If PyPI still fails, the snapshot keeps `pypi.packages` empty, sets `pypi.fetch_error: true` with a generic `pypi.reason`, and `dashboard.md` lists it under **Data quality warnings**. The run still exits 0.
+- Fails closed (exit 1, no snapshot) when `TELEMETRY_GITHUB_TOKEN` is missing or a GitHub call fails, unless `--allow-github-skip` is passed. Adapter-request counts feed promotion decisions, so CI never writes placeholder zeros.
 - Validates the snapshot against an embedded **JSON Schema** (`jsonschema`).
 - Writes `snapshot-YYYY-MM-DD.json`, `dashboard.md`, and attempts `snapshot-latest.json` → symlink (may fail on Windows without symlink rights — optional).
 
@@ -112,26 +114,23 @@ Issues labeled **`adapter-request`** are grouped by **framework name** parsed fr
 
 The aggregator stores **slugified** keys (e.g. `OpenAI Agents SDK` → `openai-agents-sdk`). Issues that cannot be parsed increment **`_unparsed`** in the snapshot and dashboard.
 
-## CI workflow (dispatch only until secrets are ready)
+## CI workflow (weekly schedule + dispatch)
 
 Workflow **`.github/workflows/telemetry-weekly.yml`**:
 
-- **Enabled today:** `workflow_dispatch` (Actions → Telemetry (weekly) → Run workflow).
-- **Not enabled:** the weekly `cron` schedule remains **commented out** until `TELEMETRY_GITHUB_TOKEN` (and optional `TELEMETRY_SITE_ENDPOINT` / `TELEMETRY_TOKEN`) are configured under **Settings → Secrets and variables → Actions**.
-- The workflow **does not push to `main`**; it uploads **`snapshot-*.json`** and **`dashboard.md`** as a **workflow artifact**.
+- **Triggers:** `schedule` (`0 9 * * 1`, Mondays 09:00 UTC) and `workflow_dispatch` (Actions → Telemetry (weekly) → Run workflow).
+- **Requires** the repository secret `TELEMETRY_GITHUB_TOKEN`. Optional: variable `TELEMETRY_SITE_ENDPOINT` and secret `TELEMETRY_TOKEN`.
+- The workflow **does not push to `main`**; it uploads **`snapshot-*.json`** and **`dashboard.md`** as a **workflow artifact** (`telemetry-<run_id>`).
 
-Re-enable schedule only after a successful dispatch with real GitHub traffic data:
+The schedule failed every Monday from 2026-05-18 to 2026-06-08: the secret was missing, and one run stopped on PyPI Stats HTTP 429. The workflow was then disabled in GitHub. To turn it back on:
 
-```yaml
-schedule:
-  - cron: "0 9 * * 1"
-```
+1. Add the `TELEMETRY_GITHUB_TOKEN` secret (permissions in the table above).
+2. Enable the workflow: `gh workflow enable telemetry-weekly.yml --repo asap-protocol/asap-protocol`.
+3. Run it once: `gh workflow run telemetry-weekly.yml --repo asap-protocol/asap-protocol`. Check that the artifact has real GitHub data and no **Data quality warnings** you did not expect.
 
-Optional: download the artifact and copy files to a **private branch** if you want historical copies in git (not required for promotion-gate review).
+While the workflow is disabled in GitHub, neither the schedule nor dispatch runs.
 
-### Secrets / runtime gap (as of DIST-004 / S4)
-
-If `TELEMETRY_GITHUB_TOKEN` is not set in the Actions repo secrets (and not available locally), a full aggregate cannot collect GitHub traffic/referrers. Local dry-runs may also hit **PyPI Stats HTTP 429** under rate limits. Document the gap, keep cron disabled, and use `workflow_dispatch` after the secret is added. Do not invent dashboard numbers.
+Optional: download the artifact and copy files to a **private branch** if you want historical copies in git (not required for promotion-gate review). Do not invent dashboard numbers.
 
 ## Revoking access
 
