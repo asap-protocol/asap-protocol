@@ -1,9 +1,11 @@
 {
-  // Dev-toolchain only (eslint-config-next, shadcn CLI): fast-glob → micromatch → braces.
-  // GHSA-vfj7-8cjw-p6xm: no fixed braces release on npm at audit time; production graph is clean.
+  // GHSA-fc5q-39xc-vjpf (allowlisted 2026-11-18, maintainer decision): picomatch <=4.0.7 ReDoS.
+  // No patched picomatch release on npm. Dev-toolchain only (vitest/vite, eslint, shadcn,
+  // json-schema-to-typescript); `npm audit --omit=dev` is clean. Remove this entry once a fixed
+  // picomatch ships and the lock picks it up.
   // Force npm: apps/web also has pnpm-lock.yaml, and audit-ci auto mode would
   // run pnpm, which still calls the retired /-/npm/v1/security/audits/quick endpoint.
   "high": true,
   "package-manager": "npm",
-  "allowlist": ["GHSA-vfj7-8cjw-p6xm"]
+  "allowlist": ["GHSA-fc5q-39xc-vjpf"]
 }
