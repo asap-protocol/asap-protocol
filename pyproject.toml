@@ -43,13 +43,13 @@ dependencies = [
     "websockets>=12.0",
     # Floor 1.2.1 for PYSEC-2026-4322 / GHSA-9v8h-qqgm-4m35 (decoder OOB write).
     "brotli>=1.2.1",
-    # Floor 1.45.1 for CVE-2026-114603. SDK 1.45.1 requires this API;
-    # instrumentation 0.66b1 is the matching release.
-    "opentelemetry-api>=1.45.1",
-    "opentelemetry-sdk>=1.45.1",
-    "opentelemetry-instrumentation-fastapi>=0.66b1",
-    "opentelemetry-instrumentation-httpx>=0.66b1",
-    "opentelemetry-exporter-otlp-proto-grpc>=1.45.1",
+    # Floor 1.45.2 for CVE-2026-126360 (was 1.45.1 for CVE-2026-114603).
+    # SDK 1.45.2 requires this API; instrumentation 0.66b2 is the matching release.
+    "opentelemetry-api>=1.45.2",
+    "opentelemetry-sdk>=1.45.2",
+    "opentelemetry-instrumentation-fastapi>=0.66b2",
+    "opentelemetry-instrumentation-httpx>=0.66b2",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.45.2",
 ]
 
 [project.optional-dependencies]
@@ -169,7 +169,7 @@ Issues = "https://github.com/asap-protocol/asap-protocol/issues"
 # - pydantic-ai>=1.107.7,<2 for CVE-2026-107287–107291
 # - werkzeug>=3.1.9 for CVE-2026-102598
 # - fsspec>=2026.6.0 for CVE-2026-104851
-# - opentelemetry-api>=1.45.1 for CVE-2026-114603 (SDK and instrumentation move with it)
+# - opentelemetry-api>=1.45.2 for CVE-2026-126360 / CVE-2026-114603 (SDK and instrumentation move with it)
 # - brotli>=1.2.1 for PYSEC-2026-4322 / GHSA-9v8h-qqgm-4m35 (direct dependency)
 [tool.uv]
 override-dependencies = [
@@ -214,7 +214,7 @@ override-dependencies = [
     "pydantic-ai>=1.107.7,<2",
     "werkzeug>=3.1.9",
     "fsspec>=2026.6.0",
-    "opentelemetry-api>=1.45.1",
+    "opentelemetry-api>=1.45.2",
     "brotli>=1.2.1",
 ]
 
