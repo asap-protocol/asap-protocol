@@ -76,6 +76,11 @@ See the [Testing Guide](docs/testing.md) for complete details on:
     - Use `NoRateLimitTestBase` for tests that don't test rate limiting
     - See [Testing Guide](docs/testing.md) for detailed guidelines
 -   **Docs**: Update docstrings and README if you change behavior.
+-   **Integrations**: A new framework integration starts as Tier 3 (Experimental) until it meets the promotion rule in [Integration support tiers](docs/integrations/support-tiers.md). To ask for an integration or a promotion, open an `adapter-request` issue.
+
+## Releases
+
+Maintainers decide when to release under the [release and versioning policy](docs/maintainers/release-policy.md). In short: planned features ship in minor releases (`x.Y.0`). Patches (`x.y.Z`) carry only security fixes, dependency floors, and correctness bugs. Test-only PRs merge to `main` and ship with the next release.
 
 ## Reviewing Dependabot PRs
 

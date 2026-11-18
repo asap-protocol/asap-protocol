@@ -4,11 +4,14 @@ Maintainer guide for shipping urgent fixes after a **v2.3.x** TypeScript release
 
 ## Maintainer cross-links
 
+- **When to release at all** (minor vs maintenance patch vs hotfix): [release-policy.md](./release-policy.md)
 - **npm publish (normal + emergency)**: [npm-publishing.md](./npm-publishing.md)
 - **Release checklist (v2.3.1)**: [engineering/tasks/private/v2.3.1/release-checklist.md](../../engineering/tasks/private/v2.3.1/release-checklist.md) — §4.0 rollback points here
 - **Hotfix CI**: [.github/workflows/hotfix-release.yml](../../.github/workflows/hotfix-release.yml) — tags `v2.3.*-hotfix.*` / `v2.3.*-rc.*`
 
 ## § Decision: hotfix now vs wait for next minor
+
+The [release policy](./release-policy.md#when-to-hotfix) sets when a hotfix is allowed (an exploitable advisory or a broken Tier 1 package). If this table and the policy disagree, the policy wins.
 
 | Signal | Prefer **hotfix** | Prefer **wait** (next minor, e.g. v2.3.2 / v2.4.0) |
 |--------|-------------------|-----------------------------------------------------|

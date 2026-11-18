@@ -6,13 +6,26 @@ import json
 from unittest.mock import patch
 
 import pytest
+import urllib3
 
 from scripts.telemetry.collect_pypi import (
     DEFAULT_PYPI_PACKAGES,
+    PYPISTATS_MAX_ATTEMPTS,
     collect_pypi_recent,
     fetch_pypi_recent,
     normalize_recent_counts,
 )
+
+_OK_BODY = json.dumps(
+    {"package": "asap-protocol", "data": {"last_day": 2, "last_week": 20, "last_month": 200}}
+)
+
+
+def _http_error(status: int) -> urllib3.exceptions.HTTPError:
+    """Mirror the error ``pypistats`` raises for a 4xx/5xx response."""
+    url = "https://pypistats.org/api/packages/asap-protocol/recent"
+    return urllib3.exceptions.HTTPError(f"HTTP Error {status} for url: {url}")
+
 
 REQUIRED_DEFAULT_PYPI_PACKAGES: frozenset[str] = frozenset(
     {
@@ -120,6 +133,53 @@ class TestFetchPypiRecent:
         )
         with pytest.raises(ValueError, match="mismatch"):
             fetch_pypi_recent("asap-protocol")
+
+
+class TestFetchPypiRecentRetry:
+    """PyPI Stats rate-limits shared CI runner IPs (HTTP 429); retry with backoff."""
+
+    @patch("scripts.telemetry.collect_pypi.pypistats.recent")
+    def test_retries_rate_limit_then_succeeds(self, mock_recent: object) -> None:
+        mock_recent.side_effect = [_http_error(429), _OK_BODY]
+        delays: list[float] = []
+        out = fetch_pypi_recent("asap-protocol", sleep=delays.append)
+        assert out["downloads"]["last_week"] == 20
+        assert mock_recent.call_count == 2
+        assert len(delays) == 1
+        assert delays[0] > 0
+
+    @patch("scripts.telemetry.collect_pypi.pypistats.recent")
+    def test_retries_server_and_transport_errors(self, mock_recent: object) -> None:
+        mock_recent.side_effect = [
+            _http_error(503),
+            urllib3.exceptions.HTTPError("connection reset"),
+            _OK_BODY,
+        ]
+        delays: list[float] = []
+        out = fetch_pypi_recent("asap-protocol", sleep=delays.append)
+        assert out["package"] == "asap-protocol"
+        assert mock_recent.call_count == 3
+        assert len(delays) == 2
+
+    @patch("scripts.telemetry.collect_pypi.pypistats.recent")
+    def test_backoff_grows_and_gives_up_after_max_attempts(self, mock_recent: object) -> None:
+        mock_recent.side_effect = _http_error(429)
+        delays: list[float] = []
+        with pytest.raises(urllib3.exceptions.HTTPError, match="429"):
+            fetch_pypi_recent("asap-protocol", sleep=delays.append)
+        assert mock_recent.call_count == PYPISTATS_MAX_ATTEMPTS
+        assert len(delays) == PYPISTATS_MAX_ATTEMPTS - 1
+        assert delays == sorted(delays)
+        assert delays[-1] > delays[0]
+
+    @patch("scripts.telemetry.collect_pypi.pypistats.recent")
+    def test_does_not_retry_other_client_errors(self, mock_recent: object) -> None:
+        mock_recent.side_effect = _http_error(404)
+        delays: list[float] = []
+        with pytest.raises(urllib3.exceptions.HTTPError, match="404"):
+            fetch_pypi_recent("asap-protocol", sleep=delays.append)
+        assert mock_recent.call_count == 1
+        assert delays == []
 
 
 class TestCollectPypiRecent:

@@ -6,10 +6,10 @@
 
 ## Project Context
 
-**ASAP Protocol** (Async Simple Agent Protocol) is a production-ready standard for agent-to-agent communication.
+**ASAP Protocol** (Async Simple Agent Protocol) is a production-ready protocol for agent-to-agent communication, and the capability, approval, and compliance layer for agents. It interoperates with A2A v1.0 and MCP authorization (OAuth 2.1); it does not replace them.
 - **Stack**: Python 3.13+, FastAPI, Pydantic v2.
 - **Transport**: JSON-RPC 2.0 over HTTP/WebSocket.
-- **Status**: v2.5.11 **shipped** (security floors patch, tag [`v2.5.11`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.11), 2026-11-09). **Current versions:** `pyproject.toml` **2.5.11** · PyPI `asap-protocol` **2.5.11** · PyPI `asap-compliance` **1.3.0** (tag [`v2.5.0.1`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.0.1)) · npm `@asap-protocol/client` **2.4.1**. This patch is **not** Formal Spec. **Predecessor:** security & correctness patch **v2.5.10** shipped (tag [`v2.5.10`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.10), 2026-10-23). **Next product train:** Formal Spec ([prd-v2.5.5-formal-spec-interop.md](product/prd/prd-v2.5.5-formal-spec-interop.md)). See `CHANGELOG.md` `[2.5.11]` and `docs/migration.md#upgrading-from-v2510-to-v2511`.
+- **Status**: Library **2.5.11** is current (tag [`v2.5.11`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.11), 2026-11-09). **Current versions:** `pyproject.toml` **2.5.11** · PyPI `asap-protocol` **2.5.11** · PyPI `asap-compliance` **1.3.0** (tag [`v2.5.0.1`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.0.1)) · npm `@asap-protocol/client` **2.4.1**. The **v2.5.x train is closed** at 2.5.11. **Next train:** **v2.6.0 Interop** ([prd-interop.md](product/prd/prd-interop.md)), then **v2.7.0 Spec profile** ([prd-spec-profile.md](product/prd/prd-spec-profile.md)). Train index: [prd-roadmap.md](product/prd/prd-roadmap.md). Release history: [`CHANGELOG.md`](CHANGELOG.md) + GitHub Releases. Release rules: [release-policy.md](docs/maintainers/release-policy.md).
 - **Framework Integrations**: LangChain, CrewAI, PydanticAI, LlamaIndex, SmolAgents, Vercel AI SDK, MCP (envelope + **MCP Auth Bridge** v2.5.0), OpenClaw, A2H.
 - **npm (TypeScript)**: The official client is **`@asap-protocol/client`** (scoped, **public** on npm for v2.4.x). Maintainer workflow: `.github/workflows/publish-typescript.yml`; context: `docs/maintainers/npm-publishing.md`. Org cutover (Trusted Publisher / Pages / secrets): `docs/maintainers/github-organization.md`.
 - **General contact** (humans coordinating on the protocol; not security): [info@asap-protocol.com](mailto:info@asap-protocol.com) — vulnerabilities: [SECURITY.md](SECURITY.md).
@@ -34,6 +34,7 @@ For coverage and pre-push gates, see [`.cursor/README.md`](.cursor/README.md#can
 | Write or refactor code | `agent-clean-code.mdc` |
 | Choose where new code lives | `architecture-principles.mdc` |
 | Commit or push | `git-commits.mdc` (always on) |
+| Cut a release or patch | [`docs/maintainers/release-policy.md`](docs/maintainers/release-policy.md) (exploitable advisory: [`docs/maintainers/hotfix.md`](docs/maintainers/hotfix.md)) |
 | Frontend (`apps/web/`) | `frontend-best-practices.mdc` |
 | Security audit | `skills/security-review/SKILL.md` |
 | Security PR review (high-confidence) | Optional local command under `.cursor/commands/` when present (gitignored) |
@@ -44,16 +45,17 @@ For coverage and pre-push gates, see [`.cursor/README.md`](.cursor/README.md#can
 ## Knowledge Map
 
 ### 1. Product & Architecture (Read First)
-- **Vision & Roadmap**: ADRs and PRDs (`product/decision-records/`, `product/prd/`). Narrative vision files under `product/strategy/` are **local-only** (ignored on the remote); when present, start at `product/strategy/roadmap.md`.
+- **Vision & Roadmap**: Public train index [`product/prd/prd-roadmap.md`](product/prd/prd-roadmap.md); ADRs and PRDs (`product/decision-records/`, `product/prd/`). Narrative vision files under `product/strategy/` are **local-only** (ignored on the remote); when present, start at `product/strategy/roadmap.md`.
 - **Feature Specs (PRDs)**: `product/prd/`
 - **Arch Decisions (ADRs)**: `product/decision-records/`
 - **Documentation checkpoints** (post-release PRD follow-up): `product/checkpoints.md`
 - **Tech Stack**: `engineering/architecture/tech-stack-decisions.md`
-- **MCP Auth Bridge**: `asap.adapters.mcp` (`protect_server`, `MCPAuthConfig`) — [docs/adapters/mcp-auth-bridge.md](docs/adapters/mcp-auth-bridge.md)
+- **MCP Auth Bridge**: `asap.mcp.auth` (`protect_server`, `MCPAuthConfig`; legacy shim `asap.adapters.mcp` is removed in v2.6.0) — [docs/adapters/mcp-auth-bridge.md](docs/adapters/mcp-auth-bridge.md)
 
 ### 2. Development Status
-- **Active Sprint**: [engineering/tasks/v2.5.4/](engineering/tasks/v2.5.4/tasks-v2.5.4-roadmap.md) — Distribution Loop (**SHIPPED**); library **2.5.11** is the latest security floors patch on `main`
-- **Adoption Roadmap**: Library patch **v2.5.11** shipped 2026-11-09 (tag `v2.5.11`); library patch **v2.5.10** shipped 2026-10-23 (tag `v2.5.10`); library patch **v2.5.9** shipped 2026-10-23 (tag `v2.5.9`); library patch **v2.5.8** shipped 2026-10-21 (tag `v2.5.8`); library patch **v2.5.7** shipped 2026-10-11 (tag `v2.5.7`); library patch **v2.5.6** shipped 2026-10-01 (tag `v2.5.6`); library patch **v2.5.5** shipped 2026-09-11 (tag `v2.5.5`); Distribution Loop (**v2.5.4** shipped 2026-07-18, tag `v2.5.4`; [PRD](product/prd/prd-v2.5.4-distribution-loop.md), [tasks](engineering/tasks/v2.5.4/tasks-v2.5.4-roadmap.md)); v2.5.3 **Adapter Lab II** shipped (2026-07-16, tag `v2.5.3`); v2.5.2 **security follow-up** shipped (2026-07-08, tag `v2.5.2`); v2.5.1 **code quality patch** shipped (2026-06-26); v2.5.0 **MCP Auth Bridge** shipped (2026-06-24); `asap-compliance` **1.3.0** on PyPI (tag `v2.5.0.1`); **next product train:** Formal Spec ([prd-v2.5.5-formal-spec-interop.md](product/prd/prd-v2.5.5-formal-spec-interop.md)); `@asap-protocol/mcp-auth` (HTTP/SSE) still deferred.
+- **Active Sprint**: none — **Phase 0 reset** (no active feature sprint). The `engineering/tasks/v2.6.0/` folder is created at v2.6.0 kickoff. Last shipped sprint: [engineering/tasks/v2.5.4/](engineering/tasks/v2.5.4/tasks-v2.5.4-roadmap.md) (Distribution Loop).
+- **Roadmap**: v2.5.x closed at **2.5.11** (2.5.5–2.5.11 were maintenance patches) → **v2.6.0 Interop** (A2A v1.0 Agent Card bridge, external agent tokens incl. MCP OAuth 2.1, `@asap-protocol/mcp-auth` for HTTP MCP servers) → **v2.7.0 Spec profile** → decision gate. Economy stays a trigger-gated product track, not library v3.0.0. Train index: [prd-roadmap.md](product/prd/prd-roadmap.md); release history: [CHANGELOG.md](CHANGELOG.md).
+- **Release policy & support tiers**: [docs/maintainers/release-policy.md](docs/maintainers/release-policy.md) (planned scope ships only in x.Y.0; patches are unplanned maintenance) · [docs/integrations/support-tiers.md](docs/integrations/support-tiers.md).
 - **Code Reviews**: `engineering/code-review/`
 
 ## Organization

@@ -7,10 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **opentelemetry-api** floor `>=1.45.2` for CVE-2026-126360 (was 1.45.1). SDK and OTLP exporter move to 1.45.2; instrumentation to 0.66b2. Root and satellite locks refreshed.
+- **apps/web**: `next` and `eslint-config-next` 16.4.3 → **16.4.6** for GHSA-mfr8-8qww-v76h and GHSA-vc7v-qv4w-wrv8 (cache information disclosure across root params in `use cache`).
+
+### Fixed
+
+- **Weekly adoption telemetry (maintainer tooling)** — `telemetry-weekly.yml` has its Monday schedule back. The PyPI collector retries PyPI Stats HTTP 429, 5xx, and connection errors with backoff. If PyPI still fails, the snapshot records `pypi.fetch_error` and the job continues. A missing `TELEMETRY_GITHUB_TOKEN` still fails the job, now before any collector runs. Snapshots stay workflow artifacts only. See [docs/maintainers/telemetry.md](docs/maintainers/telemetry.md).
+
+### Documentation
+
+- **v2.5.x train closed** at **2.5.11**. No more planned feature scope ships on 2.5.x; any further 2.5.x patch follows the release policy below.
+- **Roadmap reset** — the next train is **v2.6.0 Interop** ([prd-interop.md](product/prd/prd-interop.md)), then **v2.7.0 Spec profile** ([prd-spec-profile.md](product/prd/prd-spec-profile.md)). Living train index: [prd-roadmap.md](product/prd/prd-roadmap.md).
+- **Formal Spec PRD renamed** to `product/prd/prd-spec-profile.md` (target v2.7.0). A redirect stub at the old path (`product/prd/prd-v2.5.5-formal-spec-interop.md`) keeps historical links working.
+- **Release policy** ([docs/maintainers/release-policy.md](docs/maintainers/release-policy.md)) and **integration support tiers** ([docs/integrations/support-tiers.md](docs/integrations/support-tiers.md)) published. Planned scope ships only in minor releases; patches are unplanned maintenance.
+- **Status docs deduplicated** — `AGENTS.md`, `README.md`, `docs/index.md`, `product/README.md`, `product/checkpoints.md`, and `engineering/tasks/README.md` now carry only the current version, the next train, and a link here. Release history lives in this file and GitHub Releases.
+
 ### Follow-up (planned)
 
-- **Formal Spec & Interop** — RFC spec, introspection, privacy ([prd-v2.5.5-formal-spec-interop.md](product/prd/prd-v2.5.5-formal-spec-interop.md)).
-- `@asap-protocol/mcp-auth` HTTP/SSE middleware (deferred from v2.5.0 — see [2.5.0] TypeScript note and [typescript-mcp-auth-spike.md](engineering/tasks/v2.5.0/typescript-mcp-auth-spike.md)).
+- **v2.6.0 Interop** — A2A v1.0 Agent Card ↔ ASAP manifest bridge, external agent tokens (including MCP OAuth 2.1) → ASAP agent sessions, and `@asap-protocol/mcp-auth` for HTTP MCP servers (deferred from v2.5.0 — see [2.5.0] TypeScript note and [typescript-mcp-auth-spike.md](engineering/tasks/v2.5.0/typescript-mcp-auth-spike.md)); removes the `asap.cli._compat` shim (#275).
+- **v2.7.0 Spec profile** — RFC 2119 profile of ASAP's identity, capability-grant, approval, and lifecycle surface ([prd-spec-profile.md](product/prd/prd-spec-profile.md)).
 - Collapse the dual `UsageMetrics`/`InMemoryMeteringStore` pair retained in S1 for API stability.
 - Reduce the `asap.transport.client` package aggregate LOC below the S2 target.
 

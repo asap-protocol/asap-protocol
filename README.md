@@ -5,7 +5,7 @@
 ![ASAP Protocol Banner](https://raw.githubusercontent.com/asap-protocol/asap-protocol/main/.github/assets/asap-protocol-banner.png)
 
 
-> A production-ready protocol for agent-to-agent communication and task coordination.
+> A production-ready protocol for agent-to-agent communication, and the capability, approval, and compliance layer that works alongside A2A and MCP.
 
 **Quick Info**: [`v2.5.11`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.11) · PyPI [`asap-protocol`](https://pypi.org/project/asap-protocol/) | `Apache 2.0` | `Python 3.13+` | [Documentation](docs/index.md) | [Changelog](CHANGELOG.md)
 
@@ -73,7 +73,7 @@ Or with pip:
 pip install asap-protocol==2.5.11
 ```
 
-**TypeScript** (npm, **`2.4.1`** — unchanged for v2.5.11; `@asap-protocol/mcp-auth` HTTP middleware still deferred):
+**TypeScript** (npm, **`2.4.1`** — unchanged for v2.5.11; `@asap-protocol/mcp-auth` for HTTP MCP servers is planned for v2.6.0 Interop):
 
 - [`@asap-protocol/client`](https://www.npmjs.com/package/@asap-protocol/client) — [SDK docs](docs/sdks/typescript.md)
 - [`@asap-protocol/mastra`](https://www.npmjs.com/package/@asap-protocol/mastra) — [docs](docs/integrations/mastra.md) · [demo](apps/example-mastra/README.md)
@@ -165,13 +165,7 @@ High-level only — see **[Changelog](https://github.com/asap-protocol/asap-prot
 
 | Version | What shipped |
 | :-- | :-- |
-| **v2.5.11** | **Security floors patch** — **[GitHub Release `v2.5.11`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.11)** · Authlib >=1.9.1 (locked 1.9.5) and joserfc >=1.7.6 (root lock 1.8.0), OAuth token fetch on Authlib's HTTP stack, `apps/web` `systeminformation` 5.33.19, regression fences ([#451](https://github.com/asap-protocol/asap-protocol/pull/451)–[#457](https://github.com/asap-protocol/asap-protocol/pull/457)). npm `@asap-protocol/*` remain **2.4.1**. See [CHANGELOG](CHANGELOG.md#2511---2026-11-09) and [Migration (v2.5.10 → v2.5.11)](docs/migration.md#upgrading-from-v2510-to-v2511) |
-| **v2.5.10** | **Security & correctness patch** — **[GitHub Release `v2.5.10`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.10)** · non-object delegation JWTs are rejected, `apps/web` `undici` `^7.30.1`, satellite locks follow the 2.5.9 floors. npm `@asap-protocol/*` remain **2.4.1**. See [CHANGELOG](CHANGELOG.md#2510---2026-10-23) and [Migration (v2.5.9 → v2.5.10)](docs/migration.md#upgrading-from-v259-to-v2510) |
-| **v2.5.9** | **Security & CI patch** — **[GitHub Release `v2.5.9`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.9)** · `brotli` 1.2.1, OpenTelemetry 1.45.1, `security (web)`, and regression fences ([#419](https://github.com/asap-protocol/asap-protocol/pull/419)–[#426](https://github.com/asap-protocol/asap-protocol/pull/426)). npm `@asap-protocol/*` remain **2.4.1**. See [CHANGELOG](CHANGELOG.md#259---2026-10-23) and [Migration (v2.5.8 → v2.5.9)](docs/migration.md#upgrading-from-v258-to-v259) |
-| **v2.5.8** | **Security & coverage patch** — **[GitHub Release `v2.5.8`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.8)** · repository uv overrides (`aiohttp`, `certifi`, `pillow`), optional `[mcp]` extra `mcp>=1.30.0,<2`, `apps/web` Vite `8.1.6`, and regression tests ([#413](https://github.com/asap-protocol/asap-protocol/pull/413)–[#417](https://github.com/asap-protocol/asap-protocol/pull/417)). npm `@asap-protocol/*` remain **2.4.1**. See [CHANGELOG](CHANGELOG.md#258---2026-10-21) and [Migration (v2.5.7 → v2.5.8)](docs/migration.md#upgrading-from-v257-to-v258) |
-| **v2.5.7** | **Quality & coverage patch** — **[GitHub Release `v2.5.7`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.7)** · batch rate-limit `check_n` fix, CI security gate deps + `apps/web` audit-ci, consolidated regression tests ([#394](https://github.com/asap-protocol/asap-protocol/pull/394)–[#399](https://github.com/asap-protocol/asap-protocol/pull/399)). npm `@asap-protocol/*` remain **2.4.1**. See [CHANGELOG](CHANGELOG.md#257---2026-10-11) and [Migration (v2.5.6 → v2.5.7)](docs/migration.md#upgrading-from-v256-to-v257) |
-| **v2.5.6** | **Security & quality patch** — **[GitHub Release `v2.5.6`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.6)** · Lite Registry IssueOps envelope + endpoint SSRF, compliance open-redirect SSRF, constrained capability execute, rotate-key lifecycle race, deps + regression tests. npm `@asap-protocol/*` remain **2.4.1**. See [CHANGELOG](CHANGELOG.md#256---2026-10-01) and [Migration (v2.5.5 → v2.5.6)](docs/migration.md#upgrading-from-v255-to-v256) |
-| **v2.5.5** | **Security & quality patch** — **[GitHub Release `v2.5.5`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.5)** · OpenAPI path-param climb, registry URN overwrite guard, marketplace SSRF DNS pin, capability-replace consent, fail-closed reactivate, Agent JWT persist/revoke races. npm `@asap-protocol/*` remain **2.4.1**. See [CHANGELOG](CHANGELOG.md#255---2026-09-11) and [Migration (v2.5.4 → v2.5.5)](docs/migration.md#upgrading-from-v254-to-v255) |
+| **v2.5.5 – v2.5.11** | **Maintenance patches** — security fixes, dependency floors, and regression tests; no planned scope and no breaking wire-protocol changes. Latest: **[GitHub Release `v2.5.11`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.11)** (2026-11-09). npm `@asap-protocol/*` remain **2.4.1**. The v2.5.x train closed at 2.5.11. See [CHANGELOG](CHANGELOG.md) for each patch and [Migration](docs/migration.md#upgrading-from-v2510-to-v2511) for upgrade steps |
 | **v2.5.4** | **Distribution Loop** — **[GitHub Release `v2.5.4`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.4)** · thin starters (`examples/starters/`), [Build for agents](docs/guides/build-for-agents.md), homepage agent-first CTAs, telemetry ops (no public metrics UI). See [CHANGELOG](CHANGELOG.md#254---2026-07-18), [PRD](product/prd/prd-v2.5.4-distribution-loop.md), and [Migration (v2.5.3 → v2.5.4)](docs/migration.md#upgrading-from-v253-to-v254) |
 | **v2.5.3** | **Adapter Lab II** — **[GitHub Release `v2.5.3`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.3)** · workflow OpenAPI connectors + security guide, experimental MAF / NeMo guides, JSON-safe `-32602`, MCP example client DX. See [CHANGELOG](CHANGELOG.md#253---2026-07-14), [PRD](product/prd/prd-v2.5.3-adapter-lab-ii.md), and [Migration (v2.5.2 → v2.5.3)](docs/migration.md#upgrading-from-v252-to-v253) |
 | **v2.5.2** | **Security & correctness follow-up** — opt-in operator API auth, `extra="forbid"` ingress, Redis JTI replay, web distributed rate limits, v2.5.1 CR follow-ups (#245–#249), registry signed-manifest/400 fixes. See [CHANGELOG](CHANGELOG.md#252---2026-07-08), [PRD](product/prd/prd-v2.5.2-security-follow-up.md), and [Migration (v2.5.1 → v2.5.2)](docs/migration.md#upgrading-from-v251) |
@@ -193,13 +187,13 @@ High-level only — see **[Changelog](https://github.com/asap-protocol/asap-prot
 
 ## 🔭 What's Next?
 
-The [agentic marketplace](https://asap-protocol.com/) and Lite Registry are live. The **v2.5.x train** focuses on interop and adoption:
+The [agentic marketplace](https://asap-protocol.com/) and Lite Registry are live. The **v2.5.x train is closed** at **2.5.11**. ASAP is the capability, approval, and compliance layer for agents: it works with A2A v1.0 and MCP authorization (OAuth 2.1) and does not replace them. Next trains:
 
-- **Formal Spec & Interop** — RFC, introspection, privacy (PRD [prd-v2.5.5-formal-spec-interop.md](product/prd/prd-v2.5.5-formal-spec-interop.md); library **2.5.11** is the security floors patch above)
-- **`@asap-protocol/mcp-auth`** (npm) — HTTP/SSE MCP middleware
-- **Formal spec track** — introspection, privacy, cross-protocol interop on the path to v3.0 economy
+- **v2.6.0 — Interop** — A2A v1.0 Agent Card ↔ ASAP manifest bridge (with signed-card verification), external agent tokens (including MCP OAuth 2.1 bearer tokens) → ASAP agent sessions, and **`@asap-protocol/mcp-auth`** (npm) for HTTP MCP servers. PRD: [prd-interop.md](product/prd/prd-interop.md)
+- **v2.7.0 — Spec profile** — RFC 2119 spec for ASAP's own surface (identity, capability grants, approval, lifecycle, error registry), layered on A2A / MCP / OAuth; every MUST maps to an `asap-compliance` check. PRD: [prd-spec-profile.md](product/prd/prd-spec-profile.md)
+- **Economy** — a trigger-gated product track, separate from library versions
 
-See the [v2.5 roadmap PRD](https://github.com/asap-protocol/asap-protocol/blob/main/product/prd/prd-v2.5-roadmap.md) and [ADR index](https://github.com/asap-protocol/asap-protocol/blob/main/product/decision-records/README.md).
+See the [roadmap](product/prd/prd-roadmap.md), [release policy](docs/maintainers/release-policy.md), [integration support tiers](docs/integrations/support-tiers.md), and [ADR index](https://github.com/asap-protocol/asap-protocol/blob/main/product/decision-records/README.md).
 
 ## Contributing
 

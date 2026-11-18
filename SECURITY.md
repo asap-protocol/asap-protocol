@@ -12,6 +12,16 @@ The following versions of the ASAP Protocol specification and reference implemen
 
 The `>= 2.0.0` line includes all current **2.x** reference releases on PyPI (including **2.2.x**). Install the latest patch with `pip install -U asap-protocol`.
 
+Integrations and packages follow their [support tier](docs/integrations/support-tiers.md):
+
+| Tier | Examples | Security fixes |
+| ---- | -------- | -------------- |
+| **Tier 1 — Core** | Python SDK core, MCP Auth Bridge, OpenAPI adapter, `@asap-protocol/client`, `asap-compliance` | On the latest minor line of each package. A hotfix when an advisory is exploitable through shipped code; otherwise the next maintenance patch. |
+| **Tier 2 — Maintained** | Python framework integrations tested in CI | Best effort, in the next maintenance patch. |
+| **Tier 3 — Experimental** | `@asap-protocol/mastra`, `@asap-protocol/openai-agents`, interop guides | No guarantee. |
+
+See the [release and versioning policy](docs/maintainers/release-policy.md) for how fixes are released.
+
 ## Scope of Coverage
 
 This security policy applies to the **ASAP Protocol** ecosystem. Vulnerabilities in the following components are considered **in-scope**:
@@ -145,9 +155,11 @@ CI runs `pip-audit` after a sync that **excludes** the optional extras `crewai` 
 
 `uv sync --frozen --all-extras --dev --no-extra crewai --no-extra llamaindex` then `uv run pip-audit --ignore-vuln CVE-2026-4539 --ignore-vuln CVE-2026-4963 --ignore-vuln CVE-2026-2654 --ignore-vuln PYSEC-2024-271 --ignore-vuln PYSEC-2026-89 --ignore-vuln PYSEC-2025-183` (matches CI).
 
-Security floors live in `tool.uv.override-dependencies` (with per-CVE comments in `pyproject.toml`) so lock refreshes cannot regress them; recent additions: `mkdocs-material>=9.7.7` (PYSEC-2026-3864 / CVE-2026-73295), `pymdown-extensions>=11.0.1` (CVE-2026-61632), `pyasn1>=0.6.5` (CVE-2026-119194 / CVE-2026-119195 / CVE-2026-119196 / CVE-2026-119197), `aiohttp>=3.14.4,<4` (CVE-2026-111063–111066 / CVE-2026-111748–111750 / GHSA-2g87-pp6c-29x5), `certifi>=2026.10.19` (PYSEC-2026-4320), `pillow>=13.0.0` (Pillow 12.3.0 advisories fixed in 13.0.0), `mcp>=1.30.0,<2` (CVE-2026-59951), `opentelemetry-api>=1.45.1` (CVE-2026-114603), `h2>=4.4.1` (PYSEC-2026-3628), and `brotli>=1.2.1` (PYSEC-2026-4322 / GHSA-9v8h-qqgm-4m35).
+Security floors live in `tool.uv.override-dependencies` (with per-CVE comments in `pyproject.toml`) so lock refreshes cannot regress them; recent additions: `mkdocs-material>=9.7.7` (PYSEC-2026-3864 / CVE-2026-73295), `pymdown-extensions>=11.0.1` (CVE-2026-61632), `pyasn1>=0.6.5` (CVE-2026-119194 / CVE-2026-119195 / CVE-2026-119196 / CVE-2026-119197), `aiohttp>=3.14.4,<4` (CVE-2026-111063–111066 / CVE-2026-111748–111750 / GHSA-2g87-pp6c-29x5), `certifi>=2026.10.19` (PYSEC-2026-4320), `pillow>=13.0.0` (Pillow 12.3.0 advisories fixed in 13.0.0), `mcp>=1.30.0,<2` (CVE-2026-59951), `opentelemetry-api>=1.45.2` (CVE-2026-126360 / CVE-2026-114603), `h2>=4.4.1` (PYSEC-2026-3628), and `brotli>=1.2.1` (PYSEC-2026-4322 / GHSA-9v8h-qqgm-4m35).
 
 **CVE-2026-114603 (opentelemetry-api)**: Resolved via direct floor and override (`opentelemetry-api>=1.45.1`; prior lock 1.39.1). `opentelemetry-sdk` 1.45.1 requires that API version, so the SDK, OTLP exporter, and instrumentation packages move to the matching `1.45.1` / `0.66b1` release.
+
+**CVE-2026-126360 (opentelemetry-api)**: Resolved via direct floor and override (`opentelemetry-api>=1.45.2`; prior lock 1.45.1). The SDK and OTLP exporter move to `1.45.2` and the instrumentation packages to the matching `0.66b2` release.
 
 **PYSEC-2026-4322 / GHSA-9v8h-qqgm-4m35 (brotli)**: Resolved by raising the pin to `brotli>=1.2.1` (direct dependency, `[dev]` extra, and override; prior lock 1.2.0). 1.2.0 is vulnerable to an out-of-bounds write in the decoder. Do not add a `pip-audit` ignore for these advisories.
 
@@ -217,6 +229,7 @@ If you install `[crewai]` or `[llamaindex]`, run `pip-audit` separately on that 
 
 - **Security Updates**: Automatic and immediate (no schedule)
 - **Version Updates**: Monthly checks for non-security updates. This project relies on [Dependabot](.github/dependabot.yml) to monitor and bump dependency versions.
+- **Releases**: Merged dependency floors ship in at most one maintenance patch per month. An advisory exploitable through ASAP's shipped code paths ships now, through the hotfix path. See the [release and versioning policy](docs/maintainers/release-policy.md).
 
 For more information on reviewing Dependabot PRs, see [CONTRIBUTING.md](../CONTRIBUTING.md#reviewing-dependabot-prs).
 

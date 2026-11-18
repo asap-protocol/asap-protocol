@@ -64,6 +64,7 @@ Web app changes (`apps/web/`): also run `npm run lint`, `npx tsc --noEmit`, `npm
 | Security audit (general) | `skills/security-review/SKILL.md` |
 | Security PR review (high-confidence only) | Optional local command under `.cursor/commands/` when present |
 | Code quality review | `skills/code-quality-review/SKILL.md` |
+| Cut a release / decide patch vs minor | `docs/maintainers/release-policy.md` |
 
 ## Rules inventory
 

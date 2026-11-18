@@ -9,7 +9,7 @@ The `asap.mcp.auth` package adds **opt-in** Agent JWT and capability enforcement
 
 **Out of scope (v2.5.0):** An `initialize` session-token handshake is **deferred** per the [design lock](../../engineering/tasks/v2.5.0/design-lock-mcp-auth-bridge.md) — not shipped in this release. Clients must pass the Agent JWT on each protected `tools/call` via `_meta.asap_agent_jwt`.
 
-**TypeScript package status:** This guide covers the **Python stdio** bridge shipped in v2.5.0. HTTP/SSE middleware for `@asap-protocol/mcp-auth` (MCP-TS-001..003) is not part of the v2.5.x npm line; see the [TypeScript spike](../../engineering/tasks/v2.5.0/typescript-mcp-auth-spike.md) and [backlog](../../engineering/tasks/v2.5.0/backlog-mcp-auth-typescript.md). Git tag **`v2.5.0.1`** published **`asap-compliance` 1.3.0** only. Existing `@asap-protocol/*` npm packages remain at **2.4.1**.
+**TypeScript package status:** This guide covers the **Python stdio** bridge shipped in v2.5.0. HTTP/SSE middleware for `@asap-protocol/mcp-auth` (MCP-TS-001..003) is not part of the v2.5.x npm line. It is planned as P1 scope of the **v2.6.0 Interop** track ([prd-interop.md](../../product/prd/prd-interop.md)); background in the [TypeScript spike](../../engineering/tasks/v2.5.0/typescript-mcp-auth-spike.md) and [backlog](../../engineering/tasks/v2.5.0/backlog-mcp-auth-typescript.md). Git tag **`v2.5.0.1`** published **`asap-compliance` 1.3.0** only. Existing `@asap-protocol/*` npm packages remain at **2.4.1**.
 
 For MCP-over-ASAP envelopes (Mode B), see [MCP integration](../mcp-integration.md).
 

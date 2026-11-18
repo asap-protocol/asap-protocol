@@ -1,5 +1,7 @@
 # Workflow connectors (OpenAPI → ASAP)
 
+> **Support tier:** Maintained (Tier 2) — tested in CI; security fixes best effort. See [support tiers](./support-tiers.md).
+
 Map **n8n / Activepieces-style workflow HTTP APIs** into ASAP **capabilities** by reusing the existing Python **OpenAPI adapter** (`asap.adapters.openapi`). Each OpenAPI `operationId` becomes a manifest **skill id**; invocations proxy to the upstream workflow host.
 
 **Stack:** OpenAPI 3.0/3.1 fragment or full spec → `create_from_openapi` → `create_app` (same pattern as the PetStore demo). **No dedicated workflow adapter package.**

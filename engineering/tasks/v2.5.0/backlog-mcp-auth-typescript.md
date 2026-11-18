@@ -1,11 +1,12 @@
-# Backlog: `@asap-protocol/mcp-auth` (npm — TBD)
+# Backlog: `@asap-protocol/mcp-auth` (npm — v2.6.0 Interop)
 
-> **Status**: OPEN — deferred from v2.5.0 (S4 spike). Git tag **`v2.5.0.1`** was used for PyPI **`asap-compliance` 1.3.0** only.
-> **PRD**: [MCP-TS-001..003](../../../product/prd/prd-v2.5.0-mcp-auth-bridge.md#54-typescript-should)
+> **Status**: MOVED (2026-11-18) — scope moved to [`product/prd/prd-interop.md`](../../../product/prd/prd-interop.md) (**v2.6.0**, **P1**, MCP-TS-001..003 now MUST). Execution tasks will live under `engineering/tasks/v2.6.0/` at kickoff; this file stays as the historical backlog. Originally deferred from v2.5.0 (S4 spike). Git tag **`v2.5.0.1`** was used for PyPI **`asap-compliance` 1.3.0** only.
+> **PRD (current)**: [prd-interop.md §4.3](../../../product/prd/prd-interop.md#43-asap-protocolmcp-auth-for-http-mcp-servers-p1)
+> **PRD (origin)**: [MCP-TS-001..003](../../../product/prd/prd-v2.5.0-mcp-auth-bridge.md#54-typescript-should)
 > **Spike**: [typescript-mcp-auth-spike.md](./typescript-mcp-auth-spike.md)
-> **Carry-over**: [PRD v2.5.3 §3](../../../product/prd/prd-v2.5.3-adapter-lab-ii.md#3-carry-over-from-v250-asap-protocolmcp-auth)
+> **Carry-over**: [PRD v2.5.3 §4](../../../product/prd/prd-v2.5.3-adapter-lab-ii.md#4-carry-over-from-v250-asap-protocolmcp-auth)
 
-v2.5.0 shipped the **Python stdio** MCP Auth Bridge. HTTP/SSE TypeScript middleware remains SHOULD-scope for a **future npm release** (after `v2.5.0.1` compliance tag).
+v2.5.0 shipped the **Python stdio** MCP Auth Bridge. HTTP TypeScript middleware was SHOULD-scope for a future npm release; it is now P1 in v2.6.0 Interop. Priorities in the table below are the original v2.5.0 values.
 
 ## Requirements (MCP-TS-*)
 

@@ -1,5 +1,7 @@
 # `@asap-protocol/openai-agents`
 
+> **Support tier:** Experimental (Tier 3) — no compatibility promise. See [support tiers](https://github.com/asap-protocol/asap-protocol/blob/main/docs/integrations/support-tiers.md).
+
 ## ⚠️ This is **not** `@asap-protocol/client/adapters/openai`
 
 [`@asap-protocol/client/adapters/openai`](https://github.com/asap-protocol/asap-protocol/tree/main/packages/typescript/client/src/adapters/openai.ts) exposes **`asapToolsForOpenAI`**, producing **static `ChatCompletionTool[]`** for the **OpenAI Chat Completions API** (`openai` npm package, no Agents runtime).

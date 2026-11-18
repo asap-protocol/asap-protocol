@@ -1,5 +1,7 @@
 # Microsoft Agent Framework ↔ ASAP (interop)
 
+> **Support tier:** Experimental (Tier 3) — no compatibility promise. See [support tiers](./support-tiers.md).
+
 How [Microsoft Agent Framework (MAF)](https://learn.microsoft.com/en-us/agent-framework/overview/) tool surfaces (in-process **`AIFunction`** / **`AITool`**, MCP) sit beside ASAP **Host/Agent JWT** and **capability grants**. Naming and packages below are accurate as of **2026-07-13** (MAF **1.0** GA).
 
 !!! warning "Research / experimental — not maintained"

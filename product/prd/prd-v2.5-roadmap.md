@@ -3,12 +3,12 @@
 > **Product Requirements Document (train index)**
 >
 > **Version**: 2.5.x
-> **Status**: ACTIVE
+> **Status**: **CLOSED** (2026-11-18) at library **2.5.11**. No more planned scope ships on 2.5.x.
 > **Created**: 2026-06-22
-> **Last Updated**: 2026-10-21
+> **Last Updated**: 2026-11-18
 >
 > **Predecessor**: [prd-v2.4.1-security-hardening.md](./prd-v2.4.1-security-hardening.md) (✅ shipped 2026-06-14)
-> **Successor (long-term)**: [prd-v3.0-economy.md](./prd-v3.0-economy.md)
+> **Successor**: [prd-roadmap.md](./prd-roadmap.md) — living train index from 2026-11-18 (next: [Interop v2.6.0](./prd-interop.md), then [Spec profile v2.7.0](./prd-spec-profile.md))
 
 ---
 
@@ -21,6 +21,8 @@ Between **v2.4.1** (security patch) and **v3.0** (economy), the project needs a 
 3. **Continues adoption** — framework/workflow adapters e distribution loop (antes planejados como v2.3.2/v2.3.3).
 4. **Finalizes standards-track artifacts** — spec formal, introspection, privacy (antes em `prd-v2.4-adoption.md`).
 
+**Outcome at close (2026-11-18):** goals 1–3 shipped in v2.5.0–v2.5.4. Goal 4 did not ship on 2.5.x. It moved to [prd-interop.md](./prd-interop.md) (v2.6.0) and [prd-spec-profile.md](./prd-spec-profile.md) (v2.7.0). Patches 2.5.5–2.5.11 were maintenance only.
+
 ### Versioning history (rescope log)
 
 | Old label | New label | Reason |
@@ -32,6 +34,7 @@ Between **v2.4.1** (security patch) and **v3.0** (economy), the project needs a 
 | v2.4.1 §8 security follow-ups | **v2.5.4** (optional) → **v2.5.2** | Absorbed into next ship after v2.5.1 (2026-07-08) |
 | Code quality patch | **v2.5.1** | Behavior-preserving refactor + P0 fixes (2026-06-26) |
 | Library security/quality patch | **v2.5.5** (2026-09-11) | Reused the 2.5.5 number; Formal Spec PRD filename stays `prd-v2.5.5-formal-spec-interop.md` |
+| Formal Spec & Interop (`prd-v2.5.5-formal-spec-interop.md`) | **v2.6.0 Interop** ([prd-interop.md](./prd-interop.md)) + **v2.7.0 Spec profile** ([prd-spec-profile.md](./prd-spec-profile.md)) | Roadmap reset 2026-11-18: v2.5.x closed at 2.5.11; planned scope ships only in minors; Interop before Spec. Old path is a [redirect stub](./prd-v2.5.5-formal-spec-interop.md) |
 
 ---
 
@@ -44,31 +47,16 @@ Between **v2.4.1** (security patch) and **v3.0** (economy), the project needs a 
 | **v2.5.2** | Security & correctness follow-up | #209 (operator auth, `extra="forbid"`, Redis JTI, web rate limits) + CR #245–#249 + registry fixes | [prd-v2.5.2-security-follow-up.md](./prd-v2.5.2-security-follow-up.md) | **✅ Shipped** 2026-07-08 — tag [`v2.5.2`](https://github.com/adriannoes/asap-protocol/releases/tag/v2.5.2) |
 | **v2.5.3** | Adapter Lab II | Enterprise/workflow adapters (ex v2.3.2) | [prd-v2.5.3-adapter-lab-ii.md](./prd-v2.5.3-adapter-lab-ii.md) | **✅ Shipped** 2026-07-16 — tag [`v2.5.3`](https://github.com/adriannoes/asap-protocol/releases/tag/v2.5.3) · [tasks](../../engineering/tasks/v2.5.3/tasks-v2.5.3-roadmap.md) |
 | **v2.5.4** | Distribution Loop | Homepage, starters, métricas (ex v2.3.3) | [prd-v2.5.4-distribution-loop.md](./prd-v2.5.4-distribution-loop.md) · [tasks](../../engineering/tasks/v2.5.4/tasks-v2.5.4-roadmap.md) | **✅ Shipped** 2026-07-18 — tag [`v2.5.4`](https://github.com/adriannoes/asap-protocol/releases/tag/v2.5.4) |
-| **v2.5.5** | Security & quality patch | OpenAPI climb, registry URN guard, marketplace SSRF pin, capability-replace consent, fail-closed reactivate | `CHANGELOG.md` `[2.5.5]` (no Formal Spec PRD) | **✅ Shipped** 2026-09-11 — tag [`v2.5.5`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.5) |
-| **v2.5.6** | Security & quality patch | Registry IssueOps envelope + endpoint SSRF, compliance harness redirect, auth lifecycle rotate-key, constrained execute args, deps + regression tests | `CHANGELOG.md` `[2.5.6]` (no Formal Spec PRD) | **✅ Shipped** 2026-10-01 — tag [`v2.5.6`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.6) |
-| **v2.5.7** | Quality & coverage patch | Batch rate-limit `check_n`, CI security gates, regression tests #394–#399 | `CHANGELOG.md` `[2.5.7]` (no Formal Spec PRD) | **✅ Shipped** 2026-10-11 — tag [`v2.5.7`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.7) |
-| **v2.5.8** | Security & coverage patch | Dependency floors (aiohttp, certifi, pillow, mcp, Vite) and regression fences #413–#417 | `CHANGELOG.md` `[2.5.8]` (no Formal Spec PRD) | **✅ Shipped** 2026-10-21 — tag [`v2.5.8`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.8) |
-| **v2.5.9** | Security & CI patch | `brotli` / OpenTelemetry floors, `security (web)`, regression fences #419–#426 | `CHANGELOG.md` `[2.5.9]` (no Formal Spec PRD) | **✅ Shipped** 2026-10-23 — tag [`v2.5.9`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.9) |
-| **v2.5.10** | Security & correctness patch | Non-object delegation JWTs, `undici` `^7.30.1`, satellite locks on the 2.5.9 floors | `CHANGELOG.md` `[2.5.10]` (no Formal Spec PRD) | **✅ Shipped** 2026-10-23 — tag [`v2.5.10`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.10) |
-| **v2.5.11** | Security floors patch | Authlib >=1.9.1 (locked 1.9.5) and joserfc >=1.7.6 (root lock 1.8.0), OAuth HTTP stack, web `systeminformation` 5.33.19, regression fences #451–#457 | `CHANGELOG.md` `[2.5.11]` (no Formal Spec PRD) | **✅ Shipped** 2026-11-09 — tag [`v2.5.11`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.11) |
-| Formal Spec & Interop | Formal Spec & Interop | RFC spec, introspection, privacy, cross-protocol | [prd-v2.5.5-formal-spec-interop.md](./prd-v2.5.5-formal-spec-interop.md) | **Next** (post-2.5.11; filename historical — create `engineering/tasks/v2.5.5/` at kickoff) |
+| **v2.5.5–v2.5.11** | — | **Maintenance patches 2.5.5–2.5.11 — see CHANGELOG.** Security fixes, dependency floors, regression tests. No planned PRD scope; none shipped Formal Spec | [`CHANGELOG.md`](../../CHANGELOG.md) `[2.5.5]`…`[2.5.11]` | **✅ Shipped** 2026-09-11 → 2026-11-09 — [GitHub Releases](https://github.com/asap-protocol/asap-protocol/releases) |
+| *(next)* | — | Planned scope after 2.5.x | See [prd-roadmap.md](./prd-roadmap.md) — Interop **v2.6.0**, then Spec profile **v2.7.0** | Moved off this train 2026-11-18 |
 
-**Execution rule:** **v2.5.0–v2.5.11** shipped (library **2.5.11** is the latest security floors patch). **Next:** Formal Spec ([prd-v2.5.5-formal-spec-interop.md](./prd-v2.5.5-formal-spec-interop.md); filename historical, not this library tag). **v3.0** remains trigger-gated ([prd-v3.0-economy.md](./prd-v3.0-economy.md)).
+**Execution rule:** train **CLOSED** at **2.5.11** (2026-11-18). v2.5.0–v2.5.4 shipped planned scope; 2.5.5–2.5.11 were maintenance patches. Any further 2.5.x patch follows the [release policy](../../docs/maintainers/release-policy.md). For what comes next, see [prd-roadmap.md](./prd-roadmap.md).
 
-**Patch tags (not minor releases):** [`v2.5.0.1`](https://github.com/adriannoes/asap-protocol/releases/tag/v2.5.0.1) republished **`asap-compliance` 1.3.0** only; `pyproject.toml` remained **2.5.0**. **`@asap-protocol/mcp-auth`** (npm) is still deferred — future npm patch TBD (do not confuse with tag `v2.5.0.1`).
+**Patch tags (not minor releases):** [`v2.5.0.1`](https://github.com/adriannoes/asap-protocol/releases/tag/v2.5.0.1) republished **`asap-compliance` 1.3.0** only; `pyproject.toml` remained **2.5.0**. **`@asap-protocol/mcp-auth`** (npm) did not ship on 2.5.x; it is now P1 in [prd-interop.md](./prd-interop.md) (MCP-TS-001..003).
 
-### Parked / orphan owners (not Dist MUST)
+### Parked / orphan owners
 
-| Item | Owner | Rule |
-|------|-------|------|
-| `@asap-protocol/mcp-auth` (npm) | [v2.5.0 backlog](../../engineering/tasks/v2.5.0/backlog-mcp-auth-typescript.md) | npm patch TBD — not v2.5.4 / not Spec MUST |
-| `@asap-protocol/openapi` (TSOA) | [prd-v2.5.5](./prd-v2.5.5-formal-spec-interop.md) §3.5 | **Default defer** unless demand at Spec kickoff |
-| Fourth starter (workflow) | Optional post–Dist | Lab II `examples/workflow_asap_connector/` already public |
-| Registry API (PostgreSQL) | Trigger: 500 agents / IssueOps bottleneck | Deferred; not a v2.5.x or v3.0 silent prereq |
-| Design System Revamp | Separate design track | Out of Dist |
-| `create-asap` / scaffold CLI | Post–v2.5.4 if demanded | Out of Dist |
-| Public metrics dashboard UI | — | Out of Dist (D4); maintainer telemetry only |
-| G5/G6 governance product | After Formal Spec (local strategy) | Do not schedule as v2.5.x MUST |
+Moved to [prd-roadmap.md §5](./prd-roadmap.md#5-parked-and-deferred-items) on 2026-11-18, with owners updated.
 
 ---
 
@@ -82,6 +70,8 @@ L1 Identity        Host/Agent JWT + capabilities (v2.2+)
 ```
 
 Narrativa pública: **ASAP não substitui MCP** — fornece a camada de identidade e policy que MCP não padroniza.
+
+Current positioning (A2A v1.0 + MCP authorization + OAuth): [prd-roadmap.md §4](./prd-roadmap.md#4-positioning).
 
 ---
 
@@ -110,18 +100,20 @@ Narrativa pública: **ASAP não substitui MCP** — fornece a camada de identida
 | Schema negotiation runtime (Agora-style) | Out of scope |
 | Registry API backend (PostgreSQL) | Deferred until 500-agent trigger |
 
-**Handoff chain:** Dist Loop §11 → Formal Spec soft inputs → Economy §8 proxies. See [prd-v2.5.4 §11](./prd-v2.5.4-distribution-loop.md#11-handoff-inputs-for-v255-formal-spec).
+**Handoff chain:** Dist Loop §11 → Formal Spec soft inputs → Economy §8 proxies. See [prd-v2.5.4 §11](./prd-v2.5.4-distribution-loop.md#11-handoff-inputs-for-v255-formal-spec). Since 2026-11-18 the Dist inputs feed [prd-spec-profile.md](./prd-spec-profile.md), after [prd-interop.md](./prd-interop.md). Current non-goals: [prd-roadmap.md §6](./prd-roadmap.md#6-non-goals-all-tracks-unless-a-track-prd-says-otherwise).
 
 ---
 
 ## 6. Related documents
 
+- **Train index (successor)**: [prd-roadmap.md](./prd-roadmap.md)
+- **Next trains**: [prd-interop.md](./prd-interop.md) (v2.6.0) · [prd-spec-profile.md](./prd-spec-profile.md) (v2.7.0)
 - **Shipped v2.4.0**: [prd-v2.4.0-edge-ai-discovery.md](./prd-v2.4.0-edge-ai-discovery.md)
 - **Shipped v2.4.1**: [prd-v2.4.1-security-hardening.md](./prd-v2.4.1-security-hardening.md)
 - **Adoption foundation**: [prd-v2.3-scale.md](./prd-v2.3-scale.md)
 - **Legacy redirect**: [prd-v2.4-adoption.md](./prd-v2.4-adoption.md)
 - **Tasks**: [engineering/tasks/README.md](../../engineering/tasks/README.md)
-- **Economy (long-term)**: [prd-v3.0-economy.md](./prd-v3.0-economy.md)
+- **Economy (product track)**: [prd-v3.0-economy.md](./prd-v3.0-economy.md)
 
 ---
 
@@ -129,13 +121,8 @@ Narrativa pública: **ASAP não substitui MCP** — fornece a camada de identida
 
 | Date | Change |
 |------|--------|
-| 2026-11-09 | **Library 2.5.11 shipped** — security floors patch (tag `v2.5.11`); Formal Spec stays **next** under historical filename `prd-v2.5.5-formal-spec-interop.md` |
-| 2026-10-23 | **Library 2.5.10 shipped** — security/correctness patch (tag `v2.5.10`); Formal Spec stays **next** under historical filename `prd-v2.5.5-formal-spec-interop.md` |
-| 2026-10-23 | **Library 2.5.9 shipped** — security/CI patch (tag `v2.5.9`); Formal Spec stays **next** under historical filename `prd-v2.5.5-formal-spec-interop.md` |
-| 2026-10-21 | **Library 2.5.8 shipped** — security/coverage patch (tag `v2.5.8`); Formal Spec stays **next** under historical filename `prd-v2.5.5-formal-spec-interop.md` |
-| 2026-10-11 | **Library 2.5.7 shipped** — quality/coverage patch (tag `v2.5.7`); Formal Spec stays **next** under historical filename `prd-v2.5.5-formal-spec-interop.md` |
-| 2026-10-01 | **Library 2.5.6 shipped** — security/quality patch (tag `v2.5.6`, PR #387); Formal Spec stays **next** under historical filename `prd-v2.5.5-formal-spec-interop.md` |
-| 2026-09-11 | **Library 2.5.5 shipped** — security/quality patch (tag `v2.5.5`); Formal Spec stays **next** under historical filename `prd-v2.5.5-formal-spec-interop.md` |
+| 2026-11-18 | **Train CLOSED** at 2.5.11. Rows 2.5.5–2.5.11 collapsed into one maintenance row (history in `CHANGELOG.md`). Formal Spec split into [prd-interop.md](./prd-interop.md) (v2.6.0) + [prd-spec-profile.md](./prd-spec-profile.md) (v2.7.0); old path is a redirect stub. Train index, parked owners, and non-goals move to [prd-roadmap.md](./prd-roadmap.md). Rescope log gains the split row. |
+| 2026-09-11 → 2026-11-09 | **Library maintenance patches 2.5.5–2.5.11 shipped** (tags `v2.5.5` … `v2.5.11`): security fixes, dependency floors, regression tests. None shipped Formal Spec, which stayed **next** under `prd-v2.5.5-formal-spec-interop.md`. See `CHANGELOG.md`. |
 | 2026-07-18 | **v2.5.4 shipped** — tag `v2.5.4`; PyPI 2.5.4; next → Formal Spec **v2.5.5** |
 | 2026-07-18 | v2.5.4 status → **Active** (tasks ACTIVE; S0–S2 producer done) |
 | 2026-07-18 | Parked/orphan owners table; Dist→Spec→Economy handoff pointer; v2.5.5 soft-block clarified |

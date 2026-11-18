@@ -12,6 +12,8 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
+import urllib3
+from jsonschema.exceptions import ValidationError
 
 from scripts.telemetry import aggregate as aggregate_mod
 
@@ -414,21 +416,80 @@ def test_fetch_site_ctr_rejects_redirect() -> None:
         aggregate_mod.fetch_site_ctr("https://example.com/api/telemetry", "secret")
 
 
-def test_strict_missing_github_token_exits(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_strict_missing_github_token_exits_before_collecting(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A missing secret fails fast, without spending PyPI Stats / npm requests."""
     monkeypatch.delenv("TELEMETRY_GITHUB_TOKEN", raising=False)
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    npm_stub = MagicMock(return_value={"packages": {}})
+    pypi_stub = MagicMock(return_value={"packages": {}, "source": "stub"})
+    monkeypatch.setattr(aggregate_mod, "collect_npm_weekly", npm_stub)
+    monkeypatch.setattr(aggregate_mod, "collect_pypi_recent", pypi_stub)
+    rc = aggregate_mod.main(["--output-dir", str(tmp_path), "--date", "2026-05-16"])
+    assert rc == 1
+    npm_stub.assert_not_called()
+    pypi_stub.assert_not_called()
+    assert not list(tmp_path.glob("snapshot-*.json"))
+
+
+def test_pypi_failure_is_recorded_and_not_fatal(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """PyPI Stats 429 after retries degrades the pypi block; other sources still land."""
+    monkeypatch.setenv("TELEMETRY_GITHUB_TOKEN", "tok")
     monkeypatch.setattr(
         aggregate_mod,
         "collect_npm_weekly",
-        lambda *_a, **_k: {"packages": {"@asap-protocol/client": {"downloads": 1}}},
+        lambda *_a, **_k: {"packages": {"@asap-protocol/client": {"downloads": 5}}},
     )
+
+    def _rate_limited(*_a: object, **_k: object) -> dict[str, Any]:
+        url = "https://pypistats.org/api/packages/asap-protocol/recent"
+        raise urllib3.exceptions.HTTPError(f"HTTP Error 429 for url: {url}")
+
+    monkeypatch.setattr(aggregate_mod, "collect_pypi_recent", _rate_limited)
     monkeypatch.setattr(
         aggregate_mod,
-        "collect_pypi_recent",
-        lambda *_a, **_k: {"packages": {}, "source": "stub"},
+        "collect_github_signals",
+        lambda *_a, **_k: {
+            "source": "github_rest_api",
+            "adapter_requests": {"by_framework": {}, "open_count": 0},
+            "repo": {"stargazers_count": 3},
+        },
     )
+    monkeypatch.setattr(aggregate_mod, "fetch_registry_json", lambda _url: {"agents": []})
+    monkeypatch.setattr(aggregate_mod, "update_latest_symlink", lambda *_a, **_k: None)
+
     rc = aggregate_mod.main(["--output-dir", str(tmp_path), "--date", "2026-05-16"])
-    assert rc == 1
+    assert rc == 0
+    text = (tmp_path / "snapshot-2026-05-16.json").read_text(encoding="utf-8")
+    snap = json.loads(text)
+    assert snap["pypi"]["fetch_error"] is True
+    assert snap["pypi"]["packages"] == {}
+    assert snap["pypi"]["reason"] == "PyPI Stats fetch failed; see CI logs."
+    assert "pypistats.org" not in text
+    assert snap["npm"] == {"@asap-protocol/client": 5}
+    dashboard = (tmp_path / "dashboard.md").read_text(encoding="utf-8")
+    assert "## Data quality warnings" in dashboard
+    assert "PyPI" in dashboard.split("## Data quality warnings", 1)[1]
+
+
+def test_validate_snapshot_rejects_non_boolean_pypi_fetch_error() -> None:
+    sample: dict[str, Any] = {
+        "snapshot_version": 1,
+        "collected_at": "2026-05-16T12:00:00+00:00",
+        "npm": {},
+        "pypi": {"packages": {}, "fetch_error": "yes"},
+        "github": {"adapter_requests": {"by_framework": {}}},
+        "registry": {"agent_count": 0},
+        "site": {"ctr_per_cta": {}},
+        "adapter_requests": {},
+    }
+    with pytest.raises(ValidationError):
+        aggregate_mod.validate_snapshot(sample)
 
 
 def test_strict_github_http_error_is_fatal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -522,3 +583,13 @@ def test_render_dashboard_includes_data_quality_warnings() -> None:
     }
     md = aggregate_mod.render_dashboard(snap, [], weeks=12)
     assert "## Data quality warnings" in md
+
+
+def test_render_dashboard_warns_on_pypi_fetch_error() -> None:
+    snap: dict[str, Any] = {
+        "adapter_requests": {},
+        "pypi": {"packages": {}, "fetch_error": True, "reason": "PyPI Stats fetch failed"},
+    }
+    md = aggregate_mod.render_dashboard(snap, [], weeks=12)
+    warnings = md.split("## Data quality warnings", 1)[1]
+    assert "PyPI Stats fetch failed" in warnings

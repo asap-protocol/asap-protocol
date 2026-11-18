@@ -7,6 +7,9 @@ and emits JSON for weekly aggregation.
 Requires the project optional extra ``telemetry`` (install: ``uv sync --extra telemetry``
 or ``uv sync --all-extras``).
 
+PyPI Stats rate-limits shared CI runner IPs (HTTP 429). Each package request retries
+429, 5xx, and transport errors with exponential backoff before the error propagates.
+
 API: https://pypistats.org/api
 """
 
@@ -14,18 +17,28 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
+import time
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import pypistats
+import urllib3
 
 # Cover the protocol package and the compliance validator on PyPI.
 DEFAULT_PYPI_PACKAGES: tuple[str, ...] = ("asap-protocol", "asap-compliance")
 # Backward-compatible alias for callers that still expect a single default name.
 DEFAULT_PYPI_PACKAGE = DEFAULT_PYPI_PACKAGES[0]
 _RECENT_KEYS = ("last_day", "last_week", "last_month")
+# Waits between attempts: 10s, 30s, 90s (about 2 minutes per package at worst).
+PYPISTATS_MAX_ATTEMPTS = 4
+PYPISTATS_BACKOFF_BASE_SECONDS = 10.0
+PYPISTATS_BACKOFF_FACTOR = 3.0
+# ``pypistats`` reports HTTP failures only as ``HTTPError("HTTP Error <status> for url: ...")``.
+_HTTP_STATUS_RE = re.compile(r"HTTP Error (\d{3})")
 
 
 def normalize_recent_counts(data: object) -> dict[str, int]:
@@ -57,9 +70,41 @@ def normalize_recent_counts(data: object) -> dict[str, int]:
     return out
 
 
-def fetch_pypi_recent(package: str) -> dict[str, Any]:
+def is_retryable_pypistats_error(exc: urllib3.exceptions.HTTPError) -> bool:
+    """Return True for HTTP 429, 5xx, or a transport error without an HTTP status."""
+    match = _HTTP_STATUS_RE.search(str(exc))
+    if match is None:
+        return True
+    status = int(match.group(1))
+    return status == 429 or status >= 500
+
+
+def _recent_with_retry(package: str, sleep: Callable[[float], None]) -> object:
+    """Call ``pypistats.recent`` and retry rate-limit / transient failures."""
+    attempt = 1
+    while True:
+        try:
+            return pypistats.recent(package, format="json")
+        except urllib3.exceptions.HTTPError as exc:
+            if attempt >= PYPISTATS_MAX_ATTEMPTS or not is_retryable_pypistats_error(exc):
+                raise
+            delay = PYPISTATS_BACKOFF_BASE_SECONDS * PYPISTATS_BACKOFF_FACTOR ** (attempt - 1)
+            print(
+                f"pypistats {package}: {exc}; retry {attempt + 1}/{PYPISTATS_MAX_ATTEMPTS} "
+                f"in {delay:.0f}s",
+                file=sys.stderr,
+            )
+            sleep(delay)
+            attempt += 1
+
+
+def fetch_pypi_recent(
+    package: str,
+    *,
+    sleep: Callable[[float], None] = time.sleep,
+) -> dict[str, Any]:
     """Call ``pypistats.recent`` and return a minimal report dict for one package."""
-    raw = pypistats.recent(package, format="json")
+    raw = _recent_with_retry(package, sleep)
     if isinstance(raw, str) and not raw.strip().startswith("{"):
         msg = f"pypistats API: {raw}"
         raise ValueError(msg)

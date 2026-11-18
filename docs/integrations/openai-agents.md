@@ -1,5 +1,7 @@
 # OpenAI Agents SDK integration (`@asap-protocol/openai-agents`)
 
+> **Support tier:** Experimental (Tier 3) — no compatibility promise. See [support tiers](./support-tiers.md).
+
 Expose ASAP **capabilities** as [**OpenAI Agents SDK**](https://openai.github.io/openai-agents-js/) **`tool()`** definitions backed by **`@asap-protocol/client`**, optionally wrap an **`Agent`** you attach as a **handoff** target against an ASAP gateway, and bridge ASAP **`task_stream`** payloads into incremental assistant **text deltas**.
 
 !!! warning "Not `@asap-protocol/client/adapters/openai`"
