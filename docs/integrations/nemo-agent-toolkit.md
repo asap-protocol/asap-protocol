@@ -1,5 +1,7 @@
 # NeMo Agent Toolkit ↔ ASAP (interop)
 
+> **Support tier:** Experimental (Tier 3) — no compatibility promise. See [support tiers](./support-tiers.md).
+
 How [NVIDIA NeMo Agent Toolkit (NAT)](https://docs.nvidia.com/nemo/agent-toolkit/latest/) workflows sit beside ASAP **Host/Agent JWT** and **capability grants**. Naming and pins below are accurate as of **2026-07-13** (`nvidia-nat` **1.8.0**).
 
 !!! warning "Experimental — Path A demo exists; not a maintained adapter"
@@ -15,7 +17,7 @@ This guide:
 1. Positions ASAP as an **identity / capability complement** — not an A2A replacement inside NAT.
 2. Documents Path A (NAT `mcp_client` **stdio** → ASAP `protect_server`) and honest transport limits.
 3. Contrasts NAT OAuth2/Keycloak user JWTs with ASAP Host/Agent JWT + grants (no equivalence).
-4. Sketches Agent Card → Manifest mapping for later formal work (v2.5.5).
+4. Sketches Agent Card → Manifest mapping as input to the Interop track (v2.6.0).
 
 **Contrast with Lab I adapters:** Mastra and OpenAI Agents ship TypeScript packages that turn ASAP capabilities into framework tools. NAT already has first-class MCP/A2A plugins; ASAP wires **policy** onto tools those plugins call — it does not replace NAT’s conductor.
 
@@ -44,7 +46,7 @@ Do **not** present ASAP as “A2A but better.” When NAT already uses A2A betwe
 
 ## Agent Card → Manifest (sketch)
 
-Path B for Lab II is **docs-only**. A light field sketch (feeds [v2.5.5 Formal Spec / A2A interop](https://github.com/asap-protocol/asap-protocol/blob/main/product/prd/prd-v2.5.5-formal-spec-interop.md)); not a runtime bridge:
+Path B for Lab II is **docs-only**. A light field sketch (feeds the A2A Agent Card bridge in the [Interop track, v2.6.0](https://github.com/asap-protocol/asap-protocol/blob/main/product/prd/prd-interop.md)); not a runtime bridge:
 
 | A2A Agent Card (typical) | ASAP Manifest |
 |--------------------------|---------------|

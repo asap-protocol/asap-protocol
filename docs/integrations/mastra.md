@@ -1,5 +1,7 @@
 # Mastra integration (`@asap-protocol/mastra`)
 
+> **Support tier:** Experimental (Tier 3) — no compatibility promise. See [support tiers](./support-tiers.md).
+
 Expose ASAP **capabilities** as [Mastra](https://mastra.ai/) tools backed by **`@asap-protocol/client`**, optionally wrap a Mastra **`Agent`** with sane defaults, and bridge ASAP **streaming** payloads to Mastra-style text chunks.
 
 **Stack:** **`@asap-protocol/mastra`** peers on **`@mastra/core@^1.5.0`**, **`@asap-protocol/client@^2.3.0`**, and **`zod@^3` or `zod@^4`** (Zod builds the Mastra tool `inputSchema` / `outputSchema` from capability JSON Schema).

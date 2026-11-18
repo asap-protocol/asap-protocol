@@ -52,6 +52,7 @@ nav:
   - SDKs:
       - TypeScript client: sdks/typescript.md
   - Integrations:
+      - Support tiers: integrations/support-tiers.md
       - Mastra: integrations/mastra.md
       - OpenAI Agents SDK: integrations/openai-agents.md
       - Workflow connectors: integrations/workflow-connectors.md

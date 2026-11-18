@@ -12,6 +12,16 @@ The following versions of the ASAP Protocol specification and reference implemen
 
 The `>= 2.0.0` line includes all current **2.x** reference releases on PyPI (including **2.2.x**). Install the latest patch with `pip install -U asap-protocol`.
 
+Integrations and packages follow their [support tier](docs/integrations/support-tiers.md):
+
+| Tier | Examples | Security fixes |
+| ---- | -------- | -------------- |
+| **Tier 1 — Core** | Python SDK core, MCP Auth Bridge, OpenAPI adapter, `@asap-protocol/client`, `asap-compliance` | On the latest minor line of each package. A hotfix when an advisory is exploitable through shipped code; otherwise the next maintenance patch. |
+| **Tier 2 — Maintained** | Python framework integrations tested in CI | Best effort, in the next maintenance patch. |
+| **Tier 3 — Experimental** | `@asap-protocol/mastra`, `@asap-protocol/openai-agents`, interop guides | No guarantee. |
+
+See the [release and versioning policy](docs/maintainers/release-policy.md) for how fixes are released.
+
 ## Scope of Coverage
 
 This security policy applies to the **ASAP Protocol** ecosystem. Vulnerabilities in the following components are considered **in-scope**:
@@ -217,6 +227,7 @@ If you install `[crewai]` or `[llamaindex]`, run `pip-audit` separately on that 
 
 - **Security Updates**: Automatic and immediate (no schedule)
 - **Version Updates**: Monthly checks for non-security updates. This project relies on [Dependabot](.github/dependabot.yml) to monitor and bump dependency versions.
+- **Releases**: Merged dependency floors ship in at most one maintenance patch per month. An advisory exploitable through ASAP's shipped code paths ships now, through the hotfix path. See the [release and versioning policy](docs/maintainers/release-policy.md).
 
 For more information on reviewing Dependabot PRs, see [CONTRIBUTING.md](../CONTRIBUTING.md#reviewing-dependabot-prs).
 
