@@ -9,10 +9,10 @@
 name: Telemetry (weekly)
 
 on:
-  # Scheduled runs disabled until TELEMETRY_GITHUB_TOKEN (and optional site vars) are
-  # configured in repo Settings → Secrets and variables → Actions. Re-enable with:
-  #   schedule:
-  #     - cron: "0 9 * * 1"
+  # Mondays 09:00 UTC. The job fails closed when the TELEMETRY_GITHUB_TOKEN secret is
+  # missing; a PyPI Stats outage or 429 is recorded in the snapshot and does not fail it.
+  schedule:
+    - cron: "0 9 * * 1"
   workflow_dispatch:
 
 permissions:
