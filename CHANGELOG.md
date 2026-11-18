@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **opentelemetry-api** floor `>=1.45.2` for CVE-2026-126360 (was 1.45.1). SDK and OTLP exporter move to 1.45.2; instrumentation to 0.66b2. Root and satellite locks refreshed.
+- **apps/web**: `next` and `eslint-config-next` 16.4.3 → **16.4.6** for GHSA-mfr8-8qww-v76h and GHSA-vc7v-qv4w-wrv8 (cache information disclosure across root params in `use cache`).
+
 ### Fixed
 
 - **Weekly adoption telemetry (maintainer tooling)** — `telemetry-weekly.yml` has its Monday schedule back. The PyPI collector retries PyPI Stats HTTP 429, 5xx, and connection errors with backoff. If PyPI still fails, the snapshot records `pypi.fetch_error` and the job continues. A missing `TELEMETRY_GITHUB_TOKEN` still fails the job, now before any collector runs. Snapshots stay workflow artifacts only. See [docs/maintainers/telemetry.md](docs/maintainers/telemetry.md).
