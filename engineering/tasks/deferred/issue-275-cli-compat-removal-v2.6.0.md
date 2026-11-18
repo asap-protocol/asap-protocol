@@ -3,6 +3,7 @@
 **Issue**: [#275](https://github.com/adriannoes/asap-protocol/issues/275)
 **Target release**: v2.6.0
 **Depends on**: #242 shipped ([#274](https://github.com/adriannoes/asap-protocol/pull/274))
+**Scheduled in**: [`product/prd/prd-interop.md`](../../../product/prd/prd-interop.md) housekeeping — HK-001 (v2.6.0 Interop, added 2026-11-18)
 
 ## Context
 

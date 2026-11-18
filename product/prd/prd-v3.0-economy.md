@@ -1,12 +1,16 @@
-# PRD: ASAP Protocol v3.0.0 — Economy & Monetization
+# PRD: ASAP Economy — Product Track (formerly v3.0.0)
 
 > **Product Requirements Document**
 >
-> **Version**: 3.0.0
-> **Status**: VISION DRAFT
+> **Version**: product track — **not** a library version. Library major `v3.0.0` is reserved for breaking protocol or wire changes ([release policy](../../docs/maintainers/release-policy.md)).
+> **Status**: VISION DRAFT (trigger-gated; triggers in §1.1 unchanged)
 > **Created**: 2026-02-25
-> **Last Updated**: 2026-07-18
-> **Predecessor train**: [prd-v2.5-roadmap.md](./prd-v2.5-roadmap.md) (through Formal Spec [v2.5.5](./prd-v2.5.5-formal-spec-interop.md))
+> **Last Updated**: 2026-11-18
+> **Train index**: [prd-roadmap.md](./prd-roadmap.md) — Economy row
+> **Predecessor (library)**: [prd-spec-profile.md](./prd-spec-profile.md) (v2.7.0, after [prd-interop.md](./prd-interop.md) v2.6.0); decision gate in [prd-roadmap.md §2](./prd-roadmap.md#2-roadmap)
+
+> [!NOTE]
+> **Reframed 2026-11-18.** Economy is a **product / services track**, decoupled from library semver. The filename and older text still say "v3.0" (and "v4.0+" for later phases). Read "v3.0" as "Economy track launch" and "v4.0+" as "a later Economy phase", not as `asap-protocol` versions. If the track needs library changes (for example the ECO-002 manifest field), they ship under the release policy: additive changes in a library minor, breaking changes only in a library major.
 
 ---
 
@@ -14,7 +18,7 @@
 
 ### 1.1 Purpose
 
-v3.0.0 transforms ASAP from an **Agent Directory** into an **Agent Economy**. This release activates the economy layer that has been in the vision since day one but deliberately deferred until the network effect is proven:
+The Economy track transforms ASAP from an **Agent Directory** into an **Agent Economy**. The track activates the economy layer that has been in the vision since day one but deliberately deferred until the network effect is proven:
 
 - **Payment Processing**: Stripe integration for Verified Badge subscriptions ($49/mo)
 - **Economy Settlement**: Pay-per-use billing, credits, agent-to-agent payments
@@ -33,6 +37,8 @@ v3.0.0 transforms ASAP from an **Agent Directory** into an **Agent Economy**. Th
 v1.x (protocol) → v2.x (marketplace) → v3.0 (economy)
 Open & Free        Network effect        Monetization
 ```
+
+> Since 2026-11-18 the third step is a **product track**, not library `v3.0.0`. The library keeps its own semver line ([prd-roadmap.md](./prd-roadmap.md)).
 
 The Open Core model (ADR per `vision-agent-marketplace.md §5`) means the SDK and Lite Registry remain free forever. v3.0 monetizes the **services layer**: the Clearing House, Verified Badge, and ASAP Cloud.
 
@@ -233,14 +239,15 @@ Before launching economy features:
 | TypeScript SDK | v2.3 | Shipped (`@asap-protocol/client`) |
 | OpenAPI adapter (provider onboarding) | **v2.3.0** (not v2.4) | Shipped; Dist thin starter under `examples/starters/openapi-provider/` |
 | Consumer / agent-first distribution | **v2.5.4** Distribution Loop | Soft: narrative + starters + metric proxies — [PRD](./prd-v2.5.4-distribution-loop.md) |
-| Formal Spec / interop narrative | **v2.5.5** (soft successor) | Standards-track; not a hard Economy gate |
-| Registry API Backend (PostgreSQL) | Deferred | **Not shipped.** Still gated by 500-agent / IssueOps trigger ([prd-v2.5-roadmap.md](./prd-v2.5-roadmap.md) non-goals). Credit ledger in §6.1 must not assume it exists yet. |
+| Interop (A2A / MCP bridges, external tokens) | **v2.6.0** — [prd-interop.md](./prd-interop.md) | Soft; planned. Not a hard Economy gate (2026-11-18) |
+| Spec profile | **v2.7.0** — [prd-spec-profile.md](./prd-spec-profile.md) (was "Formal Spec v2.5.5") | Soft; standards-track; not a hard Economy gate |
+| Registry API Backend (PostgreSQL) | Deferred | **Not shipped.** Still gated by 500-agent / IssueOps trigger ([prd-roadmap.md §5](./prd-roadmap.md#5-parked-and-deferred-items)). Credit ledger in §6.1 must not assume it exists yet. |
 | 100+ Verified agent candidates | Growth trigger | Candidate **proxies** from Dist DIST-004: registry count, npm/PyPI installs, site→docs CTR — not a substitute for the paid-badge trigger itself |
 | Legal/tax infrastructure | §6.4 | Required with revenue triggers |
 
 ### 8.1 ADR-21 vs paid Verified Badge
 
-Until Economy launch triggers fire, public trust remains **merit-based / free** per ADR-21 ([05-product-strategy.md](../decision-records/05-product-strategy.md)). The **$49/mo** badge in this PRD is a **future** product change; do not preview pricing in v2.5.x public copy (Dist DIST-006).
+Until Economy launch triggers fire, public trust remains **merit-based / free** per ADR-21 ([05-product-strategy.md](../decision-records/05-product-strategy.md)). The **$49/mo** badge in this PRD is a **future** product change; do not preview pricing in public copy for any library release (Dist DIST-006).
 
 ---
 
@@ -250,14 +257,16 @@ Until Economy launch triggers fire, public trust remains **merit-based / free** 
 - **Q2**: Are credits tied to USD or is there a pegged internal currency?
 - **Q3**: Should ASAP Cloud be a separate product (separate repo, separate billing) or part of `asap-protocol`?
 - **Q4**: ~~Crypto payments: deferred indefinitely or worth revisiting if L2 settlement costs drop to < $0.001?~~ **RESOLVED (2026-03-13)**: Crypto settlement is planned as v4.0+ extension in separate repo (`asap-settlement-crypto`). v3.0 designs `SettlementBackend` Protocol interface to keep door open. See [§6.2 Pluggable Settlement Architecture](#62-pluggable-settlement-architecture).
+- **Q5** (added 2026-11-18): Before building a separate settlement layer or Clearing House (§4.2, §6.2), evaluate interop with the **A2A AP2 payments extension**. Can a `SettlementBackend` sit behind AP2 instead of beside it? Confirm AP2's scope and status against its source spec at evaluation time; this PRD does not assert them.
 
 ---
 
 ## 10. Related Documents
 
-- **v2.5.x train**: [prd-v2.5-roadmap.md](./prd-v2.5-roadmap.md)
+- **Train index**: [prd-roadmap.md](./prd-roadmap.md)
+- **Spec profile (v2.7.0)**: [prd-spec-profile.md](./prd-spec-profile.md) · **Interop (v2.6.0)**: [prd-interop.md](./prd-interop.md)
+- **Closed v2.5.x train**: [prd-v2.5-roadmap.md](./prd-v2.5-roadmap.md)
 - **Distribution Loop (adoption metrics / narrative)**: [prd-v2.5.4-distribution-loop.md](./prd-v2.5.4-distribution-loop.md)
-- **Formal Spec (predecessor minor)**: [prd-v2.5.5-formal-spec-interop.md](./prd-v2.5.5-formal-spec-interop.md)
 - **Vision**: [prd-v2.0-roadmap.md](./prd-v2.0-roadmap.md) §3 (Economy Layer) and §5.3 (Pricing Strategy)
 - **Deferred scope (original backlog sections)**: [05-product-strategy.md](../decision-records/05-product-strategy.md) (see Questions 10, 15, 21–22 for deferrals; ADR-21 Verified Badge free until Economy)
 - **Legacy adoption redirect**: [prd-v2.4-adoption.md](./prd-v2.4-adoption.md)
@@ -269,6 +278,7 @@ Until Economy launch triggers fire, public trust remains **merit-based / free** 
 
 | Date | Version | Change |
 |------|---------|--------|
+| 2026-11-18 | 0.4.0 | Reframed as a **product / services track**, decoupled from library semver (library `v3.0.0` reserved for breaking protocol changes). Status VISION DRAFT and all triggers unchanged. Q5: evaluate A2A AP2 payments interop before a separate settlement layer / Clearing House. Predecessor links → [prd-roadmap.md](./prd-roadmap.md), [prd-spec-profile.md](./prd-spec-profile.md), [prd-interop.md](./prd-interop.md). No new pricing, revenue, or GTM detail. |
 | 2026-07-18 | 0.3.1 | Prerequisites corrected (OpenAPI = v2.3; Registry API deferred); Dist metrics as trigger proxies; ADR-21 vs paid badge note; cross-links to v2.5.4/v2.5.5 |
 | 2026-02-25 | 0.1.0 | Vision DRAFT — consolidates deferred-backlog §4, §5 and vision-agent-marketplace §3 |
 | 2026-03-13 | 0.2.0 | Added §6.2 Pluggable Settlement Architecture (SettlementBackend Protocol). Q4 resolved: crypto settlement planned as v4.0+ in separate repo. Non-Goals updated. |
