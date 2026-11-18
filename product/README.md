@@ -15,7 +15,7 @@ This folder holds **product-level** documentation for the ASAP Protocol: PRDs, a
 
 Per `.gitignore`, the following are **not committed** to the remote (keep them locally if you use them):
 
-- **`strategy/`** — Long-form vision, living [roadmap.md](./strategy/roadmap.md) hub, literature notes (optional local checkout).
+- **`strategy/`** — Long-form vision, living `strategy/roadmap.md` hub, literature notes (optional local checkout; not on GitHub).
 - **`private/`**, **`private-roadmap/`**, **`prd/private/`**, and selective **`prd/prd-v2.3.[1-9]-*.md`** — Commercial or tactical drafts.
 
 Public READMEs and docs should prefer **`decision-records/`**, **`prd/`** (public filenames), and **`docs/`** for links that must work on GitHub.
@@ -48,21 +48,17 @@ product/
 | **v2.5.2 — Security follow-up** | **✅ Released (2026-07-08)** | `prd-v2.5.2-security-follow-up.md` | #209 + CR #245–#249 + registry fixes (ex planned v2.5.4); tag [`v2.5.2`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.2) |
 | **v2.5.3 — Adapter Lab II** | **✅ Released (2026-07-16)** | `prd-v2.5.3-adapter-lab-ii.md` + [tasks](../engineering/tasks/v2.5.3/tasks-v2.5.3-roadmap.md) | Workflow connectors, automation security, experimental MAF / NAT; tag [`v2.5.3`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.3) |
 | **v2.5.4 — Distribution Loop** | **✅ Released (2026-07-18)** | `prd-v2.5.4-distribution-loop.md` + [tasks](../engineering/tasks/v2.5.4/tasks-v2.5.4-roadmap.md) | Homepage, starters, Build for agents, telemetry ops; tag [`v2.5.4`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.4) |
-| **v2.5.11 — Security floors patch** | **✅ Released (2026-11-09)** | `CHANGELOG.md` `[2.5.11]` (no Formal Spec PRD) | Authlib >=1.9.1 (locked 1.9.5) and joserfc >=1.7.6 (root lock 1.8.0), OAuth HTTP stack, web `systeminformation` 5.33.19, regression fences #451–#457; tag [`v2.5.11`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.11) |
-| **v2.5.10 — Security & correctness patch** | **✅ Released (2026-10-23)** | `CHANGELOG.md` `[2.5.10]` (no Formal Spec PRD) | Non-object delegation JWTs, `undici` `^7.30.1`, satellite locks on the 2.5.9 floors; tag [`v2.5.10`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.10) |
-| **v2.5.9 — Security & CI patch** | **✅ Released (2026-10-23)** | `CHANGELOG.md` `[2.5.9]` (no Formal Spec PRD) | `brotli` / OpenTelemetry floors, `security (web)`, regression fences #419–#426; tag [`v2.5.9`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.9) |
-| **v2.5.8 — Security & coverage patch** | **✅ Released (2026-10-21)** | `CHANGELOG.md` `[2.5.8]` (no Formal Spec PRD) | Dependency floors and regression fences #413–#417; tag [`v2.5.8`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.8) |
-| **v2.5.7 — Quality & coverage patch** | **✅ Released (2026-10-11)** | `CHANGELOG.md` `[2.5.7]` (no Formal Spec PRD) | Batch rate-limit fix, CI security gates, regression tests #394–#399; tag [`v2.5.7`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.7) |
-| **v2.5.6 — Security & quality patch** | **✅ Released (2026-10-01)** | `CHANGELOG.md` `[2.5.6]` (no Formal Spec PRD) | IssueOps envelope + endpoint SSRF, compliance open-redirect, constrained execute, rotate-key race; tag [`v2.5.6`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.6) |
-| **v2.5.5 — Security & quality patch** | **✅ Released (2026-09-11)** | `CHANGELOG.md` `[2.5.5]` (no Formal Spec PRD) | OpenAPI climb, registry URN guard, marketplace SSRF pin, capability-replace consent, fail-closed reactivate; tag [`v2.5.5`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.5) |
-| Formal Spec & Interop | 🔭 **Next** (kickoff) | `prd-v2.5.5-formal-spec-interop.md` | RFC spec, introspection, privacy, cross-protocol (library **2.5.11** is the patch above, not this train) |
-| v2.5.x train index | Active | `prd-v2.5-roadmap.md` | Full schedule + orphan owners + rescope log |
-| v3.0 — Economy | 🔭 Long-term (triggers) | `prd-v3.0-economy.md` | Settlement, billing; ADR-21 free badge until launch |
+| v2.5.5 – v2.5.11 — Maintenance patches | ✅ Released (2026-09-11 → 2026-11-09) | `CHANGELOG.md` (no PRD) | Security fixes, dependency floors, regression tests — see [CHANGELOG](../CHANGELOG.md). v2.5.x train **closed** at 2.5.11; tag [`v2.5.11`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.11) |
+| **Phase 0 — Reset** | 🔄 **Current** | `prd-roadmap.md` | Close the v2.5 train; [release policy](../docs/maintainers/release-policy.md); [integration support tiers](../docs/integrations/support-tiers.md); restore weekly adoption telemetry; triage automated regression-test PRs; find 1–3 external design partners. No release planned (2.5.12 only if a CVE requires it) |
+| **v2.6.0 — Interop** | 🔭 **Next** | `prd-interop.md` | A2A v1.0 Agent Card ↔ ASAP manifest bridge (signed cards), external agent tokens incl. MCP OAuth 2.1 → ASAP sessions, `@asap-protocol/mcp-auth` for HTTP MCP servers, discovery bridge, interop guide |
+| **v2.7.0 — Spec profile** | 🔭 Planned (after v2.6.0) | `prd-spec-profile.md` | RFC 2119 profile of ASAP's own surface (identity, capability grants, approval, lifecycle, errors) layered on A2A / MCP / OAuth; every MUST maps to an `asap-compliance` check |
+| Economy (product track) | 🔭 Long-term (triggers) | `prd-v3.0-economy.md` | Settlement, billing; trigger-gated and not tied to library v3.0.0; ADR-21 free badge until launch |
 
-> **Strategic note**: Registry API Backend (PostgreSQL), Intent-Based Search, Orchestration Primitives, Delegated/Autonomous Mode formalization, and DeepEval remain deferred until their triggers materialize. **Library v2.5.11** is the latest security floors patch. Dist Loop (v2.5.4) remains shipped. Next public train work: **Formal Spec** ([prd-v2.5.5-formal-spec-interop.md](./prd/prd-v2.5.5-formal-spec-interop.md)). Local strategy hub (when present): [strategy/roadmap.md](./strategy/roadmap.md). Public train: [prd/README.md](./prd/README.md).
+> **Strategic note**: The **v2.5.x train is closed** at library **2.5.11**; 2.5.5–2.5.11 were maintenance patches (see [CHANGELOG](../CHANGELOG.md)). Next: **v2.6.0 Interop** ([prd-interop.md](./prd/prd-interop.md)), then **v2.7.0 Spec profile** ([prd-spec-profile.md](./prd/prd-spec-profile.md)). Interop comes first because the spec should describe how ASAP layers on A2A and MCP. After both, a decision gate reviews adoption data and sets the v3 direction. Planned scope ships only in minor releases ([release policy](../docs/maintainers/release-policy.md)). Registry API Backend (PostgreSQL), Intent-Based Search, Orchestration Primitives, Delegated/Autonomous Mode formalization, and DeepEval remain deferred until their triggers materialize. Public train index: [prd/prd-roadmap.md](./prd/prd-roadmap.md). Local strategy hub: `strategy/roadmap.md` (local-only when present).
 
 ## Key entrypoints
 
+- **[Roadmap](./prd/prd-roadmap.md)** — Living public train index (current version, next trains).
 - **[PRD index](./prd/README.md)** — All versioned requirements.
 - **[Tasks index](../engineering/tasks/README.md)** — Sprint folders per release.
 - **[Decision index](./decision-records/README.md)** — ADR catalog.
