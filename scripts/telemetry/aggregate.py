@@ -35,6 +35,7 @@ from typing import Any, TypedDict, cast
 from urllib.parse import urlparse
 
 import httpx
+import urllib3
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import ValidationError
 
@@ -78,11 +79,13 @@ class PyPiPackageIngress(TypedDict):
 
 
 class PyPiWeeklyIngress(TypedDict, total=False):
-    """PyPI collector JSON merged into the snapshot ``pypi`` field."""
+    """PyPI collector JSON (or fetch-error placeholder) stored under snapshot ``pypi``."""
 
     source: str
     collected_at: str
     packages: dict[str, PyPiPackageIngress]
+    fetch_error: bool
+    reason: str
 
 
 class AdapterRequestsIngress(TypedDict, total=False):
@@ -155,7 +158,11 @@ SNAPSHOT_SCHEMA: dict[str, Any] = {
         "pypi": {
             "type": "object",
             "required": ["packages"],
-            "properties": {"packages": {"type": "object"}},
+            "properties": {
+                "packages": {"type": "object"},
+                "fetch_error": {"type": "boolean"},
+                "reason": {"type": "string"},
+            },
         },
         "github": {
             "type": "object",
@@ -361,6 +368,21 @@ def collect_github_or_placeholder(
         )
 
 
+def collect_pypi_or_placeholder(packages: tuple[str, ...]) -> PyPiWeeklyIngress:
+    """Run the PyPI collector; after its retries, record a fetch error instead of failing."""
+    try:
+        return cast(PyPiWeeklyIngress, collect_pypi_recent(packages))
+    except (urllib3.exceptions.HTTPError, ValueError) as exc:
+        print(f"PyPI telemetry degraded: {exc}", file=sys.stderr)
+        return {
+            "source": "pypistats_recent",
+            "collected_at": datetime.now(UTC).replace(microsecond=0).isoformat(),
+            "packages": {},
+            "fetch_error": True,
+            "reason": "PyPI Stats fetch failed; see CI logs.",
+        }
+
+
 def sum_npm_weekly_downloads(raw_hist: Mapping[str, Any]) -> int:
     """Sum integer weekly download counts from a snapshot ``npm`` map.
 
@@ -492,6 +514,10 @@ def render_dashboard(
         degraded.append(
             f"GitHub telemetry skipped ({reason}); adapter-request counts may be zeroed."
         )
+    pypi_obj = snapshot.get("pypi")
+    if isinstance(pypi_obj, dict) and pypi_obj.get("fetch_error"):
+        reason = pypi_obj.get("reason", "unknown")
+        degraded.append(f"PyPI telemetry missing ({reason}); the PyPI column shows — this week.")
     site_obj = snapshot.get("site")
     if isinstance(site_obj, dict) and site_obj.get("fetch_error"):
         degraded.append("Site CTR fetch failed; see `site.fetch_error` in the snapshot JSON.")
@@ -561,6 +587,19 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    allow_github_skip: bool = args.allow_github_skip
+    gh_token = os.environ.get("TELEMETRY_GITHUB_TOKEN", "").strip()
+    if allow_github_skip:
+        gh_token = gh_token or os.environ.get("GITHUB_TOKEN", "").strip()
+    elif not gh_token:
+        # Fail before any collector runs so a misconfigured job spends no PyPI Stats quota.
+        print(
+            "Missing TELEMETRY_GITHUB_TOKEN; GitHub telemetry is required "
+            "(pass --allow-github-skip for local placeholder runs only).",
+            file=sys.stderr,
+        )
+        return 1
+
     output_dir: Path = args.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -571,29 +610,16 @@ def main(argv: list[str] | None = None) -> int:
     previous_registry_count = registry_count_from_snapshot(prev_path) if prev_path else None
 
     npm_report = cast(NpmWeeklyIngress, collect_npm_weekly(DEFAULT_PACKAGES))
-    pypi_report = cast(PyPiWeeklyIngress, collect_pypi_recent(DEFAULT_PYPI_PACKAGES))
+    pypi_report = collect_pypi_or_placeholder(DEFAULT_PYPI_PACKAGES)
 
-    allow_github_skip: bool = args.allow_github_skip
     github_report: GitHubTelemetryIngress
     if allow_github_skip:
-        gh_token = (
-            os.environ.get("TELEMETRY_GITHUB_TOKEN", "").strip()
-            or os.environ.get("GITHUB_TOKEN", "").strip()
-        )
         github_report = collect_github_or_placeholder(
             args.github_owner,
             args.github_repo,
             gh_token,
         )
     else:
-        gh_token = os.environ.get("TELEMETRY_GITHUB_TOKEN", "").strip()
-        if not gh_token:
-            print(
-                "Missing TELEMETRY_GITHUB_TOKEN; GitHub telemetry is required "
-                "(pass --allow-github-skip for local placeholder runs only).",
-                file=sys.stderr,
-            )
-            return 1
         try:
             github_report = cast(
                 GitHubTelemetryIngress,
