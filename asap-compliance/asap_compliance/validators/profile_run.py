@@ -3,7 +3,8 @@
 A profile is a list of checks; each check returns ``None`` or a short reason.
 :func:`run_profile_checks` turns them into one ``CheckResult`` each, so a
 transport error, a provider error, or a missing input fails only its own check
-and the run goes on.
+and the run goes on. Two checks judge every answer of a run: each HTTP 401
+carries a Bearer challenge, and no answer holds a token that the run sent.
 
 Example::
 
@@ -14,11 +15,12 @@ Example::
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Collection, Sequence
-from typing import TypeVar
+from typing import Protocol, TypeVar
 
 import httpx
 
 from asap_compliance.validators.handshake import CheckResult
+from asap_compliance.validators.http_answers import HttpAnswer, has_bearer_challenge
 from asap_compliance.validators.http_exchange import HttpExchangeError
 from asap_compliance.validators.probe_tokens import (
     ComplianceEndpointTokenProvider,
@@ -29,10 +31,22 @@ from asap_compliance.validators.probe_tokens import (
 RunT = TypeVar("RunT")
 # (check ID, check, what passing means)
 ProfileCheck = tuple[str, Callable[[RunT], Awaitable[str | None]], str]
+# A JWT part this long belongs to one token; a shorter one could match by chance.
+_MIN_ECHO_FRAGMENT = 16
 
 
 class CheckAbortedError(Exception):
     """A check has nothing to judge (for example, no card); the text quotes no server text."""
+
+
+class RecordedAnswer(HttpAnswer, Protocol):
+    """An answer as a run records it: numbered, with its body text."""
+
+    @property
+    def request_id(self) -> int: ...
+
+    @property
+    def body_text(self) -> str: ...
 
 
 async def run_profile_checks(
@@ -76,3 +90,31 @@ def endpoint_token_provider(
     return ComplianceEndpointTokenProvider(
         probe_tokens_url, timeout_seconds=timeout_seconds, http_transport=http_transport
     )
+
+
+def unchallenged_401_problem(responses: Sequence[HttpAnswer]) -> str | None:
+    """None when every HTTP 401 of the run has a Bearer challenge, and there was one."""
+    unauthorized = [response for response in responses if response.status_code == 401]
+    if not unauthorized:
+        return "the run saw no HTTP 401"
+    bare = [response for response in unauthorized if not has_bearer_challenge(response)]
+    return f"{len(bare)} of {len(unauthorized)} HTTP 401 answers have none" if bare else None
+
+
+def echoed_token_problem(
+    sent_tokens: Sequence[str], responses: Sequence[RecordedAnswer]
+) -> str | None:
+    """None when no body or header holds a sent token, or a long dot-separated part of one."""
+    fragments = {
+        fragment
+        for token in sent_tokens
+        for fragment in [token, *token.split(".")]
+        if len(fragment) >= _MIN_ECHO_FRAGMENT
+    }
+    echoed = [
+        response.request_id
+        for response in responses
+        for place in [response.body_text, *response.headers.values()]
+        if any(fragment in place for fragment in fragments)
+    ]
+    return f"the answers to requests {sorted(set(echoed))} hold one" if echoed else None
