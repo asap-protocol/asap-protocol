@@ -32,8 +32,8 @@ validation fixes in the Python reference implementation, and the
 OpenTelemetry security floor. This is **not** v2.6.0 Interop. npm
 `@asap-protocol/*` packages remain at **2.4.1**. PyPI `asap-compliance`
 remains **1.3.0**.
-Tag [`v2.5.12`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.12)
-· PyPI `asap-protocol==2.5.12`.
+See [GitHub Releases](https://github.com/asap-protocol/asap-protocol/releases/latest) and
+[PyPI](https://pypi.org/project/asap-protocol/#history) for published versions.
 
 ### Security
 
