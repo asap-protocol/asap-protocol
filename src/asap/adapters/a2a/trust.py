@@ -5,6 +5,8 @@ equals an allowlist entry exactly, character for character (no prefix, host,
 or normalized match), and it is fetched only through
 :func:`asap.utils.guarded_fetch.guarded_fetch_json`: HTTPS, public addresses
 only, a size limit, and a timeout. A ``jku`` off the allowlist causes no request.
+A fetched key set is cached per ``jku`` for a bounded lifetime, and a ``kid``
+that is not in it does not refetch it: random ``kid`` values cost no request.
 
 Example:
     >>> config = A2ATrustConfig(pinned_keys={"agent-key-1": agent_public_jwk})  # doctest: +SKIP
@@ -15,7 +17,9 @@ Example:
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+import asyncio
+import time
+from collections.abc import Callable, Mapping
 from typing import Any, Self
 
 import httpx
@@ -23,6 +27,7 @@ from joserfc import jwk
 from joserfc.errors import JoseError
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
+from asap.adapters.a2a._ttl_cache import BoundedTTLCache
 from asap.adapters.a2a.errors import A2AKeyResolutionError
 from asap.adapters.a2a.signature_keys import CARD_VERIFY_ALGORITHMS, CardKey
 from asap.adapters.a2a.verification import SignaturePolicy
@@ -44,7 +49,9 @@ class A2ATrustConfig(ASAPBaseModel):
     ``pinned_keys`` maps a ``kid`` to a public JWK (OKP, EC, or RSA). A ``jku``
     is fetched only when it is in ``jku_allowlist`` exactly. ``allow_private_hosts``
     lets allowlist entries and ``jku`` fetches reach private or loopback hosts,
-    for local development and tests only.
+    for local development and tests only. A fetched JWKS is kept for
+    ``jwks_cache_ttl_seconds`` (at most a day), in a cache of at most
+    ``jwks_cache_max_entries`` key sets.
     """
 
     # A validation error must not echo a pinned JWK back: it may hold private members.
@@ -55,6 +62,8 @@ class A2ATrustConfig(ASAPBaseModel):
     algorithms: tuple[str, ...] = CARD_VERIFY_ALGORITHMS
     policy: SignaturePolicy = "require_signature"
     allow_private_hosts: bool = False
+    jwks_cache_ttl_seconds: float = Field(default=300.0, gt=0, le=86400)
+    jwks_cache_max_entries: int = Field(default=32, ge=1, le=1024)
 
     @field_validator("pinned_keys")
     @classmethod
@@ -104,7 +113,8 @@ def import_pinned_key(kid: str, member: Mapping[str, Any]) -> CardKey:
 class A2AKeyResolver:
     """The card key resolver for :func:`asap.adapters.a2a.verify_agent_card`.
 
-    ``dns_resolver`` and ``transport`` are passed to the guarded fetch, for tests.
+    ``dns_resolver`` and ``transport`` are passed to the guarded fetch, and
+    ``clock`` drives the cache lifetime; all three are for tests.
     """
 
     def __init__(
@@ -113,11 +123,19 @@ class A2AKeyResolver:
         *,
         dns_resolver: AddressResolver | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self.config = config
         self._pinned = {kid: import_pinned_key(kid, m) for kid, m in config.pinned_keys.items()}
         self._dns_resolver = dns_resolver
         self._transport = transport
+        self._jwks_cache: BoundedTTLCache[dict[str, CardKey]] = BoundedTTLCache(
+            ttl_seconds=config.jwks_cache_ttl_seconds,
+            max_entries=config.jwks_cache_max_entries,
+            clock=clock,
+        )
+        # One lock per allowlisted jku, so concurrent lookups make one request.
+        self._fetch_locks: dict[str, asyncio.Lock] = {}
 
     async def __call__(self, kid: str, jku: str | None) -> CardKey | None:
         """Return the trusted key for *kid*: pinned first, then an allowlisted *jku*.
@@ -131,7 +149,15 @@ class A2AKeyResolver:
             return pinned
         if jku is None or jku not in self.config.jku_allowlist:
             return None
-        return (await self._fetch_jwks(jku)).get(kid)
+        return (await self._cached_jwks(jku)).get(kid)
+
+    async def _cached_jwks(self, jku: str) -> dict[str, CardKey]:
+        async with self._fetch_locks.setdefault(jku, asyncio.Lock()):
+            keys = self._jwks_cache.get(jku)
+            if keys is None:
+                keys = await self._fetch_jwks(jku)
+                self._jwks_cache.put(jku, keys)
+            return keys
 
     async def _fetch_jwks(self, jku: str) -> dict[str, CardKey]:
         try:
