@@ -35,3 +35,14 @@ class A2AUnsupportedVersionError(A2AAdapterError):
             {"found_version": found_version, "supported_version": A2A_SUPPORTED_VERSION},
         )
         self.found_version = found_version
+
+
+class A2AMappingInputError(A2AAdapterError):
+    """A caller input that the mapping needs is missing, or it conflicts with the source.
+
+    ``input_name`` names the input, for example ``"skill_tags"``.
+    """
+
+    def __init__(self, input_name: str, message: str) -> None:
+        super().__init__("asap:adapters/a2a/mapping_input", message, {"input": input_name})
+        self.input_name = input_name
