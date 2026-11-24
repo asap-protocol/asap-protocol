@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import json
 from typing import Any
 
 import httpx
@@ -12,6 +14,7 @@ from asap_compliance.config import MCP_AUTH_HTTP_PROFILE, McpAuthHttpComplianceC
 from asap_compliance.validators.mcp_auth_http import (
     MCP_AUTH_HTTP_CHECK_IDS,
     McpAuthHttpResult,
+    validate_mcp_auth_http,
     validate_mcp_auth_http_async,
 )
 
@@ -28,6 +31,11 @@ async def _run(server: FakeMcpAuthServer, **config_fields: Any) -> McpAuthHttpRe
 
 def _failed(result: McpAuthHttpResult) -> set[str]:
     return {check.name for check in result.checks if not check.passed}
+
+
+def _json_part(part: str) -> dict[str, Any]:
+    decoded: dict[str, Any] = json.loads(base64.urlsafe_b64decode(part + "=" * (-len(part) % 4)))
+    return decoded
 
 
 class TestMcpAuthHttpConfig:
@@ -78,6 +86,11 @@ class TestTokenLayerChecks:
             (Fault.PUBLIC_TOOL_NEEDS_TOKEN, "public_tool"),
             (Fault.AUTH_REQUIRED_IN_TOOL_RESULT, "auth_required"),
             (Fault.INVALID_TOKEN_IN_TOOL_RESULT, "invalid_token"),
+            (Fault.INVALID_TOKEN_IN_TOOL_RESULT, "bad_signature"),
+            (Fault.ACCEPTS_UNSIGNED_JWT, "bad_signature"),
+            (Fault.NO_WWW_AUTHENTICATE, "www_authenticate_on_401"),
+            (Fault.ECHOES_TOKEN_IN_BODY, "token_not_echoed"),
+            (Fault.ECHOES_TOKEN_IN_HEADER, "token_not_echoed"),
         ],
     )
     async def test_a_server_with_the_fault_fails_the_check(
@@ -91,7 +104,32 @@ class TestTokenLayerChecks:
     async def test_a_server_that_answers_200_to_everything_fails_the_http_checks(self) -> None:
         result = await _run(FakeMcpAuthServer(Fault.ANSWERS_200_TO_EVERYTHING))
 
-        assert {"auth_required", "invalid_token"} <= _failed(result)
+        http_checks = {"auth_required", "invalid_token", "bad_signature", "www_authenticate_on_401"}
+        assert http_checks <= _failed(result)
+
+    async def test_the_bad_signature_token_is_an_agent_jwt_for_the_server_audience(self) -> None:
+        server = FakeMcpAuthServer()
+
+        await _run(server)
+        await _run(server)
+
+        forged = [token for token in server.received_tokens if token.count(".") == 2]
+        header, claims = (_json_part(part) for part in forged[0].split(".")[:2])
+        assert (header["alg"], header["typ"]) == ("EdDSA", "agent+jwt")
+        assert claims["aud"] == _MCP_URL
+        assert claims["iat"] < claims["exp"]
+        assert len(set(forged)) == len(forged) == 2
+
+    async def test_no_check_message_holds_a_token_that_the_server_echoed(self) -> None:
+        faults = (Fault.ECHOES_TOKEN_IN_BODY, Fault.ECHOES_TOKEN_IN_HEADER)
+        server = FakeMcpAuthServer(*faults, Fault.INVALID_TOKEN_IN_TOOL_RESULT)
+
+        result = await _run(server)
+
+        messages = "\n".join(check.message for check in result.checks)
+        parts = {part for token in server.received_tokens for part in [token, *token.split(".")]}
+        assert len(server.received_tokens) >= 2
+        assert not [part for part in parts if len(part) >= 16 and part in messages]
 
     async def test_a_skipped_check_passes_with_the_message_skipped(self) -> None:
         server = FakeMcpAuthServer(Fault.PUBLIC_TOOL_NEEDS_TOKEN)
@@ -110,5 +148,12 @@ class TestTokenLayerChecks:
             config, http_transport=httpx.MockTransport(unreachable)
         )
 
-        assert _failed(result) == {"public_tool", "auth_required", "invalid_token"}
-        assert all("ConnectError" in check.message for check in result.checks)
+        call_checks = {"public_tool", "auth_required", "invalid_token", "bad_signature"}
+        assert _failed(result) == {*call_checks, "www_authenticate_on_401"}
+        assert all("ConnectError" in c.message for c in result.checks if c.name in call_checks)
+
+    def test_the_sync_wrapper_runs_the_profile(self) -> None:
+        config = McpAuthHttpComplianceConfig(mcp_url=_MCP_URL)
+        transport = httpx.MockTransport(FakeMcpAuthServer().handle)
+
+        assert validate_mcp_auth_http(config, http_transport=transport).passed
