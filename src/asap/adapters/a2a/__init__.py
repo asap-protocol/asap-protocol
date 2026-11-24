@@ -72,12 +72,17 @@ from asap.adapters.a2a.security import (
     SecurityScheme,
     StringList,
 )
+from asap.adapters.a2a.served_card import CardSigner, build_signed_agent_card
 from asap.adapters.a2a.signature_header import MAX_CARD_SIGNATURES
 from asap.adapters.a2a.signature_keys import CARD_VERIFY_ALGORITHMS, CardKey
 from asap.adapters.a2a.signing import (
     CardSigningAlgorithm,
     CardSigningKey,
     sign_agent_card,
+)
+from asap.adapters.a2a.token_security import (
+    ExternalTokenCardSecurity,
+    external_token_card_security,
 )
 from asap.adapters.a2a.trust import JWKS_MAX_BYTES, A2AKeyResolver, A2ATrustConfig
 from asap.adapters.a2a.unmapped import (
@@ -128,11 +133,13 @@ __all__ = [
     "CardKeyResolver",
     "CardMapping",
     "CardSigningAlgorithm",
+    "CardSigner",
     "CardSigningKey",
     "CardVerification",
     "ClientCredentialsOAuthFlow",
     "DeviceCodeOAuthFlow",
     "DroppedField",
+    "ExternalTokenCardSecurity",
     "HTTPAuthSecurityScheme",
     "ImplicitOAuthFlow",
     "InvalidSignatureReason",
@@ -153,8 +160,10 @@ __all__ = [
     "UNMAPPED_CARD_FIELDS",
     "UNMAPPED_MANIFEST_FIELDS",
     "agent_card_to_manifest",
+    "build_signed_agent_card",
     "canonical_card_form",
     "canonicalize_agent_card",
+    "external_token_card_security",
     "manifest_to_agent_card",
     "read_asap_extension",
     "sign_agent_card",
