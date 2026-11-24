@@ -55,11 +55,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`@asap-protocol/client` key types** — `HostContext.publicJwk`, `AgentContext.publicJwk`, and the `agentPublicKey` option of `signHostJwt` are typed `PublicJwk` instead of the DOM `JsonWebKey`. Each type can be assigned to the other, so existing code compiles.
 - **npm telemetry (maintainer tooling)** — the npm collector also counts `@asap-protocol/mcp-auth`. A package that npm does not know yet gets a row with no downloads and the run goes on, instead of failing the weekly job.
 
-### Fixed
-
-- **MCP stdio bridge** results from `MCPServer` and `tool_error_result` omit the optional `annotations` field when it has no value. MCP TypeScript SDK 2.x clients can now read these `tools/call` results. The text and `isError` stay the same.
-- **MCP client** omits `_meta` from `MCPClient.call_tool` parameters when the caller supplies no `meta`. MCP TypeScript SDK 2.x servers can now read these `tools/call` requests. The client still sends any `meta` the caller supplies.
-
 ### Removed
 
 - **`asap.cli._compat`** ([#275](https://github.com/asap-protocol/asap-protocol/issues/275)) — the CLI compat shim deprecated in 2.5.1 is gone. Import `DEFAULT_SCHEMAS_DIR` from `asap.cli.schemas`, `export_all_schemas` from `asap.schemas`, and `_repl_namespace` from `asap.cli.repl`. See the [migration guide](docs/migration.md#upgrading-from-v25x-to-v260).
@@ -70,6 +65,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`metering_storage_adapter`** — the `asap.economics.storage` wrapper deprecated in 2.5.1 is gone. Build the same `MeteringStore` view with `MeteringStorageBridge(storage)` from `asap.state.metering` (also exported from `asap.state`). See the [migration guide](docs/migration.md#upgrading-from-v25x-to-v260).
 
 ### Fixed
+
+- **MCP stdio bridge** results from `MCPServer` and `tool_error_result` omit the optional `annotations` field when it has no value. MCP TypeScript SDK 2.x clients can now read these `tools/call` results. The text and `isError` stay the same.
+- **MCP client** omits `_meta` from `MCPClient.call_tool` parameters when the caller supplies no `meta`. MCP TypeScript SDK 2.x servers can now read these `tools/call` requests. The client still sends any `meta` the caller supplies.
 
 - **Capability execute under `oauth2_config`** — when `oauth2_config` covered `/asap`, `OAuth2Middleware` refused every Agent JWT on `POST /asap/capability/execute`, so the route could not succeed. The middleware now skips that exact path, and the route verifies its own bearer: a valid Agent JWT succeeds, and a token from the `oauth2_config` provider gets the route's 401 unless that provider is listed in `external_token_config`. `required_scope` and the identity binding of `oauth2_config` no longer apply on this route. List, describe, `/asap`, and every other spelling of the path stay behind the middleware. See the [migration guide](docs/migration.md#behavior-changes).
 
