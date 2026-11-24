@@ -12,10 +12,12 @@ uv sync --extra dev
 
 ## Running Benchmarks
 
-### Run All Benchmarks
+### Run all benchmarks
+
+Run the timing measurements and the four asynchronous transport tests together.
 
 ```bash
-uv run pytest benchmarks/ --benchmark-only -v
+uv run pytest benchmarks/benchmark_*.py -v
 ```
 
 ### Run Specific Benchmark File
@@ -65,33 +67,33 @@ Save a baseline for future comparisons:
 
 ```bash
 # Save baseline
-uv run pytest benchmarks/ --benchmark-only --benchmark-save=baseline
+uv run pytest benchmarks/benchmark_*.py --benchmark-only --benchmark-save=baseline
 
 # Compare against baseline
-uv run pytest benchmarks/ --benchmark-only --benchmark-compare=baseline
+uv run pytest benchmarks/benchmark_*.py --benchmark-only --benchmark-compare=baseline
 ```
 
 ### Generate Reports
 
 ```bash
 # JSON report
-uv run pytest benchmarks/ --benchmark-only --benchmark-json=benchmark-results.json
+uv run pytest benchmarks/benchmark_*.py --benchmark-only --benchmark-json=benchmark-results.json
 
 # Histogram output
-uv run pytest benchmarks/ --benchmark-only --benchmark-histogram=benchmark-hist
+uv run pytest benchmarks/benchmark_*.py --benchmark-only --benchmark-histogram=benchmark-hist
 ```
 
 ### Calibration Options
 
 ```bash
 # More iterations for stability
-uv run pytest benchmarks/ --benchmark-only --benchmark-min-rounds=100
+uv run pytest benchmarks/benchmark_*.py --benchmark-only --benchmark-min-rounds=100
 
 # Disable warmup (for quick checks)
-uv run pytest benchmarks/ --benchmark-only --benchmark-warmup=off
+uv run pytest benchmarks/benchmark_*.py --benchmark-only --benchmark-warmup=off
 
 # Quick run (fewer iterations)
-uv run pytest benchmarks/ --benchmark-only --benchmark-disable-gc --benchmark-min-rounds=5
+uv run pytest benchmarks/benchmark_*.py --benchmark-only --benchmark-disable-gc --benchmark-min-rounds=5
 ```
 
 ## Interpreting Results
@@ -134,7 +136,7 @@ Benchmarks can be integrated into CI to detect performance regressions:
 # .github/workflows/benchmark.yml
 - name: Run benchmarks
   run: |
-    uv run pytest benchmarks/ --benchmark-only \
+    uv run pytest benchmarks/benchmark_*.py --benchmark-only \
       --benchmark-json=benchmark-results.json
     
 - name: Store benchmark results
@@ -384,7 +386,7 @@ If results show high variance:
 For faster feedback during development:
 
 ```bash
-uv run pytest benchmarks/ --benchmark-only \
+uv run pytest benchmarks/benchmark_*.py --benchmark-only \
   --benchmark-warmup=off \
   --benchmark-min-rounds=3 \
   -x  # Stop on first failure

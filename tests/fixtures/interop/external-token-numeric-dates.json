@@ -1,0 +1,14 @@
+{
+  "description": "External token timestamp checks after signature verification. Convert each non-finite label to its numeric value in memory. A null expected_exp means the verifier rejects the claims.",
+  "now": 1700000000,
+  "vectors": [
+    { "name": "finite exp without nbf", "claims": { "exp": 1700000060 }, "expected_exp": 1700000060 },
+    { "name": "finite fractional exp and nbf", "claims": { "exp": 1700000060.5, "nbf": 1699999999.5 }, "expected_exp": 1700000060.5 },
+    { "name": "positive infinity in exp", "claims": { "exp": "positive_infinity" }, "expected_exp": null },
+    { "name": "negative infinity in exp", "claims": { "exp": "negative_infinity" }, "expected_exp": null },
+    { "name": "NaN in exp", "claims": { "exp": "nan" }, "expected_exp": null },
+    { "name": "positive infinity in nbf", "claims": { "exp": 1700000060, "nbf": "positive_infinity" }, "expected_exp": null },
+    { "name": "negative infinity in nbf", "claims": { "exp": 1700000060, "nbf": "negative_infinity" }, "expected_exp": null },
+    { "name": "NaN in nbf", "claims": { "exp": 1700000060, "nbf": "nan" }, "expected_exp": null }
+  ]
+}

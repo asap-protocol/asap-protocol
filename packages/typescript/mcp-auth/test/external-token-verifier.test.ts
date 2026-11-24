@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { OAuthError } from "@modelcontextprotocol/server";
 import * as jose from "jose";
 import type { JWTPayload } from "jose";
@@ -12,6 +14,14 @@ vi.mock("jose", { spy: true });
 const ISSUER = "https://issuer.example";
 const OTHER_ISSUER = "https://other-issuer.example";
 const READ_GRANT = { capability: "file.read", constraints: { path: { in: ["/srv/public"] } } };
+const NON_FINITE_DATES = { positive_infinity: Infinity, negative_infinity: -Infinity, nan: NaN };
+interface NumericDateVector {
+  readonly name: string;
+  readonly claims: Readonly<Record<string, number | keyof typeof NON_FINITE_DATES>>;
+  readonly expected_exp: number | null;
+}
+const VECTOR_URL = new URL("../../../../tests/fixtures/interop/external-token-numeric-dates.json", import.meta.url);
+const numericDateVectors = JSON.parse(readFileSync(VECTOR_URL, "utf8")) as { now: number; vectors: NumericDateVector[] };
 
 let issuer: LocalTestIssuer;
 let other: LocalTestIssuer;
@@ -103,26 +113,34 @@ describe("createExternalTokenVerifier: clock, client id, and server-side failure
   });
 });
 
-describe("createExternalTokenVerifier: refused tokens get 401 asap:invalid_token with a fixed reason", () => {
-  const now = () => Math.floor(Date.now() / 1000);
-  const SIGNATURE = "issuer or signature not accepted";
-
-  it.each<[string, JWTPayload]>([
-    ["a non-finite exp", { exp: Infinity }],
-    ["a non-finite nbf", { nbf: -Infinity }],
-  ])("refuses %s returned by signature verification", async (_case, claims) => {
-    const token = await issuer.mint(issuer.claims(MCP_ENDPOINT));
+describe("createExternalTokenVerifier: shared NumericDate vectors", () => {
+  it.each(numericDateVectors.vectors)("checks $name after signature verification", async ({ claims, expected_exp }) => {
+    const now = numericDateVectors.now;
+    const token = await issuer.mint(issuer.claims(MCP_ENDPOINT, {}, now));
+    const dates = Object.fromEntries(Object.entries(claims).map(([name, value]) => [name, typeof value === "string" ? NON_FINITE_DATES[value] : value]));
     vi.mocked(jose.jwtVerify).mockResolvedValueOnce({
-      payload: issuer.claims(MCP_ENDPOINT, claims),
+      payload: issuer.claims(MCP_ENDPOINT, dates, now),
       protectedHeader: { alg: issuer.alg },
       key: await jose.importJWK(issuer.jwks.keys[0]!, issuer.alg),
     });
 
-    await expect(verifier().verifyAccessToken(token).then(() => undefined)).rejects.toMatchObject({
+    const auth = createExternalTokenVerifier({ issuers: [issuerConfig()], nowSeconds: () => now });
+    const expiry = auth.verifyAccessToken(token).then((authInfo) => authInfo.expiresAt);
+    if (expected_exp !== null) {
+      await expect(expiry).resolves.toBe(expected_exp);
+      return;
+    }
+
+    await expect(expiry).rejects.toMatchObject({
       code: "invalid_token",
       message: "asap:invalid_token: missing or invalid claim",
     });
   });
+});
+
+describe("createExternalTokenVerifier: refused tokens get 401 asap:invalid_token with a fixed reason", () => {
+  const now = () => Math.floor(Date.now() / 1000);
+  const SIGNATURE = "issuer or signature not accepted";
 
   it.each<[string, () => Promise<string>, string]>([
     ["a string that is not a JWT", async () => "not-a-jwt", "malformed token"],
