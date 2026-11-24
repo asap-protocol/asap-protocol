@@ -1,3 +1,4 @@
+import type { JSONWebKeySet } from "jose";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { trustedIssuers } from "../src/external-issuers.js";
@@ -33,7 +34,9 @@ describe("trustedIssuers: the external-token config is checked at creation", () 
     ["a blank issuer", () => ({ issuers: [issuerConfig({ issuer: "/" })] })],
     ["one issuer twice", () => ({ issuers: [issuerConfig(), issuerConfig({ issuer: `${ISSUER}/` })] })],
     ["no key source", () => ({ issuers: [issuerConfig({ jwks: undefined })] })],
+    ["two key sources", () => ({ issuers: [issuerConfig({ jwksUri: "https://issuer.example/jwks.json" })] })],
     ["an empty JWKS", () => ({ issuers: [issuerConfig({ jwks: { keys: [] } })] })],
+    ["a JWKS with no keys list", () => ({ issuers: [issuerConfig({ jwks: {} as JSONWebKeySet })] })],
     ["a symmetric key in the JWKS", () => ({ issuers: [issuerConfig({ jwks: { keys: [{ kty: "oct", k: "c2VjcmV0" }] } })] })],
     ["a private key in the JWKS", () => ({ issuers: [issuerConfig({ jwks: { keys: [{ ...issuer.jwks.keys[0], d: "cHJpdmF0ZQ" }] } })] })],
     ["a malformed grant rule", () => ({ issuers: [issuerConfig({ grantRules: [{ scope: "a b", capability: "x" }] })] })],
