@@ -10,6 +10,7 @@ from __future__ import annotations
 import time
 from collections.abc import Callable
 from datetime import datetime, timezone
+from unittest.mock import Mock
 
 import httpx
 import pytest
@@ -64,6 +65,17 @@ async def test_allowlisted_issuer_with_the_right_audience_gives_a_principal(
     assert principal.scopes == ("admin", "files:read")
     assert principal.expires_at == datetime.fromtimestamp(claims["exp"], tz=timezone.utc)
     assert [(g.capability, g.status) for g in principal.grants] == [("file.read", "active")]
+
+
+async def test_parser_header_type_error_is_a_typed_refusal(
+    idp_a: LocalIssuer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    parsed = Mock()
+    parsed.headers.return_value = []
+    parsed.payload = b"{}"
+    monkeypatch.setattr("asap.auth.external_verifier.extract_compact", Mock(return_value=parsed))
+
+    await _refused(_verifier(idp_a), "local.test.signature", Reason.MALFORMED_TOKEN)
 
 
 async def test_same_token_used_twice_succeeds_both_times(idp_a: LocalIssuer) -> None:

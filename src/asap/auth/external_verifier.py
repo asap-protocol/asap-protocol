@@ -58,6 +58,20 @@ _ASAP_TOKEN_TYPES = frozenset({"agent+jwt", "host+jwt"})
 Reason = ExternalTokenErrorReason
 
 
+def _extract_compact_with_header(token: str) -> tuple[dict[str, Any], bytes]:
+    """Read the unverified JWS header and require a JSON object."""
+    try:
+        compact = extract_compact(token.encode("utf-8"))
+        header = compact.headers()
+    except (JoseError, UnicodeError, TypeError, ValueError) as exc:
+        raise ExternalTokenError(
+            Reason.MALFORMED_TOKEN, f"not a usable JWS compact token ({type(exc).__name__})"
+        ) from None
+    if not isinstance(header, dict):
+        raise ExternalTokenError(Reason.MALFORMED_TOKEN, "the JWS header is not an object")
+    return header, compact.payload
+
+
 def _unverified_parts(token: str) -> tuple[dict[str, Any], dict[str, Any]] | None:
     """Return the header and payload of a JWS compact token, or None for an opaque token.
 
@@ -67,9 +81,9 @@ def _unverified_parts(token: str) -> tuple[dict[str, Any], dict[str, Any]] | Non
     """
     if token.count(".") != 2:
         return None
+    header, raw_payload = _extract_compact_with_header(token)
     try:
-        compact = extract_compact(token.encode("utf-8"))
-        payload = json.loads(compact.payload)
+        payload = json.loads(raw_payload)
     except (JoseError, UnicodeError, ValueError) as exc:
         # ``from None``: a chained exception could print part of the token.
         raise ExternalTokenError(
@@ -77,7 +91,7 @@ def _unverified_parts(token: str) -> tuple[dict[str, Any], dict[str, Any]] | Non
         ) from None
     if not isinstance(payload, dict):
         raise ExternalTokenError(Reason.MALFORMED_TOKEN, "the JWT payload is not an object")
-    return dict(compact.headers()), payload
+    return header, payload
 
 
 def _check_header(header: dict[str, Any]) -> None:
