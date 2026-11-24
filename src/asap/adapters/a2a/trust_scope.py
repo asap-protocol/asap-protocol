@@ -8,7 +8,10 @@ the scope of a signer that verified. The scope is required: an entry without
 ``agents`` is refused, and "any agent" exists only as the explicit opt-in
 :data:`ANY_AGENT`.
 
-In a config file::
+In code, write ``agents`` as a tuple (``("urn:asap:agent:bank-a",)``): a
+list works at run time, but mypy with the pydantic plugin flags it. In a
+config document read with :meth:`A2ATrustConfig.model_validate`, it is a
+list::
 
     pinned_keys:
       bank-a-card-1:
@@ -73,7 +76,7 @@ class PinnedCardKey(ASAPBaseModel):
     """One pinned card key: its public JWK and the agents it may sign for.
 
     Example:
-        >>> PinnedCardKey(jwk=public_jwk, agents=["urn:asap:agent:bank-a"])  # doctest: +SKIP
+        >>> PinnedCardKey(jwk=public_jwk, agents=("urn:asap:agent:bank-a",))  # doctest: +SKIP
     """
 
     # A validation error must not echo the JWK: a mistaken one may hold private members.
@@ -92,7 +95,7 @@ class AllowedJku(ASAPBaseModel):
     """One allowed ``jku``: the agents that the keys of its JWKS may sign for.
 
     Example:
-        >>> AllowedJku(agents=["urn:asap:agent:bank-b"]).agents
+        >>> AllowedJku(agents=("urn:asap:agent:bank-b",)).agents
         ('urn:asap:agent:bank-b',)
     """
 

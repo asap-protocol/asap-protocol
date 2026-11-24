@@ -15,7 +15,7 @@ as it is.
 Example:
     >>> ingestor = AgentCardIngestor(A2ATrustConfig(pinned_keys={
     ...     "research-card-1": PinnedCardKey(jwk=research_public_jwk,
-    ...                                      agents=["urn:asap:agent:research"])}))  # doctest: +SKIP
+    ...                                      agents=("urn:asap:agent:research",))}))  # doctest: +SKIP
     >>> result = await ingestor.ingest("https://agent.example.com/.well-known/agent-card.json")
     >>> result.manifest.id, result.verified  # doctest: +SKIP
     ('urn:asap:agent:research', True)

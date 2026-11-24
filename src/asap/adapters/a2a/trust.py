@@ -12,8 +12,8 @@ Every pinned key and every allowed ``jku`` names the agents it may sign for
 (:mod:`asap.adapters.a2a.trust_scope`); there is no implicit "any agent".
 
 Example:
-    >>> config = A2ATrustConfig(pinned_keys={"agent-key-1": {
-    ...     "jwk": agent_public_jwk, "agents": ["urn:asap:agent:research"]}})  # doctest: +SKIP
+    >>> config = A2ATrustConfig(pinned_keys={"agent-key-1": PinnedCardKey(
+    ...     jwk=agent_public_jwk, agents=("urn:asap:agent:research",))})  # doctest: +SKIP
     >>> resolver = A2AKeyResolver(config)  # doctest: +SKIP
     >>> await verify_agent_card(card, resolver, algorithms=config.algorithms,
     ...                         policy=config.policy)  # doctest: +SKIP
