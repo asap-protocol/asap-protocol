@@ -16,10 +16,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, StrictBool
+from pydantic import BaseModel, ConfigDict, StrictBool, ValidationError
 
 from asap.adapters.a2a._base import NonEmptyStr
-from asap.adapters.a2a.models import AgentExtension
+from asap.adapters.a2a.errors import A2AMappingError
+from asap.adapters.a2a.models import AgentCard, AgentExtension
 
 ASAP_EXTENSION_URI = "https://asap-protocol.com/a2a/extensions/manifest/v1"
 """URI of the ASAP extension (the project controls the domain)."""
@@ -63,3 +64,27 @@ def build_asap_extension(params: AsapExtensionParams) -> AgentExtension:
         description=_ASAP_EXTENSION_DESCRIPTION,
         params=params.model_dump(mode="json", exclude_none=True),
     )
+
+
+def read_asap_extension(card: AgentCard) -> AsapExtensionParams | None:
+    """Return the params of the card's ASAP extension, or ``None`` if it has none.
+
+    Raises:
+        A2AMappingError: The card lists the extension more than once, or its
+            params are not valid.
+    """
+    entries = [ext for ext in card.capabilities.extensions or [] if ext.uri == ASAP_EXTENSION_URI]
+    if not entries:
+        return None
+    source = f"Agent Card {card.name!r}"
+    if len(entries) > 1:
+        raise A2AMappingError(
+            f"{source} lists the ASAP extension {ASAP_EXTENSION_URI} {len(entries)} times; "
+            "expected at most once",
+            fields=["capabilities.extensions"],
+        )
+    try:
+        return AsapExtensionParams.model_validate(entries[0].params or {})
+    except ValidationError as exc:
+        target = f"set of params for {ASAP_EXTENSION_URI}"
+        raise A2AMappingError.from_validation_error(source, target, exc) from exc

@@ -93,11 +93,13 @@ def manifest_to_agent_card(manifest: Manifest, inputs: AgentCardInputs) -> CardM
     try:
         extension = _asap_extension_for(manifest)
     except ValidationError as exc:
-        raise _invalid_target_error(source, "set of ASAP extension params", exc) from exc
+        raise A2AMappingError.from_validation_error(
+            source, "set of ASAP extension params", exc
+        ) from exc
     try:
         card = AgentCard.model_validate(_card_fields(manifest, inputs, skills, extension))
     except ValidationError as exc:
-        raise _invalid_target_error(source, "A2A v1.0 Agent Card", exc) from exc
+        raise A2AMappingError.from_validation_error(source, "A2A v1.0 Agent Card", exc) from exc
     return CardMapping(card=card, dropped=_dropped_manifest_fields(manifest))
 
 
@@ -195,13 +197,3 @@ def _require_unique_skill_ids(skill_ids: list[str], source: str) -> None:
             "are keyed by skill id, so each id must be unique",
             fields=["skills"],
         )
-
-
-def _invalid_target_error(source: str, target: str, exc: ValidationError) -> A2AMappingError:
-    """Describe which target fields failed, without echoing input values."""
-    problems = exc.errors(include_input=False, include_url=False)
-    fields = [".".join(str(part) for part in problem["loc"]) for problem in problems]
-    details = "; ".join(f"{field}: {p['msg']}" for field, p in zip(fields, problems, strict=True))
-    return A2AMappingError(
-        f"{source} cannot map to a valid {target}: {details}", fields=fields or [target]
-    )

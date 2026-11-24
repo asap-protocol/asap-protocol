@@ -17,7 +17,12 @@ from asap.adapters.a2a.errors import (
     A2AMappingInputError,
     A2AUnsupportedVersionError,
 )
-from asap.adapters.a2a.extension import ASAP_EXTENSION_URI, AsapExtensionParams, SkillSchemas
+from asap.adapters.a2a.extension import (
+    ASAP_EXTENSION_URI,
+    AsapExtensionParams,
+    SkillSchemas,
+    read_asap_extension,
+)
 from asap.adapters.a2a.mapping import AgentCardInputs, CardMapping, manifest_to_agent_card
 from asap.adapters.a2a.models import (
     AgentCapabilities,
@@ -80,4 +85,5 @@ __all__ = [
     "StringList",
     "UNMAPPED_MANIFEST_FIELDS",
     "manifest_to_agent_card",
+    "read_asap_extension",
 ]

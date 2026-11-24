@@ -7,8 +7,15 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from asap.adapters.a2a import ASAP_EXTENSION_URI, AsapExtensionParams
+from asap.adapters.a2a import (
+    ASAP_EXTENSION_URI,
+    A2AMappingError,
+    AgentCard,
+    AsapExtensionParams,
+    read_asap_extension,
+)
 from asap.adapters.a2a.extension import build_asap_extension
+from tests.adapters.a2a.helpers import load_card_fixture
 
 _REQUIRED_PARAMS: dict[str, Any] = {
     "agent_urn": "urn:asap:agent:research",
@@ -69,3 +76,42 @@ def test_state_persistence_defaults_to_false_and_rejects_non_booleans() -> None:
     assert AsapExtensionParams.model_validate(without).state_persistence is False
     with pytest.raises(ValidationError):
         AsapExtensionParams.model_validate({**_REQUIRED_PARAMS, "state_persistence": "yes"})
+
+
+def _card_with_extensions(extensions: list[dict[str, Any]]) -> AgentCard:
+    data = load_card_fixture("minimal_card.json")
+    return AgentCard.model_validate({**data, "capabilities": {"extensions": extensions}})
+
+
+def test_read_returns_the_params_of_the_asap_extension() -> None:
+    other = {"uri": "https://example.com/a2a/extensions/trace/v1"}
+    asap = {"uri": ASAP_EXTENSION_URI, "params": _REQUIRED_PARAMS}
+
+    params = read_asap_extension(_card_with_extensions([other, asap]))
+
+    assert params == AsapExtensionParams.model_validate(_REQUIRED_PARAMS)
+    assert read_asap_extension(_card_with_extensions([other])) is None
+
+
+@pytest.mark.parametrize(
+    ("extensions", "fields"),
+    [
+        (
+            [{"uri": ASAP_EXTENSION_URI, "params": {"agent_urn": "urn:asap:agent:research"}}],
+            ("asap_endpoint", "asap_version"),
+        ),
+        (
+            [{"uri": ASAP_EXTENSION_URI, "params": _REQUIRED_PARAMS}] * 2,
+            ("capabilities.extensions",),
+        ),
+    ],
+    ids=["params-missing-values", "listed-twice"],
+)
+def test_read_raises_a_typed_error_for_a_broken_asap_extension(
+    extensions: list[dict[str, Any]], fields: tuple[str, ...]
+) -> None:
+    with pytest.raises(A2AMappingError, match=ASAP_EXTENSION_URI) as excinfo:
+        read_asap_extension(_card_with_extensions(extensions))
+
+    assert excinfo.value.fields == fields
+    assert excinfo.value.code == "asap:adapters/a2a/mapping"

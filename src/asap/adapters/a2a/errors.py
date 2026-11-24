@@ -7,8 +7,12 @@ JSON-RPC code of :class:`asap.errors.ASAPError`; no new code is reserved.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from asap.errors import FatalError
+
+if TYPE_CHECKING:
+    from pydantic import ValidationError
 
 A2A_SUPPORTED_VERSION = "1.0"
 """The only A2A version whose Agent Card the adapter reads (pinned proto tag ``v1.0.1``)."""
@@ -59,3 +63,13 @@ class A2AMappingError(A2AAdapterError):
     def __init__(self, message: str, *, fields: Sequence[str]) -> None:
         super().__init__("asap:adapters/a2a/mapping", message, {"fields": list(fields)})
         self.fields = tuple(fields)
+
+    @classmethod
+    def from_validation_error(
+        cls, source: str, target: str, exc: ValidationError
+    ) -> A2AMappingError:
+        """Name each target field that failed validation, without echoing input values."""
+        problems = exc.errors(include_input=False, include_url=False)
+        fields = [".".join(str(part) for part in problem["loc"]) for problem in problems]
+        details = "; ".join(f"{f}: {p['msg']}" for f, p in zip(fields, problems, strict=True))
+        return cls(f"{source} cannot map to a valid {target}: {details}", fields=fields or [target])
