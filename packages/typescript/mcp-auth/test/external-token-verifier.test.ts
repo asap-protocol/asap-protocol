@@ -1,10 +1,13 @@
 import { OAuthError } from "@modelcontextprotocol/server";
+import * as jose from "jose";
 import type { JWTPayload } from "jose";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { createExternalTokenVerifier, type ExternalIssuerConfig } from "../src/index.js";
 import { hmacToken, LocalTestIssuer, unsignedToken } from "./local-issuer.js";
 import { MCP_ENDPOINT } from "./mcp-requests.js";
+
+vi.mock("jose", { spy: true });
 
 const ISSUER = "https://issuer.example";
 const OTHER_ISSUER = "https://other-issuer.example";
@@ -103,6 +106,23 @@ describe("createExternalTokenVerifier: clock, client id, and server-side failure
 describe("createExternalTokenVerifier: refused tokens get 401 asap:invalid_token with a fixed reason", () => {
   const now = () => Math.floor(Date.now() / 1000);
   const SIGNATURE = "issuer or signature not accepted";
+
+  it.each<[string, JWTPayload]>([
+    ["a non-finite exp", { exp: Infinity }],
+    ["a non-finite nbf", { nbf: -Infinity }],
+  ])("refuses %s returned by signature verification", async (_case, claims) => {
+    const token = await issuer.mint(issuer.claims(MCP_ENDPOINT));
+    vi.mocked(jose.jwtVerify).mockResolvedValueOnce({
+      payload: issuer.claims(MCP_ENDPOINT, claims),
+      protectedHeader: { alg: issuer.alg },
+      key: await jose.importJWK(issuer.jwks.keys[0]!, issuer.alg),
+    });
+
+    await expect(verifier().verifyAccessToken(token).then(() => undefined)).rejects.toMatchObject({
+      code: "invalid_token",
+      message: "asap:invalid_token: missing or invalid claim",
+    });
+  });
 
   it.each<[string, () => Promise<string>, string]>([
     ["a string that is not a JWT", async () => "not-a-jwt", "malformed token"],
