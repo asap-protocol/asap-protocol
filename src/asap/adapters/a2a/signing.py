@@ -10,7 +10,7 @@ verifies (it rejects the RFC 9864 name ``Ed25519``); a P-256 key signs as
 from __future__ import annotations
 
 import warnings
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Literal
 
@@ -21,15 +21,13 @@ from joserfc.errors import SecurityWarning
 from joserfc.jwk import ECKey, OKPKey
 
 from asap.adapters.a2a.canonical import canonical_card_form
-from asap.adapters.a2a.errors import A2ACardNotSignableError
+from asap.adapters.a2a.errors import A2ACardNotSignableError, describe_paths
 from asap.adapters.a2a.models import AgentCard, AgentCardSignature
 
 CardSigningAlgorithm = Literal["EdDSA", "ES256"]
 CardSigningKey = Ed25519PrivateKey | EllipticCurvePrivateKey
 
 _KEY_FOR_ALGORITHM = {"EdDSA": "an Ed25519 private key", "ES256": "a P-256 private key"}
-_MAX_REPORTED_PATHS = 10
-_MAX_REPORTED_PATH_LENGTH = 120
 
 
 def sign_agent_card(
@@ -58,7 +56,7 @@ def sign_agent_card(
     if form.uncovered:
         raise A2ACardNotSignableError(
             f"Agent Card {card.name!r} holds values that its canonical form drops or rounds, "
-            f"so no signature would cover them: {_describe_paths(form.uncovered)}. Remove "
+            f"so no signature would cover them: {describe_paths(form.uncovered)}. Remove "
             "each empty value (or give it content) and keep integers within ±(2^53 - 1)",
             paths=form.uncovered,
         )
@@ -97,9 +95,3 @@ def _without_eddsa_name_warning() -> Iterator[None]:
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", message="EdDSA is deprecated", category=SecurityWarning)
         yield
-
-
-def _describe_paths(paths: Sequence[str]) -> str:
-    shown = [path[:_MAX_REPORTED_PATH_LENGTH] for path in paths[:_MAX_REPORTED_PATHS]]
-    more = len(paths) - len(shown)
-    return ", ".join(shown) + (f", and {more} more" if more else "")

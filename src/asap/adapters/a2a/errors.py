@@ -14,6 +14,9 @@ from asap.errors import FatalError
 if TYPE_CHECKING:
     from pydantic import ValidationError
 
+_MAX_LISTED_PATHS = 10
+_MAX_LISTED_PATH_LENGTH = 120
+
 A2A_SUPPORTED_VERSION = "1.0"
 """The only A2A version whose Agent Card the adapter reads (pinned proto tag ``v1.0.1``)."""
 
@@ -153,6 +156,31 @@ class A2ACardFetchError(A2AAdapterError):
         )
         self.url = url
         self.refusal = refusal
+
+
+class A2AUncoveredExtensionError(A2ACardVerificationError):
+    """A signed card's ASAP extension params hold values that no signature covers.
+
+    The params become manifest data, so the card is refused instead of mapped:
+    the signed projection of a stripped ``enum: []`` would be a looser schema.
+    ``paths`` lists the values. ASAP's own signer never emits such a card.
+    """
+
+    def __init__(self, card_name: str, paths: Sequence[str]) -> None:
+        super().__init__(
+            "asap:adapters/a2a/uncovered_extension",
+            f"Agent Card {card_name!r} has ASAP extension params that no signature covers: "
+            f"{describe_paths(paths)}",
+            {"paths": list(paths)},
+        )
+        self.paths = tuple(paths)
+
+
+def describe_paths(paths: Sequence[str]) -> str:
+    """List card paths for an error message, bounded in count and length."""
+    shown = [path[:_MAX_LISTED_PATH_LENGTH] for path in paths[:_MAX_LISTED_PATHS]]
+    more = len(paths) - len(shown)
+    return ", ".join(shown) + (f", and {more} more" if more else "")
 
 
 class A2AMappingInputError(A2AAdapterError):

@@ -15,6 +15,7 @@ from cryptography.hazmat.primitives.asymmetric import ed25519
 from joserfc.jwk import OKPKey
 
 from asap.adapters.a2a import (
+    A2ACanonicalFormError,
     A2ACardFetchError,
     A2ACardVerificationError,
     A2AInvalidSignatureError,
@@ -22,14 +23,17 @@ from asap.adapters.a2a import (
     A2AMappingInputError,
     A2ANoTrustedSignatureError,
     A2ATrustConfig,
+    A2AUncoveredExtensionError,
     A2AUnsignedCardError,
     A2AUnsupportedVersionError,
+    AgentCard,
     AgentCardIngestor,
     manifest_to_agent_card,
     sign_agent_card,
 )
 from asap.models.entities import Endpoint
 from tests.adapters.a2a.helpers import load_card_fixture, research_card_inputs, research_manifest
+from tests.adapters.a2a.signing_helpers import sign_with_joserfc
 
 _CARD_URL = "https://agent.example.com/.well-known/agent-card.json"
 _KEY = ed25519.Ed25519PrivateKey.generate()
@@ -196,4 +200,73 @@ async def test_a_card_that_fails_to_map_is_not_cached() -> None:
     )
 
     assert result.manifest.id == "urn:asap:agent:research"
+    assert server.requests == 2
+
+
+_SCHEMA_PATH = "capabilities.extensions[0].params.skill_schemas.web_research.input_schema"
+
+
+def _enum_added_after_signing() -> dict[str, Any]:
+    card_json = _signed_card_json()
+    params = card_json["capabilities"]["extensions"][0]["params"]
+    params["skill_schemas"]["web_research"]["input_schema"]["properties"]["query"]["enum"] = []
+    return card_json
+
+
+def _inexact_number_signed_without_the_coverage_check() -> dict[str, Any]:
+    card_json = _signed_card_json(signatures=None)
+    card_json["capabilities"]["extensions"][0]["params"]["skill_schemas"]["web_research"][
+        "input_schema"
+    ]["maximum"] = 2**53 + 1
+    jose_key = OKPKey.import_key(_KEY)
+    signed = sign_with_joserfc(AgentCard.model_validate(card_json), jose_key, alg="EdDSA", kid="k1")
+    return signed.model_dump(mode="json")
+
+
+@pytest.mark.parametrize(
+    ("document", "path"),
+    [
+        (_enum_added_after_signing(), f"{_SCHEMA_PATH}.properties.query.enum"),
+        (_inexact_number_signed_without_the_coverage_check(), f"{_SCHEMA_PATH}.maximum"),
+    ],
+    ids=["empty enum added after signing", "integer beyond 2^53"],
+)
+async def test_a_signed_card_with_uncovered_asap_params_is_refused_and_not_cached(
+    document: dict[str, Any], path: str
+) -> None:
+    server = _CardServer(document)
+    ingestor = _ingestor(server)
+
+    for _ in range(2):
+        with pytest.raises(A2AUncoveredExtensionError) as raised:
+            await ingestor.ingest(_CARD_URL)
+
+    assert raised.value.paths == (path,)
+    assert raised.value.code == "asap:adapters/a2a/uncovered_extension"
+    assert server.requests == 2
+
+
+async def test_uncovered_values_outside_the_asap_params_are_reported_and_never_mapped() -> None:
+    card_json = _signed_card_json()
+    card_json["securitySchemes"] = {"mtls": {"mtlsSecurityScheme": {}}}
+
+    result = await _ingestor(_CardServer(card_json)).ingest(_CARD_URL)
+
+    assert (result.verified, result.uncovered) == (True, ("securitySchemes",))
+    assert result.manifest == research_manifest()
+
+
+async def test_an_unsigned_card_with_no_canonical_form_fails_typed_and_is_not_cached() -> None:
+    deep: dict[str, Any] = {"leaf": 1}
+    for _ in range(300):
+        deep = {"next": deep}
+    card_json = _signed_card_json(signatures=None)
+    card_json["capabilities"]["extensions"].append({"uri": "urn:example:deep", "params": deep})
+    server = _CardServer(card_json)
+    ingestor = _ingestor(server, A2ATrustConfig(policy="allow_unsigned"))
+
+    for _ in range(2):
+        with pytest.raises(A2ACanonicalFormError):
+            await ingestor.ingest(_CARD_URL)
+
     assert server.requests == 2

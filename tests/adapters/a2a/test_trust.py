@@ -107,6 +107,15 @@ async def test_a_kid_missing_from_a_fetched_jwks_is_not_trusted() -> None:
     assert await _resolver(_JwksServer(_jwks("k1")))("k9", _JKU) is None
 
 
+async def test_a_key_without_a_kid_in_a_fetched_jwks_is_ignored() -> None:
+    jwks = _jwks("k1")
+    jwks["keys"].insert(0, {key: value for key, value in jwks["keys"][0].items() if key != "kid"})
+
+    key = await _resolver(_JwksServer(jwks))("k1", _JKU)
+
+    assert key is not None and key.kid == "k1"
+
+
 async def test_a_card_whose_jku_is_off_the_allowlist_fails_with_no_request() -> None:
     card = manifest_to_agent_card(research_manifest(), research_card_inputs()).card
     signed = sign_agent_card(card, _SIGNING_KEY, kid="k1", jku="https://attacker.example.net/jwks")
