@@ -12,6 +12,9 @@ export {
 } from "./identity.js";
 export type { AgentContext, AgentMode, HostContext } from "./identity.js";
 
+export { InMemoryJtiReplayCache } from "./jti-replay-cache.js";
+export type { InMemoryJtiReplayCacheOptions, JtiReplayCache } from "./jti-replay-cache.js";
+
 export {
   DEFAULT_REGISTRY_URL,
   WELLKNOWN_MANIFEST_PATH,

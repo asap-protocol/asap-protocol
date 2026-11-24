@@ -1,0 +1,11 @@
+{
+  "description": "An Agent JWT minted by Python asap.auth.agent_jwt.create_agent_jwt from test-only keys derived from fixed labels, a fixed clock, and a fixed jti. tests/auth/test_agent_jwt_interop_vector.py proves Python mints and accepts it; @asap-protocol/client verifyAgentJwt must accept it at the same clock. The token expired long ago; it is not a credential.",
+  "now": 1700000000,
+  "audience": "https://mcp.example.com/mcp",
+  "agent_id": "agent-interop-vector",
+  "host_thumbprint": "2oRo0L9yqHyEG-7NpiuqKgp5iMJpkd6hal7hvvVHXCM",
+  "jti": "jwt_interop-vector",
+  "capabilities": ["web_search"],
+  "agent_public_jwk": { "kty": "OKP", "crv": "Ed25519", "x": "9Rd6glSMCwyEkNOwkK5msWw4Ltxb8-mVuq3QvgkHdXU" },
+  "token": "eyJ0eXAiOiJhZ2VudCtqd3QiLCJhbGciOiJFZERTQSJ9.eyJpc3MiOiIyb1JvMEw5eXFIeUVHLTdOcGl1cUtncDVpTUpwa2Q2aGFsN2h2dlZIWENNIiwic3ViIjoiYWdlbnQtaW50ZXJvcC12ZWN0b3IiLCJhdWQiOiJodHRwczovL21jcC5leGFtcGxlLmNvbS9tY3AiLCJpYXQiOjE3MDAwMDAwMDAsImV4cCI6MTcwMDAwMDA2MCwianRpIjoiand0X2ludGVyb3AtdmVjdG9yIiwiY2FwYWJpbGl0aWVzIjpbIndlYl9zZWFyY2giXX0.O1EFqyZ0o1vAmoSGL5re45xIVI-x9-7CCos5nOsPHqFaoDfLuxPl0z1DVgFmo1ChKj-9QbA0imNyXaHYCWAZAg"
+}
