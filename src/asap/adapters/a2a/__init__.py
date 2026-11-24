@@ -66,6 +66,7 @@ from asap.adapters.a2a.security import (
     SecurityScheme,
     StringList,
 )
+from asap.adapters.a2a.signature_header import MAX_CARD_SIGNATURES
 from asap.adapters.a2a.signing import (
     CardSigningAlgorithm,
     CardSigningKey,
@@ -109,6 +110,7 @@ __all__ = [
     "ImplicitOAuthFlow",
     "InvalidSignatureReason",
     "MAX_CARD_NESTING_DEPTH",
+    "MAX_CARD_SIGNATURES",
     "ManifestMapping",
     "MutualTlsSecurityScheme",
     "OAuth2SecurityScheme",

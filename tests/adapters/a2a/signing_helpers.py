@@ -2,11 +2,13 @@
 
 ``sign_with_joserfc`` makes the signatures that ``sign_agent_card`` refuses to
 make (the name ``Ed25519``, ``RS256``, or an unfit key), so tests can check what
-a verifier does with them.
+a verifier does with them. ``forged_signature`` makes an entry with any header.
 """
 
 from __future__ import annotations
 
+import base64
+import json
 import warnings
 
 from cryptography.hazmat.primitives.asymmetric.types import PrivateKeyTypes
@@ -34,3 +36,10 @@ def sign_with_joserfc(card: AgentCard, key: Key, *, alg: str, kid: str) -> Agent
     header, _, signature = jws.detach_content(compact).split(".")
     added = AgentCardSignature(protected=header, signature=signature)
     return card.model_copy(update={"signatures": [*(card.signatures or []), added]})
+
+
+def forged_signature(header: object, *, signature: str = "c2lnbmF0dXJl") -> AgentCardSignature:
+    """A signature entry with *header* as its protected header (a ``str`` is raw JSON text)."""
+    text = header if isinstance(header, str) else json.dumps(header)
+    protected = base64.urlsafe_b64encode(text.encode()).rstrip(b"=").decode()
+    return AgentCardSignature(protected=protected, signature=signature)
