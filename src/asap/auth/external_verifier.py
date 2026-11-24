@@ -19,9 +19,9 @@ must be a three-segment JWS; any other such shape, a JWE included, is
 no issuer, so it goes to the introspection issuer with this server's client
 credentials whoever minted it. ``TokenIntrospector`` posts through the guarded
 POST and reuses an answer for at most the issuer's
-``introspection.cache_ttl_seconds`` (default 60 s; ``0`` asks every time), so a
-revoked token stops working within that time. Its answer then gets the same
-claim checks as a verified JWT, plus ``active`` and, when present, ``iss``.
+``introspection.cache_ttl_seconds`` after receipt (default 60 s).
+A value of zero sends a request on every call. The verifier applies the same
+claim checks as for a verified JWT. It also checks ``active`` and, when present, ``iss``.
 
 Errors carry a typed reason and never the token or its signature.
 """

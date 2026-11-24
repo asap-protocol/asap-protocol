@@ -86,9 +86,9 @@ ExternalKeySource = Annotated[
 class IntrospectionEndpoint(ASAPBaseModel):
     """RFC 7662 endpoint for opaque tokens, with this server's client credentials.
 
-    ``cache_ttl_seconds`` bounds how long an answer is reused, so a token
-    revoked at the issuer stops working within that time; ``0`` asks on every
-    request. An active answer is never reused past 30 s before its ``exp``.
+    ``cache_ttl_seconds`` limits how long the server reuses an answer after
+    it receives the answer. A value of zero sends a request on every call.
+    The cache stops reusing an active answer 30 s before its ``exp``.
     """
 
     url: str

@@ -7,11 +7,13 @@ the token's remaining lifetime.
 
 from __future__ import annotations
 
+import asyncio
 import time
 from collections import OrderedDict
 from collections.abc import Mapping
 from threading import Lock
 from typing import Any, Optional, Protocol
+from weakref import WeakValueDictionary
 
 import httpx
 from pydantic import Field
@@ -131,10 +133,10 @@ class TokenIntrospector:
         self._transport = transport
         # External-token issuers pass the guarded POST (v2.6.0); None keeps httpx.
         self._poster = poster
-        # External-token issuers cap how long a revoked token keeps working (v2.6.0);
-        # None keeps the lifetime-derived TTL, 0 turns the cache off.
+        # None keeps the lifetime-based TTL. Zero disables the cache.
         self._max_cache_ttl = max_cache_ttl_seconds
         self._cache: OrderedDict[str, _CacheEntry] = OrderedDict()
+        self._refresh_locks: WeakValueDictionary[str, asyncio.Lock] = WeakValueDictionary()
         self._lock = Lock()
         self._max_size = max_cache_size
 
@@ -143,7 +145,8 @@ class TokenIntrospector:
 
         Returns cached result when valid. For active tokens, TTL is derived
         from exp. For inactive tokens, a short TTL is used to reduce load.
-        ``max_cache_ttl_seconds``, when set, caps both.
+        A positive ``max_cache_ttl_seconds`` caps both and serializes refreshes
+        for each token. A value of zero sends a request on every call.
 
         Args:
             token: The opaque access token to introspect.
@@ -152,6 +155,17 @@ class TokenIntrospector:
             TokenInfo if the token is active, None if inactive or invalid.
             Raises httpx.HTTPError on network or protocol errors.
         """
+        if self._max_cache_ttl is None or self._max_cache_ttl == 0:
+            return await self._read_or_refresh(token)
+
+        # Keep only locks that a caller currently holds or waits for.
+        with self._lock:
+            refresh_lock = self._refresh_locks.setdefault(token, asyncio.Lock())
+        async with refresh_lock:
+            return await self._read_or_refresh(token)
+
+    async def _read_or_refresh(self, token: str) -> TokenInfo | None:
+        """Use a current cache entry or get an answer from the issuer."""
         with self._lock:
             entry = self._cache.get(token)
             if entry is not None and not entry.is_expired():
