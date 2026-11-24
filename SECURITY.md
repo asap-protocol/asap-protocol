@@ -151,9 +151,11 @@ If a PostCSS or sharp override breaks `next build`, stop and report — do not s
 
 **Prettier**: CI runs `npm run format:check` only on changed TS/TSX under `apps/web/` (`fetch-depth: 0`). The pathspec is `apps/web/*.ts`, `apps/web/*.tsx`, `apps/web/**/*.ts`, and `apps/web/**/*.tsx`. `**` does not match a file that sits directly in `apps/web/`, so the single-star patterns cover `next.config.ts`, `playwright.config.ts`, `vitest.config.ts`, and `vitest.setup.ts`. `quality (web)` checks out the same ref as `changes` (the pull-request head SHA, or `github.sha` on a push), so the working tree and the file list are one commit. The diff is two-dot (`base_sha..HEAD`). On a pull request `base_sha` is `merge-base(base.sha, HEAD)`, not the pull-request base SHA; those two differ when the branch is behind the base. On a push `base_sha` is `github.event.before`. A missing or all-zero `before` uses `HEAD^` inside `changes`. A push to the default branch must not use `merge-base(HEAD, origin/main)`, because that merge-base is `HEAD` and the diff is empty. If `changes` does not write `base_sha`, the Prettier step fails. Full-tree Prettier is intentionally not gated (historical drift). Pass paths locally: `npm run format:check -- <files>`.
 
-CI runs `pip-audit` after a sync that **excludes** the optional extras `crewai` and `llamaindex`, because those graphs currently pull transitive packages (`diskcache`, `nltk`) that OSV still lists with no fixed release on PyPI. To match the security job locally:
+CI audits the locked environment with all Python extras installed. The CrewAI extra uses Instructor without DiskCache. CrewAI installs ChromaDB only when you request its separate ChromaDB extra.
 
-`uv sync --frozen --all-extras --dev --no-extra crewai --no-extra llamaindex` then `uv run pip-audit --ignore-vuln CVE-2026-4539 --ignore-vuln CVE-2026-4963 --ignore-vuln CVE-2026-2654 --ignore-vuln PYSEC-2024-271 --ignore-vuln PYSEC-2026-89 --ignore-vuln PYSEC-2025-183` (matches CI).
+The LlamaIndex extra sets minimum versions for Banks, NLTK, and TinyTag in the wheel metadata. To run the same audit locally, use these commands.
+
+`uv sync --frozen --all-extras --dev` then `uv run --no-sync pip-audit --ignore-vuln CVE-2026-4539 --ignore-vuln CVE-2026-4963 --ignore-vuln CVE-2026-2654 --ignore-vuln PYSEC-2024-271 --ignore-vuln PYSEC-2026-89 --ignore-vuln PYSEC-2025-183` (matches CI).
 
 Security floors live in `tool.uv.override-dependencies` (with per-CVE comments in `pyproject.toml`) so lock refreshes cannot regress them; recent additions: `mkdocs-material>=9.7.7` (PYSEC-2026-3864 / CVE-2026-73295), `pymdown-extensions>=11.0.1` (CVE-2026-61632), `pyasn1>=0.6.5` (CVE-2026-119194 / CVE-2026-119195 / CVE-2026-119196 / CVE-2026-119197), `aiohttp>=3.14.4,<4` (CVE-2026-111063–111066 / CVE-2026-111748–111750 / GHSA-2g87-pp6c-29x5), `certifi>=2026.10.19` (PYSEC-2026-4320), `pillow>=13.0.0` (Pillow 12.3.0 advisories fixed in 13.0.0), `mcp>=1.30.0,<2` (CVE-2026-59951), `opentelemetry-api>=1.45.2` (CVE-2026-126360 / CVE-2026-114603), `h2>=4.4.1` (PYSEC-2026-3628), and `brotli>=1.2.1` (PYSEC-2026-4322 / GHSA-9v8h-qqgm-4m35).
 
@@ -195,7 +197,7 @@ Security floors live in `tool.uv.override-dependencies` (with per-CVE comments i
 
 **CVE-2026-4963 / CVE-2026-2654 (smolagents, optional `[smolagents]` extra)**: OSV reports these against current PyPI releases with **no `fix_versions`/`fixed` range** yet. CI ignores them until Hugging Face publishes patched `smolagents` wheels; remove the flags when `pip-audit` is clean without them. The reference package does not import smolagents unless that extra is installed.
 
-**CVE-2026-45409 (idna)**: Resolved via `tool.uv.override-dependencies` (`idna>=3.15`) — DoS in `idna.encode()` on oversized inputs.
+**CVE-2026-45409 (idna)**. The constraint `idna>=3.15` fixes a denial of service in `idna.encode()` and lets HTTP clients require a newer version.
 
 **CVE-2026-46338 (pymdown-extensions)**: Resolved via override (`pymdown-extensions>=10.21.3`) and `[docs]` extra floor — snippets `restrict_base_path` prefix bypass in mkdocs stack.
 

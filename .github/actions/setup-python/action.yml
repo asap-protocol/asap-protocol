@@ -5,7 +5,7 @@ description: "Install uv with cache, Python 3.13, and sync dev dependencies"
 
 inputs:
   sync-flags:
-    description: "Extra arguments appended to `uv sync` (e.g. `--no-extra crewai --no-extra llamaindex` for pip-audit)."
+    description: "Additional arguments for `uv sync`."
     required: false
     default: ""
 
