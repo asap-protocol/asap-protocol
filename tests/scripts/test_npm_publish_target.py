@@ -165,3 +165,18 @@ def test_publish_typescript_reacts_to_npm_tags(tag: str) -> None:
 
 def test_the_python_release_tag_does_not_publish_npm() -> None:
     assert not _matches("v2.6.0", _push_tag_patterns("publish-typescript.yml"))
+
+
+def test_only_publish_typescript_publishes_to_npm() -> None:
+    """One workflow runs a real npm publish; the Trusted Publisher names that file.
+
+    The v2.3.* hotfix workflow (hotfix-release.yml) is retired: a package patch
+    ships from its own tag through publish-typescript.yml.
+    """
+    publishing = sorted(
+        path.name
+        for path in WORKFLOWS.glob("*.yml")
+        if "npm publish --access public --provenance" in path.read_text(encoding="utf-8")
+    )
+
+    assert publishing == ["publish-typescript.yml"]
