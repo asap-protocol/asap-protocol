@@ -36,6 +36,22 @@ The run starts the gateway in the same process and talks to it over `httpx.ASGIT
 3. ASAP's own ingest (`AgentCardIngestor`) fetches the same card, verifies it, and maps it back to the manifest. Its trust config pins the card key for the demo agent's URN only.
 4. The client calls the skill `greet` through `POST /a2a` with a token that has the scope `demo:greet`. The gateway verifies the token, selects the skill, checks the grant, and runs the skill.
 
+## Serve over HTTP
+
+Run this command from the repository root:
+
+```bash
+uv run python -m examples.a2a_gateway.serve --port 8788
+```
+
+The gateway then serves its card, its manifest, and `POST /a2a` at `http://127.0.0.1:8788`. That origin is in the card, in the token audience (`http://127.0.0.1:8788/a2a`), and in the interface URL.
+
+- **Loopback only.** `--host` takes a loopback IP address: `127.0.0.1` (the default), another `127.x.x.x` address, or `::1`. Any other value stops the command before it opens a port.
+- **Local requests only.** The gateway answers HTTP 403 when the `Host` header does not name a loopback address or `localhost`, or when an `Origin` header names another host. So a web page cannot reach the gateway through DNS rebinding. This is the stance of `examples/mcp_auth_http`.
+- **No tokens.** The command creates a new `LocalIssuer` and a new card key at each start. Nobody outside the process can get a token from that issuer, so the gateway refuses every skill call in this mode.
+
+The demo agent's URN is fixed: `urn:asap:agent:a2a-gateway-demo` (`DEMO_AGENT_URN` in `demo_agent.py`).
+
 ## Walk-through
 
 The steps below use the demo agent of `demo_agent.py`. Each request and answer is the one the tests send and check.
@@ -185,5 +201,6 @@ signers = [
 | `skill_call.py` | Skill selection from the message metadata, and the grant check |
 | `client.py` | The `a2a-sdk` client side: the pinned card verifier and `call_skill` |
 | `smoke.py` | The smoke run above |
+| `serve.py` | The HTTP server on a loopback address, with the `Host` and `Origin` checks |
 
 The tests are in `tests/examples/test_a2a_gateway*.py`.

@@ -1,21 +1,29 @@
 """Serve the demo gateway over HTTP on a loopback address.
 
+Run from the repository root::
+
+    uv run python -m examples.a2a_gateway.serve --port 8788
+
 The origin ``http://<host>:<port>`` is in the card, in the token audience
-(``<origin>/a2a``), and in the interface URL. The app answers only a request
-whose ``Host`` names a loopback address and whose ``Origin``, when present,
-names one too: the stance of ``examples/mcp_auth_http``, so a web page cannot
-reach the gateway through DNS rebinding. The token issuer (``LocalIssuer``) and
-the card key are new at each start, so nobody outside the process can get a
-token in this mode.
+(``<origin>/a2a``), and in the interface URL. The command binds a loopback IP
+address only, and exits before it binds on any other value. The app answers
+only a request whose ``Host`` names a loopback address and whose ``Origin``,
+when present, names one too: the stance of ``examples/mcp_auth_http``, so a web
+page cannot reach the gateway through DNS rebinding. The token issuer
+(``LocalIssuer``) and the card key are new at each start, so nobody outside the
+process can get a token in this mode.
 """
 
 from __future__ import annotations
 
+import argparse
 import ipaddress
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlsplit
 
+import uvicorn
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi import FastAPI
 from joserfc.jwk import OKPKey
@@ -36,10 +44,13 @@ from examples.a2a_gateway.demo_agent import (
 from examples.a2a_gateway.gateway import create_gateway_app
 from tests.auth.local_issuer import LocalIssuer
 
+DEFAULT_HOST = "127.0.0.1"
+DEFAULT_PORT = 8788
 CARD_KID = "gateway-card-1"
 DEMO_ISSUER = "https://issuer.example"
 # 1008 is "policy violation" (RFC 6455 §7.4.1).
 _WEBSOCKET_POLICY_VIOLATION = 1008
+ServerRunner = Callable[[FastAPI, str, int], None]
 
 
 @dataclass(frozen=True)
@@ -130,3 +141,52 @@ class LoopbackOnlyMiddleware:
             description = f"the {header} header must name a loopback address"
             body = {"error": "forbidden", "error_description": description}
             await JSONResponse(body, status_code=403)(scope, receive, send)
+
+
+def served_origin(host: str, port: int) -> str:
+    """The origin of a gateway served at *host* and *port*; an IPv6 literal gets brackets."""
+    return f"http://[{host}]:{port}" if ":" in host else f"http://{host}:{port}"
+
+
+def loopback_ip(value: str) -> str:
+    """Return *value* if it is a loopback IP literal, else raise ``ArgumentTypeError``."""
+    try:
+        is_loopback = ipaddress.ip_address(value).is_loopback
+    except ValueError:
+        is_loopback = False
+    if not is_loopback:
+        raise argparse.ArgumentTypeError(
+            f"{value!r} is not a loopback IP address; the demo gateway binds 127.0.0.0/8 or ::1 only"
+        )
+    return value
+
+
+def tcp_port(value: str) -> int:
+    """Return *value* as a port from 1 to 65535, else raise ``ArgumentTypeError``."""
+    port = int(value) if value.isdecimal() else 0
+    if not 1 <= port <= 65535:
+        raise argparse.ArgumentTypeError(f"{value!r} is not a port from 1 to 65535")
+    return port
+
+
+def run_uvicorn(app: FastAPI, host: str, port: int) -> None:
+    """Serve *app* with uvicorn until it is stopped."""
+    uvicorn.run(app, host=host, port=port)
+
+
+def main(argv: Sequence[str] | None = None, *, run_server: ServerRunner = run_uvicorn) -> None:
+    """Parse the command line, then serve the demo gateway; exit before binding on a bad value."""
+    parser = argparse.ArgumentParser(
+        prog="python -m examples.a2a_gateway.serve",
+        description="Serve the demo A2A gateway on a loopback address.",
+    )
+    parser.add_argument("--host", type=loopback_ip, default=DEFAULT_HOST, help="loopback IP")
+    parser.add_argument("--port", type=tcp_port, default=DEFAULT_PORT, help="TCP port")
+    args = parser.parse_args(argv)
+    served = build_served_gateway(served_origin(args.host, args.port))
+    print(f"A2A gateway: {served.origin} (A2A JSON-RPC at {A2A_PATH})", flush=True)
+    run_server(served.app, args.host, args.port)
+
+
+if __name__ == "__main__":
+    main()

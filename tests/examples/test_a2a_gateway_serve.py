@@ -1,6 +1,7 @@
 """The served gateway of ``examples/a2a_gateway/serve.py``.
 
-The served app is driven in process over ``httpx.ASGITransport``; no test opens a port.
+The served app is driven in process over ``httpx.ASGITransport``, and the command
+runs with a recording server runner, so no test opens a port.
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ from uuid import uuid4
 import httpx
 import pytest
 from fastapi import FastAPI
+from pytest import CaptureFixture
 
 from asap.adapters.a2a import (
     A2AKeyResolver,
@@ -134,3 +136,51 @@ class TestLoopbackOnly:
 
         assert response.status_code == 403
         assert "www-authenticate" not in response.headers
+
+
+class _RecordingRunner:
+    def __init__(self) -> None:
+        self.calls: list[tuple[FastAPI, str, int]] = []
+
+    def __call__(self, app: FastAPI, host: str, port: int) -> None:
+        self.calls.append((app, host, port))
+
+
+class TestServeCommand:
+    @pytest.mark.parametrize(
+        "host", ["0.0.0.0", "::", "192.168.1.10", "localhost", "gateway.example"]
+    )
+    def test_a_host_that_is_not_a_loopback_ip_stops_before_binding(self, host: str) -> None:
+        runner = _RecordingRunner()
+
+        with pytest.raises(SystemExit):
+            serve.main(["--host", host], run_server=runner)
+
+        assert runner.calls == []
+
+    @pytest.mark.parametrize("port", ["0", "65536", "http"])
+    def test_a_port_outside_1_to_65535_stops_before_binding(self, port: str) -> None:
+        runner = _RecordingRunner()
+
+        with pytest.raises(SystemExit):
+            serve.main(["--port", port], run_server=runner)
+
+        assert runner.calls == []
+
+    def test_the_default_serves_127_0_0_1_port_8788(self, capsys: CaptureFixture[str]) -> None:
+        runner = _RecordingRunner()
+
+        serve.main([], run_server=runner)
+
+        [(app, host, port)] = runner.calls
+        assert (host, port) == ("127.0.0.1", 8788)
+        assert isinstance(app, FastAPI)
+        assert "http://127.0.0.1:8788" in capsys.readouterr().out
+
+    def test_an_ipv6_loopback_origin_is_bracketed(self) -> None:
+        runner = _RecordingRunner()
+
+        serve.main(["--host", "::1", "--port", "9000"], run_server=runner)
+
+        assert serve.served_origin("::1", 9000) == "http://[::1]:9000"
+        assert [call[1:] for call in runner.calls] == [("::1", 9000)]
