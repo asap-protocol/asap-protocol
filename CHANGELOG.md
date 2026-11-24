@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Follow-up (planned)
+
+- **v2.6.0 Interop** — A2A v1.0 Agent Card ↔ ASAP manifest bridge, external agent tokens (including MCP OAuth 2.1) → ASAP agent sessions, and `@asap-protocol/mcp-auth` for HTTP MCP servers (deferred from v2.5.0 — see [2.5.0] TypeScript note and [typescript-mcp-auth-spike.md](engineering/tasks/v2.5.0/typescript-mcp-auth-spike.md)); removes the `asap.cli._compat` shim (#275).
+- **v2.7.0 Spec profile** — RFC 2119 profile of ASAP's identity, capability-grant, approval, and lifecycle surface ([prd-spec-profile.md](product/prd/prd-spec-profile.md)).
+- Collapse the dual `UsageMetrics`/`InMemoryMeteringStore` pair retained in S1 for API stability.
+- Reduce the `asap.transport.client` package aggregate LOC below the S2 target.
+
+---
+
+## [2.5.12] - 2026-11-24
+
+**Security & correctness patch** — authentication, authorization, and input
+validation fixes in the Python reference implementation, and the
+OpenTelemetry security floor. This is **not** v2.6.0 Interop. npm
+`@asap-protocol/*` packages remain at **2.4.1**. PyPI `asap-compliance`
+remains **1.3.0**.
+Tag [`v2.5.12`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.12)
+· PyPI `asap-protocol==2.5.12`.
+
 ### Security
 
 - **Capability constraints** — a `max` or `min` constraint now returns a violation when the argument or the bound is `NaN`, `Infinity`, or `-Infinity`. This applies to `CapabilityRegistry.check_grant`, `POST /asap/capability/execute`, and the MCP Auth Bridge.
@@ -31,12 +50,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Release policy** ([docs/maintainers/release-policy.md](docs/maintainers/release-policy.md)) and **integration support tiers** ([docs/integrations/support-tiers.md](docs/integrations/support-tiers.md)) published. Planned scope ships only in minor releases; patches are unplanned maintenance.
 - **Status docs deduplicated** — `AGENTS.md`, `README.md`, `docs/index.md`, `product/README.md`, `product/checkpoints.md`, and `engineering/tasks/README.md` now carry only the current version, the next train, and a link here. Release history lives in this file and GitHub Releases.
 
-### Follow-up (planned)
+### Migration
 
-- **v2.6.0 Interop** — A2A v1.0 Agent Card ↔ ASAP manifest bridge, external agent tokens (including MCP OAuth 2.1) → ASAP agent sessions, and `@asap-protocol/mcp-auth` for HTTP MCP servers (deferred from v2.5.0 — see [2.5.0] TypeScript note and [typescript-mcp-auth-spike.md](engineering/tasks/v2.5.0/typescript-mcp-auth-spike.md)); removes the `asap.cli._compat` shim (#275).
-- **v2.7.0 Spec profile** — RFC 2119 profile of ASAP's identity, capability-grant, approval, and lifecycle surface ([prd-spec-profile.md](product/prd/prd-spec-profile.md)).
-- Collapse the dual `UsageMetrics`/`InMemoryMeteringStore` pair retained in S1 for API stability.
-- Reduce the `asap.transport.client` package aggregate LOC below the S2 target.
+- **v2.5.11 → v2.5.12**: See [migration guide](docs/migration.md#upgrading-from-v2511-to-v2512).
+  No wire-protocol or manifest schema change. Some requests that 2.5.11 accepted are
+  now refused; the guide lists who is affected and what to do.
 
 ---
 

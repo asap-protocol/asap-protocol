@@ -7,7 +7,7 @@
 > **Created**: 2026-11-18
 > **Last Updated**: 2026-11-18
 >
-> **Current library**: `asap-protocol` **2.5.11** — release history lives in [`CHANGELOG.md`](../../CHANGELOG.md) and [GitHub Releases](https://github.com/asap-protocol/asap-protocol/releases)
+> **Current library**: `asap-protocol` **2.5.12** — release history lives in [`CHANGELOG.md`](../../CHANGELOG.md) and [GitHub Releases](https://github.com/asap-protocol/asap-protocol/releases)
 > **Replaces**: [prd-v2.5-roadmap.md](./prd-v2.5-roadmap.md) (v2.5.x train index, **closed** 2026-11-18). From now on this file is the only public train index. New trains do not get their own index file.
 
 ---
