@@ -52,6 +52,24 @@ The gateway then serves its card, its manifest, and `POST /a2a` at `http://127.0
 
 The demo agent's URN is fixed: `urn:asap:agent:a2a-gateway-demo` (`DEMO_AGENT_URN` in `demo_agent.py`).
 
+## Compliance mode (test only)
+
+> **Warning:** compliance mode hands out valid tokens to anyone who can reach the gateway. Use it only for a compliance run on a local machine or in CI. It is off by default, and only the command-line flag turns it on; no environment variable does.
+
+```bash
+uv run python -m examples.a2a_gateway.serve --port 8788 --compliance
+```
+
+In this mode, each `POST /compliance/probe-tokens` returns a fresh set as JSON:
+
+- `a2a_url`, `skill_id` (`greet`), `allowed_arguments` (`{"name": "Ada", "language": "en"}`), and `constraint_violation_arguments` (`"language": "fr"`, which the grant does not allow).
+- `external.valid`: a token with the scope `demo:greet`. `external.out_of_grant`: a token with the scope `demo:echo`, a grant for another skill. `external.wrong_audience`: a token with the scope `demo:greet` for the audience `<origin>/not-this-gateway`.
+- `card_key`: the `kid` and the public JWK of the card key made at this start.
+
+The shape is the one of `examples/mcp_auth_http`, so the `ComplianceEndpointTokenProvider` of `asap-compliance` reads it unchanged. Without the flag, the path does not exist (HTTP 404).
+
+The `a2a-bridge` compliance profile takes the card key and the agent URN from its own config, never from the gateway. In a demo run you copy `card_key` into that config. That step exists only because the demo makes a new key at each start. For a real gateway, pin the key that the agent's owner publishes.
+
 ## Walk-through
 
 The steps below use the demo agent of `demo_agent.py`. Each request and answer is the one the tests send and check.
@@ -202,5 +220,6 @@ signers = [
 | `client.py` | The `a2a-sdk` client side: the pinned card verifier and `call_skill` |
 | `smoke.py` | The smoke run above |
 | `serve.py` | The HTTP server on a loopback address, with the `Host` and `Origin` checks |
+| `compliance.py` | The test-only probe path of compliance mode |
 
 The tests are in `tests/examples/test_a2a_gateway*.py`.

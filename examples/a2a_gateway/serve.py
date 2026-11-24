@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import ipaddress
+import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
@@ -34,6 +35,7 @@ from starlette.websockets import WebSocketClose
 
 from asap.adapters.a2a import CardSigner
 from asap.auth.external_tokens import ExternalTokenConfig
+from examples.a2a_gateway.compliance import COMPLIANCE_PROBE_PATH, add_probe_token_route
 from examples.a2a_gateway.demo_agent import (
     A2A_PATH,
     DEMO_GRANT_RULES,
@@ -64,8 +66,12 @@ class ServedGateway:
     card_public_jwk: dict[str, Any]
 
 
-def build_served_gateway(origin: str) -> ServedGateway:
-    """Build the demo gateway for *origin*: a new issuer and card key, local requests only."""
+def build_served_gateway(origin: str, *, compliance: bool = False) -> ServedGateway:
+    """Build the demo gateway for *origin*: a new issuer and card key, local requests only.
+
+    *compliance* (test only) adds ``POST /compliance/probe-tokens``
+    (``examples/a2a_gateway/compliance.py``).
+    """
     issuer = LocalIssuer(DEMO_ISSUER)
     card_key = Ed25519PrivateKey.generate()
     audience = f"{origin}{A2A_PATH}"
@@ -81,6 +87,8 @@ def build_served_gateway(origin: str) -> ServedGateway:
     )
     app.add_middleware(LoopbackOnlyMiddleware)
     public_jwk = {**OKPKey.import_key(card_key.public_key()).as_dict(), "kid": CARD_KID}
+    if compliance:
+        add_probe_token_route(app, issuer, origin, {"kid": CARD_KID, "jwk": public_jwk})
     return ServedGateway(app, origin, issuer, CARD_KID, public_jwk)
 
 
@@ -182,9 +190,22 @@ def main(argv: Sequence[str] | None = None, *, run_server: ServerRunner = run_uv
     )
     parser.add_argument("--host", type=loopback_ip, default=DEFAULT_HOST, help="loopback IP")
     parser.add_argument("--port", type=tcp_port, default=DEFAULT_PORT, help="TCP port")
+    parser.add_argument(
+        "--compliance",
+        action="store_true",
+        help=f"test only: hand out valid tokens at POST {COMPLIANCE_PROBE_PATH}",
+    )
     args = parser.parse_args(argv)
-    served = build_served_gateway(served_origin(args.host, args.port))
+    origin = served_origin(args.host, args.port)
+    served = build_served_gateway(origin, compliance=args.compliance)
     print(f"A2A gateway: {served.origin} (A2A JSON-RPC at {A2A_PATH})", flush=True)
+    if args.compliance:
+        print(
+            f"COMPLIANCE MODE (test only): POST {origin}{COMPLIANCE_PROBE_PATH} returns valid "
+            "tokens. Never expose this server.",
+            file=sys.stderr,
+            flush=True,
+        )
     run_server(served.app, args.host, args.port)
 
 
