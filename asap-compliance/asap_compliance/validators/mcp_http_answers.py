@@ -44,18 +44,27 @@ def describe_answer(response: McpHttpResponse) -> str:
     return response.describe()
 
 
+def _completed_result(response: McpHttpResponse) -> dict[str, Any] | None:
+    result = response.tool_result
+    if response.status_code != 200 or result is None:
+        return None
+    if result.get("resultType") != "complete" or not isinstance(result.get("content"), list):
+        return None
+    return result
+
+
 def tool_success_problem(response: McpHttpResponse) -> str | None:
     """None for HTTP 200 and a tool result to this request that is not an error."""
-    result = response.tool_result
-    if response.status_code != 200 or result is None or result.get("isError") is True:
+    result = _completed_result(response)
+    if result is None or result.get("isError", False) is not False:
         return f"got {describe_answer(response)}"
     return None
 
 
 def tool_error_problem(response: McpHttpResponse, code: str) -> str | None:
     """None for HTTP 200 and a tool error result whose first text is ``code[: detail]``."""
-    result = response.tool_result
-    if response.status_code != 200 or result is None or result.get("isError") is not True:
+    result = _completed_result(response)
+    if result is None or result.get("isError") is not True:
         return f"got {describe_answer(response)}"
     if not has_code(first_text(result), code):
         return f"got {describe_answer(response)} as the first content item"

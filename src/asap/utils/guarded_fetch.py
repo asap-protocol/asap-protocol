@@ -34,6 +34,7 @@ import json
 import socket
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any, Literal
+from urllib.parse import quote_plus
 
 import httpx
 
@@ -321,17 +322,22 @@ async def guarded_post_form_json(
 ) -> dict[str, Any]:
     """POST ``form`` (``application/x-www-form-urlencoded``) through the guard; read a JSON object.
 
-    Same rules as :func:`guarded_fetch_json`. ``basic_auth`` is sent as HTTP
-    Basic client authentication (RFC 6749 §2.3.1). Errors name the URL and the
-    reason only, never the form or the credentials.
+    This function uses the same rules as :func:`guarded_fetch_json`.
+    Pass the client ID and secret in ``basic_auth``. The function form-encodes
+    each value before HTTP Basic authentication (RFC 6749 §2.3.1).
+    Errors contain only the URL and the reason.
 
     Example:
         >>> info = await guarded_post_form_json(url, {"token": token}, basic_auth=(cid, secret))
     """
+    encoded_auth = None
+    if basic_auth is not None:
+        client_id, client_secret = basic_auth
+        encoded_auth = (quote_plus(client_id), quote_plus(client_secret))
     return await _guarded_json_request(
         url,
         form=form,
-        basic_auth=basic_auth,
+        basic_auth=encoded_auth,
         allow_private_hosts=allow_private_hosts,
         max_bytes=max_bytes,
         timeout_seconds=timeout_seconds,

@@ -1,6 +1,8 @@
 import { AGENT_JWT_TYP, JtiReplayCacheFullError } from "@asap-protocol/client";
 import {
   bearerAuthChallengeResponse,
+  DEFAULT_MAX_REQUEST_BODY_SIZE,
+  isJsonContentType,
   isJSONRPCNotification,
   isLegacyRequest,
   OAuthError,
@@ -68,7 +70,7 @@ export interface McpAuthConfig {
    * callback registered under another tool's name, a protected tool
    * registered without `scopeChallenge` (seen when an access token lacks a
    * scope that a grant rule maps), or a tool in `toolCapabilities` whose call
-   * got a result although `protectTool` never wrapped it. The package itself
+   * got a result without using `protectTool` for that call. The package itself
    * never logs, and this hook never receives the token.
    */
   readonly onInternalError?: (error: unknown) => void;
@@ -101,6 +103,8 @@ export interface McpAuthMiddleware {
    * `isLegacyRequest` would route to 2025-era serving is refused too (401 with
    * no token, 403 with one), because that path skips the SDK's `Mcp-Name` check;
    * so is a JSON-RPC notification whose method `allowMethods` does not list.
+   * After the header checks, `protect` refuses a POST with an unsupported
+   * media type (415) or a body over 4 MiB (413) before it calls the handler.
    */
   protect(handler: McpFetchHandler): McpProtectedHandler;
   /**
@@ -177,20 +181,28 @@ interface BodyRoute {
   readonly notification?: string;
 }
 
+function bodyErrorResponse(status: number, message: string): Response {
+  return Response.json({ jsonrpc: "2.0", id: null, error: { code: -32000, message } }, { status });
+}
+
 /**
- * The body, read once with the SDK's own 4 MiB limit, as the SDK will route it.
- * The header rule holds only on the SDK's 2026-07-28 path;
- * `isLegacyRequest` runs the SDK's routing step. Under SDK 2.4.0 every request
- * that passes the header rule routes there already, so this guards against a
- * later SDK 2.x that routes differently. A body that cannot be read or parsed
- * counts as legacy; a body over the limit goes on to the SDK, which answers 413.
- * The headers are the same for a request and a notification, so
- * only the body tells that a message is a notification.
+ * The header rule holds on the SDK's 2026-07-28 path. Inspect the body to
+ * confirm that route and detect notifications. Refuse excess data here because
+ * the downstream handler can use a different limit. Treat a read or parse
+ * error as legacy traffic.
  */
-async function routeOfBody(request: Request): Promise<BodyRoute> {
+async function routeOfBody(request: Request): Promise<BodyRoute | Response> {
+  if (request.method === "POST" && !isJsonContentType(request.headers.get("content-type"))) {
+    return bodyErrorResponse(415, "Unsupported Media Type: Content-Type must be application/json");
+  }
   try {
-    const read = await readRequestBody(request.clone());
-    if (read.tooLarge) return { legacy: false };
+    const copy = request.clone();
+    const read = await readRequestBody(copy);
+    if (read.tooLarge) {
+      // Release both branches of the body stream when neither handler will read them.
+      void Promise.allSettled([copy.body?.cancel(), request.body?.cancel()]);
+      return bodyErrorResponse(413, `Payload Too Large: Request body must not exceed ${DEFAULT_MAX_REQUEST_BODY_SIZE} bytes`);
+    }
     const body: unknown = JSON.parse(read.text);
     return { legacy: await isLegacyRequest(request, body), notification: isJSONRPCNotification(body) ? body.method : undefined };
   } catch {
@@ -199,22 +211,17 @@ async function routeOfBody(request: Request): Promise<BodyRoute> {
 }
 
 /**
- * A tool in `toolCapabilities` that was registered without
- * `protectTool` runs with no grant check. The package does not see
- * `registerTool`, so it cannot stop that call; it can see, afterwards, that a
- * call to the tool got a result although `protectTool` never wrapped it. The
- * SDK registers tools before it dispatches, so a wrapped tool is known by then.
- * A JSON-RPC error (for example a tool that this request's server does not
- * register) and any answer other than 200 are not reported.
+ * Identify a protected tool result when the call did not use the wrapper.
+ * The middleware reports the tool after dispatch. A JSON-RPC error response
+ * or a non-200 response does not confirm that the call reached a tool.
  */
-async function resultOfUnwrappedTool(request: Request, response: Response, declared: ReadonlySet<string>, isWrapped: (name: string) => boolean): Promise<string | undefined> {
+async function resultOfUnwrappedTool(request: Request, response: Response, declared: ReadonlySet<string>): Promise<string | undefined> {
   const name = request.headers.get("mcp-name");
-  const tool = [...declared].find((declaredTool) => declaredTool === name);
-  if (request.headers.get("mcp-method") !== "tools/call" || tool === undefined || isWrapped(tool) || response.status !== 200) return undefined;
-  if (String(response.headers.get("content-type")).startsWith("text/event-stream")) return tool;
+  if (request.headers.get("mcp-method") !== "tools/call" || name === null || !declared.has(name) || response.status !== 200) return undefined;
+  if (String(response.headers.get("content-type")).startsWith("text/event-stream")) return name;
   try {
     const body: unknown = await response.clone().json();
-    return isJsonObject(body) && "result" in body ? tool : undefined;
+    return isJsonObject(body) && "result" in body ? name : undefined;
   } catch {
     return undefined;
   }
@@ -325,16 +332,18 @@ export function createMcpAuthMiddleware(config: McpAuthConfig): McpAuthMiddlewar
           return authInfo;
         }
         const route = await routeOfBody(request);
+        if (route instanceof Response) return route;
         // A notification passes only when allowMethods lists it and the token verified: by default none reaches a handler.
         const deniedNotification = route.notification !== undefined && (authInfo === undefined || !allowMethods.has(route.notification));
         if (route.legacy || deniedNotification) {
           return authInfo === undefined ? authRequiredResponse(resourceMetadataUrl) : capabilityDeniedResponse(resourceMetadataUrl);
         }
         const response = await handler.fetch(request, authInfo === undefined ? undefined : { authInfo });
-        const unwrapped = await resultOfUnwrappedTool(request, response, declaredProtected, grantLayer.isWrapped);
+        if (grantLayer.usedWrapper(authInfo)) return response;
+        const unwrapped = await resultOfUnwrappedTool(request, response, declaredProtected);
         if (unwrapped !== undefined) {
           const name = JSON.stringify(unwrapped);
-          reportInternalError(new Error(`toolCapabilities lists ${name}, but protectTool(${name}, ...) was never called on this middleware: a call to the tool got a result with no grant check; register it as registerTool(${name}, config, auth.protectTool(${name}, callback))`));
+          reportInternalError(new Error(`The call to ${name} returned a result without its protectTool wrapper. Register the tool with registerTool(${name}, config, auth.protectTool(${name}, callback)).`));
         }
         return response;
       },

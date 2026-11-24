@@ -6,10 +6,8 @@ import { createMcpAuthMiddleware, staticAgentGrants, type McpAuthMiddleware, typ
 import { MCP_ENDPOINT, post, PROTECTED_TOOL, toolsCallBody, toolsCallHeaders } from "./mcp-requests.js";
 
 /**
- * A tool in toolCapabilities that is registered
- * without protectTool runs with no grant check. The package does not see
- * registerTool, so it cannot stop the call; it can see the result come back
- * for a tool that protectTool never wrapped, and report it.
+ * The middleware reports a result from a declared tool if the call did not
+ * use the wrapper for that tool.
  */
 const UNREGISTERED_TOOL = "listed_but_not_registered";
 
@@ -66,14 +64,40 @@ describe("a tool in toolCapabilities registered without protectTool", () => {
     // The token carries no capability: a wrapped tool would have refused the call.
     expect(toolRuns).toEqual([PROTECTED_TOOL]);
     expect(onInternalError).toHaveBeenCalledOnce();
-    expect(String(onInternalError.mock.calls[0]![0])).toContain(`toolCapabilities lists "${PROTECTED_TOOL}", but protectTool("${PROTECTED_TOOL}", ...) was never called`);
+    expect(String(onInternalError.mock.calls[0]![0])).toContain(`The call to "${PROTECTED_TOOL}" returned a result without its protectTool wrapper`);
   });
 
-  it.each<[string, string[]]>([["a granted call", [PROTECTED_TOOL]], ["a denied call", []]])("is not reported when the tool is wrapped: %s", async (_case, capabilities) => {
-    const response = await call(PROTECTED_TOOL, capabilities, (server, auth) => server.registerTool(PROTECTED_TOOL, {}, auth.protectTool(PROTECTED_TOOL, runTool)));
+  it.each<[string, string[], "sse"?]>([
+    ["a granted call", [PROTECTED_TOOL]],
+    ["a denied call", []],
+    ["a granted streaming call", [PROTECTED_TOOL], "sse"],
+  ])("is not reported when the tool is wrapped: %s", async (_case, capabilities, responseMode) => {
+    const response = await call(PROTECTED_TOOL, capabilities, (server, auth) => server.registerTool(PROTECTED_TOOL, {}, auth.protectTool(PROTECTED_TOOL, runTool)), undefined, responseMode);
 
     expect(response.status).toBe(200);
+    await response.text();
     expect(onInternalError).not.toHaveBeenCalled();
+  });
+
+  it("checks the callback on each request served by the factory", async () => {
+    const auth = middleware();
+    const wrappedTool = auth.protectTool(PROTECTED_TOOL, runTool);
+    const app = auth.protect(createMcpHandler(({ requestInfo }) => {
+      const server = new McpServer({ name: "mcp-auth-unwrapped-test", version: "0.0.0" });
+      const wrapped = requestInfo?.headers.get("x-tool-variant") === "wrapped";
+      server.registerTool(PROTECTED_TOOL, {}, wrapped ? wrappedTool : runTool);
+      return server;
+    }, { legacy: "reject" }));
+
+    for (const variant of ["wrapped", "unwrapped"]) {
+      const token = await agent.signAgentJwt({ aud: MCP_ENDPOINT, capabilities: [PROTECTED_TOOL] });
+      const headers: [string, string][] = [...toolsCallHeaders(PROTECTED_TOOL), ["authorization", `Bearer ${token}`], ["x-tool-variant", variant]];
+      const response = await app.fetch(post(headers, toolsCallBody(PROTECTED_TOOL)));
+      expect(response.status).toBe(200);
+      await response.text();
+    }
+
+    expect(onInternalError).toHaveBeenCalledOnce();
   });
 
   it("is not reported for a listed tool that the server does not register (a JSON-RPC error, no tool ran)", async () => {

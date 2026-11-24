@@ -170,6 +170,22 @@ async def test_a_verified_card_is_cached_for_its_lifetime_then_fetched_again() -
     assert server.requests == 2
 
 
+async def test_cached_card_reads_return_independent_skill_schemas() -> None:
+    server = _CardServer(_signed_card_json())
+    ingestor = _ingestor(server)
+
+    first = await ingestor.ingest(_CARD_URL)
+    second = await ingestor.ingest(_CARD_URL)
+
+    first_schema = first.manifest.capabilities.skills[0].input_schema
+    second_schema = second.manifest.capabilities.skills[0].input_schema
+    assert first_schema is not None and second_schema is not None
+    assert first_schema == second_schema
+    assert first_schema["properties"] is not second_schema["properties"]
+    assert first.verified and second.verified
+    assert server.requests == 1
+
+
 @pytest.mark.parametrize(
     ("document", "trust"),
     [
