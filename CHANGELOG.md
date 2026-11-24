@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Capability constraints** — when a constraint and its argument have types the operator cannot compare (for example `in` on a string with a number argument, or a `max` that is not a number), `validate_constraints` now returns a violation with the usual `field` and `operator` instead of raising `TypeError`. `POST /asap/capability/execute` answers 403 `constraint_violated` instead of 500.
+- **Agent URN validation** — `validate_agent_urn` now matches the whole value, so an agent URN with a trailing newline (for example `urn:asap:agent:research\n`) is refused. This applies to `Manifest.id`, `Agent.id`, `Envelope.sender`, `Envelope.recipient`, and `RegistryEntry.id`. Before, the `$` in `AGENT_URN_PATTERN` also matched before a final newline, so such an id passed validation and did not compare equal to the same id without the newline. `AGENT_URN_PATTERN` is unchanged.
 - **Weekly adoption telemetry (maintainer tooling)** — `telemetry-weekly.yml` has its Monday schedule back. The PyPI collector retries PyPI Stats HTTP 429, 5xx, and connection errors with backoff. If PyPI still fails, the snapshot records `pypi.fetch_error` and the job continues. A missing `TELEMETRY_GITHUB_TOKEN` still fails the job, now before any collector runs. Snapshots stay workflow artifacts only. See [docs/maintainers/telemetry.md](docs/maintainers/telemetry.md).
 
 ### Documentation
