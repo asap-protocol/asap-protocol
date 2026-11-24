@@ -1,112 +1,168 @@
-"""Integration test for OpenTelemetry tracing with Jaeger.
+"""Verify that an ASAP handler span reaches a local Jaeger over OTLP.
 
-Verifies that when OTEL_TRACES_EXPORTER=otlp and OTEL_EXPORTER_OTLP_ENDPOINT
-point to a running Jaeger, spans from ASAP server (handler, request) appear
-in Jaeger. Requires Docker to run Jaeger all-in-one.
-
-Run with: pytest tests/observability/test_jaeger_tracing.py -v
-Skip if Docker is not available: test is skipped when docker or Jaeger cannot be started.
+Run with: uv run pytest tests/observability/test_jaeger_tracing.py -v
 """
 
+from __future__ import annotations
+
+import asyncio
 import os
+import re
 import subprocess
 import sys
-import time
-from urllib.parse import quote_plus
+from collections.abc import Iterator
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Any
+from uuid import uuid4
 
 import httpx
 import pytest
 
-# Default manifest id used when running uvicorn asap.transport.server:app
 DEFAULT_SERVICE_NAME = "urn:asap:agent:default-server"
-JAEGER_UI_PORT = 16686
-JAEGER_OTLP_GRPC_PORT = 4317
-ASAP_SERVER_PORT = 8765
-CONTAINER_NAME = "asap-jaeger-tracing-test"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+ASAP_LISTENER = re.compile(r"Uvicorn running on (http://127\.0\.0\.1:\d+)")
 
 
 def _docker_available() -> bool:
+    """Return whether the local Docker daemon can respond."""
     try:
-        result = subprocess.run(
-            ["docker", "info"],
-            capture_output=True,
-            timeout=10,
-        )
+        result = subprocess.run(["docker", "info"], capture_output=True, timeout=10)
         return result.returncode == 0
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return False
 
 
-def _jaeger_container_running() -> bool:
-    try:
-        result = subprocess.run(
-            ["docker", "ps", "--filter", f"name={CONTAINER_NAME}", "--format", "{{.Names}}"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        return CONTAINER_NAME in (result.stdout or "").strip()
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return False
+def _published_port(container_id: str, container_port: int) -> int:
+    """Read the host port that Docker assigned to this container."""
+    result = subprocess.run(
+        ["docker", "port", container_id, f"{container_port}/tcp"],
+        capture_output=True,
+        check=True,
+        text=True,
+        timeout=5,
+    )
+    host, _, port = result.stdout.strip().rpartition(":")
+    assert host == "127.0.0.1", "Jaeger must bind to localhost"
+    return int(port)
 
 
-def _start_jaeger() -> bool:
-    if _jaeger_container_running():
-        return True
+@pytest.fixture
+def jaeger_urls(tmp_path: Path) -> Iterator[tuple[str, str]]:
+    """Start an isolated collector and remove only its container."""
+    if not _docker_available():
+        pytest.skip("Docker not available")
+    cidfile = tmp_path / "jaeger.cid"
     try:
-        subprocess.run(
+        try:
+            subprocess.run(
+                [
+                    "docker",
+                    "run",
+                    "--detach",
+                    "--rm",
+                    "--cidfile",
+                    str(cidfile),
+                    "--name",
+                    f"asap-jaeger-tracing-test-{uuid4().hex}",
+                    "--publish",
+                    "127.0.0.1::16686",
+                    "--publish",
+                    "127.0.0.1::4317",
+                    "jaegertracing/all-in-one:1.53",
+                ],
+                capture_output=True,
+                check=True,
+                timeout=60,
+            )
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+            pytest.skip(f"Could not start Jaeger: {type(exc).__name__}")
+
+        container_id = cidfile.read_text().strip()
+        ui_port = _published_port(container_id, 16686)
+        otlp_port = _published_port(container_id, 4317)
+        yield f"http://127.0.0.1:{ui_port}", f"http://127.0.0.1:{otlp_port}"
+    finally:
+        if cidfile.is_file() and (container_id := cidfile.read_text().strip()):
+            subprocess.run(
+                ["docker", "rm", "--force", container_id], capture_output=True, timeout=10
+            )
+
+
+@contextmanager
+def _running_asap(otlp_url: str, log_path: Path) -> Iterator[subprocess.Popen[bytes]]:
+    """Start the default app on a port the OS assigns."""
+    env = {
+        **{key: value for key, value in os.environ.items() if not key.startswith("OTEL_")},
+        "OTEL_TRACES_EXPORTER": "otlp",
+        "OTEL_EXPORTER_OTLP_ENDPOINT": otlp_url,
+        "PYTHONPATH": str(PROJECT_ROOT / "src"),
+        "NO_PROXY": "127.0.0.1,localhost",
+        "no_proxy": "127.0.0.1,localhost",
+    }
+    with log_path.open("wb") as log:
+        proc = subprocess.Popen(
             [
-                "docker",
-                "run",
-                "-d",
-                "--name",
-                CONTAINER_NAME,
-                "-p",
-                f"{JAEGER_UI_PORT}:16686",
-                "-p",
-                f"{JAEGER_OTLP_GRPC_PORT}:4317",
-                "jaegertracing/all-in-one:1.53",
+                sys.executable,
+                "-m",
+                "uvicorn",
+                "asap.transport.server:app",
+                "--host",
+                "127.0.0.1",
+                "--port",
+                "0",
+                "--no-use-colors",
             ],
-            capture_output=True,
-            timeout=60,
-            check=True,
+            env=env,
+            cwd=PROJECT_ROOT,
+            stdout=log,
+            stderr=subprocess.STDOUT,
         )
-        return True
-    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
-        return False
-
-
-def _wait_for_jaeger_ui(timeout_seconds: int = 30) -> bool:
-    deadline = time.monotonic() + timeout_seconds
-    while time.monotonic() < deadline:
         try:
-            r = httpx.get(f"http://127.0.0.1:{JAEGER_UI_PORT}", timeout=2.0)
-            if r.status_code == 200:
-                return True
-        except httpx.HTTPError:
-            pass
-        time.sleep(1.0)
-    return False
+            yield proc
+        finally:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait(timeout=5)
 
 
-def _wait_for_asap_server(timeout_seconds: int = 15) -> bool:
-    deadline = time.monotonic() + timeout_seconds
-    while time.monotonic() < deadline:
-        try:
-            r = httpx.get(f"http://127.0.0.1:{ASAP_SERVER_PORT}/health", timeout=2.0)
-            if r.status_code == 200:
-                return True
-        except httpx.HTTPError:
-            pass
-        time.sleep(0.5)
-    return False
+async def _asap_url(proc: subprocess.Popen[bytes], log_path: Path) -> str:
+    """Read the listener URL after app startup, or report a startup failure."""
+    try:
+        async with asyncio.timeout(15):
+            while proc.poll() is None:
+                if match := ASAP_LISTENER.search(log_path.read_text()):
+                    return match.group(1)
+                await asyncio.sleep(0.1)
+    except TimeoutError:
+        pass
+    pytest.fail(f"ASAP server did not start listening:\n{log_path.read_text()}")
 
 
-def _send_asap_request() -> bool:
+async def _wait_for_jaeger_ui(client: httpx.AsyncClient, url: str) -> None:
+    """Wait for the collector UI before starting the server."""
+    try:
+        async with asyncio.timeout(30):
+            while True:
+                try:
+                    if (await client.get(url)).status_code == 200:
+                        return
+                except httpx.TransportError:
+                    pass
+                await asyncio.sleep(0.2)
+    except TimeoutError:
+        pytest.skip("Jaeger UI did not become ready")
+
+
+def _echo_request() -> dict[str, Any]:
+    """Return a valid echo task for the default app."""
     envelope = {
         "asap_version": "0.1",
         "sender": "urn:asap:agent:client",
-        "recipient": "urn:asap:agent:default-server",
+        "recipient": DEFAULT_SERVICE_NAME,
         "payload_type": "task.request",
         "payload": {
             "conversation_id": "conv-jaeger-test",
@@ -114,123 +170,46 @@ def _send_asap_request() -> bool:
             "input": {"message": "jaeger test"},
         },
     }
-    body = {
+    return {
         "jsonrpc": "2.0",
         "method": "asap.send",
         "params": {"envelope": envelope},
         "id": "jaeger-test-1",
     }
+
+
+async def _wait_for_handler_span(client: httpx.AsyncClient, jaeger_url: str, trace_id: str) -> None:
+    """Wait for the exported handler span from the request under test."""
     try:
-        r = httpx.post(
-            f"http://127.0.0.1:{ASAP_SERVER_PORT}/asap",
-            json=body,
-            timeout=5.0,
-        )
-        return r.status_code == 200
-    except httpx.HTTPError:
-        return False
+        async with asyncio.timeout(15):
+            while True:
+                response = await client.get(
+                    f"{jaeger_url}/api/traces", params={"service": DEFAULT_SERVICE_NAME}
+                )
+                response.raise_for_status()
+                traces = response.json()["data"] or []
+                for trace in traces:
+                    if trace["traceID"] == trace_id and any(
+                        span["operationName"] == "asap.handler.execute" for span in trace["spans"]
+                    ):
+                        return
+                await asyncio.sleep(0.2)
+    except TimeoutError:
+        pytest.fail(f"Jaeger did not receive asap.handler.execute for trace {trace_id}")
 
 
-def _query_jaeger_traces(service: str) -> list[dict]:
-    try:
-        url = f"http://127.0.0.1:{JAEGER_UI_PORT}/api/traces?service={quote_plus(service)}"
-        r = httpx.get(url, timeout=5.0)
-        if r.status_code != 200:
-            return []
-        data = r.json()
-        return data.get("data") or []
-    except httpx.HTTPError:
-        return []
-
-
-def _wait_for_jaeger_traces(service: str, timeout_seconds: int = 15) -> list[dict]:
-    deadline = time.monotonic() + timeout_seconds
-    while time.monotonic() < deadline:
-        traces = _query_jaeger_traces(service)
-        if len(traces) >= 1:
-            return traces
-        time.sleep(1.0)
-    return []
-
-
-def _stop_jaeger() -> None:
-    try:
-        subprocess.run(
-            ["docker", "stop", CONTAINER_NAME],
-            capture_output=True,
-            timeout=10,
-        )
-        subprocess.run(
-            ["docker", "rm", "-f", CONTAINER_NAME],
-            capture_output=True,
-            timeout=10,
-        )
-    except (subprocess.SubprocessError, subprocess.TimeoutExpired):
-        pass
-
-
-@pytest.mark.skipif(not _docker_available(), reason="Docker not available")
-def test_jaeger_receives_asap_traces() -> None:
-    """Start Jaeger, run ASAP server with OTLP, send request, verify traces in Jaeger."""
-    # Start Jaeger
-    if not _start_jaeger():
-        pytest.skip("Could not start Jaeger container")
-    if not _wait_for_jaeger_ui():
-        _stop_jaeger()
-        pytest.skip("Jaeger UI did not become ready")
-
-    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    src_path = os.path.join(project_root, "src")
-    env = os.environ.copy()
-    env["OTEL_TRACES_EXPORTER"] = "otlp"
-    env["OTEL_EXPORTER_OTLP_ENDPOINT"] = "http://localhost:4317"
-    env["PYTHONPATH"] = src_path
-
-    # Start ASAP server (uvicorn asap.transport.server:app) with same Python as pytest
-    proc = subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "uvicorn",
-            "asap.transport.server:app",
-            "--host",
-            "127.0.0.1",
-            "--port",
-            str(ASAP_SERVER_PORT),
-        ],
-        env=env,
-        cwd=project_root,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    try:
-        if not _wait_for_asap_server():
-            pytest.skip("ASAP server did not become ready")
-        if not _send_asap_request():
-            pytest.skip("ASAP request failed")
-
-        # OTLP uses batch export; poll until traces appear or timeout.
-        # Multiple traces may exist (e.g. health check). Find one with ASAP handler span.
-        traces = _wait_for_jaeger_traces(DEFAULT_SERVICE_NAME, timeout_seconds=15)
-        assert len(traces) >= 1, (
-            f"Expected at least one trace for service {DEFAULT_SERVICE_NAME} in Jaeger; "
-            f"got {len(traces)}. Check Jaeger UI at http://localhost:{JAEGER_UI_PORT}"
-        )
-        handler_trace = None
-        for trace in traces:
-            spans = trace.get("spans") or []
-            span_names = {s.get("operationName") for s in spans}
-            if "asap.handler.execute" in span_names:
-                handler_trace = trace
-                break
-        assert handler_trace is not None, (
-            f"Expected at least one trace with span asap.handler.execute; "
-            f"got traces with span sets: {[{s.get('operationName') for s in (t.get('spans') or [])} for t in traces]}"
-        )
-    finally:
-        proc.terminate()
-        try:
-            proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-        _stop_jaeger()
+async def test_jaeger_receives_asap_traces(tmp_path: Path, jaeger_urls: tuple[str, str]) -> None:
+    """Check that Jaeger receives the handler span from a successful echo call."""
+    jaeger_url, otlp_url = jaeger_urls
+    log_path = tmp_path / "asap-server.log"
+    async with httpx.AsyncClient(timeout=5, trust_env=False) as client:
+        await _wait_for_jaeger_ui(client, jaeger_url)
+        with _running_asap(otlp_url, log_path) as proc:
+            asap_url = await _asap_url(proc, log_path)
+            response = await client.post(f"{asap_url}/asap", json=_echo_request())
+            assert response.status_code == 200, response.text
+            body = response.json()
+            assert "error" not in body, body
+            envelope = body["result"]["envelope"]
+            assert envelope["payload"]["result"]["echoed"] == {"message": "jaeger test"}
+            await _wait_for_handler_span(client, jaeger_url, envelope["trace_id"])
