@@ -20,6 +20,7 @@ function buildFixtureAgents(count: number): Record<string, unknown>[] {
       skills: skillsPool.slice(0, 2 + (i % 3)),
       asap_version: asapVersionForFixtureIndex(i),
       verification: i % 5 === 0 ? { status: 'verified' } : null,
+      online_check: false,
     });
   }
   return agents;

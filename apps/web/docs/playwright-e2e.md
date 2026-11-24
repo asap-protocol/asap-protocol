@@ -8,6 +8,9 @@ npx playwright install          # Install browsers (one-time)
 npm run test:e2e                # Run all E2E tests
 ```
 
+Run `npm run test:load` to test the registry with 500 fixture agents in Chromium.
+The regular E2E suite excludes the load tests.
+
 ## Browser Installation
 
 Playwright downloads Chromium, Firefox, and WebKit to OS-specific cache folders:
@@ -109,6 +112,7 @@ Browsers go to `node_modules/playwright-core/.local-browsers`. Use this if you n
 | `npm run test:e2e` | Run all E2E tests (Chromium, Firefox, WebKit, Mobile Chrome) |
 | `npm run test:e2e:local` | Same, but uses `scripts/test-e2e.sh` — sets `PLAYWRIGHT_BROWSERS_PATH` to your cache (use when `test:e2e` fails with "Executable doesn't exist") |
 | `npm run test:e2e:headed` | Run with visible browser |
+| `npm run test:load` | Run the optional registry load tests in Chromium |
 
 ---
 

@@ -46,11 +46,32 @@ def describe_answer(response: McpHttpResponse) -> str:
     return response.describe()
 
 
+def _has_content_fields(block: object) -> bool:
+    """Check the required fields of each content block in MCP revision 2026-07-28."""
+    match block:
+        case {"type": "text", "text": str()}:
+            return True
+        case {"type": "image" | "audio", "data": str(), "mimeType": str()}:
+            return True
+        case {"type": "resource_link", "name": str(), "uri": str()}:
+            return True
+        case {
+            "type": "resource",
+            "resource": {"uri": str(), "text": str()} | {"uri": str(), "blob": str()},
+        }:
+            return True
+        case _:
+            return False
+
+
 def _completed_result(response: McpHttpResponse) -> dict[str, Any] | None:
     result = response.tool_result
     if response.status_code != 200 or result is None:
         return None
-    if result.get("resultType") != "complete" or not isinstance(result.get("content"), list):
+    content = result.get("content")
+    if result.get("resultType") != "complete" or not isinstance(content, list):
+        return None
+    if not all(_has_content_fields(block) for block in content):
         return None
     return result
 

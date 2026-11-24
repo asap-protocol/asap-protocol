@@ -6,8 +6,10 @@ it checks ``aud``, ``exp``, ``nbf``, and ``sub``, and maps the grants.
 
 from __future__ import annotations
 
+import json
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -25,6 +27,18 @@ _RULES = [{"scope": "files:read", "capability": "file.read"}]
 _NOW = int(time.time())
 _SKEW = EXTERNAL_TOKEN_CLOCK_SKEW_SECONDS
 Reason = ExternalTokenErrorReason
+_VECTOR_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "fixtures"
+    / "interop"
+    / "external-token-numeric-dates.json"
+)
+_NUMERIC_DATE_VECTORS: dict[str, Any] = json.loads(_VECTOR_PATH.read_text(encoding="utf-8"))
+_NON_FINITE_DATES = {
+    "positive_infinity": float("inf"),
+    "negative_infinity": -float("inf"),
+    "nan": float("nan"),
+}
 
 
 @pytest.fixture
@@ -73,7 +87,9 @@ def test_client_id_falls_back_to_azp(idp: LocalIssuer) -> None:
         ({"exp": True}, Reason.MALFORMED_TOKEN),
         ({"exp": "2030-01-01"}, Reason.MALFORMED_TOKEN),
         ({"exp": 10**20}, Reason.MALFORMED_TOKEN),
+        ({"exp": 10**400}, Reason.MALFORMED_TOKEN),
         ({"nbf": float("inf")}, Reason.MALFORMED_TOKEN),
+        ({"nbf": -(10**400)}, Reason.MALFORMED_TOKEN),
     ],
 )
 def test_refused_claims_raise_a_typed_error(
@@ -132,3 +148,30 @@ def test_required_claim_missing_or_other_value_is_refused(
     with pytest.raises(ExternalTokenError) as caught:
         principal_from_claims(_bound_issuer(idp), claims)
     assert caught.value.reason is reason
+
+
+@pytest.mark.parametrize(
+    "vector", _NUMERIC_DATE_VECTORS["vectors"], ids=lambda vector: vector["name"]
+)
+def test_numeric_date_vector(
+    idp: LocalIssuer, monkeypatch: pytest.MonkeyPatch, vector: dict[str, Any]
+) -> None:
+    monkeypatch.setattr(
+        "asap.auth.external_verifier.time.time", lambda: _NUMERIC_DATE_VECTORS["now"]
+    )
+    dates = {
+        name: _NON_FINITE_DATES[value] if isinstance(value, str) else value
+        for name, value in vector["claims"].items()
+    }
+    claims = idp.claims(_AUDIENCE, **dates)
+    issuer = _issuer(idp)
+
+    if vector["expected_exp"] is not None:
+        assert (
+            principal_from_claims(issuer, claims).expires_at.timestamp() == vector["expected_exp"]
+        )
+        return
+
+    with pytest.raises(ExternalTokenError) as caught:
+        principal_from_claims(issuer, claims)
+    assert caught.value.reason is Reason.MALFORMED_TOKEN
