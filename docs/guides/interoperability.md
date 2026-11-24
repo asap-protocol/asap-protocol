@@ -354,7 +354,7 @@ signers = [
 ### Verification policy
 
 - **A signature is required by default.** An unsigned card fails with `A2AUnsignedCardError`. `A2ATrustConfig(policy="allow_unsigned")` accepts it, and then `result.verified` is `false`: the whole manifest is unverified data.
-- **A bad signature always fails.** A signature from a trusted key that does not verify fails the card, even when another signature verifies. The A2A Python SDK accepts the first signature that verifies; ASAP is stricter.
+- **A bad signature always fails.** A signature from a trusted key that does not verify fails the card, even when another signature verifies. The A2A Python SDK 1.3.1 accepts the first signature that verifies; ASAP is stricter.
 - **An unknown key is skipped.** A signature whose `kid` you do not trust, or whose algorithm is off your list, is skipped. A card whose signatures are all skipped fails with `A2ANoTrustedSignatureError`. So a card can carry an old and a new key during a key rotation.
 - **A malformed signature entry fails the card**, before any key lookup. A card carries at most 16 signatures.
 - Every failure is a subclass of `A2ACardVerificationError`. No error message holds key material.
@@ -658,7 +658,7 @@ ASAP reports a refusal with one of four codes: `asap:auth_required`, `asap:inval
 
 Why the paths differ:
 
-- **Token errors are HTTP 401 everywhere.** MCP authorization requires a 401 for a missing or invalid token, and a tool result cannot carry an HTTP status.
+- **Token errors are HTTP 401 everywhere.** MCP authorization requires HTTP 401 for an invalid or expired token, and a tool result cannot carry an HTTP status.
 - **A missing grant on an access-token path is HTTP 403 `insufficient_scope`.** A standard OAuth client reads this challenge and can ask for more scope. On the Agent JWT path of `mcp-auth`, a missing grant stays a tool result, as in the Python bridge.
 - **A broken constraint is a tool result in MCP and HTTP 403 elsewhere.** It depends on the arguments, and more scope does not help, so its 403 has no challenge. MCP has a tool result to carry it; A2A and the Python route do not.
 - The Python execute route answers with its own error bodies, not the `asap:*` strings. The status codes and the challenges follow the same rules.
