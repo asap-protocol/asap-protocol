@@ -11,9 +11,15 @@ Example:
 
 from __future__ import annotations
 
-from asap.adapters.a2a.canonical import canonicalize_agent_card
+from asap.adapters.a2a.canonical import (
+    MAX_CARD_NESTING_DEPTH,
+    CanonicalCardForm,
+    canonical_card_form,
+    canonicalize_agent_card,
+)
 from asap.adapters.a2a.errors import (
     A2AAdapterError,
+    A2ACanonicalFormError,
     A2AMappingError,
     A2AMappingInputError,
     A2AUnsupportedVersionError,
@@ -64,6 +70,7 @@ from asap.adapters.a2a.unmapped import (
 
 __all__ = [
     "A2AAdapterError",
+    "A2ACanonicalFormError",
     "A2AMappingError",
     "A2AMappingInputError",
     "A2AUnsupportedVersionError",
@@ -79,12 +86,14 @@ __all__ = [
     "AgentSkill",
     "AsapExtensionParams",
     "AuthorizationCodeOAuthFlow",
+    "CanonicalCardForm",
     "CardMapping",
     "ClientCredentialsOAuthFlow",
     "DeviceCodeOAuthFlow",
     "DroppedField",
     "HTTPAuthSecurityScheme",
     "ImplicitOAuthFlow",
+    "MAX_CARD_NESTING_DEPTH",
     "ManifestMapping",
     "MutualTlsSecurityScheme",
     "OAuth2SecurityScheme",
@@ -98,6 +107,7 @@ __all__ = [
     "UNMAPPED_CARD_FIELDS",
     "UNMAPPED_MANIFEST_FIELDS",
     "agent_card_to_manifest",
+    "canonical_card_form",
     "canonicalize_agent_card",
     "manifest_to_agent_card",
     "read_asap_extension",

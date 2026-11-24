@@ -43,6 +43,17 @@ class A2AUnsupportedVersionError(A2AAdapterError):
         self.found_version = found_version
 
 
+class A2ACanonicalFormError(A2AAdapterError):
+    """The card has no canonical form, so no signature can cover it.
+
+    Raised for nesting deeper than the ``a2a-sdk`` limit and for text that is
+    not valid Unicode (a lone surrogate): the SDK has no form for either one.
+    """
+
+    def __init__(self, message: str) -> None:
+        super().__init__("asap:adapters/a2a/canonical_form", message, {})
+
+
 class A2AMappingInputError(A2AAdapterError):
     """A caller input that the mapping needs is missing, or it conflicts with the source.
 
