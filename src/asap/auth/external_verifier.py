@@ -9,6 +9,13 @@ checks ``aud``, ``exp``, ``nbf``, and ``sub`` and maps the grants. So
 refused before any key is looked up or fetched. There is no replay check: an
 OAuth access token is sent on every request until it expires.
 
+Opaque tokens (RFC 7662) go to the one issuer configured with
+introspection, as do JWTs that name it; the header checks still run first, so
+an ASAP token or another issuer's token is never sent. ``TokenIntrospector``
+posts through the guarded POST and caches an active answer until shortly
+before its ``exp``. Its answer then gets the same claim checks as a verified
+JWT, plus ``active`` and, when present, ``iss``.
+
 Errors carry a typed reason and never the token or its signature.
 """
 
@@ -18,6 +25,7 @@ import json
 import math
 import time
 from datetime import datetime, timezone
+from functools import partial
 from typing import Any
 
 import httpx
@@ -34,8 +42,9 @@ from asap.auth.external_tokens import (
     ExternalTokenError,
     ExternalTokenErrorReason,
 )
-from asap.auth.jwks import audience_matches_expected
-from asap.utils.guarded_fetch import AddressResolver
+from asap.auth.introspection import TokenIntrospector
+from asap.auth.jwks import audience_matches_expected, issuer_matches_expected
+from asap.utils.guarded_fetch import AddressResolver, GuardedFetchError, guarded_post_form_json
 
 # Asymmetric JWS algorithms only (RFC 8725 §3.1): "none" and HS* never reach a key lookup.
 ALLOWED_EXTERNAL_JWT_ALGORITHMS = frozenset(
@@ -48,14 +57,18 @@ _ASAP_TOKEN_TYPES = frozenset({"agent+jwt", "host+jwt"})
 Reason = ExternalTokenErrorReason
 
 
-def _unverified_parts(token: str) -> tuple[dict[str, Any], dict[str, Any]]:
+def _unverified_parts(token: str) -> tuple[dict[str, Any], dict[str, Any]] | None:
+    """Return the header and payload of a JWS compact token, or None if it is not one."""
     try:
         compact = extract_compact(token.encode("utf-8"))
+    except (JoseError, UnicodeError, ValueError):
+        return None
+    try:
         payload = json.loads(compact.payload)
-    except (JoseError, UnicodeError, ValueError) as exc:
+    except ValueError as exc:
         # ``from None``: a chained exception could print part of the token.
         raise ExternalTokenError(
-            Reason.MALFORMED_TOKEN, f"not a JWS compact token ({type(exc).__name__})"
+            Reason.MALFORMED_TOKEN, f"the JWT payload is not JSON ({type(exc).__name__})"
         ) from None
     if not isinstance(payload, dict):
         raise ExternalTokenError(Reason.MALFORMED_TOKEN, "the JWT payload is not an object")
@@ -152,15 +165,33 @@ class ExternalTokenVerifier:
             entry.issuer: IssuerKeySource(entry, resolver=resolver, transport=transport)
             for entry in config.issuers
         }
+        # The config allows at most one introspection issuer: an opaque token names none.
+        self._introspection = next(
+            (
+                (entry, _guarded_introspector(entry, resolver, transport))
+                for entry in config.issuers
+                if entry.introspection is not None
+            ),
+            None,
+        )
 
     async def verify(self, token: str) -> ExternalPrincipal:
         """Verify ``token`` in the fixed order of this module and return its principal."""
-        header, unverified = _unverified_parts(token)
+        parts = _unverified_parts(token)
+        if parts is None:
+            if self._introspection is None:
+                raise ExternalTokenError(
+                    Reason.MALFORMED_TOKEN, "not a JWS compact token; no issuer uses introspection"
+                )
+            return await self._introspect(token, *self._introspection)
+        header, unverified = parts
         _check_header(header)
         claimed = unverified.get("iss")
         issuer = self._config.issuer_for(claimed) if isinstance(claimed, str) else None
         if issuer is None:
             raise ExternalTokenError(Reason.UNTRUSTED_ISSUER, f"iss {claimed!r} is not allowlisted")
+        if self._introspection is not None and issuer is self._introspection[0]:
+            return await self._introspect(token, *self._introspection)
         kid = header.get("kid")
         keys = await self._key_sources[issuer.issuer].keys_for(
             kid if isinstance(kid, str) else None
@@ -173,3 +204,42 @@ class ExternalTokenVerifier:
                 f"no key of {issuer.issuer!r} verifies the token ({type(exc).__name__})",
             ) from None
         return principal_from_claims(issuer, dict(verified.claims))
+
+    async def _introspect(
+        self, token: str, issuer: ExternalIssuerConfig, introspector: TokenIntrospector
+    ) -> ExternalPrincipal:
+        try:
+            info = await introspector.introspect(token)
+        except (GuardedFetchError, OverflowError, ValueError) as exc:
+            detail = str(exc) if isinstance(exc, GuardedFetchError) else type(exc).__name__
+            raise ExternalTokenError(
+                Reason.KEY_SOURCE_UNAVAILABLE, f"introspection at {issuer.issuer!r}: {detail}"
+            ) from None
+        if info is None:
+            raise ExternalTokenError(
+                Reason.TOKEN_INACTIVE, f"{issuer.issuer!r} answers active=false"
+            )
+        named = info.claims.get("iss")
+        if named is not None and not issuer_matches_expected(info.claims, issuer.issuer):
+            raise ExternalTokenError(Reason.UNTRUSTED_ISSUER, f"introspection names iss {named!r}")
+        return principal_from_claims(issuer, dict(info.claims))
+
+
+def _guarded_introspector(
+    issuer: ExternalIssuerConfig,
+    resolver: AddressResolver | None,
+    transport: httpx.AsyncBaseTransport | None,
+) -> TokenIntrospector:
+    """A ``TokenIntrospector`` whose RFC 7662 POST goes through the guard."""
+    endpoint = issuer.introspection
+    if endpoint is None:
+        raise ValueError(f"issuer {issuer.issuer!r} has no introspection endpoint")
+    poster = partial(
+        guarded_post_form_json,
+        allow_private_hosts=issuer.allow_private_hosts,
+        resolver=resolver,
+        transport=transport,
+    )
+    return TokenIntrospector(
+        endpoint.url, endpoint.client_id, endpoint.client_secret.get_secret_value(), poster=poster
+    )
