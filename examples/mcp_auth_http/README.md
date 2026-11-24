@@ -70,7 +70,9 @@ curl -s http://127.0.0.1:8787/mcp \
 pnpm --filter example-mcp-auth-http start -- --compliance
 ```
 
-In this mode, each `POST /compliance/probe-tokens` returns a fresh set of probe tokens as JSON: `mcp_url`, `protected_tool`, `allowed_arguments`, `constraint_violation_arguments`, `agent_jwt.valid`, `agent_jwt.out_of_grant`, `agent_jwt.constraint_violation`, `external.valid`, and `external.out_of_grant`. Agent JWTs are single-use and live 60 seconds, so a checker posts once per run and uses each Agent JWT for one call. The checker builds the missing-token and invalid-token cases itself. `test/compliance.test.ts` runs a full set twice in a row with plain `fetch`, as a checker does.
+In this mode, each `POST /compliance/probe-tokens` returns a fresh set of probe tokens as JSON: `profile`, `test_only`, `mcp_url`, `protected_tool`, `allowed_arguments`, `constraint_violation_arguments`, `agent_jwt.valid`, `agent_jwt.out_of_grant`, `agent_jwt.constraint_violation`, `external.valid`, and `external.out_of_grant` (no `external` when the server runs with Agent JWTs only). Agent JWTs are single-use and live 60 seconds, so each one works for one call.
+
+The `mcp-auth-http` profile of `asap-compliance` (`ComplianceEndpointTokenProvider`) posts once for each token that it needs. It requires `test_only: true` and reads only `agent_jwt.valid`, `agent_jwt.out_of_grant`, `external.valid`, and `external.out_of_grant`; it ignores the other fields, because its config holds the URL, the tool, and the arguments. Its constraint check sends a fresh `agent_jwt.valid` (or `external.valid`) token with the constraint-breaking arguments, so it never uses `agent_jwt.constraint_violation`. It builds the missing-token and invalid-token cases itself. `test/compliance.test.ts` uses every token of a set, `agent_jwt.constraint_violation` included, in two rounds with plain `fetch`.
 
 ## SDK clients
 

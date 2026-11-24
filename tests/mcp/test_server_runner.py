@@ -5,11 +5,47 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from asap.mcp.server_runner import main
+
+# Start-up (interpreter and imports) took 0.25 s idle and about 3 s with eight busy
+# processes per core; an answer from a started server took under 5 ms either way.
+PROCESS_TIMEOUT = 30.0
+ANSWER_TIMEOUT = 2.0
+
+
+@asynccontextmanager
+async def started_server_runner() -> AsyncIterator[asyncio.subprocess.Process]:
+    """Start ``python -m asap.mcp.server_runner`` and wait for its answer to a ping.
+
+    Start-up gets ``PROCESS_TIMEOUT``, as it grows with machine load. A request
+    sent after this keeps ``ANSWER_TIMEOUT``, so a server that stops answering
+    still fails fast. A process still running on exit is killed.
+    """
+    proc = await asyncio.create_subprocess_exec(
+        sys.executable,
+        "-m",
+        "asap.mcp.server_runner",
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    try:
+        assert proc.stdin is not None and proc.stdout is not None
+        proc.stdin.write(b'{"jsonrpc":"2.0","id":0,"method":"ping"}\n')
+        await proc.stdin.drain()
+        line = await asyncio.wait_for(proc.stdout.readline(), timeout=PROCESS_TIMEOUT)
+        assert json.loads(line) == {"jsonrpc": "2.0", "id": 0, "result": {}}
+        yield proc
+    finally:
+        if proc.returncode is None:
+            proc.kill()
+            await proc.wait()
 
 
 def test_server_runner_main_importable() -> None:
@@ -98,15 +134,6 @@ async def test_server_runner_main_runs_until_stdin_closed() -> None:
 @pytest.mark.asyncio
 async def test_server_runner_echo_tool_responds() -> None:
     """Server started via -m asap.mcp.server_runner responds to initialize and echo."""
-    proc = await asyncio.create_subprocess_exec(
-        sys.executable,
-        "-m",
-        "asap.mcp.server_runner",
-        stdin=asyncio.subprocess.PIPE,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    assert proc.stdin is not None and proc.stdout is not None
     init_req = (
         json.dumps(
             {
@@ -122,11 +149,13 @@ async def test_server_runner_echo_tool_responds() -> None:
         )
         + "\n"
     )
-    proc.stdin.write(init_req.encode("utf-8"))
-    await proc.stdin.drain()
-    line = await asyncio.wait_for(proc.stdout.readline(), timeout=2.0)
-    data = json.loads(line.decode("utf-8").strip())
-    assert "result" in data
-    assert data["result"].get("serverInfo", {}).get("name") == "asap-mcp-demo"
-    proc.stdin.close()
-    await proc.wait()
+    async with started_server_runner() as proc:
+        assert proc.stdin is not None and proc.stdout is not None
+        proc.stdin.write(init_req.encode("utf-8"))
+        await proc.stdin.drain()
+        line = await asyncio.wait_for(proc.stdout.readline(), timeout=ANSWER_TIMEOUT)
+        data = json.loads(line.decode("utf-8").strip())
+        assert "result" in data
+        assert data["result"].get("serverInfo", {}).get("name") == "asap-mcp-demo"
+        proc.stdin.close()
+        await asyncio.wait_for(proc.wait(), timeout=PROCESS_TIMEOUT)

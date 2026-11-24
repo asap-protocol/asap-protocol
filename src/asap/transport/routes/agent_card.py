@@ -4,9 +4,11 @@
 ``/.well-known/agent-card.json`` beside the ASAP manifest, from the same
 origin. The card is checked once, when the app is built: it must carry a
 signature and describe the agent of the manifest (same name and version, and
-the URN of its ASAP extension equals the manifest ``id``). Build it with
-:func:`asap.adapters.a2a.build_signed_agent_card`; a card that fails to sign
-never exists, so it is never served. Without a card the route is not mounted.
+the URN of its ASAP extension equals the manifest ``id``). The check does not
+verify the signature. Build the card with
+:func:`asap.adapters.a2a.build_signed_agent_card`, which signs it; a card that
+fails to sign never exists, so it is never served. Without a card the route is
+not mounted.
 """
 
 from __future__ import annotations
@@ -20,7 +22,11 @@ from asap.models.entities import Manifest
 
 
 def validate_served_agent_card(card: AgentCard, manifest: Manifest) -> None:
-    """Raise ``ValueError`` unless *card* is signed and describes the agent of *manifest*.
+    """Raise ``ValueError`` unless *card* has a signature and describes the agent of *manifest*.
+
+    It refuses a card whose ``signatures`` is empty, but it never verifies a
+    signature: build the card with
+    :func:`asap.adapters.a2a.build_signed_agent_card`, which signs it.
 
     Example:
         >>> validate_served_agent_card(signed_card, manifest)  # doctest: +SKIP

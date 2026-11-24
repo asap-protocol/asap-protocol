@@ -163,7 +163,7 @@ app = create_app(manifest, registry=HandlerRegistry(), agent_card=card)
 - **`inputs`** holds what a card needs and a manifest lacks: the A2A interfaces, the input and output media types, and at least one tag per skill. A missing input raises `A2AMappingInputError`.
 - **`external_tokens`** writes the card's security. An issuer configured for OpenID Connect discovery publishes its discovery URL. Other issuers publish an HTTP Bearer scheme. Each scope rule becomes a requirement on its skill. The card can say less than the server accepts (a claim rule is not shown), never more.
 - **`CardSigner`** signs with `EdDSA` by default. See [Signed Agent Cards](#signed-agent-cards).
-- **`create_app`** refuses a card with no signature, a card without the ASAP extension, and a card for another agent (another URN, name, or version). It serves the card with `Content-Type: application/json`, `Cache-Control: public, max-age=300`, and an `ETag`.
+- **`create_app`** refuses a card with no signature, a card without the ASAP extension, and a card for another agent (another URN, name, or version). It does not verify the signature, so build the card with `build_signed_agent_card`, which signs it. It serves the card with `Content-Type: application/json`, `Cache-Control: public, max-age=300`, and an `ETag`.
 - **`registry`**: put your ASAP task handlers here. Without a registry, `create_app` installs a demo echo handler on `POST /asap`.
 
 `asap-protocol` serves the card, not the A2A interface. The A2A interface at `/a2a` comes from the A2A SDK. The reference gateway (`examples/a2a_gateway/gateway.py`) shows how to put the token check, the skill selection, and the grant check in front of the SDK's request handler.
@@ -191,8 +191,8 @@ print(result.manifest.id, result.verified, [signer.kid for signer in result.sign
 The last line prints `urn:asap:agent:research True ['research-card-1']`.
 
 - The fetch takes HTTPS URLs only, refuses private and loopback addresses, follows no redirect, and stops after 10 seconds or 1 MiB.
-- A card that fails a check raises a typed error, a subclass of `A2AAdapterError`. It is never mapped and never cached.
-- A verified card is cached by its URL for 300 seconds.
+- A card that fails a check raises a typed error, a subclass of `A2AAdapterError`. It is never cached, and a card that fails verification is never mapped.
+- A card that passes is cached by its URL for 300 seconds. That includes an unsigned card that `allow_unsigned` accepted: its results keep `verified` false.
 - `result.dropped` lists the card fields that the manifest does not carry (see [Agent Card and manifest fields](#agent-card-and-manifest-fields)).
 
 A card with the ASAP extension holds the agent URN and the ASAP endpoint. For a card without it, pass them yourself: `ingest(url, agent_id="urn:asap:agent:...", endpoints=Endpoint(asap="https://..."))`.
@@ -666,24 +666,16 @@ Why the paths differ:
 
 ## Compliance checks
 
-The `mcp-auth-http` profile of `asap-compliance` checks Flow B against a running server over plain HTTP. It needs no MCP SDK. It gets a fresh token for each request from the server's test-only probe endpoint, so a second run passes too. It checks each answer for both the code and the layer:
+`asap-compliance` has one profile for each flow. Each profile runs against a running server over plain HTTP, with no A2A or MCP SDK. It judges each answer by its code and by its layer. It gets a fresh token for each request from the server's test-only probe endpoint, so a second run passes too.
 
-| Check | Expected answer |
-|-------|-----------------|
-| `public_tool` | No token, public tool: a tool result |
-| `auth_required` | No token, protected tool: HTTP 401, `asap:auth_required` |
-| `invalid_token`, `bad_signature` | A malformed token, and an Agent JWT with a bad signature: HTTP 401, `asap:invalid_token` |
-| `valid_jwt` | An Agent JWT with the grant: a tool result |
-| `replayed_jwt` | The same Agent JWT twice: the second gets HTTP 401 |
-| `wrong_capability`, `constraint_violation` | Agent JWT: a tool result with `asap:capability_denied`, then `asap:constraint_violation` |
-| `external_valid_token` | The same access token twice: both work |
-| `external_wrong_capability` | An access token with no grant: HTTP 403, `asap:capability_denied` |
-| `external_constraint_violation` | An access token, arguments that break the constraint: a tool result with `asap:constraint_violation` |
-| `undeclared_tool` | An Agent JWT for a tool that the server does not declare: HTTP 403 |
-| `www_authenticate_on_401` | Every 401 has a `Bearer` challenge |
-| `token_not_echoed` | No answer holds a token that the run sent |
+| Profile | Flow | What it checks |
+|---------|------|----------------|
+| `a2a-bridge` | [Flow A](#flow-a-an-a2a-client-calls-an-asap-agent) | The signed Agent Card at the well-known path, verified under the keys and the agent URN in your config, never under values read from the target. The card's JSON-RPC interface, and its match with the ASAP manifest. Then one `SendMessage` per case: a valid access token (sent twice), no token, a malformed, forged, or wrong-audience token, a token without the grant, arguments that break the grant's constraint, and a skill that the card does not list |
+| `mcp-auth-http` | [Flow B](#flow-b-an-mcp-client-calls-an-http-mcp-server) | The public tool, missing and invalid tokens, Agent JWT replay, access-token reuse, grant and constraint errors in their layers, and a tool that the server does not declare |
 
-[Compliance testing](compliance-testing.md) shows how to install and run the profiles. The probe endpoint hands out valid tokens to anyone who can reach the server: turn it on only for a local or CI run (`pnpm --filter example-mcp-auth-http start -- --compliance`).
+Both profiles also check that each HTTP 401 carries a `Bearer` challenge, and that no answer holds a token that the run sent. A verified card proves who signed it. It does not prove where the card was served from, or that it is fresh.
+
+[Compliance testing](compliance-testing.md#profiles) shows how to run both profiles, with every config field and check ID, and what they do not check. The probe endpoint hands out valid tokens to anyone who can reach the server: turn it on only for a local or CI run (`pnpm --filter example-mcp-auth-http start -- --compliance`, `uv run python -m examples.a2a_gateway.serve --port 8788 --compliance`).
 
 ## Security notes
 

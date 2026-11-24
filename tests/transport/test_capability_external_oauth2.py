@@ -35,9 +35,12 @@ async def _idp_keys(uri: str) -> jwk.KeySet:
     return jwk.KeySet.import_key_set(_IDP.jwks)
 
 
-def _server(manifest: Manifest, limiter: ASAPRateLimiter | None, *issuers: LocalIssuer) -> _App:
-    oauth2 = OAuth2Config(jwks_uri="https://idp.example/jwks", jwks_fetcher=_idp_keys)
-    return _App(manifest, limiter, *issuers, oauth2_config=oauth2)
+def _server(
+    manifest: Manifest, limiter: ASAPRateLimiter | None, *issuers: LocalIssuer, **oauth2: Any
+) -> _App:
+    """``oauth2`` adds ``OAuth2Config`` fields, such as ``required_scope``."""
+    config = OAuth2Config(jwks_uri="https://idp.example/jwks", jwks_fetcher=_idp_keys, **oauth2)
+    return _App(manifest, limiter, *issuers, oauth2_config=config)
 
 
 @pytest.fixture

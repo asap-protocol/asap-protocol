@@ -26,6 +26,7 @@ _ISSUER = "https://idp.example"
 _AUDIENCE = "https://api.example/asap"
 _SECRET = "client-s3cret-value"
 _TOKEN = "opaque-access-token-value"
+_NOW = int(time.time())
 Reason = ExternalTokenErrorReason
 
 
@@ -141,16 +142,22 @@ async def test_cache_ttl_of_zero_asks_on_every_request(
         ({"active": False}, Reason.TOKEN_INACTIVE),
         ({"aud": "https://other.example"}, Reason.AUDIENCE_MISMATCH),
         ({"aud": None}, Reason.AUDIENCE_MISMATCH),
-        ({"exp": int(time.time()) - 600}, Reason.TOKEN_EXPIRED),
+        ({"exp": _NOW - 600}, Reason.TOKEN_EXPIRED),
         ({"exp": None}, Reason.MISSING_CLAIM),
-        ({"nbf": int(time.time()) + 600}, Reason.TOKEN_NOT_YET_VALID),
+        ({"nbf": _NOW + 600}, Reason.TOKEN_NOT_YET_VALID),
         ({"iss": "https://evil.example"}, Reason.UNTRUSTED_ISSUER),
         ({"sub": None}, Reason.MISSING_CLAIM),
     ],
 )
 async def test_refused_introspection_answer(
-    endpoint: _FakeIntrospectionEndpoint, answer: dict[str, Any], reason: Reason
+    endpoint: _FakeIntrospectionEndpoint,
+    monkeypatch: pytest.MonkeyPatch,
+    answer: dict[str, Any],
+    reason: Reason,
 ) -> None:
+    # The cases are built at import: pin the clock that the checks read to that
+    # instant, or the nbf case passes once the test runs 570 s after import.
+    monkeypatch.setattr("asap.auth.external_verifier.time.time", lambda: float(_NOW))
     merged = {**endpoint.answer, **answer}
     endpoint.answer = {key: value for key, value in merged.items() if value is not None}
     await _refused(endpoint.verifier(), _TOKEN, reason)

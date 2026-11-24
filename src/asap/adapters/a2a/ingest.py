@@ -80,10 +80,12 @@ class CardIngestResult:
 
 
 class AgentCardIngestor:
-    """Fetch, verify, and map Agent Cards, caching each verified card by URL.
+    """Fetch, verify, and map Agent Cards, caching by URL each card that passes.
 
-    A cached card is reused for ``cache_ttl_seconds`` and the cache holds at
-    most ``cache_max_entries`` cards. ``key_resolver`` defaults to an
+    The cache holds a verified card, and also an unsigned card that
+    ``allow_unsigned`` accepted; a result from such a card keeps ``verified``
+    false. A cached card is reused for ``cache_ttl_seconds`` and the cache
+    holds at most ``cache_max_entries`` cards. ``key_resolver`` defaults to an
     :class:`A2AKeyResolver` over *trust*. ``dns_resolver``, ``transport``, and
     ``clock`` are for tests.
     """
@@ -138,8 +140,9 @@ class AgentCardIngestor:
                 mapping.manifest.endpoints, allow_private_hosts=self._trust.allow_private_hosts
             )
         verification.require_signer_for(mapping.manifest.id)
-        # Cached only once verified and mapped, and never re-put on a hit, so a
-        # card is fetched again at least once per cache lifetime.
+        # Cached only once it passed verification (or ``allow_unsigned`` accepted
+        # it unsigned) and mapped, and never re-put on a hit, so a card is
+        # fetched again at least once per cache lifetime.
         if cached is None:
             self._cards.put(url, verification)
         return CardIngestResult(

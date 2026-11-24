@@ -57,7 +57,7 @@ export async function verifyRequestToken(token: string) {
 | Idle-timeout slide (`last_used_at`) | Written to the agent store | Not done. Update your store after `verifyAgentJwt` returns `ok: true`, never in `resolveAgent` (it sees unverified values) |
 | Audience | Optional | Required |
 | Replay check | Optional cache | Optional `replayCache`. Without it, a replayed token is not detected |
-| How long the replay record lasts | The cache window (default 90 s) | The later of the cache window (default 90 s) and the token's `exp`: `verifyAgentJwt` passes `exp` to `checkAndRecord` |
+| How long the replay record lasts | The later of the cache window (default 90 s) and the token's `exp` plus 60 s: `verify_agent_jwt` passes `keep_until` to the cache | The later of the cache window (default 90 s) and the token's `exp`: `verifyAgentJwt` passes `exp` to `checkAndRecord` |
 | A full in-memory cache | `JtiReplayCache` evicts the records that expire first, so under heavy load a replay can pass (its docstring says so) | `InMemoryJtiReplayCache` never evicts a live record. Expired records make room first; when every record is live, `checkAndRecord` throws `JtiReplayCacheFullError` (with `retryAfterSeconds`), and `verifyAgentJwt` passes the throw on. One agent may hold at most `maxPerPartition` live records (default 1 000) |
 | `exp` or `iat` as a numeric string | Accepted | Refused (RFC 7519 NumericDate is a JSON number) |
 
