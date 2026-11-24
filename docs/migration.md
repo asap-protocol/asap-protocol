@@ -1108,8 +1108,18 @@ Scope: [prd-v2.5.4-distribution-loop.md](../product/prd/prd-v2.5.4-distribution-
 
 ### Upgrading from v2.5.x to v2.6.0
 
-**v2.6.0 (Interop)** is in development and is not released yet. This section
-grows as each change lands.
+**v2.6.0 (Interop)** makes ASAP's identity and capability grants work with
+A2A v1.0 and MCP authorization (OAuth 2.1). It also removes the six import
+paths that v2.5.1 deprecated, and it changes a few behaviors of existing code,
+mostly so that a check fails closed. The ASAP envelope, the JSON-RPC methods,
+and the manifest schema do not change.
+
+What to read, in order:
+
+1. [Removed import paths](#removed-import-paths): change these imports before you upgrade.
+2. [Behavior changes](#behavior-changes): check whether one of them affects you.
+3. [What is new](#what-is-new-in-v260): the new, opt-in features.
+4. [Upgrade steps](#upgrade-steps-v260) and [Backward compatibility](#backward-compatibility-v260).
 
 #### Removed import paths
 
@@ -1127,6 +1137,72 @@ protocol.
 | `asap.adapters.mcp` | `from asap.adapters.mcp import protect_server, MCPAuthConfig` (or `from asap.adapters.mcp.<submodule> import ...`) | `from asap.mcp.auth import protect_server, MCPAuthConfig` (same names). Submodules keep their names: `asap.adapters.mcp.config` becomes `asap.mcp.auth.config`, and the same for `auth_middleware`, `capability_map`, `errors`, `jwt_extractor`, and `protected_server` |
 | `RemoteFatalRPCError`, `RemoteRecoverableRPCError` (Python) | `from asap.errors import RemoteRecoverableRPCError`, then `except RemoteRecoverableRPCError:` | `from asap.errors import RemoteRPCError`, then `except RemoteRPCError as exc:` and branch on `exc.is_recoverable`. The TypeScript classes of the same names in `@asap-protocol/client` are not affected |
 | `metering_storage_adapter` | `from asap.economics.storage import metering_storage_adapter`, then `metering_storage_adapter(storage)` | `from asap.state.metering import MeteringStorageBridge`, then `MeteringStorageBridge(storage)`. It returns the same `MeteringStore` view |
+
+#### Behavior changes
+
+Each change below can affect code that worked with v2.5.x.
+
+| Change | Who is affected | What to do |
+|--------|-----------------|------------|
+| **Agent JWT lifetime.** `verify_agent_jwt` refuses an Agent JWT whose `exp` is more than 120 seconds after the current time, or after its `iat`, with the error `token lifetime too long`. A longer-lived token could outlive the replay-cache record of its `jti` | Code that mints Agent JWTs itself with a longer lifetime. `create_agent_jwt` (Python) and `signAgentJwt` (TypeScript) mint 60-second tokens, which pass. Host JWTs are not capped | Mint one Agent JWT per request, with `exp` at most 120 seconds after `iat` |
+| **Constraint checks fail closed.** A `max` or `min` constraint is a violation when the argument or the bound is `NaN`, `Infinity`, or `-Infinity`. A constraint whose operand types the operator cannot compare (for example `in` on a string with a number argument, or a `max` that is not a number) is a violation, not a `TypeError`. This applies to `validate_constraints`, `CapabilityRegistry.check_grant`, `POST /asap/capability/execute`, and the MCP Auth Bridge | Callers whose arguments passed such a check before. `POST /asap/capability/execute` now answers 403 `constraint_violated` where it answered 500; the MCP Auth Bridge answers `asap:constraint_violation` | Give `max` and `min` finite numbers, and give `in` and `not_in` a list of values of the argument's type |
+| **`POST /asap/capability/execute` with `oauth2_config`.** `OAuth2Middleware` no longer validates this exact path, because the route verifies its own bearer. Before, when `oauth2_config` covered `/asap`, the middleware refused every Agent JWT there, so the route could not succeed. Now a valid Agent JWT succeeds, and a token from the `oauth2_config` provider gets the route's 401 unless you list that provider in `external_token_config`. `required_scope` and the identity binding of `oauth2_config` no longer apply on this route. `GET /asap/capability/list`, `describe`, `/asap`, and any other spelling of the path stay behind the middleware | Apps that set `oauth2_config` and call capability execute | Call it with an Agent JWT. To accept the provider's tokens there, list the provider as an external issuer, with `required_claims` for the identity binding ([guide](guides/interoperability.md#with-oauth2_config)) |
+| **MCP stdio messages without `null` fields.** `tools/call` results from `MCPServer`, and the `asap:*` error results of the MCP Auth Bridge (`tool_error_result`), leave the optional `annotations` field out of each content item instead of sending `null`. `MCPClient.call_tool` without `meta` leaves `_meta` out of the params instead of sending `null` | Code that reads the `annotations` key of a content item, or the `_meta` key of the params, and expects it to be present | Treat an absent key as "not set". The text and `isError` do not change |
+| **npm release tags.** Each `@asap-protocol/*` npm package now publishes from its own tag (`client-v<version>`, `mcp-auth-v<version>`), with the version from its `package.json`. `v2.3.*` and `v2.4.*` tags no longer publish to npm, and the `hotfix-release.yml` workflow and its `hotfix` dist-tag track are gone | Maintainers, and forks that publish the packages | Follow [npm publishing](maintainers/npm-publishing.md). Versions already on npm stay as they are |
+
+The new `create_app` arguments (`agent_card`, `external_token_config`) are
+opt-in. Without them, `create_app` behaves as in v2.5.x, apart from the
+`oauth2_config` change above.
+
+#### What is new in v2.6.0
+
+Every item is opt-in. The [interoperability guide](guides/interoperability.md)
+walks through each one.
+
+- **A2A v1.0 Agent Card bridge** (`asap.adapters.a2a`): models of the A2A v1.0
+  Agent Card, the mapping between a card and a manifest, card signing
+  (`EdDSA` by default, `ES256` as an option), and card verification against
+  a trust store whose keys name the agents they may sign for. A2A v0.3 cards
+  are refused. See [Agent Card and manifest fields](guides/interoperability.md#agent-card-and-manifest-fields)
+  and [Signed Agent Cards](guides/interoperability.md#signed-agent-cards).
+- **Signed Agent Card beside the manifest**: `create_app(agent_card=...)`
+  serves `/.well-known/agent-card.json`. See
+  [Flow A](guides/interoperability.md#flow-a-an-a2a-client-calls-an-asap-agent).
+- **External access tokens**: `create_app(external_token_config=...)` lets
+  `POST /asap/capability/execute` accept OAuth 2.1 access tokens from issuers
+  that you list, with grants from your rules only. See
+  [External access tokens](guides/interoperability.md#external-access-tokens-on-an-asap-server-python).
+- **`@asap-protocol/mcp-auth` 0.1.0** (npm): Agent JWTs and OAuth 2.1 access
+  tokens, checked against grants, on HTTP MCP servers in TypeScript. See
+  [Flow B](guides/interoperability.md#flow-b-an-mcp-client-calls-an-http-mcp-server).
+- **`@asap-protocol/client` 2.5.0** (npm): `verifyAgentJwt`, a `jti` replay
+  cache, and the `PublicJwk` type. See the [TypeScript client](sdks/typescript.md).
+- **`asap-compliance`**: the `mcp-auth-http` profile. See
+  [Compliance testing](guides/compliance-testing.md).
+- **Reference examples**: `examples/a2a_gateway/` (A2A) and
+  `examples/mcp_auth_http/` (HTTP MCP). They have no support tier.
+
+#### Upgrade steps (v2.6.0)
+
+1. Change each [removed import](#removed-import-paths) to its replacement.
+2. Bump with `pip install 'asap-protocol==2.6.0'` (or `uv add asap-protocol`).
+3. If you mint Agent JWTs yourself, keep `exp` at most 120 seconds after `iat`.
+4. If you set `oauth2_config`, read the capability execute row in
+   [Behavior changes](#behavior-changes).
+5. TypeScript: `@asap-protocol/client` 2.5.0 needs no code change. Add
+   `@asap-protocol/mcp-auth` only to protect an HTTP MCP server.
+
+#### Backward compatibility (v2.6.0)
+
+- **Wire protocol**: unchanged. The ASAP envelope, the JSON-RPC methods, and
+  the manifest schema are the same as in v2.5.x.
+- **Breaking changes**: the six removed import paths, the Agent JWT lifetime
+  cap, and the constraint checks that now fail closed.
+- **TypeScript**: `HostContext.publicJwk`, `AgentContext.publicJwk`, and the
+  `agentPublicKey` option of `signHostJwt` are typed `PublicJwk` instead of
+  the DOM `JsonWebKey`. Each type can be assigned to the other, so existing
+  code compiles. The classes `RemoteFatalRPCError` and
+  `RemoteRecoverableRPCError` of `@asap-protocol/client` stay.
 
 ---
 
