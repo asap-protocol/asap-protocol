@@ -481,7 +481,7 @@ What each part does:
 - **`publicTools`** lists the tools that a request with no token may call.
 - **`toolCapabilities`** maps every protected tool to its ASAP capability. A tool that is in neither list cannot be called (see [Deny by default](#deny-by-default)).
 - **`agentGrants`** returns the grants of a verified agent. With no `agentGrants`, no agent has a grant. For a fixed map, `staticAgentGrants({ "<agent id>": [...] })` from the same package does the same job.
-- **`protectTool`** wraps the callback of each tool in `toolCapabilities`. Register it under the same name. It throws a `TypeError` for a name that is in `publicTools` or not in `toolCapabilities`. A listed tool that you register **without** `protectTool` runs with no grant check.
+- **`protectTool`** wraps the callback of each tool in `toolCapabilities`. Register it under the same name. It throws a `TypeError` for a name that is in `publicTools` or not in `toolCapabilities`. A listed tool that you register **without** `protectTool` runs with no grant check. The package does not see `registerTool`, so it cannot stop that call; when such a call returns a result, `onInternalError` gets an error that names the tool.
 - **`legacy: "reject"`** keeps the server on revision `2026-07-28`. The token layer trusts the `Mcp-Method` and `Mcp-Name` headers, and the SDK checks them against the body only on that revision.
 - **`onInternalError`** gets failures that are not about the token, such as a resolver that throws. It never gets the token.
 
@@ -699,7 +699,7 @@ The MCP SDK client 2.4, in revision `2026-07-28`, sends one notification on its 
 
 It sends no notification when it connects, calls, receives progress, or closes. It cancels a call, and ends a call that timed out, by closing that call's HTTP stream: the tool sees `ctx.mcpReq.signal` abort. `createMcpHandler` builds a new server for each POST, so a `notifications/cancelled` in its own POST cannot cancel a call that runs in another one.
 
-Two things stay with you. Wrap every tool in `toolCapabilities` with `protectTool`. And put in `allowMethods` only methods that any verified caller may use.
+Two things stay with you. Wrap every tool in `toolCapabilities` with `protectTool` (a tool that is not wrapped is reported to `onInternalError` after a call, not stopped). And put in `allowMethods` only methods that any verified caller may use.
 
 ### Every response
 

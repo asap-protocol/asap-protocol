@@ -42,6 +42,8 @@ export interface GrantLayerConfig {
 export interface GrantLayer {
   readonly protectTool: ProtectTool;
   readonly scopeChallenge: ScopeChallengeHandler;
+  /** Whether `protectTool` has wrapped a callback for this tool name. */
+  readonly isWrapped: (name: string) => boolean;
 }
 
 /**
@@ -110,6 +112,7 @@ export function createGrantLayer(config: GrantLayerConfig): GrantLayer {
   const toolCapabilities = new Map(Object.entries(config.toolCapabilities ?? {}));
   const agentGrants = config.agentGrants ?? (() => []);
   const scopesByIssuer = challengeScopes(config.externalIssuers ?? []);
+  const wrappedTools = new Set<string>();
 
   async function agentGrantsOf(principal: AgentJwtPrincipal): Promise<readonly CapabilityGrant[] | undefined> {
     try {
@@ -160,6 +163,7 @@ export function createGrantLayer(config: GrantLayerConfig): GrantLayer {
     if (config.publicTools.has(name)) throw wrapError(name, "the tool is in publicTools; register a public tool without protectTool");
     const capability = toolCapabilities.get(name);
     if (capability === undefined) throw wrapError(name, "the tool is not in toolCapabilities; list every protected tool there");
+    wrappedTools.add(name);
     // The SDK calls (args, ctx) for a tool with an inputSchema and (ctx) for one without.
     return async (...params: unknown[]) => {
       const ctx = params.at(-1) as ServerContext | undefined;
@@ -178,5 +182,5 @@ export function createGrantLayer(config: GrantLayerConfig): GrantLayer {
     return scope === undefined ? undefined : { scopes: [scope], errorDescription: McpAuthErrorCode.CapabilityDenied };
   }
 
-  return { protectTool: protectTool as ProtectTool, scopeChallenge };
+  return { protectTool: protectTool as ProtectTool, scopeChallenge, isWrapped: (name) => wrappedTools.has(name) };
 }

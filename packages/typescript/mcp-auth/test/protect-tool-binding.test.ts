@@ -58,6 +58,10 @@ describe("protectTool refuses a call to another tool than the one it wraps", () 
       toolErrorResult("asap:capability_denied", `the request is not a call to '${PROTECTED_TOOL}'`),
     );
     expect(run).not.toHaveBeenCalled();
-    expect(onInternalError).toHaveBeenCalledOnce();
+    // The binding error, then the report that protectTool never wrapped the dangerous tool under its own name.
+    expect(onInternalError.mock.calls.map(([error]) => String(error))).toEqual([
+      expect.stringContaining(`protectTool("${PROTECTED_TOOL}") ran for a request whose Mcp-Name is not that tool`),
+      expect.stringContaining(`toolCapabilities lists "${DANGEROUS_TOOL}", but protectTool("${DANGEROUS_TOOL}", ...) was never called`),
+    ]);
   });
 });

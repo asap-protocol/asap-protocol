@@ -14,6 +14,7 @@ import {
 import { decodeProtectedHeader } from "jose";
 
 import { createAgentJwtVerifier, type AgentJwtVerifierConfig } from "./agent-jwt-verifier.js";
+import { isJsonObject } from "./constraints.js";
 import { McpAuthErrorCode } from "./errors.js";
 import type { ExternalTokenConfig } from "./external-issuers.js";
 import { createExternalTokenVerifier } from "./external-token-verifier.js";
@@ -64,10 +65,11 @@ export interface McpAuthConfig {
    * Called when verification or a grant lookup fails for a reason other than
    * the token, such as a resolver that throws (HTTP 500 with no detail), an
    * issuer's JWKS that cannot be fetched (HTTP 503), a `protectTool`
-   * callback registered under another tool's name, or a protected tool
+   * callback registered under another tool's name, a protected tool
    * registered without `scopeChallenge` (seen when an access token lacks a
-   * scope that a grant rule maps). The package itself never logs, and this
-   * hook never receives the token.
+   * scope that a grant rule maps), or a tool in `toolCapabilities` whose call
+   * got a result although `protectTool` never wrapped it. The package itself
+   * never logs, and this hook never receives the token.
    */
   readonly onInternalError?: (error: unknown) => void;
 }
@@ -196,6 +198,28 @@ async function routeOfBody(request: Request): Promise<BodyRoute> {
   }
 }
 
+/**
+ * A tool in `toolCapabilities` that was registered without
+ * `protectTool` runs with no grant check. The package does not see
+ * `registerTool`, so it cannot stop that call; it can see, afterwards, that a
+ * call to the tool got a result although `protectTool` never wrapped it. The
+ * SDK registers tools before it dispatches, so a wrapped tool is known by then.
+ * A JSON-RPC error (for example a tool that this request's server does not
+ * register) and any answer other than 200 are not reported.
+ */
+async function resultOfUnwrappedTool(request: Request, response: Response, declared: ReadonlySet<string>, isWrapped: (name: string) => boolean): Promise<string | undefined> {
+  const name = request.headers.get("mcp-name");
+  const tool = [...declared].find((declaredTool) => declaredTool === name);
+  if (request.headers.get("mcp-method") !== "tools/call" || tool === undefined || isWrapped(tool) || response.status !== 200) return undefined;
+  if (String(response.headers.get("content-type")).startsWith("text/event-stream")) return tool;
+  try {
+    const body: unknown = await response.clone().json();
+    return isJsonObject(body) && "result" in body ? tool : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function invalidTokenResponse(reason: string, resourceMetadataUrl: string | undefined): Response {
   const error = new OAuthError(OAuthErrorCode.InvalidToken, `${McpAuthErrorCode.InvalidToken}: ${reason}`);
   return bearerAuthChallengeResponse(error, { resourceMetadataUrl });
@@ -306,16 +330,23 @@ export function createMcpAuthMiddleware(config: McpAuthConfig): McpAuthMiddlewar
         if (route.legacy || deniedNotification) {
           return authInfo === undefined ? authRequiredResponse(resourceMetadataUrl) : capabilityDeniedResponse(resourceMetadataUrl);
         }
-        return handler.fetch(request, authInfo === undefined ? undefined : { authInfo });
+        const response = await handler.fetch(request, authInfo === undefined ? undefined : { authInfo });
+        const unwrapped = await resultOfUnwrappedTool(request, response, declaredProtected, grantLayer.isWrapped);
+        if (unwrapped !== undefined) {
+          const name = JSON.stringify(unwrapped);
+          reportInternalError(new Error(`toolCapabilities lists ${name}, but protectTool(${name}, ...) was never called on this middleware: a call to the tool got a result with no grant check; register it as registerTool(${name}, config, auth.protectTool(${name}, callback))`));
+        }
+        return response;
       },
     };
   }
 
-  const { protectTool, scopeChallenge } = createGrantLayer({
+  const grantLayer = createGrantLayer({
     ...config,
     publicTools,
     externalIssuers: config.externalTokens?.issuers,
     reportInternalError,
   });
-  return { authenticate, protect, protectTool, scopeChallenge };
+  const declaredProtected: ReadonlySet<string> = new Set(Object.keys(config.toolCapabilities ?? {}));
+  return { authenticate, protect, protectTool: grantLayer.protectTool, scopeChallenge: grantLayer.scopeChallenge };
 }
