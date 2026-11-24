@@ -10,6 +10,7 @@ from joserfc.jwk import OKPKey
 from pydantic import ValidationError
 
 from asap_compliance.config import A2A_BRIDGE_PROFILE, A2ABridgeComplianceConfig
+from asap_compliance.validators.probe_tokens import ProbeTokenError, ProbeTokenKind
 from asap_compliance.validators.a2a_bridge import (
     A2A_BRIDGE_CHECK_IDS,
     A2ABridgeResult,
@@ -311,3 +312,75 @@ class TestInterfaceAndManifestChecks:
 
         assert "http://127.0.0.1:8788/a2a" in _message(result, "card_jsonrpc_interface")
         assert "card_jsonrpc_interface" in _failed(result)
+
+
+_TOKEN_CHECKS = {"auth_required", "invalid_token", "bad_signature", "external_wrong_audience"}
+_CREDENTIAL_CHECKS = {"external_valid_token", "bad_signature", "external_wrong_audience"}
+
+
+class _NoProbeTokens:
+    async def probe_token(self, kind: ProbeTokenKind) -> str:
+        raise ProbeTokenError(f"no {kind.value!r} token in this test")
+
+
+class _OpaqueProbeTokens:
+    async def probe_token(self, kind: ProbeTokenKind) -> str:
+        return f"opaque-{kind.value}"
+
+
+class TestTokenLayerChecks:
+    """Token checks, each with the credential its case needs."""
+
+    @pytest.mark.parametrize(
+        ("fault", "failed"),
+        [
+            (Fault.AUTH_REQUIRED_AS_RPC_ERROR, {"auth_required"}),
+            (Fault.INVALID_TOKEN_AS_403, _TOKEN_CHECKS - {"auth_required"}),
+            (Fault.ACCEPTS_BAD_SIGNATURE, {"bad_signature"}),
+            (Fault.IGNORES_AUDIENCE, {"external_wrong_audience"}),
+            (Fault.REFUSES_VALID_TOKENS, {"external_valid_token"}),
+            (Fault.SINGLE_USE_TOKENS, {"external_valid_token"}),
+            (Fault.ANSWERS_200_TO_EVERYTHING, _TOKEN_CHECKS),
+        ],
+    )
+    async def test_a_gateway_with_the_fault_fails_the_checks(
+        self, fault: Fault, failed: set[str]
+    ) -> None:
+        result = await _run(FakeA2AGateway(fault))
+
+        assert _failed(result) == failed
+
+    async def test_two_runs_in_a_row_pass_because_each_call_gets_a_fresh_token(self) -> None:
+        server = FakeA2AGateway()
+
+        assert (await _run(server)).passed
+        assert (await _run(server)).passed
+
+    async def test_the_forged_token_keeps_a_provider_token_s_claims_and_not_its_signature(
+        self,
+    ) -> None:
+        server = FakeA2AGateway()
+
+        await _run(server)
+
+        received = server.received_tokens
+        [forged] = [t for t in received if t not in server.issued and t.count(".") == 2]
+        [original] = [t for t in server.issued if t.split(".")[:2] == forged.split(".")[:2]]
+        assert original not in server.received_tokens
+
+    async def test_a_provider_error_fails_only_the_checks_that_need_a_token(self) -> None:
+        transport = httpx.MockTransport(FakeA2AGateway().handle)
+        result = await validate_a2a_bridge_async(
+            _profile_config(), token_provider=_NoProbeTokens(), http_transport=transport
+        )
+
+        assert _failed(result) == _CREDENTIAL_CHECKS
+        assert all("in this test" in c.message for c in result.checks if not c.passed)
+
+    async def test_an_opaque_provider_token_cannot_be_forged_and_says_so(self) -> None:
+        transport = httpx.MockTransport(FakeA2AGateway().handle)
+        result = await validate_a2a_bridge_async(
+            _profile_config(), token_provider=_OpaqueProbeTokens(), http_transport=transport
+        )
+
+        assert "compact JWS" in _message(result, "bad_signature")

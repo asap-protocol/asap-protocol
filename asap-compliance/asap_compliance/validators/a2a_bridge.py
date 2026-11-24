@@ -24,7 +24,11 @@ Example::
 from __future__ import annotations
 
 import asyncio
+import base64
+import secrets
+from collections.abc import Mapping
 from dataclasses import dataclass, field
+from typing import Any
 
 import httpx
 from pydantic import ValidationError
@@ -45,6 +49,7 @@ from asap.adapters.a2a import (
 )
 
 from asap_compliance.config import A2ABridgeComplianceConfig
+from asap_compliance.validators.a2a_answers import message_success_problem
 from asap_compliance.validators.a2a_transport import (
     A2A_PROTOCOL_VERSION,
     AGENT_CARD_PATH,
@@ -53,8 +58,9 @@ from asap_compliance.validators.a2a_transport import (
     A2AHttpTransport,
 )
 from asap_compliance.validators.handshake import CheckResult
+from asap_compliance.validators.http_answers import AUTH_REQUIRED_401, INVALID_TOKEN_401
 from asap_compliance.validators.http_exchange import HttpExchangeError
-from asap_compliance.validators.probe_tokens import ProbeTokenProvider
+from asap_compliance.validators.probe_tokens import ProbeTokenKind, ProbeTokenProvider
 from asap_compliance.validators.profile_run import (
     CheckAbortedError,
     ProfileCheck,
@@ -62,6 +68,13 @@ from asap_compliance.validators.profile_run import (
     run_profile_checks,
 )
 
+# Built by the harness; no gateway accepts it.
+_MALFORMED_TOKEN = "asap-compliance-malformed-token"
+_EXPECT_MESSAGE = "HTTP 200 and a JSON-RPC result whose message has a data part"
+_EXPECT_AUTH_REQUIRED = "HTTP 401, a Bearer challenge with no error, asap:auth_required"
+_EXPECT_INVALID_TOKEN = (
+    'HTTP 401, a Bearer challenge with error="invalid_token", asap:invalid_token'
+)
 _EXPECT_CARD_DOCUMENT = f"HTTP 200 and a JSON object at {AGENT_CARD_PATH}"
 _EXPECT_CARD_V1 = "a card that parses as an A2A v1.0 Agent Card"
 _EXPECT_CARD_SIGNATURE = (
@@ -132,6 +145,20 @@ class _BridgeRun:
             raise CheckAbortedError(
                 f"the card does not parse as A2A v1.0 ({exc.error_count()} problems)"
             ) from None
+
+    async def call(
+        self, skill_id: str, arguments: Mapping[str, Any], token: str | None
+    ) -> A2AHttpResponse:
+        """One ``SendMessage``; the token and the answer join the run's records."""
+        if token is not None:
+            self.sent_tokens.append(token)
+        response = await self.transport.send_message(skill_id, arguments, bearer_token=token)
+        self.responses.append(response)
+        return response
+
+    async def call_skill(self, token: str | None) -> A2AHttpResponse:
+        """Call the configured skill with the arguments that its grant allows."""
+        return await self.call(self.config.skill_id, self.config.allowed_arguments, token)
 
     async def manifest_answer(self) -> A2AHttpResponse:
         """The answer at the ASAP manifest's well-known path."""
@@ -224,6 +251,46 @@ async def _check_card_manifest_same_agent(run: _BridgeRun) -> str | None:
     return f"the manifest and the card differ in {', '.join(differ)}" if differ else None
 
 
+async def _check_external_valid_token(run: _BridgeRun) -> str | None:
+    """One fresh access token with the grant, sent twice: an access token is not single-use."""
+    token = await run.tokens.probe_token(ProbeTokenKind.EXTERNAL)
+    for use in ("first", "second"):
+        problem = message_success_problem(await run.call_skill(token))
+        if problem is not None:
+            return f"on the {use} use, {problem}"
+    return None
+
+
+async def _check_auth_required(run: _BridgeRun) -> str | None:
+    """No token."""
+    return AUTH_REQUIRED_401.problem(await run.call_skill(None))
+
+
+async def _check_invalid_token(run: _BridgeRun) -> str | None:
+    """A malformed token (not a JWT)."""
+    return INVALID_TOKEN_401.problem(await run.call_skill(_MALFORMED_TOKEN))
+
+
+async def _check_bad_signature(run: _BridgeRun) -> str | None:
+    """The header and claims of a fresh access token, with a random signature.
+
+    The forged token names the configured issuer, so it reaches the signature check;
+    the token it came from is never sent.
+    """
+    parts = (await run.tokens.probe_token(ProbeTokenKind.EXTERNAL)).split(".")
+    if len(parts) != 3:
+        return "the provider's access token is not a compact JWS, so it has no signature to forge"
+    signature = secrets.token_bytes(max(len(parts[2]) * 3 // 4, 32))
+    forged = ".".join([*parts[:2], base64.urlsafe_b64encode(signature).rstrip(b"=").decode()])
+    return INVALID_TOKEN_401.problem(await run.call_skill(forged))
+
+
+async def _check_external_wrong_audience(run: _BridgeRun) -> str | None:
+    """A fresh access token from the same issuer, with the grant, for another audience."""
+    token = await run.tokens.probe_token(ProbeTokenKind.EXTERNAL_WRONG_AUDIENCE)
+    return INVALID_TOKEN_401.problem(await run.call_skill(token))
+
+
 def _named_agent_urn(card: AgentCard) -> str | None:
     """The URN in the card's ASAP extension; None when it has none, or the extension is bad."""
     try:
@@ -241,6 +308,11 @@ _PROFILE_CHECKS: tuple[ProfileCheck[_BridgeRun], ...] = (
     ("card_agent_urn", _check_card_agent_urn, _EXPECT_CARD_AGENT_URN),
     ("card_jsonrpc_interface", _check_card_jsonrpc_interface, _EXPECT_INTERFACE),
     ("card_manifest_same_agent", _check_card_manifest_same_agent, _EXPECT_SAME_AGENT),
+    ("external_valid_token", _check_external_valid_token, f"{_EXPECT_MESSAGE}, twice"),
+    ("auth_required", _check_auth_required, _EXPECT_AUTH_REQUIRED),
+    ("invalid_token", _check_invalid_token, _EXPECT_INVALID_TOKEN),
+    ("bad_signature", _check_bad_signature, _EXPECT_INVALID_TOKEN),
+    ("external_wrong_audience", _check_external_wrong_audience, _EXPECT_INVALID_TOKEN),
 )
 
 A2A_BRIDGE_CHECK_IDS: tuple[str, ...] = tuple(check_id for check_id, _, _ in _PROFILE_CHECKS)

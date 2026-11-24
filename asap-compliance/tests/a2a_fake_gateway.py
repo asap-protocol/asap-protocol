@@ -8,6 +8,9 @@ breaks one behavior, so each profile check has a passing and a failing server.
 
 from __future__ import annotations
 
+import base64
+import json
+import secrets
 from enum import StrEnum
 from typing import Any
 
@@ -52,6 +55,13 @@ class Fault(StrEnum):
     NO_MANIFEST = "no_manifest"
     MANIFEST_ERROR = "manifest_error"
     MANIFEST_OF_ANOTHER_VERSION = "manifest_of_another_version"
+    AUTH_REQUIRED_AS_RPC_ERROR = "auth_required_as_rpc_error"
+    INVALID_TOKEN_AS_403 = "invalid_token_as_403"
+    ACCEPTS_BAD_SIGNATURE = "accepts_bad_signature"
+    IGNORES_AUDIENCE = "ignores_audience"
+    REFUSES_VALID_TOKENS = "refuses_valid_tokens"
+    SINGLE_USE_TOKENS = "single_use_tokens"
+    ANSWERS_200_TO_EVERYTHING = "answers_200_to_everything"
 
 
 def demo_manifest(agent_urn: str = AGENT_URN, version: str = "1.0.0") -> Manifest:
@@ -107,14 +117,25 @@ _CARDS_BY_FAULT: dict[Fault, dict[str, Any]] = {
 
 
 class FakeA2AGateway:
-    """Handler for ``httpx.MockTransport``; ``requests`` lists each path asked for."""
+    """Handler for ``httpx.MockTransport``; it records each path and each bearer token.
+
+    ``POST /compliance/probe-tokens`` mints a fresh set of JWS-shaped tokens; a
+    token's kind is ``valid``, ``out_of_grant``, or ``wrong_audience``.
+    """
 
     def __init__(self, *faults: Fault) -> None:
         self.faults = frozenset(faults)
         self.requests: list[str] = []
+        self.received_tokens: list[str] = []
+        self.issued: dict[str, str] = {}
+        self._used: set[str] = set()
 
     def handle(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request.url.path)
+        if request.url.path == PROBE_TOKENS_PATH:
+            return httpx.Response(200, json=self._probe_token_set())
+        if request.url.path == "/a2a":
+            return self._call(json.loads(request.content), request.headers)
         if request.url.path == "/.well-known/agent-card.json":
             return self._card()
         if request.url.path == "/.well-known/asap/manifest.json":
@@ -136,3 +157,69 @@ class FakeA2AGateway:
             return httpx.Response(200, content=b"<html>card</html>")
         card = next((_CARDS_BY_FAULT[f] for f in self.faults if f in _CARDS_BY_FAULT), _CARD)
         return httpx.Response(200, json=card)
+
+    def _call(self, call: dict[str, Any], headers: httpx.Headers) -> httpx.Response:
+        if headers.get("a2a-version") != "1.0":
+            return _rpc_error(call, -32009)
+        if Fault.ANSWERS_200_TO_EVERYTHING in self.faults:
+            return _greeting(call)
+        authorization = headers.get("authorization")
+        if authorization is None:
+            if Fault.AUTH_REQUIRED_AS_RPC_ERROR in self.faults:
+                return _rpc_error(call, -32001)
+            return _refusal(401, "invalid_token", "asap:auth_required", "Bearer")
+        token = authorization.removeprefix("Bearer ")
+        self.received_tokens.append(token)
+        kind = self._token_kind(token)
+        if kind is None:
+            status = 403 if Fault.INVALID_TOKEN_AS_403 in self.faults else 401
+            return _refusal(status, "invalid_token", "asap:invalid_token", _INVALID_CHALLENGE)
+        return _greeting(call)
+
+    def _token_kind(self, token: str) -> str | None:
+        """The token layer: signature, audience, and (with a fault) single use."""
+        kind = self.issued.get(token)
+        if kind is None and Fault.ACCEPTS_BAD_SIGNATURE in self.faults:
+            signed_part = token.rsplit(".", 1)[0]
+            kind = next((k for t, k in self.issued.items() if t.startswith(signed_part)), None)
+        if kind == "wrong_audience" and Fault.IGNORES_AUDIENCE not in self.faults:
+            return None
+        replayed = token in self._used and Fault.SINGLE_USE_TOKENS in self.faults
+        self._used.add(token)
+        return None if replayed or Fault.REFUSES_VALID_TOKENS in self.faults else kind
+
+    def _probe_token_set(self) -> dict[str, Any]:
+        def mint(kind: str) -> str:
+            claims = {"jti": secrets.token_hex(8), "aud": f"{BASE_URL}/a2a", "kind": kind}
+            parts = [{"alg": "ES256", "typ": "at+jwt"}, claims]
+            signed = ".".join(_b64url(json.dumps(part).encode()) for part in parts)
+            token = f"{signed}.{_b64url(secrets.token_bytes(64))}"
+            self.issued[token] = kind
+            return token
+
+        kinds = ("valid", "out_of_grant", "wrong_audience")
+        return {"test_only": True, "external": {kind: mint(kind) for kind in kinds}}
+
+
+_INVALID_CHALLENGE = 'Bearer error="invalid_token", error_description="asap:invalid_token"'
+
+
+def _b64url(raw: bytes) -> str:
+    return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
+
+
+def _refusal(status: int, error: str, code: str, challenge: str | None) -> httpx.Response:
+    headers = {} if challenge is None else {"www-authenticate": challenge}
+    body = {"error": error, "error_description": code}
+    return httpx.Response(status, json=body, headers=headers)
+
+
+def _rpc_error(call: dict[str, Any], code: int) -> httpx.Response:
+    error = {"code": code, "message": "refused"}
+    return httpx.Response(200, json={"jsonrpc": "2.0", "id": call.get("id"), "error": error})
+
+
+def _greeting(call: dict[str, Any]) -> httpx.Response:
+    message = {"role": "ROLE_AGENT", "messageId": "m-1", "parts": [{"data": {"greeting": "Hi"}}]}
+    result = {"message": message}
+    return httpx.Response(200, json={"jsonrpc": "2.0", "id": call.get("id"), "result": result})
