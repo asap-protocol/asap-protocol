@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **A2A v1.0 Agent Card models** (`asap.adapters.a2a`) — Pydantic models for the A2A v1.0 Agent Card and its security schemes, pinned to `specification/a2a.proto` at tag `v1.0.1`. A v0.3 card is rejected with `A2AUnsupportedVersionError`. The package does not import `a2a-sdk`.
+- **A2A v1.0 Agent Card bridge** (`asap.adapters.a2a`) — Pydantic models for the A2A v1.0 Agent Card and its security schemes, pinned to `specification/a2a.proto` at tag `v1.0.1`, and `manifest_to_agent_card`, a pure mapping from an ASAP manifest to a card. ASAP data that a card has no field for rides in the ASAP extension `https://asap-protocol.com/a2a/extensions/manifest/v1`; the mapping returns the manifest fields it drops, with the reason. A v0.3 card is rejected with `A2AUnsupportedVersionError`. The package does not import `a2a-sdk`, which is a dev dependency for the interop tests only.
 
 ### Removed
 
