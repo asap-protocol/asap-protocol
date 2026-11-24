@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -11,8 +10,8 @@ from pydantic import ValidationError
 
 from asap.adapters.a2a import A2AAdapterError, A2AUnsupportedVersionError, AgentCard
 from asap.errors import FatalError
+from tests.adapters.a2a.helpers import FIXTURES_DIR, load_card_fixture
 
-_FIXTURES = Path(__file__).parent / "fixtures"
 _REQUIRED_FIELDS = [
     "name",
     "description",
@@ -25,13 +24,8 @@ _REQUIRED_FIELDS = [
 ]
 
 
-def _fixture(name: str) -> dict[str, Any]:
-    data: dict[str, Any] = json.loads((_FIXTURES / name).read_text(encoding="utf-8"))
-    return data
-
-
 def test_minimal_card_parses_and_dumps_unchanged() -> None:
-    data = _fixture("minimal_card.json")
+    data = load_card_fixture("minimal_card.json")
 
     card = AgentCard.model_validate(data)
 
@@ -41,7 +35,7 @@ def test_minimal_card_parses_and_dumps_unchanged() -> None:
 
 def test_card_with_every_optional_core_field_round_trips() -> None:
     data = {
-        **_fixture("minimal_card.json"),
+        **load_card_fixture("minimal_card.json"),
         "provider": {"url": "https://example.com", "organization": "Example Org"},
         "documentationUrl": "https://example.com/docs",
         "iconUrl": "https://example.com/icon.png",
@@ -58,7 +52,7 @@ def test_card_with_every_optional_core_field_round_trips() -> None:
 
 
 def test_null_optional_fields_and_unknown_fields_are_dropped() -> None:
-    data = _fixture("minimal_card.json")
+    data = load_card_fixture("minimal_card.json")
 
     card = AgentCard.model_validate({**data, "provider": None, "iconUrl": None, "futureField": 1})
 
@@ -67,7 +61,7 @@ def test_null_optional_fields_and_unknown_fields_are_dropped() -> None:
 
 @pytest.mark.parametrize("field", _REQUIRED_FIELDS)
 def test_card_rejects_a_missing_required_field(field: str) -> None:
-    data = {k: v for k, v in _fixture("minimal_card.json").items() if k != field}
+    data = {k: v for k, v in load_card_fixture("minimal_card.json").items() if k != field}
 
     with pytest.raises(ValidationError):
         AgentCard.model_validate(data)
@@ -87,11 +81,11 @@ def test_card_rejects_a_missing_required_field(field: str) -> None:
 )
 def test_card_rejects_an_empty_required_field(field: str, empty: Any) -> None:
     with pytest.raises(ValidationError):
-        AgentCard.model_validate({**_fixture("minimal_card.json"), field: empty})
+        AgentCard.model_validate({**load_card_fixture("minimal_card.json"), field: empty})
 
 
 def test_v03_card_is_rejected_with_a_typed_error_that_names_the_version() -> None:
-    raw = (_FIXTURES / "v03_card.json").read_text(encoding="utf-8")
+    raw = (FIXTURES_DIR / "v03_card.json").read_text(encoding="utf-8")
 
     with pytest.raises(A2AUnsupportedVersionError) as from_dict:
         AgentCard.model_validate(json.loads(raw))
@@ -108,7 +102,7 @@ def test_v03_card_is_rejected_with_a_typed_error_that_names_the_version() -> Non
 
 
 def test_card_with_top_level_url_and_no_version_is_reported_as_v03() -> None:
-    data = {k: v for k, v in _fixture("v03_card.json").items() if k != "protocolVersion"}
+    data = {k: v for k, v in load_card_fixture("v03_card.json").items() if k != "protocolVersion"}
 
     with pytest.raises(A2AUnsupportedVersionError) as excinfo:
         AgentCard.model_validate(data)
@@ -117,7 +111,7 @@ def test_card_with_top_level_url_and_no_version_is_reported_as_v03() -> None:
 
 
 def test_v1_card_with_a_stray_top_level_url_parses_as_v1() -> None:
-    data = _fixture("minimal_card.json")
+    data = load_card_fixture("minimal_card.json")
 
     card = AgentCard.model_validate({**data, "url": "https://agent.example.com/a2a"})
 

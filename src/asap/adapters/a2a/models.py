@@ -20,6 +20,7 @@ from pydantic import Field, StrictBool, model_validator
 
 from asap.adapters.a2a._base import A2AModel, NonEmptyStr
 from asap.adapters.a2a.errors import A2AUnsupportedVersionError
+from asap.adapters.a2a.security import SecurityRequirement, SecurityScheme
 
 # v0.3 had a top-level endpoint and version; v1.0 replaced both with supportedInterfaces.
 _V03_MARKER_KEYS = ("url", "protocolVersion")
@@ -77,7 +78,10 @@ class AgentCapabilities(A2AModel):
 
 
 class AgentSkill(A2AModel):
-    """One skill of the agent (``AgentSkill``). ``tags`` needs at least one tag."""
+    """One skill of the agent (``AgentSkill``). ``tags`` needs at least one tag.
+
+    ``security_requirements`` lists alternatives, like the card-level field.
+    """
 
     id: NonEmptyStr
     name: NonEmptyStr
@@ -86,6 +90,7 @@ class AgentSkill(A2AModel):
     examples: list[str] | None = None
     input_modes: list[str] | None = None
     output_modes: list[str] | None = None
+    security_requirements: list[SecurityRequirement] | None = None
 
 
 class AgentCardSignature(A2AModel):
@@ -104,8 +109,9 @@ class AgentCard(A2AModel):
     """An A2A v1.0 Agent Card (``AgentCard``).
 
     Parsing a v0.3 card raises :class:`A2AUnsupportedVersionError`, from
-    ``model_validate`` and ``model_validate_json`` alike. ``signatures`` are
-    parsed here and verified elsewhere, never by this model.
+    ``model_validate`` and ``model_validate_json`` alike. ``security_requirements``
+    lists alternatives (see :mod:`asap.adapters.a2a.security`). ``signatures``
+    are parsed here and verified elsewhere, never by this model.
 
     Example:
         >>> card = AgentCard.model_validate_json(raw_card_json)  # doctest: +SKIP
@@ -120,6 +126,8 @@ class AgentCard(A2AModel):
     version: NonEmptyStr
     documentation_url: str | None = None
     capabilities: AgentCapabilities
+    security_schemes: dict[str, SecurityScheme] | None = None
+    security_requirements: list[SecurityRequirement] | None = None
     default_input_modes: list[NonEmptyStr] = Field(min_length=1)
     default_output_modes: list[NonEmptyStr] = Field(min_length=1)
     skills: list[AgentSkill] = Field(min_length=1)

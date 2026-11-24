@@ -1,0 +1,116 @@
+{
+  "name": "Research Agent",
+  "description": "Performs web research and summarization",
+  "supportedInterfaces": [
+    {
+      "url": "https://agent.example.com/a2a",
+      "protocolBinding": "JSONRPC",
+      "protocolVersion": "1.0"
+    },
+    {
+      "url": "https://agent.example.com/a2a/rest",
+      "protocolBinding": "HTTP+JSON",
+      "protocolVersion": "1.0",
+      "tenant": "acme"
+    }
+  ],
+  "provider": {"url": "https://example.com", "organization": "Example Org"},
+  "version": "1.2.0",
+  "documentationUrl": "https://example.com/docs",
+  "capabilities": {
+    "streaming": true,
+    "pushNotifications": false,
+    "extensions": [
+      {
+        "uri": "https://example.com/a2a/extensions/trace/v1",
+        "description": "Trace context propagation",
+        "required": true,
+        "params": {"header": "traceparent", "sampleRate": 0.5}
+      }
+    ],
+    "extendedAgentCard": false
+  },
+  "securitySchemes": {
+    "apiKey": {"apiKeySecurityScheme": {"location": "header", "name": "X-API-Key"}},
+    "bearer": {
+      "httpAuthSecurityScheme": {
+        "description": "Bearer access token",
+        "scheme": "Bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "oauth": {
+      "oauth2SecurityScheme": {
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://idp.example.com/authorize",
+            "tokenUrl": "https://idp.example.com/token",
+            "refreshUrl": "https://idp.example.com/refresh",
+            "scopes": {"agent:read": "Read agent data", "agent:research": "Run research"},
+            "pkceRequired": true
+          }
+        },
+        "oauth2MetadataUrl": "https://idp.example.com/.well-known/oauth-authorization-server"
+      }
+    },
+    "oauthService": {
+      "oauth2SecurityScheme": {
+        "flows": {
+          "clientCredentials": {
+            "tokenUrl": "https://idp.example.com/token",
+            "scopes": {"agent:read": "Read agent data"}
+          }
+        }
+      }
+    },
+    "oauthDevice": {
+      "oauth2SecurityScheme": {
+        "flows": {
+          "deviceCode": {
+            "deviceAuthorizationUrl": "https://idp.example.com/device",
+            "tokenUrl": "https://idp.example.com/token",
+            "scopes": {"agent:read": "Read agent data"}
+          }
+        }
+      }
+    },
+    "oidc": {
+      "openIdConnectSecurityScheme": {
+        "openIdConnectUrl": "https://idp.example.com/.well-known/openid-configuration"
+      }
+    },
+    "mtls": {"mtlsSecurityScheme": {"description": "Client certificate issued by Example CA"}}
+  },
+  "securityRequirements": [
+    {"schemes": {"oauth": {"list": ["agent:read"]}}},
+    {"schemes": {"oidc": {"list": ["openid"]}, "mtls": {"list": ["client"]}}}
+  ],
+  "defaultInputModes": ["text/plain", "application/json"],
+  "defaultOutputModes": ["application/json"],
+  "skills": [
+    {
+      "id": "web_research",
+      "name": "Web research",
+      "description": "Search the web and summarize the results",
+      "tags": ["research", "web"],
+      "examples": ["Find recent papers on JSON canonicalization"],
+      "inputModes": ["text/plain"],
+      "outputModes": ["application/json"],
+      "securityRequirements": [{"schemes": {"oauth": {"list": ["agent:research"]}}}]
+    },
+    {
+      "id": "summarize",
+      "name": "Summarize",
+      "description": "Summarize a document",
+      "tags": ["summary"]
+    }
+  ],
+  "signatures": [
+    {
+      "protected": "eyJhbGciOiJFZERTQSIsImtpZCI6ImsxIiwidHlwIjoiSk9TRSJ9",
+      "signature": "Zml4dHVyZS1vbmx5",
+      "header": {"note": "fixture only; not a valid signature"}
+    }
+  ],
+  "iconUrl": "https://example.com/icon.png"
+}

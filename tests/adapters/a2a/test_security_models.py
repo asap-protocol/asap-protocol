@@ -7,7 +7,8 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from asap.adapters.a2a import OAuthFlows, SecurityRequirement, SecurityScheme
+from asap.adapters.a2a import AgentCard, OAuthFlows, SecurityRequirement, SecurityScheme
+from tests.adapters.a2a.helpers import load_card_fixture
 
 _SCOPES = {"agent:read": "Read agent data"}
 _AUTHORIZE = "https://idp.example.com/authorize"
@@ -145,3 +146,28 @@ def test_requirement_without_a_list_key_is_accepted() -> None:
     assert requirement.schemes is not None
     assert requirement.schemes["bearer"].scopes is None
     assert requirement.model_dump(mode="json") == data
+
+
+def test_full_card_with_every_scheme_type_parses_and_dumps_unchanged() -> None:
+    data = load_card_fixture("full_card.json")
+
+    card = AgentCard.model_validate(data)
+
+    assert card.security_schemes is not None
+    wrapper_keys = {key for scheme in data["securitySchemes"].values() for key in scheme}
+    assert len(wrapper_keys) == len(SecurityScheme.model_fields)
+    assert card.model_dump(mode="json") == data
+
+
+def test_card_and_skill_security_requirements_are_parsed() -> None:
+    card = AgentCard.model_validate(load_card_fixture("full_card.json"))
+
+    assert card.security_requirements is not None
+    assert [sorted(r.schemes or {}) for r in card.security_requirements] == [
+        ["oauth"],
+        ["mtls", "oidc"],
+    ]
+    skill_requirements = card.skills[0].security_requirements
+    assert skill_requirements is not None
+    assert skill_requirements[0].schemes is not None
+    assert skill_requirements[0].schemes["oauth"].scopes == ["agent:research"]
