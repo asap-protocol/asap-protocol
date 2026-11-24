@@ -8,7 +8,7 @@ Middleware that protects an HTTP MCP server with ASAP identity and capability gr
 
 - **SDK:** `@modelcontextprotocol/server` `^2.4` (peer dependency). MCP protocol revision `2026-07-28`.
 - **Transport:** Streamable HTTP only. For stdio, use the Python bridge.
-- **Runtime:** Node.js 20 or later. The core takes a web-standard `Request` and returns a `Response`, so it does not depend on a web framework.
+- **Runtime:** Node.js 20.19 or later on the 20.x line, or Node.js 22.12 or later. The CommonJS entry needs a Node.js version that can load the ESM dependency `jose` through `require()`. The core takes a web-standard `Request` and returns a `Response`, so it does not depend on a web framework.
 
 ## Two token types
 
