@@ -6,6 +6,7 @@ exactly as before.
 
 from __future__ import annotations
 
+import time
 from typing import TYPE_CHECKING, Any
 
 import httpx
@@ -18,6 +19,8 @@ from asap.auth.external_tokens import ExternalTokenConfig
 from asap.auth.identity import InMemoryAgentStore, InMemoryHostStore
 from asap.transport.server import create_app
 from tests.auth.local_issuer import LocalIssuer, nested_payload_token, unsigned_token
+from tests.auth.test_external_introspection import _TOKEN as _OPAQUE_TOKEN
+from tests.auth.test_external_introspection import _FakeIntrospectionEndpoint
 from tests.transport.test_capability_execute_unchanged import (
     _ASAP_CHALLENGE,
     EXPECTED_AGENT_PATH,
@@ -163,6 +166,25 @@ def test_rejected_tokens_get_one_body_that_names_no_issuer(
     for token in tokens.values():
         assert token not in caplog.text
         assert all(token not in r.text for r in responses.values())
+
+
+def test_revoked_opaque_token_gets_401_once_the_cache_ttl_passes(
+    sample_manifest: Manifest,
+    isolated_rate_limiter: ASAPRateLimiter | None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    endpoint = _FakeIntrospectionEndpoint()
+    server = _App(sample_manifest, isolated_rate_limiter)
+    # create_app builds a verifier that fetches over the network; this one uses fakes.
+    server.app.state.external_token_verifier = endpoint.verifier(cache_ttl_seconds=5)
+    clock = [time.time()]
+    monkeypatch.setattr("asap.auth.introspection.time.time", lambda: clock[0])
+    assert server.execute(_OPAQUE_TOKEN, {"capability": "file.read"}).status_code == 200
+
+    endpoint.answer = {"active": False}
+    clock[0] += 6
+    response = server.execute(_OPAQUE_TOKEN, {"capability": "file.read"})
+    assert (response.status_code, response.json()["detail"]) == (401, "invalid_token")
 
 
 def test_token_is_checked_before_the_body(server: _App) -> None:

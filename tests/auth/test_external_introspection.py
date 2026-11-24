@@ -56,8 +56,11 @@ class _FakeIntrospectionEndpoint:
             return httpx.Response(self.status, content=self.raw_answer)
         return httpx.Response(self.status, json=self.answer)
 
-    def verifier(self, *extra_issuers: LocalIssuer) -> ExternalTokenVerifier:
+    def verifier(
+        self, *extra_issuers: LocalIssuer, **endpoint_overrides: Any
+    ) -> ExternalTokenVerifier:
         endpoint = {"url": f"{_ISSUER}/introspect", "client_id": "rs", "client_secret": _SECRET}
+        endpoint.update(endpoint_overrides)
         rules = [{"scope": "files:read", "capability": "file.read"}]
         entry = {"issuer": _ISSUER, "audience": _AUDIENCE, "introspection": endpoint}
         issuers = [{**entry, "grant_rules": rules}]
@@ -98,6 +101,37 @@ async def test_same_token_used_twice_succeeds_and_is_cached(
     verifier = endpoint.verifier()
     assert await verifier.verify(_TOKEN) == await verifier.verify(_TOKEN)
     assert len(endpoint.requests) == 1
+
+
+@pytest.mark.parametrize(("overrides", "ttl"), [({}, 60), ({"cache_ttl_seconds": 10}, 10)])
+async def test_revoked_token_works_until_the_cache_ttl_then_fails(
+    endpoint: _FakeIntrospectionEndpoint,
+    monkeypatch: pytest.MonkeyPatch,
+    overrides: dict[str, Any],
+    ttl: int,
+) -> None:
+    # Before the per-issuer cap the answer was cached until
+    # 30 s before exp, so a revoked token kept working for most of its life.
+    clock = [time.time()]
+    monkeypatch.setattr("asap.auth.introspection.time.time", lambda: clock[0])
+    verifier = endpoint.verifier(**overrides)
+    await verifier.verify(_TOKEN)
+    endpoint.answer = {"active": False}
+
+    clock[0] += ttl - 1
+    assert (await verifier.verify(_TOKEN)).subject == "user-9"
+    clock[0] += 2
+    await _refused(verifier, _TOKEN, Reason.TOKEN_INACTIVE)
+    assert len(endpoint.requests) == 2
+
+
+async def test_cache_ttl_of_zero_asks_on_every_request(
+    endpoint: _FakeIntrospectionEndpoint,
+) -> None:
+    verifier = endpoint.verifier(cache_ttl_seconds=0)
+    await verifier.verify(_TOKEN)
+    await verifier.verify(_TOKEN)
+    assert len(endpoint.requests) == 2
 
 
 @pytest.mark.parametrize(

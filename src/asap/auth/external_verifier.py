@@ -17,9 +17,10 @@ must be a three-segment JWS; any other such shape, a JWE included, is
 ``malformed_token`` and is never sent. Every other bearer is opaque: it names
 no issuer, so it goes to the introspection issuer with this server's client
 credentials whoever minted it. ``TokenIntrospector`` posts through the guarded
-POST and caches an active answer until shortly before its ``exp``. Its answer
-then gets the same claim checks as a verified JWT, plus ``active`` and, when
-present, ``iss``.
+POST and reuses an answer for at most the issuer's
+``introspection.cache_ttl_seconds`` (default 60 s; ``0`` asks every time), so a
+revoked token stops working within that time. Its answer then gets the same
+claim checks as a verified JWT, plus ``active`` and, when present, ``iss``.
 
 Errors carry a typed reason and never the token or its signature.
 """
@@ -274,5 +275,9 @@ def _guarded_introspector(
         transport=transport,
     )
     return TokenIntrospector(
-        endpoint.url, endpoint.client_id, endpoint.client_secret.get_secret_value(), poster=poster
+        endpoint.url,
+        endpoint.client_id,
+        endpoint.client_secret.get_secret_value(),
+        poster=poster,
+        max_cache_ttl_seconds=endpoint.cache_ttl_seconds,
     )

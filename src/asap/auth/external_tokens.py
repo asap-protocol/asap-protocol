@@ -24,9 +24,13 @@ from pydantic import Field, SecretStr, field_validator, model_validator
 
 from asap.auth.capabilities import CapabilityGrant
 from asap.auth.external_grants import ExternalGrantRule, ensure_unambiguous_grant_rules
+from asap.auth.introspection import MAX_ACTIVE_CACHE_TTL_SECONDS
 from asap.auth.jwks import issuer_matches_expected
 from asap.models.base import ASAPBaseModel
 from asap.utils.guarded_fetch import GuardedFetchError, validate_guarded_url
+
+# Revocation at the issuer takes effect within this time.
+EXTERNAL_INTROSPECTION_CACHE_TTL_SECONDS = 60
 
 
 class JwksUriKeySource(ASAPBaseModel):
@@ -80,11 +84,21 @@ ExternalKeySource = Annotated[
 
 
 class IntrospectionEndpoint(ASAPBaseModel):
-    """RFC 7662 endpoint for opaque tokens, with this server's client credentials."""
+    """RFC 7662 endpoint for opaque tokens, with this server's client credentials.
+
+    ``cache_ttl_seconds`` bounds how long an answer is reused, so a token
+    revoked at the issuer stops working within that time; ``0`` asks on every
+    request. An active answer is never reused past 30 s before its ``exp``.
+    """
 
     url: str
     client_id: str = Field(min_length=1)
     client_secret: SecretStr
+    cache_ttl_seconds: int = Field(
+        default=EXTERNAL_INTROSPECTION_CACHE_TTL_SECONDS,
+        ge=0,
+        le=int(MAX_ACTIVE_CACHE_TTL_SECONDS),
+    )
 
 
 def _check_url(url: str, *, allow_private_hosts: bool) -> None:
