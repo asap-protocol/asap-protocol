@@ -8,6 +8,7 @@ import {
 
 import { createAgentJwtVerifier, type AgentJwtVerifierConfig } from "./agent-jwt-verifier.js";
 import { McpAuthErrorCode } from "./errors.js";
+import { createProtectTool, type AgentGrantResolver, type ProtectTool } from "./grant-layer.js";
 import { isPublicMcpRequest } from "./public-request.js";
 
 export interface McpAuthConfig {
@@ -18,11 +19,15 @@ export interface McpAuthConfig {
   readonly agentJwt: AgentJwtVerifierConfig;
   /** Tools that a request with no token may call, under the header rule. */
   readonly publicTools?: readonly string[];
+  /** Tool name → ASAP capability for `protectTool`. A tool that is not listed uses its own name. */
+  readonly toolCapabilities?: Readonly<Record<string, string>>;
+  /** The grants of a verified Agent JWT principal, for example `staticAgentGrants(...)`. Default: none (deny). */
+  readonly agentGrants?: AgentGrantResolver;
   /** RFC 9728 metadata URL, sent as `resource_metadata` in every 401 challenge. */
   readonly resourceMetadataUrl?: string;
   /**
-   * Called when verification fails for a reason other than the token, such as
-   * a resolver that throws. The request gets HTTP 500 with no detail. The
+   * Called when verification or a grant lookup fails for a reason other than
+   * the token, such as a resolver that throws. The request gets HTTP 500 with no detail. The
    * package itself never logs, and this hook never receives the token.
    */
   readonly onInternalError?: (error: unknown) => void;
@@ -52,6 +57,16 @@ export interface McpAuthMiddleware {
    * Tools read the result as `ctx.http?.authInfo`.
    */
   protect(handler: McpFetchHandler): McpProtectedHandler;
+  /**
+   * The grant layer: wrap a tool callback, as the third argument of
+   * `registerTool`. A call runs only when the principal in
+   * `ctx.http.authInfo` holds a grant for the tool's capability and the call
+   * arguments meet its constraints; otherwise the result is a tool error
+   * (`asap:capability_denied` or `asap:constraint_violation`). A protected
+   * tool with no verified principal gets `asap:auth_required`. A public tool
+   * runs unchanged.
+   */
+  protectTool: ProtectTool;
 }
 
 // RFC 6750 §2.1: "Bearer" 1*SP b64token. A token list or a second word does not match.
@@ -132,5 +147,6 @@ export function createMcpAuthMiddleware(config: McpAuthConfig): McpAuthMiddlewar
     };
   }
 
-  return { authenticate, protect };
+  const protectTool = createProtectTool({ ...config, publicTools, reportInternalError });
+  return { authenticate, protect, protectTool };
 }
