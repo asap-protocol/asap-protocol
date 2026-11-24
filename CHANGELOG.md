@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`FRAME_ENCODING_BINARY`** — the literal kept on the `asap.transport.websocket` shim is gone with it. Binary WebSocket framing was already removed in 2.5.1; frames are JSON text only (`FRAME_ENCODING_JSON`). There is no replacement. See the [migration guide](docs/migration.md#upgrading-from-v25x-to-v260).
 - **`asap.adapters.mcp`** — the MCP Auth Bridge re-export shim deprecated in 2.5.1 is gone, with its six submodules. Import `protect_server`, `MCPAuthConfig`, `ProtectedMCPServer`, and `resolve_jwt_extractor` from `asap.mcp.auth`, and import from `asap.mcp.auth.<submodule>` where you imported from `asap.adapters.mcp.<submodule>`. See the [migration guide](docs/migration.md#upgrading-from-v25x-to-v260).
 - **`RemoteFatalRPCError` and `RemoteRecoverableRPCError` (Python)** — the two `asap.errors` subclasses deprecated in 2.5.1 are gone. Catch `RemoteRPCError` and branch on `is_recoverable`. The TypeScript classes of the same names in `@asap-protocol/client` stay. See the [migration guide](docs/migration.md#upgrading-from-v25x-to-v260).
+- **`metering_storage_adapter`** — the `asap.economics.storage` wrapper deprecated in 2.5.1 is gone. Build the same `MeteringStore` view with `MeteringStorageBridge(storage)` from `asap.state.metering` (also exported from `asap.state`). See the [migration guide](docs/migration.md#upgrading-from-v25x-to-v260).
 
 ### Follow-up (planned)
 

@@ -1128,6 +1128,7 @@ protocol.
 | `FRAME_ENCODING_BINARY` | `from asap.transport.websocket import FRAME_ENCODING_BINARY` | No replacement. v2.5.1 removed binary framing; frames are JSON text only (`FRAME_ENCODING_JSON`). Delete the reference |
 | `asap.adapters.mcp` | `from asap.adapters.mcp import protect_server, MCPAuthConfig` (or `from asap.adapters.mcp.<submodule> import ...`) | `from asap.mcp.auth import protect_server, MCPAuthConfig` (same names). Submodules keep their names: `asap.adapters.mcp.config` becomes `asap.mcp.auth.config`, and the same for `auth_middleware`, `capability_map`, `errors`, `jwt_extractor`, and `protected_server` |
 | `RemoteFatalRPCError`, `RemoteRecoverableRPCError` (Python) | `from asap.errors import RemoteRecoverableRPCError`, then `except RemoteRecoverableRPCError:` | `from asap.errors import RemoteRPCError`, then `except RemoteRPCError as exc:` and branch on `exc.is_recoverable`. The TypeScript classes of the same names in `@asap-protocol/client` are not affected |
+| `metering_storage_adapter` | `from asap.economics.storage import metering_storage_adapter`, then `metering_storage_adapter(storage)` | `from asap.state.metering import MeteringStorageBridge`, then `MeteringStorageBridge(storage)`. It returns the same `MeteringStore` view |
 
 ---
 

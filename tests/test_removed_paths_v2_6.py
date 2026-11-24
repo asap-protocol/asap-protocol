@@ -22,6 +22,7 @@ _REMOVED_MODULES: tuple[str, ...] = (
 _REMOVED_NAMES: tuple[tuple[str, str], ...] = (
     ("asap.errors", "RemoteFatalRPCError"),  # HK-004
     ("asap.errors", "RemoteRecoverableRPCError"),  # HK-004
+    ("asap.economics.storage", "metering_storage_adapter"),  # HK-005
     ("asap.transport.ws", "FRAME_ENCODING_BINARY"),  # HK-006
 )
 
