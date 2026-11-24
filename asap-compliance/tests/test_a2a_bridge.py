@@ -23,6 +23,7 @@ from .a2a_fake_gateway import (
     CARD_KID,
     CARD_PUBLIC_JWK,
     PROBE_TOKENS_PATH,
+    OTHER_AGENT_URN,
     FakeA2AGateway,
     Fault,
 )
@@ -163,6 +164,13 @@ class TestCardDocumentChecks:
         assert "card_well_known" in _failed(result)
         assert not result.passed
 
+    async def test_the_card_is_fetched_once_per_run(self) -> None:
+        server = FakeA2AGateway()
+
+        await _run(server)
+
+        assert server.requests.count("/.well-known/agent-card.json") == 1
+
     async def test_an_unreachable_gateway_fails_each_check_without_raising(self) -> None:
         attempts: list[str] = []
 
@@ -195,3 +203,73 @@ class TestCardDocumentChecks:
         transport = httpx.MockTransport(FakeA2AGateway().handle)
 
         assert validate_a2a_bridge(_profile_config(), http_transport=transport).passed
+
+
+def _message(result: A2ABridgeResult, check_id: str) -> str:
+    return next(check.message for check in result.checks if check.name == check_id)
+
+
+class TestCardSignatureChecks:
+    """The card parses as A2A v1.0, verifies under the configured trust, and names the URN."""
+
+    @pytest.mark.parametrize(
+        ("fault", "failed"),
+        [
+            (Fault.CARD_V03, {"card_a2a_v1", "card_signature"}),
+            (Fault.UNSIGNED_CARD, {"card_signature"}),
+            (Fault.TAMPERED_CARD, {"card_signature"}),
+            (Fault.CARD_FOR_ANOTHER_AGENT, {"card_signature", "card_agent_urn"}),
+            (Fault.CARD_WITHOUT_EXTENSION, {"card_agent_urn"}),
+        ],
+    )
+    async def test_a_gateway_with_the_fault_fails_the_checks(
+        self, fault: Fault, failed: set[str]
+    ) -> None:
+        result = await _run(FakeA2AGateway(fault))
+
+        assert failed <= _failed(result)
+        assert "card_well_known" not in _failed(result)
+
+    async def test_a_card_without_the_extension_is_bound_to_the_expected_urn(self) -> None:
+        result = await _run(FakeA2AGateway(Fault.CARD_WITHOUT_EXTENSION))
+
+        assert _failed(result) == {"card_agent_urn"}
+
+    async def test_a_v03_card_is_named_as_such(self) -> None:
+        result = await _run(FakeA2AGateway(Fault.CARD_V03))
+
+        assert "A2A v0.3" in _message(result, "card_a2a_v1")
+
+
+class TestTheHarnessIsNotFooled:
+    """Negative trust checks: the trust is the config's, scoped to the expected URN only."""
+
+    async def test_a_config_that_expects_another_agent_fails_the_signature_check(self) -> None:
+        result = await _run(FakeA2AGateway(), expected_agent_urn=OTHER_AGENT_URN)
+
+        assert {"card_signature", "card_agent_urn"} <= _failed(result)
+        assert f"may sign for {OTHER_AGENT_URN} only" in _message(result, "card_signature")
+
+    async def test_a_card_for_another_agent_signed_with_the_trusted_key_fails(self) -> None:
+        result = await _run(FakeA2AGateway(Fault.CARD_FOR_ANOTHER_AGENT))
+
+        assert f"may sign for {AGENT_URN} only" in _message(result, "card_signature")
+
+    async def test_another_key_under_the_configured_kid_fails_the_signature_check(self) -> None:
+        other_key = OKPKey.generate_key("Ed25519", private=True).as_dict(private=False)
+
+        result = await _run(FakeA2AGateway(), card_keys={CARD_KID: {**other_key, "kid": CARD_KID}})
+
+        assert "(bad_signature)" in _message(result, "card_signature")
+
+    async def test_another_key_under_another_kid_is_no_trusted_signature(self) -> None:
+        other_key = OKPKey.generate_key("Ed25519", private=True).as_dict(private=False)
+
+        result = await _run(
+            FakeA2AGateway(), card_keys={"other-kid": {**other_key, "kid": "other-kid"}}
+        )
+
+        assert "no signature on the card is by a configured key" in _message(
+            result, "card_signature"
+        )
+        assert CARD_PUBLIC_JWK["x"] not in str(result.checks)

@@ -27,6 +27,22 @@ import asyncio
 from dataclasses import dataclass, field
 
 import httpx
+from pydantic import ValidationError
+
+from asap.adapters.a2a import (
+    ASAP_EXTENSION_URI,
+    A2AAdapterError,
+    A2AInvalidSignatureError,
+    A2AKeyResolver,
+    A2AMappingError,
+    A2ANoTrustedSignatureError,
+    A2ASignerScopeError,
+    A2AUnsignedCardError,
+    A2AUnsupportedVersionError,
+    AgentCard,
+    read_asap_extension,
+    verify_agent_card_for_agent,
+)
 
 from asap_compliance.config import A2ABridgeComplianceConfig
 from asap_compliance.validators.a2a_transport import (
@@ -38,12 +54,25 @@ from asap_compliance.validators.handshake import CheckResult
 from asap_compliance.validators.http_exchange import HttpExchangeError
 from asap_compliance.validators.probe_tokens import ProbeTokenProvider
 from asap_compliance.validators.profile_run import (
+    CheckAbortedError,
     ProfileCheck,
     endpoint_token_provider,
     run_profile_checks,
 )
 
 _EXPECT_CARD_DOCUMENT = f"HTTP 200 and a JSON object at {AGENT_CARD_PATH}"
+_EXPECT_CARD_V1 = "a card that parses as an A2A v1.0 Agent Card"
+_EXPECT_CARD_SIGNATURE = (
+    "a signature by a configured key, none that fails, and a signer that may sign "
+    "for the agent that the card names"
+)
+_EXPECT_CARD_AGENT_URN = "an ASAP extension in the card that names the expected agent URN"
+_VERIFICATION_FAILURES: dict[type[A2AAdapterError], str] = {
+    A2AUnsignedCardError: "the card has no signature",
+    A2ANoTrustedSignatureError: (
+        "no signature on the card is by a configured key with an allowed algorithm"
+    ),
+}
 
 
 @dataclass
@@ -81,6 +110,22 @@ class _BridgeRun:
             raise self._card_answer
         return self._card_answer
 
+    async def card(self) -> AgentCard:
+        """The card, parsed as A2A v1.0; raise :class:`CheckAbortedError` if there is none."""
+        answer = await self.card_answer()
+        problem = _card_document_problem(answer)
+        if problem is not None:
+            raise CheckAbortedError(f"no card to check: {problem}")
+        try:
+            return AgentCard.model_validate(answer.json_body)
+        except A2AUnsupportedVersionError:
+            raise CheckAbortedError("the card is an A2A v0.3 card, not A2A v1.0") from None
+        except ValidationError as exc:
+            # The count only: a validation message can repeat card text.
+            raise CheckAbortedError(
+                f"the card does not parse as A2A v1.0 ({exc.error_count()} problems)"
+            ) from None
+
 
 def _card_document_problem(response: A2AHttpResponse) -> str | None:
     if response.status_code != 200:
@@ -95,9 +140,63 @@ async def _check_card_well_known(run: _BridgeRun) -> str | None:
     return _card_document_problem(await run.card_answer())
 
 
+async def _check_card_a2a_v1(run: _BridgeRun) -> str | None:
+    """That card, parsed with ``asap.adapters.a2a.AgentCard``."""
+    await run.card()
+    return None
+
+
+async def _check_card_signature(run: _BridgeRun) -> str | None:
+    """The card under the configured keys, each pinned for the expected URN only (COMPAT-006)."""
+    card = await run.card()
+    expected = run.config.expected_agent_urn
+    resolver = A2AKeyResolver(run.config.card_trust())
+    try:
+        await verify_agent_card_for_agent(card, _named_agent_urn(card) or expected, resolver)
+    except A2ASignerScopeError:
+        return (
+            "a configured key verified the card, but the card names another agent, "
+            f"and that key may sign for {expected} only"
+        )
+    except A2AInvalidSignatureError as exc:
+        return f"signature {exc.index} fails the card ({exc.reason})"
+    except A2AAdapterError as exc:
+        return _VERIFICATION_FAILURES.get(
+            type(exc), f"the card does not verify ({type(exc).__name__})"
+        )
+    return None
+
+
+async def _check_card_agent_urn(run: _BridgeRun) -> str | None:
+    """The card's ASAP extension against the expected URN, which only the config gives."""
+    card = await run.card()
+    expected = run.config.expected_agent_urn
+    try:
+        extension = read_asap_extension(card)
+    except A2AMappingError:
+        return "the card lists the ASAP extension more than once, or its params are not valid"
+    if extension is None:
+        return f"the card has no ASAP extension ({ASAP_EXTENSION_URI})"
+    if extension.agent_urn != expected:
+        return f"the card's ASAP extension names an agent URN other than {expected}"
+    return None
+
+
+def _named_agent_urn(card: AgentCard) -> str | None:
+    """The URN in the card's ASAP extension; None when it has none, or the extension is bad."""
+    try:
+        extension = read_asap_extension(card)
+    except A2AMappingError:
+        return None
+    return None if extension is None else extension.agent_urn
+
+
 # The checks, in the order they run.
 _PROFILE_CHECKS: tuple[ProfileCheck[_BridgeRun], ...] = (
     ("card_well_known", _check_card_well_known, _EXPECT_CARD_DOCUMENT),
+    ("card_a2a_v1", _check_card_a2a_v1, _EXPECT_CARD_V1),
+    ("card_signature", _check_card_signature, _EXPECT_CARD_SIGNATURE),
+    ("card_agent_urn", _check_card_agent_urn, _EXPECT_CARD_AGENT_URN),
 )
 
 A2A_BRIDGE_CHECK_IDS: tuple[str, ...] = tuple(check_id for check_id, _, _ in _PROFILE_CHECKS)
