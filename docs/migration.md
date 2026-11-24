@@ -1110,17 +1110,14 @@ Scope: [prd-v2.5.4-distribution-loop.md](../product/prd/prd-v2.5.4-distribution-
 
 ### Upgrading from v2.5.11 to v2.5.12
 
-**v2.5.12 (security & correctness patch)** — **shipped**
-([tag `v2.5.12`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.12)) —
-authentication, authorization, and input validation fixes in the Python
-reference implementation. This is **not** v2.6.0 Interop. There are **no
-wire-protocol or manifest schema** changes relative to v2.5.11, but some
-requests that v2.5.11 accepted are now refused. The table below lists them.
+**v2.5.12** is a maintenance patch for authentication, authorization, and
+input validation in the Python reference implementation. The wire protocol
+and manifest schema match v2.5.11. The table lists requests that v2.5.12 refuses.
 
 #### What lands in v2.5.12
 
-- **Published behavior** — the six changes in the table below.
-- **Published requirements** — `opentelemetry-api>=1.45.2` (CVE-2026-126360),
+- **Package behavior** follows the six changes in the table.
+- **Package requirements** include `opentelemetry-api>=1.45.2` (CVE-2026-126360),
   with the SDK and the OTLP exporter at 1.45.2 and the instrumentation
   packages at 0.66b2.
 - **Repository locks** — the root lock, `apps/example-agent`,
@@ -1144,7 +1141,8 @@ requests that v2.5.11 accepted are now refused. The table below lists them.
 
 #### Upgrade steps
 
-1. Bump with `pip install 'asap-protocol==2.5.12'` (or `uv add asap-protocol`).
+1. After [PyPI](https://pypi.org/project/asap-protocol/#history) lists 2.5.12, run
+   `pip install 'asap-protocol==2.5.12'` or `uv add 'asap-protocol==2.5.12'`.
 2. Check your deployment against each row of the table above.
 3. TypeScript `@asap-protocol/*` packages remain at **2.4.1**.
 
