@@ -138,6 +138,23 @@ class A2AKeyResolutionError(A2ACardVerificationError):
         self.refusal = refusal
 
 
+class A2ACardFetchError(A2AAdapterError):
+    """The guarded fetch of an Agent Card was refused or failed.
+
+    ``refusal`` is the stable code of :class:`asap.utils.guarded_fetch.GuardedFetchError`,
+    for example ``"scheme_not_https"``, ``"host_not_public"``, or ``"too_large"``.
+    """
+
+    def __init__(self, url: str, refusal: str) -> None:
+        super().__init__(
+            "asap:adapters/a2a/card_fetch",
+            f"the Agent Card at {url!r} could not be fetched ({refusal})",
+            {"url": url, "refusal": refusal},
+        )
+        self.url = url
+        self.refusal = refusal
+
+
 class A2AMappingInputError(A2AAdapterError):
     """A caller input that the mapping needs is missing, or it conflicts with the source.
 

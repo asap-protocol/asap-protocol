@@ -20,6 +20,7 @@ from asap.adapters.a2a.canonical import (
 from asap.adapters.a2a.errors import (
     A2AAdapterError,
     A2ACanonicalFormError,
+    A2ACardFetchError,
     A2ACardNotSignableError,
     A2ACardVerificationError,
     A2AInvalidSignatureError,
@@ -37,6 +38,7 @@ from asap.adapters.a2a.extension import (
     SkillSchemas,
     read_asap_extension,
 )
+from asap.adapters.a2a.ingest import AgentCardIngestor, CardIngestResult
 from asap.adapters.a2a.mapping import (
     AgentCardInputs,
     CardMapping,
@@ -92,6 +94,7 @@ from asap.adapters.a2a.verification import (
 __all__ = [
     "A2AAdapterError",
     "A2ACanonicalFormError",
+    "A2ACardFetchError",
     "A2ACardNotSignableError",
     "A2ACardVerificationError",
     "A2AInvalidSignatureError",
@@ -107,6 +110,7 @@ __all__ = [
     "ASAP_EXTENSION_URI",
     "AgentCapabilities",
     "AgentCard",
+    "AgentCardIngestor",
     "AgentCardInputs",
     "AgentCardSignature",
     "AgentExtension",
@@ -117,6 +121,7 @@ __all__ = [
     "AuthorizationCodeOAuthFlow",
     "CARD_VERIFY_ALGORITHMS",
     "CanonicalCardForm",
+    "CardIngestResult",
     "CardKey",
     "CardKeyResolver",
     "CardMapping",
