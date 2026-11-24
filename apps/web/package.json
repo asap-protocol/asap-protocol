@@ -11,7 +11,7 @@
     "format:check": "prettier --check --ignore-unknown",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:load": "ENABLE_FIXTURE_ROUTES=true npx playwright test tests/load/browse-500.spec.ts",
+    "test:load": "playwright test --config=playwright.load.config.ts",
     "test:e2e": "playwright test",
     "test:e2e:local": "bash scripts/test-e2e.sh",
     "test:e2e:headed": "playwright test --headed",
