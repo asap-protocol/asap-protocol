@@ -19,6 +19,43 @@ Middleware that protects an HTTP MCP server with ASAP identity and capability gr
 
 A token never falls through from one verifier to the other.
 
+## Usage (Agent JWT)
+
+```ts
+import { createServer } from "node:http";
+import { createMcpAuthMiddleware } from "@asap-protocol/mcp-auth";
+import { toNodeHandler } from "@modelcontextprotocol/node";
+import { createMcpHandler } from "@modelcontextprotocol/server";
+
+const auth = createMcpAuthMiddleware({
+  agentJwt: {
+    audience: "https://mcp.example.com/mcp", // required
+    resolveAgent: async ({ agentId, hostThumbprint }) => lookUpAgent(agentId, hostThumbprint),
+  },
+  publicTools: ["echo"],
+  resourceMetadataUrl: "https://mcp.example.com/.well-known/oauth-protected-resource/mcp",
+  onInternalError: (error) => logger.error(error), // the package itself never logs
+});
+
+// legacy: "reject" serves MCP 2026-07-28 only, as a second guard for the public-tool rule.
+const app = auth.protect(createMcpHandler(buildServer, { legacy: "reject" }));
+createServer(toNodeHandler(app)).listen(8787);
+```
+
+`resolveAgent` returns the agent's Ed25519 public JWK and whether the agent is usable (see `verifyAgentJwt` in `@asap-protocol/client`). A tool reads the verified agent as `ctx.http?.authInfo?.extra?.principal`.
+
+- **Requests with no token.** A request without an `Authorization` header passes with no auth info only when it sends `MCP-Protocol-Version: 2026-07-28` and either calls a public tool (`Mcp-Method: tools/call`, `Mcp-Name: <tool>`) or is `tools/list` or `server/discover`. Any other request with no token gets HTTP 401. The rule reads headers only, before the SDK parses the body.
+- **Requests with a token.** The token is always verified, also for a public tool.
+- **Single use.** An Agent JWT lives 60 seconds and is single-use, so a client mints one per request. With the SDK client: `new StreamableHTTPClientTransport(url, { authProvider: { token: () => agent.signAgentJwt({ aud }) } })`. The default replay cache is in memory; several server instances behind one audience need a shared `JtiReplayCache`.
+
+| Case | HTTP answer |
+|------|-------------|
+| No token | 401, `WWW-Authenticate: Bearer resource_metadata="<url>"` (or `Bearer`), body `{"error":"invalid_token","error_description":"asap:auth_required"}` |
+| Bad, expired, wrong-audience, or replayed token | 401, `WWW-Authenticate: Bearer error="invalid_token", error_description="asap:invalid_token: <reason>", resource_metadata="<url>"`, the same text in the body |
+| The resolver or the replay cache throws | 500, body `{"error":"server_error","error_description":"Internal Server Error"}`; the error goes to `onInternalError` |
+
+`<reason>` is a fixed string, such as `audience mismatch` or `jti replay detected`. No answer holds the token or any claim value.
+
 ## Error codes
 
 | Case | Result |

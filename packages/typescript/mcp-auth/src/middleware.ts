@@ -1,4 +1,10 @@
-import { bearerAuthChallengeResponse, OAuthError, OAuthErrorCode, type AuthInfo } from "@modelcontextprotocol/server";
+import {
+  bearerAuthChallengeResponse,
+  OAuthError,
+  OAuthErrorCode,
+  type AuthInfo,
+  type McpHandlerRequestOptions,
+} from "@modelcontextprotocol/server";
 
 import { createAgentJwtVerifier, type AgentJwtVerifierConfig } from "./agent-jwt-verifier.js";
 import { McpAuthErrorCode } from "./errors.js";
@@ -22,6 +28,16 @@ export interface McpAuthConfig {
   readonly onInternalError?: (error: unknown) => void;
 }
 
+/** The `{ fetch }` face of `createMcpHandler(...)` from `@modelcontextprotocol/server`. */
+export interface McpFetchHandler {
+  fetch(request: Request, options?: McpHandlerRequestOptions): Promise<Response>;
+}
+
+/** The shape that `toNodeHandler` (`@modelcontextprotocol/node`) and fetch-native runtimes accept. */
+export interface McpProtectedHandler {
+  fetch(request: Request): Promise<Response>;
+}
+
 export interface McpAuthMiddleware {
   /**
    * The token layer: `AuthInfo` for a verified token, `undefined` for a public
@@ -29,6 +45,13 @@ export interface McpAuthMiddleware {
    * detail). It never throws.
    */
   authenticate(request: Request): Promise<AuthInfo | Response | undefined>;
+  /**
+   * Put the token layer in front of an MCP handler. SDK 2.4 has no request
+   * middleware, so the layer wraps `handler.fetch`: a refused request gets its
+   * `Response`, and any other request reaches `handler.fetch(request, { authInfo })`.
+   * Tools read the result as `ctx.http?.authInfo`.
+   */
+  protect(handler: McpFetchHandler): McpProtectedHandler;
 }
 
 // RFC 6750 §2.1: "Bearer" 1*SP b64token. A token list or a second word does not match.
@@ -59,8 +82,8 @@ function invalidTokenResponse(reason: string, resourceMetadataUrl: string | unde
  *   agentJwt: { audience: "https://mcp.example.com/mcp", resolveAgent },
  *   publicTools: ["echo"],
  * });
- * const result = await auth.authenticate(request);
- * if (result instanceof Response) return result;
+ * const app = auth.protect(createMcpHandler(buildServer, { legacy: "reject" }));
+ * createServer(toNodeHandler(app)).listen(8787);
  * ```
  */
 export function createMcpAuthMiddleware(config: McpAuthConfig): McpAuthMiddleware {
@@ -97,5 +120,17 @@ export function createMcpAuthMiddleware(config: McpAuthConfig): McpAuthMiddlewar
     }
   }
 
-  return { authenticate };
+  function protect(handler: McpFetchHandler): McpProtectedHandler {
+    return {
+      fetch: async (request: Request): Promise<Response> => {
+        const authInfo = await authenticate(request);
+        if (authInfo instanceof Response) {
+          return authInfo;
+        }
+        return handler.fetch(request, authInfo === undefined ? undefined : { authInfo });
+      },
+    };
+  }
+
+  return { authenticate, protect };
 }

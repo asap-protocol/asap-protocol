@@ -7,10 +7,11 @@ export const PROTECTED_TOOL = "secure_action";
 
 export type HeaderList = [string, string][];
 
+// With this Accept header, the SDK's default legacy mode runs a forged 2025-era call (docs/adapters/mcp-auth-bridge.md).
 export function post(headers: HeaderList, body: unknown = {}): Request {
   return new Request(MCP_ENDPOINT, {
     method: "POST",
-    headers: [["content-type", "application/json"], ...headers],
+    headers: [["content-type", "application/json"], ["accept", "application/json, text/event-stream"], ...headers],
     body: JSON.stringify(body),
   });
 }
