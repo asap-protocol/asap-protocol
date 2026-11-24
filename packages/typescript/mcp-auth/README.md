@@ -15,9 +15,9 @@ Middleware that protects an HTTP MCP server with ASAP identity and capability gr
 | Token | What the package does |
 |-------|-----------------------|
 | ASAP Agent JWT | Verifies the token and maps the agent to its ASAP grants. MCP lets a client and a server agree on their own auth strategy; this is such a custom strategy. It is not MCP authorization. |
-| External OAuth 2.1 access token | Verifies the token against an issuer allowlist and the server's audience, and maps its scopes to ASAP capabilities. This path follows MCP authorization (OAuth 2.1). |
+| External OAuth 2.1 access token | Verifies the token against an issuer allowlist and the server's audience, and maps its scopes or claims to ASAP capabilities. On this path the server is the resource server of MCP authorization (OAuth 2.1). |
 
-A token never falls through from one verifier to the other.
+Set `agentJwt`, `externalTokens`, or both. With both, the token's `typ` header picks one verifier: `agent+jwt` goes to the Agent JWT verifier, and any other token goes to the external verifier. A token that its verifier refuses is never tried with the other one.
 
 ## Usage (Agent JWT)
 
@@ -89,13 +89,64 @@ Constraints work as in Python `validate_constraints`: a plain value is an exact 
 
 For a tool with no `inputSchema`, write the callback with its `ctx` parameter: `auth.protectTool("name", async (ctx) => ...)`.
 
+## Usage (external OAuth 2.1 tokens)
+
+```ts
+import { createMcpAuthMiddleware } from "@asap-protocol/mcp-auth";
+import { createMcpHandler, getOAuthProtectedResourceMetadataUrl, oauthMetadataResponse } from "@modelcontextprotocol/server";
+
+const resource = new URL("https://mcp.example.com/mcp");
+const auth = createMcpAuthMiddleware({
+  externalTokens: {
+    issuers: [{
+      issuer: "https://auth.example.com",
+      audience: resource.href, // required (RFC 8707)
+      jwksUri: "https://auth.example.com/.well-known/jwks.json", // or jwks: { keys: [...] }
+      grantRules: [
+        { scope: "actions:run", capability: "secure_action", constraints: { action: { not_in: ["drop"] } } },
+        { claim: "groups", value: "auditors", capability: "audit_log" },
+      ],
+    }],
+  },
+  resourceMetadataUrl: getOAuthProtectedResourceMetadataUrl(resource),
+});
+
+server.registerTool(
+  "secure_action",
+  { inputSchema: z.object({ action: z.string() }), scopeChallenge: auth.scopeChallenge },
+  auth.protectTool("secure_action", async ({ action }) => ({ content: [{ type: "text", text: action }] })),
+);
+
+// RFC 9728 metadata from the SDK helper, beside the protected MCP endpoint.
+const mcp = auth.protect(createMcpHandler(buildServer, { legacy: "reject" }));
+const app = { fetch: async (request: Request) => oauthMetadataResponse(request, metadataOptions) ?? mcp.fetch(request) };
+```
+
+The verifier checks, in this order: the token is a JWT; its `typ` is not `agent+jwt` or `host+jwt`; its `alg` is `EdDSA`, `RS256`, or `ES256` (so `none` and HMAC fail before any key lookup); its unverified `iss` is on the allowlist (trailing slashes do not count); the signature verifies with **that issuer's** keys; `aud` holds the configured audience; `exp` and `nbf` hold; `sub` and `exp` are present. The token picks nothing: `jku`, `x5u`, and the `iss` URL are never fetched. There is no replay check, because a client sends the same access token on every request.
+
+Grants come only from the issuer's `grantRules`, deny by default: a `scope` rule matches one token of the space-separated `scope` claim, and a `claim` rule matches a top-level claim that is the exact string `value` or a list that holds it. A tool reads the principal as `ctx.http?.authInfo?.extra?.principal` (`kind: "external"`, `issuer`, `subject`, `scopes`, `grants`).
+
+| Case | HTTP answer |
+|------|-------------|
+| Refused token | 401, `asap:invalid_token: <reason>`. An issuer that is not allowlisted and a bad signature share one reason, `issuer or signature not accepted` |
+| No grant for the tool, and a scope rule of the issuer gives one | 403, `WWW-Authenticate: Bearer error="insufficient_scope", error_description="asap:capability_denied", scope="<scope>", resource_metadata="<url>"` (needs `scopeChallenge` on the tool) |
+| No grant, and no scope rule gives one | Tool result, `asap:capability_denied` |
+| Constraint violated | Tool result, `asap:constraint_violation` |
+| The JWKS cannot be fetched | 500 with no detail; the error goes to `onInternalError` |
+
+### JWKS fetch and SSRF
+
+A `jwksUri` must be `https` with no credentials. The fetch follows a redirect only on the same origin (at most three), stops after `timeoutMs` (default 5 s) and `maxBytes` (default 64 KiB), keeps only RSA, EC, and OKP public keys, and caches them for at most `maxAgeMs` (default 10 min). An unknown `kid` refreshes the keys, but at most one fetch runs per `refreshCooldownMs` (default 30 s), so random `kid` values cannot multiply fetches. Set these in `externalTokens.jwksFetch`.
+
+What this does **not** give: in a JavaScript runtime, `fetch` resolves the host name itself, so the package cannot check or pin the IP address that the host resolves to, as the Python helper does. A host name that resolves to a private or metadata address is fetched. The protection is that operators choose the URLs: only the configured `jwksUri` is fetched, and no token value adds or changes a fetch target. Use a static `jwks` or an egress policy where that is not enough.
+
 ## Error codes
 
 | Case | Result |
 |------|--------|
 | No token | HTTP 401, `asap:auth_required` |
 | Invalid, expired, or wrong-audience token | HTTP 401, `asap:invalid_token` |
-| Capability not granted | Tool result with `isError: true`, `asap:capability_denied` (HTTP 403 `insufficient_scope` on the external-token path) |
+| Capability not granted | Tool result with `isError: true`, `asap:capability_denied`. On the external-token path, HTTP 403 `insufficient_scope` when a scope rule can give the grant |
 | Constraint violated | Tool result with `isError: true`, `asap:constraint_violation` |
 
 ## Links
