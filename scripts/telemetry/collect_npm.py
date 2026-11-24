@@ -12,6 +12,7 @@ import argparse
 import json
 import sys
 from datetime import UTC, datetime
+from http import HTTPStatus
 from pathlib import Path
 from urllib.parse import quote
 from typing import Any
@@ -71,9 +72,21 @@ def fetch_last_week_downloads(
     *,
     period: str = DEFAULT_PERIOD,
 ) -> dict[str, Any]:
-    """GET npm range stats for ``package`` and return a small result object."""
+    """GET npm range stats for ``package`` and return a small result object.
+
+    A package that npm does not know yet (HTTP 404, for example one listed in
+    ``DEFAULT_PACKAGES`` before its first publish) is no data, not zero: its row has
+    ``downloads: None`` and ``not_on_registry: True``, and the run goes on. Every
+    other HTTP or network error raises, as before.
+    """
     url = _downloads_url(package, period)
     response = client.get(url)
+    if response.status_code == HTTPStatus.NOT_FOUND:
+        print(
+            f"npm telemetry: {package} is not on the npm registry (HTTP 404); recorded as no data",
+            file=sys.stderr,
+        )
+        return {"package": package, "period": period, "downloads": None, "not_on_registry": True}
     response.raise_for_status()
     payload: object = response.json()
     count = sum_downloads_from_range_payload(payload)
