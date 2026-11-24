@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-**Interop** — ASAP's identity and capability grants work with A2A v1.0 and MCP authorization (OAuth 2.1): a signed A2A Agent Card built from the manifest, OAuth 2.1 access tokens mapped to grants, `@asap-protocol/mcp-auth` for HTTP MCP servers, and an `asap-compliance` profile for each flow. Removes the six import paths deprecated in 2.5.1. The ASAP envelope, the JSON-RPC methods, and the manifest schema do not change. Read the [interoperability guide](docs/guides/interoperability.md) and the [migration guide](docs/migration.md#upgrading-from-v25x-to-v260).
+## [2.6.0]
+
+ASAP Interop connects A2A v1.0 Agent Cards and HTTP MCP servers to ASAP identity and capability grants. Servers can sign Agent Cards, map OAuth 2.1 access tokens to grants, and test both integrations with the new compliance profiles.
+
+This version removes six Python import paths deprecated in 2.5.1. The envelope, JSON-RPC methods, and manifest schema keep their v2.5.x formats. See the [interoperability guide](docs/guides/interoperability.md) and the [migration guide](docs/migration.md#upgrading-from-v25x-to-v260).
 
 ### Added
 

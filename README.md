@@ -9,6 +9,8 @@
 
 **Quick Info**: [Latest release](https://github.com/asap-protocol/asap-protocol/releases/latest) · PyPI [`asap-protocol`](https://pypi.org/project/asap-protocol/) | `Apache 2.0` | `Python 3.13+` | [Documentation](docs/index.md) | [Changelog](CHANGELOG.md)
 
+This source tree contains **v2.6.0 Interop**. Check [GitHub Releases](https://github.com/asap-protocol/asap-protocol/releases), [PyPI](https://pypi.org/project/asap-protocol/#history), and [npm](https://www.npmjs.com/package/@asap-protocol/client) for published versions.
+
 > 📦 **Install** — [`asap-protocol` on PyPI](https://pypi.org/project/asap-protocol/) (Python) · [`@asap-protocol/client` on npm](https://www.npmjs.com/package/@asap-protocol/client) (TypeScript)
 
 🚀 **Live now** our [**agentic marketplace**](https://asap-protocol.com/) — browse agents, register yours, request verification.
@@ -73,7 +75,7 @@ Or with pip:
 pip install asap-protocol
 ```
 
-**TypeScript** (npm, **`2.4.1`** — unchanged for v2.5.12; `@asap-protocol/mcp-auth` for HTTP MCP servers is planned for v2.6.0 Interop):
+**TypeScript packages on npm (v2.4.1 examples)**
 
 - [`@asap-protocol/client`](https://www.npmjs.com/package/@asap-protocol/client) — [SDK docs](docs/sdks/typescript.md)
 - [`@asap-protocol/mastra`](https://www.npmjs.com/package/@asap-protocol/mastra) — [docs](docs/integrations/mastra.md) · [demo](apps/example-mastra/README.md)
@@ -85,7 +87,7 @@ npm install @asap-protocol/mastra@2.4.1 @asap-protocol/client @mastra/core zod
 npm install @asap-protocol/openai-agents@2.4.1 @asap-protocol/client @openai/agents zod
 ```
 
-**Python v2.5.12** is a maintenance patch. See [Migration (v2.5.11 → v2.5.12)](docs/migration.md#upgrading-from-v2511-to-v2512). Dist Loop starters remain: [Build for agents](docs/guides/build-for-agents.md) · [starters](examples/starters/README.md).
+See the [v2.6.0 upgrade guide](docs/migration.md#upgrading-from-v25x-to-v260) for Interop upgrade steps. The [v2.5.12 upgrade guide](docs/migration.md#upgrading-from-v2511-to-v2512) covers the 2.5.12 maintenance changes. Start a project with [Build for agents](docs/guides/build-for-agents.md) or the [starter examples](examples/starters/README.md).
 
 ## Quick Start
 
@@ -188,11 +190,11 @@ High-level only — see **[Changelog](https://github.com/asap-protocol/asap-prot
 
 ## 🔭 What's Next?
 
-The [agentic marketplace](https://asap-protocol.com/) and Lite Registry are live. The **v2.5.x train is closed** at **2.5.11**. ASAP is the capability, approval, and compliance layer for agents: it works with A2A v1.0 and MCP authorization (OAuth 2.1) and does not replace them. Next trains:
+The [agentic marketplace](https://asap-protocol.com/) and Lite Registry are live. The v2.5.x feature train closed at 2.5.11.
 
-- **v2.6.0 — Interop** — A2A v1.0 Agent Card ↔ ASAP manifest bridge (with signed-card verification), external agent tokens (including MCP OAuth 2.1 bearer tokens) → ASAP agent sessions, and **`@asap-protocol/mcp-auth`** (npm) for HTTP MCP servers. PRD: [prd-interop.md](product/prd/prd-interop.md)
-- **v2.7.0 — Spec profile** — RFC 2119 spec for ASAP's own surface (identity, capability grants, approval, lifecycle, error registry), layered on A2A / MCP / OAuth; every MUST maps to an `asap-compliance` check. PRD: [prd-spec-profile.md](product/prd/prd-spec-profile.md)
-- **Economy** — a trigger-gated product track, separate from library versions
+- **v2.6.0 Interop** adds signed A2A v1.0 Agent Cards, grants for external OAuth 2.1 access tokens, and `@asap-protocol/mcp-auth` for HTTP MCP servers. See the [interoperability guide](docs/guides/interoperability.md).
+- **v2.7.0 Spec profile** is next. The RFC 2119 profile will cover ASAP identity, capability grants, approvals, lifecycle, and errors. Each MUST will map to an `asap-compliance` check. See the [Spec profile PRD](product/prd/prd-spec-profile.md).
+- **Economy** proceeds when the triggers in its [PRD](product/prd/prd-v3.0-economy.md) are met.
 
 See the [roadmap](product/prd/prd-roadmap.md), [release policy](docs/maintainers/release-policy.md), [integration support tiers](docs/integrations/support-tiers.md), and [ADR index](https://github.com/asap-protocol/asap-protocol/blob/main/product/decision-records/README.md).
 

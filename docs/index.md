@@ -2,7 +2,11 @@
 
 **ASAP (Async Simple Agent Protocol)** is a protocol for agent-to-agent communication with typed messages, async transports, discovery, and authorization. It adds the capability, approval, and compliance layer for agents, and works alongside A2A and MCP rather than replacing them.
 
-See [PyPI](https://pypi.org/project/asap-protocol/#history) and [GitHub Releases](https://github.com/asap-protocol/asap-protocol/releases/latest) for published versions. For the v2.5.12 maintenance patch, see the [upgrade guide](migration.md#upgrading-from-v2511-to-v2512). The v2.5.x feature train closed at 2.5.11. See the [changelog](https://github.com/asap-protocol/asap-protocol/blob/main/CHANGELOG.md) for the history of the maintenance patches.
+These docs cover the **v2.6.0 Interop** source tree. Check [GitHub Releases](https://github.com/asap-protocol/asap-protocol/releases), [PyPI](https://pypi.org/project/asap-protocol/#history), and [npm](https://www.npmjs.com/package/@asap-protocol/client) for published versions.
+
+Interop adds signed A2A v1.0 Agent Cards, grants for external OAuth 2.1 access tokens, and `@asap-protocol/mcp-auth` for HTTP MCP servers. See the [interoperability guide](guides/interoperability.md) and the [v2.6.0 upgrade guide](migration.md#upgrading-from-v25x-to-v260).
+
+The v2.5.x feature train closed at 2.5.11. The [v2.5.12 upgrade guide](migration.md#upgrading-from-v2511-to-v2512) covers the 2.5.12 maintenance changes. See the [changelog](https://github.com/asap-protocol/asap-protocol/blob/main/CHANGELOG.md) for release history.
 
 The v2.5 feature releases include the following:
 
@@ -10,7 +14,7 @@ The v2.5 feature releases include the following:
 - **v2.5.3** adds [workflow connectors](integrations/workflow-connectors.md), [automation security guidance](guides/automation-connector-security.md), and experimental integrations for [MAF](integrations/microsoft-agent-framework.md) and [NAT](integrations/nemo-agent-toolkit.md).
 - **v2.5.4** adds [starter projects and guidance](guides/build-for-agents.md).
 
-**Next:** **v2.6.0 Interop** (A2A v1.0 Agent Card bridge, external agent tokens including MCP OAuth 2.1, and `@asap-protocol/mcp-auth` for HTTP MCP servers), then **v2.7.0 Spec profile** (an RFC 2119 profile of ASAP's identity, capability-grant, approval, and lifecycle surface). See the [roadmap](https://github.com/asap-protocol/asap-protocol/blob/main/product/prd/prd-roadmap.md).
+**v2.7.0 Spec profile** is next. The RFC 2119 profile will cover ASAP identity, capability grants, approvals, and lifecycle. See the [roadmap](https://github.com/asap-protocol/asap-protocol/blob/main/product/prd/prd-roadmap.md).
 
 Upgrade: [v2.5.11 → v2.5.12](migration.md#upgrading-from-v2511-to-v2512) · [v2.5.10 → v2.5.11](migration.md#upgrading-from-v2510-to-v2511) · [v2.5.9 → v2.5.10](migration.md#upgrading-from-v259-to-v2510) · [v2.5.8 → v2.5.9](migration.md#upgrading-from-v258-to-v259) · [v2.5.7 → v2.5.8](migration.md#upgrading-from-v257-to-v258) · [v2.5.6 → v2.5.7](migration.md#upgrading-from-v256-to-v257) · [v2.5.5 → v2.5.6](migration.md#upgrading-from-v255-to-v256) · [v2.5.4 → v2.5.5](migration.md#upgrading-from-v254-to-v255) · [v2.5.3 → v2.5.4](migration.md#upgrading-from-v253-to-v254) · [v2.5.2 → v2.5.3](migration.md#upgrading-from-v252-to-v253) · [v2.5.1 → v2.5.2](migration.md#upgrading-from-v251) · [v2.5.0 → v2.5.1](migration.md#upgrading-from-v250-to-v251) · [v2.4.1 → v2.5.0](migration.md#upgrading-from-v241-to-v250) · [v2.4.0 → v2.4.1](migration.md#upgrading-from-v240-to-v241).
 

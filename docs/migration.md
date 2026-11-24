@@ -1186,7 +1186,8 @@ walks through each one.
 #### Upgrade steps (v2.6.0)
 
 1. Change each [removed import](#removed-import-paths) to its replacement.
-2. Bump with `pip install 'asap-protocol==2.6.0'` (or `uv add asap-protocol`).
+2. When [PyPI](https://pypi.org/project/asap-protocol/#history) lists 2.6.0, install it with
+   `pip install 'asap-protocol==2.6.0'` or `uv add 'asap-protocol==2.6.0'`.
 3. If you set `oauth2_config`, read the capability execute row in
    [Behavior changes](#behavior-changes).
 4. TypeScript: code that reads a private-key member other than `d` (for
@@ -1198,8 +1199,8 @@ walks through each one.
 
 - **Wire protocol**: unchanged. The ASAP envelope, the JSON-RPC methods, and
   the manifest schema are the same as in v2.5.x.
-- **Breaking changes**: the six removed import paths. The behavior changes that
-  shipped in v2.5.12 are in
+- **Breaking changes**: the six removed import paths. For the 2.5.12 maintenance changes
+  that also apply to 2.6.0, see
   [Upgrading from v2.5.11 to v2.5.12](#upgrading-from-v2511-to-v2512).
 - **TypeScript**: `HostContext.publicJwk`, `AgentContext.publicJwk`, and the
   `agentPublicKey` option of `signHostJwt` are typed `PublicJwk` instead of

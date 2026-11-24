@@ -9,9 +9,10 @@
 **ASAP Protocol** (Async Simple Agent Protocol) is a production-ready protocol for agent-to-agent communication, and the capability, approval, and compliance layer for agents. It interoperates with A2A v1.0 and MCP authorization (OAuth 2.1); it does not replace them.
 - **Stack**: Python 3.13+, FastAPI, Pydantic v2.
 - **Transport**: JSON-RPC 2.0 over HTTP/WebSocket.
-- **Status**: The Python package version in `pyproject.toml` is **2.5.12**. Check [PyPI](https://pypi.org/project/asap-protocol/#history) or [GitHub Releases](https://github.com/asap-protocol/asap-protocol/releases/latest) for published versions. PyPI `asap-compliance` is **1.3.0** and npm `@asap-protocol/client` is **2.4.1**. The v2.5.x feature train closed at 2.5.11. Next: [v2.6.0 Interop](product/prd/prd-interop.md), then [v2.7.0 Spec profile](product/prd/prd-spec-profile.md). See the [release history](CHANGELOG.md) and [policy](docs/maintainers/release-policy.md).
+- The Python package version in `pyproject.toml` is **2.6.0** for [Interop](product/prd/prd-interop.md). [v2.7.0 Spec profile](product/prd/prd-spec-profile.md) is next.
+- For published versions, check [GitHub Releases](https://github.com/asap-protocol/asap-protocol/releases), PyPI ([`asap-protocol`](https://pypi.org/project/asap-protocol/#history), [`asap-compliance`](https://pypi.org/project/asap-compliance/#history)), and [npm](https://www.npmjs.com/package/@asap-protocol/client). See the [release history](CHANGELOG.md) and [release policy](docs/maintainers/release-policy.md).
 - **Framework Integrations**: LangChain, CrewAI, PydanticAI, LlamaIndex, SmolAgents, Vercel AI SDK, MCP (envelope + **MCP Auth Bridge** v2.5.0), OpenClaw, A2H.
-- **npm (TypeScript)**: The official client is **`@asap-protocol/client`** (scoped, **public** on npm for v2.4.x). Maintainer workflow: `.github/workflows/publish-typescript.yml`; context: `docs/maintainers/npm-publishing.md`. Org cutover (Trusted Publisher / Pages / secrets): `docs/maintainers/github-organization.md`.
+- The official TypeScript client is **`@asap-protocol/client`**. See [npm publishing](docs/maintainers/npm-publishing.md) for `.github/workflows/publish-typescript.yml` and the [organization guide](docs/maintainers/github-organization.md) for Trusted Publishing and Pages.
 - **General contact** (humans coordinating on the protocol; not security): [info@asap-protocol.com](mailto:info@asap-protocol.com) — vulnerabilities: [SECURITY.md](SECURITY.md).
 
 ## Quick Start
@@ -53,8 +54,8 @@ For coverage and pre-push gates, see [`.cursor/README.md`](.cursor/README.md#can
 - **MCP Auth Bridge**: `asap.mcp.auth` (`protect_server`, `MCPAuthConfig`) — [docs/adapters/mcp-auth-bridge.md](docs/adapters/mcp-auth-bridge.md)
 
 ### 2. Development Status
-- **Active Sprint**: none — **Phase 0 reset** (no active feature sprint). The `engineering/tasks/v2.6.0/` folder is created at v2.6.0 kickoff. Last shipped sprint: [engineering/tasks/v2.5.4/](engineering/tasks/v2.5.4/tasks-v2.5.4-roadmap.md) (Distribution Loop).
-- **Roadmap**: v2.5.x closed at **2.5.11** (2.5.5–2.5.12 are maintenance patches) → **v2.6.0 Interop** (A2A v1.0 Agent Card bridge, external agent tokens incl. MCP OAuth 2.1, `@asap-protocol/mcp-auth` for HTTP MCP servers) → **v2.7.0 Spec profile** → decision gate. Economy stays a trigger-gated product track, not library v3.0.0. Train index: [prd-roadmap.md](product/prd/prd-roadmap.md); release history: [CHANGELOG.md](CHANGELOG.md).
+- **Current work** is v2.6.0 Interop release preparation. See the [Interop PRD](product/prd/prd-interop.md) and [interoperability guide](docs/guides/interoperability.md).
+- The v2.5.x feature train closed at **2.5.11**. The [changelog](CHANGELOG.md) records the 2.5.12 maintenance changes. After v2.7.0, a decision gate reviews adoption data. See the [roadmap](product/prd/prd-roadmap.md).
 - **Release policy & support tiers**: [docs/maintainers/release-policy.md](docs/maintainers/release-policy.md) (planned scope ships only in x.Y.0; patches are unplanned maintenance) · [docs/integrations/support-tiers.md](docs/integrations/support-tiers.md).
 - **Code Reviews**: `engineering/code-review/`
 

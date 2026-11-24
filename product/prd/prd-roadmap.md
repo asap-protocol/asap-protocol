@@ -5,9 +5,9 @@
 > **Version**: living index (not tied to one library version)
 > **Status**: ACTIVE
 > **Created**: 2026-11-18
-> **Last Updated**: 2026-11-18
+> **Last Updated**: 2026-11-24
 >
-> See [GitHub Releases](https://github.com/asap-protocol/asap-protocol/releases/latest) for the latest published library and the [changelog](../../CHANGELOG.md) for release history.
+> The current source version is **v2.6.0 Interop**. **v2.7.0 Spec profile** is next. See [GitHub Releases](https://github.com/asap-protocol/asap-protocol/releases/latest) for the latest published library and the [changelog](../../CHANGELOG.md) for release history.
 > **Replaces**: [prd-v2.5-roadmap.md](./prd-v2.5-roadmap.md) (v2.5.x train index, **closed** 2026-11-18). From now on this file is the only public train index. New trains do not get their own index file.
 
 ---
@@ -31,9 +31,9 @@ The reset fixes this:
 
 | Phase | Version | Track / PRD | Scope | Exit criteria | Status |
 |-------|---------|-------------|-------|---------------|--------|
-| **0 — Reset** | maintenance patches under the release policy | — (this file) | Close the v2.5 train. Publish the release policy and the integration support tiers (§3). Restore weekly adoption telemetry ([runbook](../../docs/maintainers/telemetry.md)). Triage the automated regression-test PRs. Find 1–3 external design partners. | Telemetry baseline collected; policy and tiers published | **Active** |
-| **Interop** | **v2.6.0** | [prd-interop.md](./prd-interop.md) | **P1** A2A v1.0 Agent Card ↔ ASAP manifest bridge, including signed-card verification (COMPAT-005/006). **P1** accept external agent tokens as ASAP agent sessions, including MCP OAuth 2.1 bearer tokens (COMPAT-001/002). **P1** `@asap-protocol/mcp-auth` for HTTP MCP servers (MCP-TS-001..003). **P2** discovery bridge (COMPAT-003). **MUST** interoperability guide (COMPAT-004). Housekeeping: remove the six import paths deprecated in v2.5.1 for v2.6.0, including the `asap.cli._compat` shim ([#275](https://github.com/asap-protocol/asap-protocol/issues/275)) (HK-001..HK-007). | One A2A↔ASAP flow and one MCP-HTTP↔ASAP flow work end to end, each with compliance checks | **Next** — PLANNED |
-| **Spec profile** | **v2.7.0** | [prd-spec-profile.md](./prd-spec-profile.md) | RFC 2119 spec scoped to ASAP's unique surface (identity, capability grants, approval, lifecycle, error registry), written as a profile on A2A / MCP / OAuth. Security and privacy considerations (PRIV-*). Capability-aware introspection (INTRO-*). Each MUST maps to an `asap-compliance` check. TSOA (`@asap-protocol/openapi`) stays default-defer. | Spec published; compliance covers 100% of MUST statements | PLANNED (after Interop) |
+| **Phase 0 reset** | Maintenance patches under the release policy | [CP-8](../checkpoints.md#cp-8-roadmap-reset-2026-11-18) | Close the v2.5 feature train. Publish the release policy and integration support tiers (§3). Restore weekly adoption telemetry ([runbook](../../docs/maintainers/telemetry.md)). Triage automated regression-test PRs. Find one to three external design partners. | Collect the telemetry baseline and publish the policy and tiers. | Checkpoint from 2026-11-18 |
+| **Interop** | **v2.6.0** | [prd-interop.md](./prd-interop.md) | **P1** Map A2A v1.0 Agent Cards and ASAP manifests. Verify signed cards (COMPAT-005/006). **P1** Map external OAuth 2.1 access tokens to ASAP grants (COMPAT-001/002). **P1** Add `@asap-protocol/mcp-auth` for HTTP MCP servers (MCP-TS-001..003). **P2** Add a discovery bridge (COMPAT-003). **MUST** Document interoperability (COMPAT-004). Remove the six import paths deprecated in v2.5.1, including `asap.cli._compat` ([#275](https://github.com/asap-protocol/asap-protocol/issues/275), HK-001..HK-007). | Run one A2A flow and one HTTP MCP flow end to end. Use the compliance harness for both flows. | **Current source version** |
+| **Spec profile** | **v2.7.0** | [prd-spec-profile.md](./prd-spec-profile.md) | Define an RFC 2119 profile for ASAP identity, grants, approvals, lifecycle, and errors on A2A, MCP, and OAuth. Cover security and privacy (PRIV-*) and capability-aware introspection (INTRO-*). Keep TSOA (`@asap-protocol/openapi`) deferred by default. | Publish the spec and cover each MUST with an `asap-compliance` check. | **Next** |
 | **Decision gate** | — | this file | Review adoption data after v2.6.0 and v2.7.0, then decide the v3 direction | Decision recorded | After v2.7.0 |
 | **Economy** | product track (not library v3.0.0) | [prd-v3.0-economy.md](./prd-v3.0-economy.md) | Stays a trigger-gated VISION DRAFT. Open question: evaluate interop with the A2A AP2 payments extension before building a separate settlement layer or clearing house. | Triggers unchanged | VISION DRAFT |
 
@@ -81,9 +81,9 @@ Layer           Base standard (reused)              What ASAP adds
 --------------  ----------------------------------  ------------------------------------------------
 L4 Interaction  A2A v1.0 tasks and messages         ASAP envelope + task state machine (v2.2+)
 L3 Execution    MCP tools                           MCP Auth Bridge: Agent JWT + grants on tools/call
-                                                    (stdio v2.5.0; HTTP planned v2.6.0)
-L2 Discovery    A2A Agent Card                      Manifest, well-known, Lite Registry (v2.3+);
-                                                    Agent Card bridge planned v2.6.0
+                                                    (stdio v2.5.0, HTTP in the v2.6.0 source tree)
+L2 Discovery    A2A Agent Card                      Manifest, well-known, Lite Registry (v2.3+)
+                                                    Agent Card bridge in the v2.6.0 source tree
 L1 Identity     OAuth 2.1 / OIDC; MCP authorization Host/Agent JWT, capability grants, approval
                                                     flows (v2.2+); external-token mapping v2.6.0
 Cross-cutting   —                                   asap-compliance conformance checks
@@ -113,7 +113,7 @@ Carried over from [prd-v2.5-roadmap.md](./prd-v2.5-roadmap.md) §2 "Parked / orp
 | Item | Owner | Rule |
 |------|-------|------|
 | `@asap-protocol/mcp-auth` (npm, HTTP MCP servers) | [prd-interop.md](./prd-interop.md) — MCP-TS-001..003 | **P1** in v2.6.0 (was the [v2.5.0 backlog](../../engineering/tasks/v2.5.0/backlog-mcp-auth-typescript.md)) |
-| Remove `asap.cli._compat` ([#275](https://github.com/asap-protocol/asap-protocol/issues/275)) and the other five v2.6.0 deprecations | [prd-interop.md](./prd-interop.md) — housekeeping HK-001..HK-007 | Ships in v2.6.0 ([#275 task file](../../engineering/tasks/deferred/issue-275-cli-compat-removal-v2.6.0.md)) |
+| Remove `asap.cli._compat` ([#275](https://github.com/asap-protocol/asap-protocol/issues/275)) and five other paths deprecated in v2.5.1 | [prd-interop.md](./prd-interop.md) (HK-001..HK-007) | The v2.6.0 source tree removes these paths. See the [#275 task file](../../engineering/tasks/deferred/issue-275-cli-compat-removal-v2.6.0.md). |
 | `@asap-protocol/openapi` (TSOA) | [prd-spec-profile.md](./prd-spec-profile.md) §3.5 | **Default defer** unless there is demand at Spec kickoff |
 | Fourth starter (workflow) | Optional | Lab II `examples/workflow_asap_connector/` is already public |
 | Registry API (PostgreSQL) | Trigger: 500 agents / IssueOps bottleneck | Deferred; not a silent prerequisite of any track |
@@ -158,3 +158,4 @@ Carried over from [prd-v2.5-roadmap.md](./prd-v2.5-roadmap.md) §2 "Parked / orp
 | Date | Change |
 |------|--------|
 | 2026-11-18 | **Created** as the living train index. v2.5.x closed at 2.5.11. Release policy summary and support tiers. Roadmap: Phase 0 Reset → v2.6.0 Interop → v2.7.0 Spec profile → decision gate; Economy becomes a product track. Positioning (federated stack on A2A / MCP / OAuth). Parked items and non-goals carried over from [prd-v2.5-roadmap.md](./prd-v2.5-roadmap.md) with updated owners. |
+| 2026-11-24 | Record v2.6.0 Interop as the current source version and v2.7.0 Spec profile as next. |
