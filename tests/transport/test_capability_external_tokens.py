@@ -44,17 +44,24 @@ _INVALID_TOKEN_CHALLENGE = f'Bearer error="invalid_token", {_ASAP_CHALLENGE}'
 
 
 class _App:
-    """An app whose external-token config lists ``issuers`` (none: no config), with its stores."""
+    """An app whose external-token config lists ``issuers`` (none: no config), with its stores.
+
+    ``entry_overrides`` adds or replaces fields of every issuer entry.
+    """
 
     def __init__(
         self,
         manifest: Manifest,
         limiter: ASAPRateLimiter | None,
         *issuers: LocalIssuer,
+        entry_overrides: dict[str, Any] | None = None,
         **create_app_kwargs: Any,
     ) -> None:
         self.agent_store = InMemoryAgentStore()
-        entries = [issuer.config_entry(_AUDIENCE, grant_rules=_RULES) for issuer in issuers]
+        overrides = entry_overrides or {}
+        entries = [
+            issuer.config_entry(_AUDIENCE, grant_rules=_RULES, **overrides) for issuer in issuers
+        ]
         config = ExternalTokenConfig.model_validate({"issuers": entries}) if entries else None
         self.app: FastAPI = create_app(
             manifest,

@@ -11,6 +11,8 @@ the log. Neither the response nor the log ever holds the token.
 
 from __future__ import annotations
 
+import os
+
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from joserfc.errors import JoseError
@@ -19,11 +21,16 @@ from joserfc.jws import extract_compact
 from asap.auth.agent_jwt import AGENT_JWT_TYP
 from asap.auth.capabilities import GrantCheckResult
 from asap.auth.external_tokens import (
+    ExternalIssuerConfig,
     ExternalPrincipal,
+    ExternalTokenConfig,
     ExternalTokenError,
     ExternalTokenErrorReason,
+    JwksUriKeySource,
 )
 from asap.auth.external_verifier import ExternalTokenVerifier
+from asap.auth.jwks import issuer_matches_expected
+from asap.auth.middleware import DEFAULT_CUSTOM_CLAIM, ENV_ISSUER, OAuth2Config
 from asap.observability import get_logger
 
 logger = get_logger(__name__)
@@ -31,6 +38,43 @@ logger = get_logger(__name__)
 EXTERNAL_TOKEN_VERIFIER_STATE_ATTR = "external_token_verifier"
 INSUFFICIENT_SCOPE_CHALLENGE = 'Bearer error="insufficient_scope"'
 _INVALID_TOKEN_CHALLENGE = 'Bearer error="invalid_token"'
+# Read the way OAuth2Middleware reads it.
+_ENV_CUSTOM_CLAIM = "ASAP_AUTH_CUSTOM_CLAIM"
+
+
+def warn_if_oauth2_idp_unbound(
+    config: ExternalTokenConfig, oauth2_config: OAuth2Config | None, *, manifest_id: str
+) -> None:
+    """Log ``asap.server.external_issuer_unbound`` for a listed IdP with no ``required_claims``.
+
+    ``OAuth2Middleware`` skips execute, so its identity binding does not apply
+    there to the tokens of the ``oauth2_config`` IdP. Listed without
+    ``required_claims``, that IdP's token for another agent with the same
+    audience executes here. The IdP is
+    matched by ``expected_issuer`` (or ``ASAP_AUTH_ISSUER``) or by ``jwks_uri``.
+    """
+    if oauth2_config is None:
+        return
+    idp_issuer = oauth2_config.expected_issuer or os.environ.get(ENV_ISSUER)
+    claim = oauth2_config.custom_claim or os.environ.get(_ENV_CUSTOM_CLAIM, DEFAULT_CUSTOM_CLAIM)
+    for entry in config.issuers:
+        if entry.required_claims or not _is_oauth2_idp(entry, oauth2_config.jwks_uri, idp_issuer):
+            continue
+        logger.warning(
+            "asap.server.external_issuer_unbound",
+            issuer=entry.issuer,
+            required_claims={claim: manifest_id},
+            message=(
+                "the oauth2_config IdP is an external issuer without required_claims: its "
+                "tokens for other agents execute here; set the required_claims shown"
+            ),
+        )
+
+
+def _is_oauth2_idp(entry: ExternalIssuerConfig, jwks_uri: str, idp_issuer: str | None) -> bool:
+    if idp_issuer is not None and issuer_matches_expected({"iss": entry.issuer}, idp_issuer):
+        return True
+    return isinstance(entry.key_source, JwksUriKeySource) and entry.key_source.jwks_uri == jwks_uri
 
 
 def external_token_verifier(request: Request) -> ExternalTokenVerifier | None:
