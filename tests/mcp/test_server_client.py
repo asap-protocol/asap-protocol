@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -308,6 +308,49 @@ async def test_mcp_tool_exception_text_follows_debug_mode(
     assert shown["isError"] is True
     shown_text = shown["content"][0]["text"]
     assert shown_text == "division by zero"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("call", "expected"),
+    [
+        pytest.param(
+            {"name": "echo", "arguments": {"message": "hi"}},
+            {"content": [{"type": "text", "text": "hi"}], "isError": False},
+            id="success",
+        ),
+        pytest.param(
+            {"name": "nonexistent", "arguments": {}},
+            {"content": [{"type": "text", "text": "Unknown tool: nonexistent"}], "isError": True},
+            id="unknown_tool",
+        ),
+        pytest.param(
+            {"name": "raises", "arguments": {}},
+            {"content": [{"type": "text", "text": "Internal tool error"}], "isError": True},
+            id="tool_exception",
+        ),
+    ],
+)
+async def test_mcp_tools_call_result_has_no_null_content_fields(
+    call: dict[str, Any],
+    expected: dict[str, Any],
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """Every ``tools/call`` result path emits the MCP wire shape exactly.
+
+    Content ``annotations`` is optional in MCP and, when present, an object. The
+    ``CallToolResultSchema`` of the MCP TypeScript SDK 2.4.0 rejects
+    ``"annotations": null``, so the field must be absent.
+    """
+    monkeypatch.setattr("asap.mcp.server.is_debug_mode", lambda: False)
+    server = _tool_that_divides_by_zero()
+    server.register_tool(
+        "echo",
+        lambda message: message,
+        {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"]},
+        description="Echo back",
+    )
+    assert await server._handle_tools_call(call) == expected
 
 
 @pytest.mark.asyncio

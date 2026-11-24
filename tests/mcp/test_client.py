@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import json
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -333,11 +335,15 @@ async def test_client_call_tool_success() -> None:
     assert len(result.content) == 1
 
 
+def _wire_messages(client: MCPClient) -> list[dict[str, Any]]:
+    """Decode each JSON-RPC line that the client wrote to the server's stdin."""
+    return [json.loads(call.args[0]) for call in client._process.stdin.write.call_args_list]
+
+
 @pytest.mark.asyncio
 async def test_client_call_tool_with_meta() -> None:
     """call_tool forwards optional _meta (e.g. asap_agent_jwt) in tools/call params."""
     client = _make_connected_client()
-    client._send = AsyncMock()
     client._receive = AsyncMock(
         return_value={
             "result": {
@@ -351,8 +357,82 @@ async def test_client_call_tool_with_meta() -> None:
         {"action": "ping"},
         meta={"asap_agent_jwt": "test-jwt"},
     )
-    sent = client._send.await_args_list[-1][0][0]
-    assert sent["params"]["_meta"]["asap_agent_jwt"] == "test-jwt"
+    assert _wire_messages(client) == [
+        {
+            "jsonrpc": "2.0",
+            "id": "1",
+            "method": "tools/call",
+            "params": {
+                "name": "secure_action",
+                "arguments": {"action": "ping"},
+                "_meta": {"asap_agent_jwt": "test-jwt"},
+            },
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_client_call_tool_without_meta_omits_meta_field() -> None:
+    """call_tool without meta leaves ``_meta`` out of the tools/call params.
+
+    ``_meta`` is optional in MCP and, when present, an object. The
+    ``CallToolRequestSchema`` of the MCP TypeScript SDK 2.4.0 rejects ``"_meta": null``.
+    """
+    client = _make_connected_client()
+    client._receive = AsyncMock(return_value={"result": {"content": [], "isError": False}})
+    await client.call_tool("echo", {"message": "hi"})
+    assert _wire_messages(client) == [
+        {
+            "jsonrpc": "2.0",
+            "id": "1",
+            "method": "tools/call",
+            "params": {"name": "echo", "arguments": {"message": "hi"}},
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_client_handshake_and_list_tools_send_no_null_fields() -> None:
+    """initialize, notifications/initialized, and tools/list go out in the MCP wire shape."""
+    proc = MagicMock()
+    proc.stdin.write = MagicMock()
+    proc.stdin.drain = AsyncMock()
+
+    async def fake_create_subprocess_exec(*args: object, **kwargs: object) -> MagicMock:
+        return proc
+
+    with patch(
+        "asap.mcp.client.asyncio.create_subprocess_exec", side_effect=fake_create_subprocess_exec
+    ):
+        client = MCPClient(["/bin/true"], receive_timeout=1.0)
+        client._receive = AsyncMock(
+            side_effect=[
+                {
+                    "result": {
+                        "protocolVersion": "2025-11-25",
+                        "capabilities": {},
+                        "serverInfo": {"name": "s", "version": "1"},
+                    }
+                },
+                {"result": {"tools": []}},
+            ]
+        )
+        await client.connect()
+        await client.list_tools()
+    assert _wire_messages(client) == [
+        {
+            "jsonrpc": "2.0",
+            "id": "1",
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2025-11-25",
+                "capabilities": {},
+                "clientInfo": {"name": "asap-mcp-client", "version": "1.0.0"},
+            },
+        },
+        {"jsonrpc": "2.0", "method": "notifications/initialized"},
+        {"jsonrpc": "2.0", "id": "2", "method": "tools/list", "params": {}},
+    ]
 
 
 @pytest.mark.asyncio

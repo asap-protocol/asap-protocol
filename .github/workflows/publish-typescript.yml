@@ -1,11 +1,15 @@
-# Tags v2.3.* / v2.4.* → npm publish --provenance (OIDC). PRs → npm publish --dry-run.
+# Per-package tags: client-v<version> publishes @asap-protocol/client and
+# mcp-auth-v<version> publishes @asap-protocol/mcp-auth, with provenance (OIDC).
+# scripts/npm_publish_target.py maps the tag to its package, fails when the tag version
+# differs from package.json, and picks the dist-tag (rc for a prerelease, else latest).
+# The Python tag v* does not publish npm. PRs → npm publish --dry-run for all four packages.
 name: Publish TypeScript SDK
 
 on:
   push:
     tags:
-      - "v2.3.*"
-      - "v2.4.*"
+      - "client-v*"
+      - "mcp-auth-v*"
   pull_request:
     types: [opened, synchronize, reopened, edited]
     branches: [main, release/2.6.0]
@@ -13,6 +17,8 @@ on:
       - "packages/typescript/client/**"
       - "packages/typescript/mastra/**"
       - "packages/typescript/openai-agents/**"
+      - "packages/typescript/mcp-auth/**"
+      - "scripts/npm_publish_target.py"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - ".github/workflows/publish-typescript.yml"
@@ -59,6 +65,16 @@ jobs:
       - name: Build @asap-protocol/openai-agents (tshy)
         run: pnpm --filter @asap-protocol/openai-agents run build
 
+      - name: Build @asap-protocol/mcp-auth (tshy)
+        run: pnpm --filter @asap-protocol/mcp-auth run build
+
+      - name: Check each tag-published package against its tag rule
+        run: |
+          for package in client mcp-auth; do
+            version=$(node -p "require('./packages/typescript/${package}/package.json').version")
+            python3 scripts/npm_publish_target.py "${package}-v${version}"
+          done
+
       - name: npm publish --dry-run (@asap-protocol/client)
         working-directory: packages/typescript/client
         run: npm publish --dry-run --access public
@@ -71,8 +87,12 @@ jobs:
         working-directory: packages/typescript/openai-agents
         run: npm publish --dry-run --access public
 
+      - name: npm publish --dry-run (@asap-protocol/mcp-auth)
+        working-directory: packages/typescript/mcp-auth
+        run: npm publish --dry-run --access public
+
   publish:
-    name: Publish to npm
+    name: Publish the package that the tag names
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -99,51 +119,21 @@ jobs:
       - name: Upgrade npm for Trusted Publishing (OIDC)
         run: npm install -g npm@11.5.1
 
-      - name: Set package version from tag
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          npm pkg set "version=${VERSION}" --prefix packages/typescript/client
-          npm pkg set "version=${VERSION}" --prefix packages/typescript/mastra
-          npm pkg set "version=${VERSION}" --prefix packages/typescript/openai-agents
+      # Fails when the tag names no package or its version differs from package.json.
+      - name: Resolve the package, version, and dist-tag from the tag
+        id: target
+        run: python3 scripts/npm_publish_target.py "${GITHUB_REF_NAME}" >> "${GITHUB_OUTPUT}"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build @asap-protocol/client (tshy)
-        run: pnpm --filter @asap-protocol/client run build
+      - name: Build the package and its workspace dependencies (tshy)
+        env:
+          PACKAGE_NAME: ${{ steps.target.outputs.package_name }}
+        run: pnpm --filter "${PACKAGE_NAME}..." run build
 
-      - name: Build @asap-protocol/mastra (tshy)
-        run: pnpm --filter @asap-protocol/mastra run build
-
-      - name: Build @asap-protocol/openai-agents (tshy)
-        run: pnpm --filter @asap-protocol/openai-agents run build
-
-      - name: Publish @asap-protocol/client to npm with provenance
-        working-directory: packages/typescript/client
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          if [[ "${VERSION}" == *-* ]]; then
-            npm publish --access public --provenance --tag rc
-          else
-            npm publish --access public --provenance
-          fi
-
-      - name: Publish @asap-protocol/mastra to npm with provenance
-        working-directory: packages/typescript/mastra
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          if [[ "${VERSION}" == *-* ]]; then
-            npm publish --access public --provenance --tag rc
-          else
-            npm publish --access public --provenance
-          fi
-
-      - name: Publish @asap-protocol/openai-agents to npm with provenance
-        working-directory: packages/typescript/openai-agents
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          if [[ "${VERSION}" == *-* ]]; then
-            npm publish --access public --provenance --tag rc
-          else
-            npm publish --access public --provenance
-          fi
+      - name: Publish to npm with provenance
+        working-directory: ${{ steps.target.outputs.package_dir }}
+        env:
+          DIST_TAG: ${{ steps.target.outputs.dist_tag }}
+        run: npm publish --access public --provenance --tag "${DIST_TAG}"

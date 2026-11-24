@@ -8,6 +8,8 @@ on:
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - ".github/workflows/typescript-sdk.yml"
+      - "tests/fixtures/interop/**"
+      - "examples/mcp_auth_http/**"
   pull_request:
     types: [opened, synchronize, reopened, edited]
     branches: [main, release/2.6.0]
@@ -16,6 +18,8 @@ on:
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - ".github/workflows/typescript-sdk.yml"
+      - "tests/fixtures/interop/**"
+      - "examples/mcp_auth_http/**"
 
 concurrency:
   group: typescript-sdk-${{ github.workflow }}-${{ github.ref }}
@@ -56,3 +60,77 @@ jobs:
 
       - name: Tree-shake check (agadoo)
         run: pnpm --filter @asap-protocol/client run check:treeshake
+
+  mcp-auth:
+    name: mcp-auth (${{ matrix.mcp-sdk }} @modelcontextprotocol/server) lint, typecheck, test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # Risk R4 (v2.6.0 plan): the pinned SDK and the newest 2.x release.
+        mcp-sdk: ["pinned", "latest-2.x"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 9.15.4
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 20.19.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Use the newest 2.x MCP SDK packages
+        if: matrix.mcp-sdk == 'latest-2.x'
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const { execFileSync } = require("child_process");
+          const fs = require("fs");
+          const byNumber = (a, b) => a.split(".").map(Number).reduce((d, n, i) => d || n - Number(b.split(".")[i]), 0);
+          const newest = (name) =>
+            [JSON.parse(execFileSync("npm", ["view", `${name}@^2`, "version", "--json"], { encoding: "utf8" }))]
+              .flat()
+              .sort(byNumber)
+              .at(-1);
+          for (const pkgPath of ["packages/typescript/mcp-auth/package.json", "examples/mcp_auth_http/package.json"]) {
+            const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+            for (const deps of [pkg.dependencies ?? {}, pkg.devDependencies ?? {}]) {
+              for (const name of Object.keys(deps).filter((n) => n.startsWith("@modelcontextprotocol/"))) {
+                deps[name] = newest(name);
+                console.log(`${pkgPath}: ${name} ${deps[name]}`);
+              }
+            }
+            fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
+          }
+          NODE
+
+      - name: Install dependencies (mcp-auth slice)
+        run: >-
+          pnpm install
+          ${{ matrix.mcp-sdk == 'pinned' && '--frozen-lockfile' || '--no-frozen-lockfile' }}
+          --filter "@asap-protocol/mcp-auth..." --filter example-mcp-auth-http
+
+      - name: Build @asap-protocol/client (mcp-auth resolves it from dist)
+        run: pnpm --filter @asap-protocol/client run build
+
+      - name: Lint
+        run: pnpm --filter @asap-protocol/mcp-auth run lint
+
+      - name: Typecheck
+        run: pnpm --filter @asap-protocol/mcp-auth run typecheck
+
+      - name: Test with coverage (reads tests/fixtures/interop)
+        run: pnpm --filter @asap-protocol/mcp-auth test
+
+      - name: Load the packed package from ESM and CommonJS
+        run: pnpm --filter @asap-protocol/mcp-auth run check:package
+
+      - name: Example examples/mcp_auth_http (typecheck, protocol probe tests)
+        run: |
+          pnpm --filter example-mcp-auth-http run typecheck
+          pnpm --filter example-mcp-auth-http test

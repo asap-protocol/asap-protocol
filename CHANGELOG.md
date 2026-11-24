@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **MCP stdio bridge** results from `MCPServer` and `tool_error_result` omit the optional `annotations` field when it has no value. MCP TypeScript SDK 2.x clients can now read these `tools/call` results. The text and `isError` stay the same.
+- **MCP client** omits `_meta` from `MCPClient.call_tool` parameters when the caller supplies no `meta`. MCP TypeScript SDK 2.x servers can now read these `tools/call` requests. The client still sends any `meta` the caller supplies.
+
 ### Removed
 
 - **`asap.cli._compat`** ([#275](https://github.com/asap-protocol/asap-protocol/issues/275)) — the CLI compat shim deprecated in 2.5.1 is gone. Import `DEFAULT_SCHEMAS_DIR` from `asap.cli.schemas`, `export_all_schemas` from `asap.schemas`, and `_repl_namespace` from `asap.cli.repl`. See the [migration guide](docs/migration.md#upgrading-from-v25x-to-v260).
