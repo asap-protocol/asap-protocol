@@ -12,8 +12,7 @@ The package provides JSON-RPC 2.0 over WebSocket support:
 - :mod:`asap.transport.ws._actions` defines close decisions.
 - :mod:`asap.transport.ws._dispatch` dispatches WebSocket envelopes.
 
-The legacy :mod:`asap.transport.websocket` module re-exports this surface for
-existing import paths.
+Import the WebSocket transport surface from this package.
 """
 
 from __future__ import annotations

@@ -51,7 +51,7 @@ from asap.models.payloads import TaskRequest
 from asap.transport.handlers import HandlerRegistry, create_echo_handler
 from asap.transport.server import create_app
 from asap.transport.jsonrpc import ASAP_METHOD
-from asap.transport.websocket import (
+from asap.transport.ws import (
     SLA_BREACH_NOTIFICATION_METHOD,
     SLA_SUBSCRIBE_METHOD,
     broadcast_sla_breach,

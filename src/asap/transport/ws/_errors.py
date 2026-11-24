@@ -3,8 +3,7 @@
 Split into its own module so both :mod:`asap.transport.ws.client` and
 :mod:`asap.transport.ws._recv` can import it without a circular dependency
 (``_recv`` is a mixin of the transport but must not import the transport module
-at its top). Re-exported from :mod:`asap.transport.ws` and the
-``asap.transport.websocket`` shim.
+at its top). Re-exported from :mod:`asap.transport.ws`.
 """
 
 from __future__ import annotations
