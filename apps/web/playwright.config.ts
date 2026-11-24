@@ -46,10 +46,12 @@ export default defineConfig({
   webServer: {
     command: 'npm run dev',
     url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     env: {
       ...webServerEnv,
       ENABLE_FIXTURE_ROUTES: 'true',
+      AUTH_SECRET: 'playwright-fixture-only-secret-no-production-use',
+      REVOKED_URL: 'data:application/json,%7B%22revoked%22%3A%5B%5D%7D',
       // Use fixture registry for E2E so dashboard Bento test can assert with agents
       REGISTRY_URL: 'http://localhost:3000/api/fixtures/registry?count=10',
     },
