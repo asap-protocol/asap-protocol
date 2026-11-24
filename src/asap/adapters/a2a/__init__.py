@@ -11,11 +11,27 @@ Example:
 
 from __future__ import annotations
 
+from asap.adapters.a2a.canonical import (
+    MAX_CARD_NESTING_DEPTH,
+    CanonicalCardForm,
+    canonical_card_form,
+    canonicalize_agent_card,
+)
 from asap.adapters.a2a.errors import (
     A2AAdapterError,
+    A2ACanonicalFormError,
+    A2ACardFetchError,
+    A2ACardNotSignableError,
+    A2ACardVerificationError,
+    A2AInvalidSignatureError,
+    A2AKeyResolutionError,
     A2AMappingError,
     A2AMappingInputError,
+    A2ANoTrustedSignatureError,
+    A2AUncoveredExtensionError,
+    A2AUnsignedCardError,
     A2AUnsupportedVersionError,
+    InvalidSignatureReason,
 )
 from asap.adapters.a2a.extension import (
     ASAP_EXTENSION_URI,
@@ -23,6 +39,7 @@ from asap.adapters.a2a.extension import (
     SkillSchemas,
     read_asap_extension,
 )
+from asap.adapters.a2a.ingest import AgentCardIngestor, CardIngestResult
 from asap.adapters.a2a.mapping import (
     AgentCardInputs,
     CardMapping,
@@ -55,21 +72,47 @@ from asap.adapters.a2a.security import (
     SecurityScheme,
     StringList,
 )
+from asap.adapters.a2a.signature_header import MAX_CARD_SIGNATURES
+from asap.adapters.a2a.signature_keys import CARD_VERIFY_ALGORITHMS, CardKey
+from asap.adapters.a2a.signing import (
+    CardSigningAlgorithm,
+    CardSigningKey,
+    sign_agent_card,
+)
+from asap.adapters.a2a.trust import JWKS_MAX_BYTES, A2AKeyResolver, A2ATrustConfig
 from asap.adapters.a2a.unmapped import (
     UNMAPPED_CARD_FIELDS,
     UNMAPPED_MANIFEST_FIELDS,
     DroppedField,
 )
+from asap.adapters.a2a.verification import (
+    CardKeyResolver,
+    CardVerification,
+    SignaturePolicy,
+    verify_agent_card,
+)
 
 __all__ = [
     "A2AAdapterError",
+    "A2ACanonicalFormError",
+    "A2ACardFetchError",
+    "A2ACardNotSignableError",
+    "A2ACardVerificationError",
+    "A2AInvalidSignatureError",
+    "A2AKeyResolutionError",
+    "A2AKeyResolver",
     "A2AMappingError",
     "A2AMappingInputError",
+    "A2ANoTrustedSignatureError",
+    "A2ATrustConfig",
+    "A2AUncoveredExtensionError",
+    "A2AUnsignedCardError",
     "A2AUnsupportedVersionError",
     "APIKeySecurityScheme",
     "ASAP_EXTENSION_URI",
     "AgentCapabilities",
     "AgentCard",
+    "AgentCardIngestor",
     "AgentCardInputs",
     "AgentCardSignature",
     "AgentExtension",
@@ -78,12 +121,24 @@ __all__ = [
     "AgentSkill",
     "AsapExtensionParams",
     "AuthorizationCodeOAuthFlow",
+    "CARD_VERIFY_ALGORITHMS",
+    "CanonicalCardForm",
+    "CardIngestResult",
+    "CardKey",
+    "CardKeyResolver",
     "CardMapping",
+    "CardSigningAlgorithm",
+    "CardSigningKey",
+    "CardVerification",
     "ClientCredentialsOAuthFlow",
     "DeviceCodeOAuthFlow",
     "DroppedField",
     "HTTPAuthSecurityScheme",
     "ImplicitOAuthFlow",
+    "InvalidSignatureReason",
+    "JWKS_MAX_BYTES",
+    "MAX_CARD_NESTING_DEPTH",
+    "MAX_CARD_SIGNATURES",
     "ManifestMapping",
     "MutualTlsSecurityScheme",
     "OAuth2SecurityScheme",
@@ -92,11 +147,16 @@ __all__ = [
     "PasswordOAuthFlow",
     "SecurityRequirement",
     "SecurityScheme",
+    "SignaturePolicy",
     "SkillSchemas",
     "StringList",
     "UNMAPPED_CARD_FIELDS",
     "UNMAPPED_MANIFEST_FIELDS",
     "agent_card_to_manifest",
+    "canonical_card_form",
+    "canonicalize_agent_card",
     "manifest_to_agent_card",
     "read_asap_extension",
+    "sign_agent_card",
+    "verify_agent_card",
 ]

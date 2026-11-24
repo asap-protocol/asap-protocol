@@ -9,6 +9,7 @@ returns its result together with the source fields it dropped, as data (see
 from __future__ import annotations
 
 from collections.abc import Mapping
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Annotated, Any
 
@@ -254,8 +255,8 @@ def _manifest_skill(skill: AgentSkill, schemas: SkillSchemas | None) -> dict[str
     return {
         "id": skill.id,
         "description": skill.description,
-        "input_schema": schemas.input_schema if schemas else None,
-        "output_schema": schemas.output_schema if schemas else None,
+        "input_schema": deepcopy(schemas.input_schema) if schemas else None,
+        "output_schema": deepcopy(schemas.output_schema) if schemas else None,
     }
 
 

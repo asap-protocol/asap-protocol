@@ -7,12 +7,15 @@ JSON-RPC code of :class:`asap.errors.ASAPError`; no new code is reserved.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from asap.errors import FatalError
 
 if TYPE_CHECKING:
     from pydantic import ValidationError
+
+_MAX_LISTED_PATHS = 10
+_MAX_LISTED_PATH_LENGTH = 120
 
 A2A_SUPPORTED_VERSION = "1.0"
 """The only A2A version whose Agent Card the adapter reads (pinned proto tag ``v1.0.1``)."""
@@ -41,6 +44,143 @@ class A2AUnsupportedVersionError(A2AAdapterError):
             {"found_version": found_version, "supported_version": A2A_SUPPORTED_VERSION},
         )
         self.found_version = found_version
+
+
+class A2ACanonicalFormError(A2AAdapterError):
+    """The card has no canonical form, so no signature can cover it.
+
+    Raised for nesting deeper than the ``a2a-sdk`` limit and for text that is
+    not valid Unicode (a lone surrogate): the SDK has no form for either one.
+    """
+
+    def __init__(self, message: str) -> None:
+        super().__init__("asap:adapters/a2a/canonical_form", message, {})
+
+
+class A2ACardNotSignableError(A2AAdapterError):
+    """``sign_agent_card`` refused: the signature would not cover the whole card, or the key is wrong.
+
+    ``paths`` lists the card values that the canonical form drops or rounds
+    (empty for a key or algorithm problem). Messages never hold key material.
+    """
+
+    def __init__(self, message: str, *, paths: Sequence[str] = ()) -> None:
+        super().__init__("asap:adapters/a2a/not_signable", message, {"paths": list(paths)})
+        self.paths = tuple(paths)
+
+
+InvalidSignatureReason = Literal[
+    "malformed", "forbidden_algorithm", "key_mismatch", "bad_signature"
+]
+"""Why one signature fails the card; see :class:`A2AInvalidSignatureError`."""
+
+
+class A2ACardVerificationError(A2AAdapterError):
+    """The card's signatures do not meet the policy: the card must not be mapped or cached."""
+
+
+class A2AUnsignedCardError(A2ACardVerificationError):
+    """The card has no signature, and the policy requires one."""
+
+    def __init__(self, card_name: str) -> None:
+        super().__init__(
+            "asap:adapters/a2a/unsigned_card",
+            f"Agent Card {card_name!r} has no signatures and the policy requires one; "
+            "policy='allow_unsigned' accepts it as unverified",
+            {},
+        )
+
+
+class A2ANoTrustedSignatureError(A2ACardVerificationError):
+    """The card has signatures, and none is from a trusted key with an allowed algorithm.
+
+    ``skipped`` says why each signature was not checked.
+    """
+
+    def __init__(self, card_name: str, skipped: Sequence[str]) -> None:
+        super().__init__(
+            "asap:adapters/a2a/no_trusted_signature",
+            f"Agent Card {card_name!r} has no signature from a trusted key with an allowed "
+            f"algorithm: {'; '.join(skipped)}",
+            {"skipped": list(skipped)},
+        )
+        self.skipped = tuple(skipped)
+
+
+class A2AInvalidSignatureError(A2ACardVerificationError):
+    """One signature fails the card: it is malformed, uses ``none`` or HMAC, or does not verify.
+
+    ``index`` is its position in ``signatures``; ``reason`` is stable. ``key_mismatch``
+    means that the trusted key for its ``kid`` does not fit its ``alg``.
+    """
+
+    def __init__(self, index: int, reason: InvalidSignatureReason, detail: str) -> None:
+        super().__init__(
+            "asap:adapters/a2a/invalid_signature",
+            f"signature {index} of the Agent Card is invalid ({reason}): {detail}",
+            {"index": index, "reason": reason},
+        )
+        self.index = index
+        self.reason: InvalidSignatureReason = reason
+
+
+class A2AKeyResolutionError(A2ACardVerificationError):
+    """The key for a card signature could not be resolved, so the card fails.
+
+    ``refusal`` is the stable code of the guarded fetch of ``jku`` (for example
+    ``"http_status"`` or ``"host_not_public"``), or ``"invalid_jwks"``.
+    """
+
+    def __init__(self, jku: str, refusal: str, detail: str) -> None:
+        super().__init__(
+            "asap:adapters/a2a/key_resolution",
+            f"no key could be read from the jku {jku!r} ({refusal}): {detail}",
+            {"jku": jku, "refusal": refusal},
+        )
+        self.jku = jku
+        self.refusal = refusal
+
+
+class A2ACardFetchError(A2AAdapterError):
+    """The guarded fetch of an Agent Card was refused or failed.
+
+    ``refusal`` is the stable code of :class:`asap.utils.guarded_fetch.GuardedFetchError`,
+    for example ``"scheme_not_https"``, ``"host_not_public"``, or ``"too_large"``.
+    """
+
+    def __init__(self, url: str, refusal: str) -> None:
+        super().__init__(
+            "asap:adapters/a2a/card_fetch",
+            f"the Agent Card at {url!r} could not be fetched ({refusal})",
+            {"url": url, "refusal": refusal},
+        )
+        self.url = url
+        self.refusal = refusal
+
+
+class A2AUncoveredExtensionError(A2ACardVerificationError):
+    """A signed card's ASAP extension params hold values that no signature covers.
+
+    The params become manifest data, so the card is refused instead of mapped:
+    the signed projection of a stripped ``enum: []`` would be a looser schema.
+    ``paths`` lists the values. ASAP's own signer never emits such a card.
+    """
+
+    def __init__(self, card_name: str, paths: Sequence[str]) -> None:
+        super().__init__(
+            "asap:adapters/a2a/uncovered_extension",
+            f"Agent Card {card_name!r} has ASAP extension params that no signature covers: "
+            f"{describe_paths(paths)}",
+            {"paths": list(paths)},
+        )
+        self.paths = tuple(paths)
+
+
+def describe_paths(paths: Sequence[str]) -> str:
+    """List card paths for an error message, bounded in count and length."""
+    shown = [path[:_MAX_LISTED_PATH_LENGTH] for path in paths[:_MAX_LISTED_PATHS]]
+    more = len(paths) - len(shown)
+    return ", ".join(shown) + (f", and {more} more" if more else "")
 
 
 class A2AMappingInputError(A2AAdapterError):
