@@ -19,11 +19,10 @@ Rules (``docs/guides/interoperability.md``, "Signed Agent Cards"):
 What ``verified=True`` means: at least one signature
 over the card's canonical form verified with a key that the resolver trusts
 for its ``kid``, no present signature failed, and the ASAP extension params
-are fully covered. It does **not** say whose card it is: a key proves who
-signed, so bind the card to an agent with
-:meth:`CardVerification.require_signer_for` or
-:func:`verify_agent_card_for_agent` (ingest does it for you). It also does not
-mean:
+are fully covered. Use :func:`verify_agent_card_for_agent` to check the
+declared agent and signer scope. Ingest checks the manifest's agent.
+
+Signature verification has these limits:
 
 - that the card belongs to the URL it came from: the URL is not signed, so a
   card can be served from any URL;
@@ -44,13 +43,14 @@ from typing import Final, Literal
 
 from asap.adapters.a2a.canonical import canonical_card_form
 from asap.adapters.a2a.errors import (
+    A2AAgentMismatchError,
     A2ANoTrustedSignatureError,
     A2ASignerScopeError,
     A2AUncoveredExtensionError,
     A2AUnsignedCardError,
     quoted_prefix,
 )
-from asap.adapters.a2a.extension import ASAP_EXTENSION_URI
+from asap.adapters.a2a.extension import ASAP_EXTENSION_URI, read_asap_extension
 from asap.adapters.a2a.models import AgentCard
 from asap.adapters.a2a.signature_header import read_card_signatures
 from asap.adapters.a2a.signature_keys import CARD_VERIFY_ALGORITHMS, CardKey, check_card_signature
@@ -227,13 +227,16 @@ async def verify_agent_card_for_agent(
     algorithms: Collection[str] = CARD_VERIFY_ALGORITHMS,
     policy: SignaturePolicy = "require_signature",
 ) -> CardVerification:
-    """Verify *card*, then require a signer that may sign for *agent_urn*.
+    """Verify *card* for the expected *agent_urn*.
 
-    For a caller that does not use :class:`asap.adapters.a2a.AgentCardIngestor`
-    and knows which agent it expects: :func:`verify_agent_card` followed by
-    :meth:`CardVerification.require_signer_for`.
+    If a verified card has the ASAP extension, its declared URN must match
+    *agent_urn*. A verified card needs a signer authorized for *agent_urn*,
+    even if the card has no extension. An unsigned card accepted by the
+    policy remains unverified.
 
     Raises:
+        A2AAgentMismatchError: The verified card declares a different agent URN.
+        A2AMappingError: The verified card has an invalid ASAP extension.
         A2ASignerScopeError: The card verified, but no signer may sign for *agent_urn*.
         A2ACardVerificationError: Any error of :func:`verify_agent_card`.
 
@@ -242,6 +245,10 @@ async def verify_agent_card_for_agent(
         ...                                   A2AKeyResolver(trust))  # doctest: +SKIP
     """
     verification = await verify_agent_card(card, key_resolver, algorithms=algorithms, policy=policy)
+    if verification.verified:
+        extension = read_asap_extension(verification.card)
+        if extension is not None and extension.agent_urn != agent_urn:
+            raise A2AAgentMismatchError(card.name, extension.agent_urn, agent_urn)
     verification.require_signer_for(agent_urn)
     return verification
 

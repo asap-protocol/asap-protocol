@@ -1,15 +1,14 @@
 """Card security derived from an external-token config.
 
-Each issuer is one ``openIdConnectSecurityScheme``; each scope rule for a card
-skill is one alternative on that skill; the card-level list is their union.
-Claim rules are not advertised: the card may say less than the gateway
-accepts, never more.
+Each issuer has an OIDC or HTTP Bearer scheme. Each matching scope rule adds
+an alternative to the skill and to the card. Claim rules stay in the gateway.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+import pytest
 from a2a.types import AgentCard as SdkAgentCard
 from google.protobuf.json_format import ParseDict
 
@@ -34,29 +33,53 @@ def _requirement(issuer: str, scope: str) -> dict[str, Any]:
     return {"schemes": {issuer: {"list": [scope]}}}
 
 
-def test_each_issuer_yields_one_openid_connect_scheme() -> None:
-    first, second = LocalIssuer("https://idp-a.example"), LocalIssuer("https://idp-b.example/t/")
-    config = _config(first.config_entry(_AUDIENCE), second.config_entry("https://other.example"))
+def test_oidc_discovery_yields_an_openid_connect_scheme() -> None:
+    issuer = "https://idp.example/t/"
+    config = _config(
+        {"issuer": issuer, "audience": _AUDIENCE, "key_source": {"kind": "oidc_discovery"}}
+    )
 
     security = external_token_card_security(config, _SKILLS)
 
     schemes = {name: s.model_dump(mode="json") for name, s in security.security_schemes.items()}
     assert schemes == {
-        "https://idp-a.example": {
+        issuer: {
             "openIdConnectSecurityScheme": {
-                "openIdConnectUrl": "https://idp-a.example/.well-known/openid-configuration",
-                "description": f"Bearer access token from https://idp-a.example with audience {_AUDIENCE}",
+                "openIdConnectUrl": "https://idp.example/t/.well-known/openid-configuration",
+                "description": f"Bearer access token from {issuer} with audience {_AUDIENCE}",
             }
         },
-        "https://idp-b.example/t/": {
-            "openIdConnectSecurityScheme": {
-                "openIdConnectUrl": "https://idp-b.example/t/.well-known/openid-configuration",
-                "description": (
-                    "Bearer access token from https://idp-b.example/t/ "
-                    "with audience https://other.example"
-                ),
+    }
+
+
+@pytest.mark.parametrize(
+    "verification_config",
+    [
+        {"key_source": LocalIssuer().config_entry(_AUDIENCE)["key_source"]},
+        {"key_source": {"kind": "jwks_uri", "jwks_uri": "https://idp.example/jwks"}},
+        {
+            "introspection": {
+                "url": "https://idp.example/introspect",
+                "client_id": "test-client",
+                "client_secret": "test-secret",
             }
         },
+    ],
+    ids=["static-jwks", "remote-jwks", "introspection"],
+)
+def test_token_issuer_without_oidc_discovery_yields_http_bearer(
+    verification_config: dict[str, Any],
+) -> None:
+    issuer = "https://idp.example"
+    config = _config({"issuer": issuer, "audience": _AUDIENCE, **verification_config})
+
+    scheme = external_token_card_security(config, _SKILLS).security_schemes[issuer]
+
+    assert scheme.model_dump(mode="json") == {
+        "httpAuthSecurityScheme": {
+            "scheme": "Bearer",
+            "description": f"Bearer access token from {issuer} with audience {_AUDIENCE}",
+        }
     }
 
 
@@ -122,11 +145,15 @@ def test_claim_rules_and_rules_for_other_capabilities_are_not_advertised() -> No
 
 
 def test_without_scope_rules_the_schemes_stay_and_no_requirement_is_made() -> None:
-    config = _config(LocalIssuer().config_entry(_AUDIENCE))
+    idp = LocalIssuer()
+    claim_rule = {"claim": "groups", "value": "researchers", "capability": "web_research"}
+    config = _config(idp.config_entry(_AUDIENCE, grant_rules=[claim_rule]))
 
     security = external_token_card_security(config, _SKILLS)
 
-    assert list(security.security_schemes) == [LocalIssuer().issuer]
+    assert list(security.security_schemes) == [idp.issuer]
+    scheme = security.security_schemes[idp.issuer].http_auth_security_scheme
+    assert scheme is not None and scheme.scheme == "Bearer"
     assert (security.security_requirements, security.skill_security_requirements) == ([], {})
 
 
@@ -143,6 +170,6 @@ def test_the_derived_security_maps_to_a_card_that_parses_in_the_sdk() -> None:
     card_json = manifest_to_agent_card(research_manifest(), inputs).card.model_dump(mode="json")
 
     sdk_card = ParseDict(card_json, SdkAgentCard(), ignore_unknown_fields=False)
-    assert sdk_card.security_schemes[idp.issuer].HasField("open_id_connect_security_scheme")
+    assert sdk_card.security_schemes[idp.issuer].http_auth_security_scheme.scheme == "Bearer"
     assert list(sdk_card.security_requirements[0].schemes[idp.issuer].list) == ["search"]
     assert list(sdk_card.skills[0].security_requirements[0].schemes[idp.issuer].list) == ["search"]

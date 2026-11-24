@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from typing import Any
+from unittest.mock import Mock
 
 import httpx
 import pytest
@@ -63,6 +64,22 @@ def test_only_an_exact_agent_typ_takes_the_agent_path(
 @pytest.mark.parametrize("token", ["opaque-token-value", "a.b.c", "\udcff.x.y", ""])
 def test_a_bearer_that_is_not_a_jws_is_not_an_agent_jwt(token: str) -> None:
     assert is_agent_jwt(token) is False
+
+
+async def test_parser_header_type_error_is_not_an_agent_jwt(
+    idp: LocalIssuer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    parsed = Mock()
+    parsed.headers.return_value = []
+    parsed.payload = b"{}"
+    monkeypatch.setattr("asap.auth.external_verifier.extract_compact", Mock(return_value=parsed))
+
+    token = "local.test.signature"
+    assert not is_agent_jwt(token)
+
+    response = await verify_external_bearer(_verifier(idp), token, request_id="rid-1")
+    assert isinstance(response, JSONResponse)
+    assert response.status_code == 401
 
 
 async def test_valid_token_gives_the_principal(idp: LocalIssuer) -> None:

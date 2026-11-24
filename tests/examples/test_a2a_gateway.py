@@ -29,6 +29,7 @@ from asap.adapters.a2a import (
     VerifiedCardSigner,
 )
 from asap.auth.external_tokens import ExternalTokenConfig
+from asap.models.entities import Manifest
 from examples.a2a_gateway.client import call_skill, pinned_card_verifier
 from examples.a2a_gateway.demo_agent import (
     A2A_PATH,
@@ -52,12 +53,14 @@ async def _public_dns(hostname: str) -> list[str]:
     return ["93.184.216.34"]
 
 
-def build_gateway(skills: Mapping[str, SkillHandler] = DEMO_SKILLS) -> FastAPI:
+def build_gateway(
+    skills: Mapping[str, SkillHandler] = DEMO_SKILLS, *, manifest: Manifest | None = None
+) -> FastAPI:
     tokens = ExternalTokenConfig.model_validate(
         {"issuers": [ISSUER.config_entry(AUDIENCE, grant_rules=DEMO_GRANT_RULES)]}
     )
     return create_gateway_app(
-        demo_manifest(ORIGIN),
+        manifest or demo_manifest(ORIGIN),
         demo_card_inputs(ORIGIN),
         signers=[CardSigner(key=CARD_KEY, kid=CARD_KID)],
         external_tokens=tokens,
@@ -152,6 +155,20 @@ async def test_the_manifest_and_the_card_describe_the_same_agent(http: httpx.Asy
     assert (card["name"], card["version"]) == (manifest["name"], manifest["version"])
     extension = card["capabilities"]["extensions"][0]
     assert extension["params"]["agent_urn"] == manifest["id"]
+
+
+async def test_gateway_publishes_a2a_and_asap_streaming_separately() -> None:
+    demo = demo_manifest(ORIGIN)
+    capability = demo.capabilities.model_copy(update={"streaming": True})
+    manifest = demo.model_copy(update={"capabilities": capability})
+    transport = httpx.ASGITransport(app=build_gateway(manifest=manifest))
+
+    async with httpx.AsyncClient(transport=transport, base_url=ORIGIN) as client:
+        card = (await client.get("/.well-known/agent-card.json")).json()
+        published = (await client.get("/.well-known/asap/manifest.json")).json()
+        assert card["capabilities"]["streaming"] is False
+        assert published["capabilities"]["streaming"] is True
+        assert card["capabilities"]["extensions"][0]["params"]["asap_streaming"] is True
 
 
 def test_the_skills_must_match_the_manifest() -> None:

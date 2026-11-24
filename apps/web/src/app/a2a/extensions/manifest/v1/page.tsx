@@ -21,6 +21,7 @@ const MEANINGS: Record<string, string> = {
   asap_version: 'The ASAP protocol version that the agent supports, for example `0.1`.',
   state_persistence: 'Whether the agent supports state snapshots. ASAP always writes it.',
   skill_schemas: 'The JSON Schemas of each skill, by skill `id`. Lists only skills that have one.',
+  asap_streaming: 'Whether the ASAP endpoint streams. Omitted when it matches the A2A interfaces.',
   input_schema: 'JSON Schema of the skill’s input.',
   output_schema: 'JSON Schema of the skill’s output.',
 };

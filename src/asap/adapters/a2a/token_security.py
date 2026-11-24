@@ -1,16 +1,13 @@
-"""Card security that states what an external-token config enforces (v2.6.0).
+"""Describe the authentication of an external-token config in an Agent Card.
 
 How an issuer becomes a card security scheme (see
 ``docs/guides/interoperability.md``):
 
-- Each issuer is one ``openIdConnectSecurityScheme`` named by the issuer
-  identifier. ``oauth2SecurityScheme`` is never used: its flows need a token
-  URL and scopes that :class:`ExternalTokenConfig` does not hold.
-- Each scope rule (:class:`asap.auth.external_grants.ExternalGrantRule`) whose
-  capability is a card skill id is one alternative on that skill: the skill
-  ``id`` is the capability name. The card-level list is the union of them.
-- Claim rules cannot be written as an OAuth scope, so they are not stated:
-  the card may say less than the server accepts, never more.
+- Each issuer with OIDC discovery has an ``openIdConnectSecurityScheme``. Other
+  issuers have an HTTP Bearer scheme. The issuer identifier names the scheme.
+- Each scope rule for a skill adds an alternative to that skill's requirements.
+  The card lists the union of those requirements.
+- The gateway evaluates claim rules. The card lists only scope rules.
 
 Example:
     >>> security = external_token_card_security(config, ["search"])  # doctest: +SKIP
@@ -25,12 +22,17 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 
 from asap.adapters.a2a.security import (
+    HTTPAuthSecurityScheme,
     OpenIdConnectSecurityScheme,
     SecurityRequirement,
     SecurityScheme,
     StringList,
 )
-from asap.auth.external_tokens import ExternalIssuerConfig, ExternalTokenConfig
+from asap.auth.external_tokens import (
+    ExternalIssuerConfig,
+    ExternalTokenConfig,
+    OidcDiscoveryKeySource,
+)
 
 _OIDC_DISCOVERY_SUFFIX = "/.well-known/openid-configuration"
 
@@ -78,10 +80,17 @@ def external_token_card_security(
 
 
 def _issuer_scheme(entry: ExternalIssuerConfig) -> SecurityScheme:
-    # An A2A scheme has no audience field: the description is the only place for it.
+    # The description carries the audience because A2A has no audience field.
+    description = f"Bearer access token from {entry.issuer} with audience {entry.audience}"
+    if not isinstance(entry.key_source, OidcDiscoveryKeySource):
+        return SecurityScheme(
+            http_auth_security_scheme=HTTPAuthSecurityScheme(
+                scheme="Bearer", description=description
+            )
+        )
     oidc = OpenIdConnectSecurityScheme(
         open_id_connect_url=entry.issuer.rstrip("/") + _OIDC_DISCOVERY_SUFFIX,
-        description=f"Bearer access token from {entry.issuer} with audience {entry.audience}",
+        description=description,
     )
     return SecurityScheme(open_id_connect_security_scheme=oidc)
 
