@@ -16,7 +16,13 @@ from asap.auth.agent_jwt import (
 from asap.auth.jti_replay_cache import JtiReplayCacheProtocol
 from pydantic import ValidationError
 
-from asap.auth.capabilities import CapabilityGrant, CapabilityRegistry, GrantCheckResult
+from asap.auth.capabilities import (
+    CapabilityGrant,
+    CapabilityRegistry,
+    GrantCheckResult,
+    check_capability_grant,
+)
+from asap.auth.external_verifier import ExternalTokenVerifier
 from asap.auth.identity import (
     AgentStore,
     HostStore,
@@ -28,6 +34,13 @@ from asap.auth.identity import (
 from asap.models.base import ASAPBaseModel
 from asap.observability import get_logger
 from asap.transport._auth_helpers import bearer_token_from_request, verify_host_bearer
+from asap.transport._external_auth import (
+    INSUFFICIENT_SCOPE_CHALLENGE,
+    external_token_verifier,
+    is_agent_jwt,
+    log_external_execute,
+    verify_external_bearer,
+)
 from asap.transport._state_deps import require_identity_limiter
 from asap.transport.rate_limit import ASAPRateLimiter
 
@@ -241,8 +254,48 @@ def _execute_denied(request: Request, capability: str, check: GrantCheckResult) 
     )
 
 
+async def _execute_for_external_principal(
+    request: Request, verifier: ExternalTokenVerifier, token: str
+) -> JSONResponse:
+    """Execute for an external principal; its grants come only from its issuer's rules."""
+    request_id = http_error_request_id(request)
+    request.state.request_id = request_id  # one id for the log and every response body
+    principal = await verify_external_bearer(verifier, token, request_id=request_id)
+    if isinstance(principal, JSONResponse):
+        return principal
+    body = await _parse_execute_body(request)
+    if isinstance(body, JSONResponse):
+        return body
+
+    grant = next((g for g in principal.grants if g.capability == body.capability), None)
+    check = check_capability_grant(grant, body.arguments)
+    log_external_execute(principal, body.capability, check, request_id=request_id)
+    if not check.allowed:
+        denied = _execute_denied(request, body.capability, check)
+        if not check.violations:
+            # MCP authorization: a client may ask for more scope.
+            denied.headers["WWW-Authenticate"] = INSUFFICIENT_SCOPE_CHALLENGE
+        return denied
+    return JSONResponse(
+        status_code=200,
+        content={
+            "capability": body.capability,
+            "status": "executed",
+            "principal": {
+                "type": "external",
+                "issuer": principal.issuer,
+                "subject": principal.subject,
+            },
+        },
+    )
+
+
 async def _handle_capability_execute(request: Request) -> JSONResponse:
-    """Execute a capability (Agent JWT required)."""
+    """Execute a capability with an Agent JWT, or an external token when configured."""
+    verifier = external_token_verifier(request)
+    token = bearer_token_from_request(request)
+    if verifier is not None and token is not None and not is_agent_jwt(token):
+        return await _execute_for_external_principal(request, verifier, token)
     result, err = await verify_agent_bearer(request)
     if err is not None:
         return err

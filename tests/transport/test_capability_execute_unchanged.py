@@ -58,11 +58,11 @@ EXPECTED_AGENT_PATH: dict[str, tuple[int, Any, str | None]] = {
     "no bearer": (401, {"detail": "Authentication required"}, _CHALLENGE),
     "bad json": (400, {"detail": "Invalid JSON: Expecting value: line 1 column 1 (char 0)"}, None),
     "bad body": (400, {"detail": [{"type": "missing", "loc": ["capability"]}]}, None),
-    "host jwt": (401, {"detail": "invalid typ for agent JWT", "request_id": "<request_id>"}, _ASAP_CHALLENGE),
 }  # fmt: skip
 # Bearers that are not Agent JWTs; with the external-token config set they
 # take the external path instead.
 EXPECTED_NON_AGENT_BEARER: dict[str, tuple[int, Any, str | None]] = {
+    "host jwt": (401, {"detail": "invalid typ for agent JWT", "request_id": "<request_id>"}, _ASAP_CHALLENGE),
     "external token": (401, {"detail": "invalid typ for agent JWT", "request_id": "<request_id>"}, _ASAP_CHALLENGE),
     "opaque token": (401, {"detail": "invalid JWT structure: decode_error: Invalid JSON Web Signature", "request_id": "<request_id>"}, _ASAP_CHALLENGE),
 }  # fmt: skip

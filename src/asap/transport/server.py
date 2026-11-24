@@ -72,6 +72,8 @@ from asap.observability.tracing import configure_tracing
 from asap.auth import JWKSValidator, OAuth2Config, OAuth2Middleware
 from asap.auth.middleware import OPERATOR_API_PATH_PREFIXES
 from asap.auth.agent_jwt import JtiReplayCache
+from asap.auth.external_tokens import ExternalTokenConfig
+from asap.auth.external_verifier import ExternalTokenVerifier
 from asap.auth.jti_replay_cache import JtiReplayCacheProtocol
 from asap.auth.approval import A2HApprovalChannel, ApprovalStore, InMemoryApprovalStore
 from asap.auth.self_auth import (
@@ -800,6 +802,7 @@ def create_app(
         "/asap/agent",
     ),
     require_operator_auth: bool = False,
+    external_token_config: ExternalTokenConfig | None = None,
 ) -> FastAPI:
     """Create and configure a FastAPI application for ASAP protocol.
 
@@ -900,6 +903,10 @@ def create_app(
             ``asap:admin`` on ``/usage``, ``/sla``, and ``/audit``. Requires
             ``oauth2_config``. Default False preserves local/operator open access
             (startup warnings remain when those APIs are enabled without auth).
+        external_token_config: Allowlist of external OAuth issuers (COMPAT-001). When set,
+            ``POST /asap/capability/execute`` also accepts their access tokens instead of an
+            Agent JWT; each principal gets only the grants of its issuer's rules. Default
+            None keeps that route on Agent JWT only.
 
     Returns:
         Configured FastAPI application ready to run
@@ -989,6 +996,8 @@ def create_app(
         identity_webauthn_verifier=identity_webauthn_verifier,
         identity_rate_limit=identity_rate_limit,
     )
+    if external_token_config is not None:
+        app.state.external_token_verifier = ExternalTokenVerifier(external_token_config)
     if audit_store is not None:
         _warn_if_operator_api_unauthenticated(
             "asap.server.audit_api_unauthenticated",
