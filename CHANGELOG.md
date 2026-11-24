@@ -7,14 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Interop** — ASAP's identity and capability grants work with A2A v1.0 and MCP authorization (OAuth 2.1): a signed A2A Agent Card built from the manifest, OAuth 2.1 access tokens mapped to grants, and `@asap-protocol/mcp-auth` for HTTP MCP servers. Removes the six import paths deprecated in 2.5.1. The ASAP envelope, the JSON-RPC methods, and the manifest schema do not change. Read the [interoperability guide](docs/guides/interoperability.md) and the [migration guide](docs/migration.md#upgrading-from-v25x-to-v260).
+
 ### Added
 
-- **A2A v1.0 Agent Card bridge** (`asap.adapters.a2a`) — Pydantic models for the A2A v1.0 Agent Card and its security schemes, pinned to `specification/a2a.proto` at tag `v1.0.1`, and pure mapping functions in both directions: `manifest_to_agent_card` and `agent_card_to_manifest`. ASAP data that a card has no field for rides in the ASAP extension `https://asap-protocol.com/a2a/extensions/manifest/v1`. Each mapping returns the source fields it drops, with the reason; the reasons are exported as `UNMAPPED_MANIFEST_FIELDS` and `UNMAPPED_CARD_FIELDS`. A v0.3 card is rejected with `A2AUnsupportedVersionError`. The package does not import `a2a-sdk`, which is a dev dependency for the interop tests only.
+**A2A v1.0 Agent Card bridge (COMPAT-005, COMPAT-006)**
 
-### Fixed
+- **Card models and mapping** (`asap.adapters.a2a`) — Pydantic models for the A2A v1.0 Agent Card and its security schemes, pinned to `specification/a2a.proto` at tag `v1.0.1`, and pure mapping functions in both directions: `manifest_to_agent_card` and `agent_card_to_manifest`. ASAP data that a card has no field for rides in the ASAP extension `https://asap-protocol.com/a2a/extensions/manifest/v1`. Each mapping returns the source fields it drops, with the reason; the reasons are exported as `UNMAPPED_MANIFEST_FIELDS` and `UNMAPPED_CARD_FIELDS`. A v0.3 card is rejected with `A2AUnsupportedVersionError`. The package does not import `a2a-sdk`, which is a dev dependency for the interop tests only.
+- **Card signing** — `sign_agent_card`, and `build_signed_agent_card` with `CardSigner`, which maps a manifest and signs the card in one call. The default is one `EdDSA` signature with the agent's Ed25519 key; an extra `ES256` signature is opt-in, for verifiers that allow only `ES256` and `RS256`. The signed bytes are the RFC 8785 form that the A2A SDKs sign (`canonicalize_agent_card`). The signer refuses a card whose signed form would drop a value, such as an empty `required: []` in a skill schema (`A2ACardNotSignableError`, with every path).
+- **Card verification** — `verify_agent_card` and `verify_agent_card_for_agent`. The latter compares the expected agent URN with the signed extension when present. A signature is required unless the policy is `allow_unsigned`. Algorithms: `ES256`, `RS256`, and `EdDSA` (also under the name `Ed25519`); `none` and HMAC are refused before any key lookup. A signature from a trusted key that does not verify fails the card; a signature from an unknown key is skipped. Every failure is a typed error under `A2ACardVerificationError`, with no key material in the message.
+- **Trust store** — `A2ATrustConfig` with pinned keys (`PinnedCardKey`) and a `jku` allowlist (`AllowedJku`). Every trust source names the agent URNs that it may sign for; `ANY_AGENT` is an explicit opt-in. A `jku` is fetched only when it equals an allowlist entry exactly, through the guarded fetch, and the key set is cached for a bounded time (`A2AKeyResolver`).
+- **Card ingest** — `AgentCardIngestor` fetches a card through the guarded fetch, verifies it, maps it, and requires that a key that verified may sign for the card's agent (`A2ASignerScopeError`). A card that fails is never mapped or cached; a verified card is cached by URL for a bounded time. The result says what the signature does not cover.
 
-- **MCP stdio bridge** results from `MCPServer` and `tool_error_result` omit the optional `annotations` field when it has no value. MCP TypeScript SDK 2.x clients can now read these `tools/call` results. The text and `isError` stay the same.
-- **MCP client** omits `_meta` from `MCPClient.call_tool` parameters when the caller supplies no `meta`. MCP TypeScript SDK 2.x servers can now read these `tools/call` requests. The client still sends any `meta` the caller supplies.
+**Discovery bridge (COMPAT-003)**
+
+- **Agent Card beside the manifest** — `create_app(agent_card=...)` serves a signed Agent Card at `/.well-known/agent-card.json`, with the caching headers of the manifest route (`Cache-Control`, `ETag`, 304 on `If-None-Match`). `create_app` refuses an unsigned card, a card without the ASAP extension, and a card for another agent. Issuers configured for OpenID Connect discovery publish their discovery URL. Other issuers publish an HTTP Bearer scheme. The gateway advertises only `SendMessage` and preserves the ASAP streaming flag in the signed extension when the endpoints differ.
+
+**External access tokens (COMPAT-001, COMPAT-002)**
+
+- **Access tokens on capability execute** — `create_app(external_token_config=...)` lets `POST /asap/capability/execute` accept OAuth 2.1 access tokens from issuers that you list, beside Agent JWTs. Each issuer needs an audience, and its keys come from a `jwks_uri`, OpenID discovery, or a static JWKS. The access-token check refuses ASAP Agent and Host JWTs (an Agent JWT keeps its own path), `alg: none`, and HMAC. A token becomes an `ExternalPrincipal` for one request: it is not stored and is not an agent. The 200 answer names the principal; a missing grant is 403 with `WWW-Authenticate: Bearer error="insufficient_scope"`. There is no replay check on access tokens. Only this route accepts them. Modules: `asap.auth.external_tokens`, `asap.auth.external_verifier`.
+- **Grant rules, deny by default** — `ExternalGrantRule` (`asap.auth.external_grants`) maps one scope, or one claim value, to one capability with optional constraints. A scope or claim that no rule names gives nothing.
+- **Identity binding** — `required_claims` on an issuer entry; `create_app` logs `asap.server.external_issuer_unbound` when the `oauth2_config` provider is listed without it.
+- **Opaque tokens** — an issuer with `introspection` (RFC 7662) instead of a key source; at most one per config. An answer is reused for at most `cache_ttl_seconds` (default 60).
+- **Guarded fetch** (`asap.utils.guarded_fetch`) — `guarded_fetch_json` and `guarded_post_form_json`: HTTPS only, public addresses only with the connection pinned to the checked address, no redirects, a size limit, and one deadline. Card, key, discovery, and introspection fetches use it.
+- **Building blocks** — `OAuth2Middleware(exempt_paths=...)`; `check_capability_grant` in `asap.auth.capabilities`; `TokenIntrospector(poster=..., max_cache_ttl_seconds=...)` and `TokenInfo.claims`. Existing callers see no change.
+
+**`@asap-protocol/mcp-auth` 0.1.0 (MCP-TS-001, MCP-TS-002, MCP-TS-003)**
+
+- **New npm package** for MCP servers on Streamable HTTP with `@modelcontextprotocol/server` 2.x, MCP revision `2026-07-28` only, Node.js 20.19.0 or later on the 20.x line, or Node.js 22.12.0 and later. `createMcpAuthMiddleware(config)` returns the token layer (`protect`), the grant layer (`protectTool`), and `scopeChallenge`. It accepts ASAP Agent JWTs (a custom auth strategy, which MCP allows) and OAuth 2.1 JWT access tokens from issuers that you list (the resource-server side of MCP authorization). It returns the four `asap:*` codes of the Python bridge: token errors are HTTP 401, grant errors are tool results, and for an access token a missing grant that a scope can give is HTTP 403 `insufficient_scope`. Deny by default: a verified token reaches only the tools and methods that the config declares. Its grant rules and constraint checks pass the same test vectors as Python. Guide: [MCP Auth Bridge: HTTP MCP servers in TypeScript](docs/adapters/mcp-auth-bridge.md#http-mcp-servers-in-typescript).
+
+**`@asap-protocol/client` 2.5.0**
+
+- **`verifyAgentJwt`** — the token checks of the Python `verify_agent_jwt`, with a resolver callback for the agent's key and status. With it: `InMemoryJtiReplayCache` (a live `jti` is never evicted; a full cache raises `JtiReplayCacheFullError`), `AgentJwtFailureReason`, and the `PublicJwk` type. Guide: [TypeScript client](docs/sdks/typescript.md).
+
+**Compliance (COMPAT-007)**
+
+- **`mcp-auth-http` profile** (`asap-compliance`) — checks an HTTP MCP server protected by `@asap-protocol/mcp-auth` over plain HTTP: the public tool, the missing and invalid tokens, Agent JWT replay, access-token reuse, grant and constraint errors in their layers, an undeclared tool, the `WWW-Authenticate` challenges, and that no answer echoes a token. It gets a fresh token per request from the server's test-only probe endpoint. Entry points: `validate_mcp_auth_http_async` and `McpAuthHttpComplianceConfig`.
+
+**Examples**
+
+- **`examples/a2a_gateway/`** — a reference A2A v1.0 gateway on the A2A Python SDK (Flow A): it serves the signed card, checks the access token and the ASAP grant, and runs one skill. Smoke run: `uv run python -m examples.a2a_gateway.smoke`. It has no support tier.
+- **`examples/mcp_auth_http/`** — an HTTP MCP server protected by `@asap-protocol/mcp-auth` (Flow B), with Agent JWTs, access tokens from a local test issuer, RFC 9728 metadata, and a test-only compliance mode.
+
+### Changed
+
+- **npm releases** — each `@asap-protocol/*` package publishes from its own tag (`client-v<version>`, `mcp-auth-v<version>`), with the version from its `package.json`, and only that package. `v2.3.*` and `v2.4.*` tags no longer publish. The `hotfix-release.yml` workflow and its `hotfix` dist-tag track are retired; a hotfix is a patch release from the package tag. See [npm publishing](docs/maintainers/npm-publishing.md) and [hotfix](docs/maintainers/hotfix.md).
+- **`@asap-protocol/client` key types** — `HostContext.publicJwk`, `AgentContext.publicJwk`, and the `agentPublicKey` option of `signHostJwt` are typed `PublicJwk` instead of the DOM `JsonWebKey`. Each type can be assigned to the other, so existing code compiles.
+- **npm telemetry (maintainer tooling)** — the npm collector also counts `@asap-protocol/mcp-auth`. A package that npm does not know yet gets a row with no downloads and the run goes on, instead of failing the weekly job.
 
 ### Removed
 
@@ -25,9 +64,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`RemoteFatalRPCError` and `RemoteRecoverableRPCError` (Python)** — the two `asap.errors` subclasses deprecated in 2.5.1 are gone. Catch `RemoteRPCError` and branch on `is_recoverable`. The TypeScript classes of the same names in `@asap-protocol/client` stay. See the [migration guide](docs/migration.md#upgrading-from-v25x-to-v260).
 - **`metering_storage_adapter`** — the `asap.economics.storage` wrapper deprecated in 2.5.1 is gone. Build the same `MeteringStore` view with `MeteringStorageBridge(storage)` from `asap.state.metering` (also exported from `asap.state`). See the [migration guide](docs/migration.md#upgrading-from-v25x-to-v260).
 
+### Fixed
+
+- **MCP stdio bridge** results from `MCPServer` and `tool_error_result` omit the optional `annotations` field when it has no value. MCP TypeScript SDK 2.x clients can now read these `tools/call` results. The text and `isError` stay the same.
+- **MCP client** omits `_meta` from `MCPClient.call_tool` parameters when the caller supplies no `meta`. MCP TypeScript SDK 2.x servers can now read these `tools/call` requests. The client still sends any `meta` the caller supplies.
+
+- **Capability execute under `oauth2_config`** — when `oauth2_config` covered `/asap`, `OAuth2Middleware` refused every Agent JWT on `POST /asap/capability/execute`, so the route could not succeed. The middleware now skips that exact path, and the route verifies its own bearer: a valid Agent JWT succeeds, and a token from the `oauth2_config` provider gets the route's 401 unless that provider is listed in `external_token_config`. `required_scope` and the identity binding of `oauth2_config` no longer apply on this route. List, describe, `/asap`, and every other spelling of the path stay behind the middleware. See the [migration guide](docs/migration.md#behavior-changes).
+
+### Security
+
+- **Agent JWT lifetime and replay window** — `verify_agent_jwt` refuses an Agent JWT whose `exp` is more than 120 seconds after the current time or after its `iat` (`token lifetime too long`). `create_agent_jwt` and `signAgentJwt` mint 60-second tokens, which pass. `verifyAgentJwt` in `@asap-protocol/client` applies the same cap. `verify_agent_jwt` also passes `keep_until`, the token's `exp` plus 60 seconds of clock skew, to `check_and_record` of the replay cache. `JtiReplayCache` and `RedisJtiReplayCache` keep the `jti` until then when that is later than their own window (default 90 seconds), so a second use is refused while the token is valid. Before, they kept it for 90 seconds only, and a token valid for longer could be used again after its record expired. The in-memory cache still drops a live record early when it holds more than `max_size` records. A custom cache whose `check_and_record` has no `keep_until` parameter is called with two arguments as before and keeps its own window; the first call for each cache class logs `asap.auth.jti_cache_without_keep_until`. Host JWTs are not capped and get no `keep_until`. See the [migration guide](docs/migration.md#behavior-changes).
+
+### Documentation
+
+- **Interoperability guide** — [docs/guides/interoperability.md](docs/guides/interoperability.md): where ASAP sits beside A2A v1.0 and MCP authorization (OAuth 2.1), the pinned spec versions, both end-to-end flows with runnable commands, the Agent Card ↔ manifest field table, signed cards, external access tokens, where each path puts the four `asap:*` codes, and what is not supported.
+- **MCP Auth Bridge** — [docs/adapters/mcp-auth-bridge.md](docs/adapters/mcp-auth-bridge.md) gains the section "HTTP MCP servers in TypeScript": servers with Agent JWTs and with access tokens, clients, deny by default, and every answer of `@asap-protocol/mcp-auth`. It names only `asap.mcp.auth`.
+- **TypeScript client** — [docs/sdks/typescript.md](docs/sdks/typescript.md) documents `verifyAgentJwt` and the replay cache.
+- **Support tiers** — `@asap-protocol/mcp-auth` and `asap.adapters.a2a` are Tier 1; the reference examples have no tier. The MCP Auth Bridge row names only `asap.mcp.auth`. See [docs/integrations/support-tiers.md](docs/integrations/support-tiers.md).
+- **NeMo Agent Toolkit** — the guide links the shipped Agent Card mapping instead of a field sketch, and its HTTP rows name `@asap-protocol/mcp-auth`. It stays Tier 3.
+- **ASAP extension page** — the web app (`apps/web`) has a page at the path of the extension URI, `/a2a/extensions/manifest/v1`, that describes its params. A test checks the page data against `AsapExtensionParams`.
+
 ### Follow-up (planned)
 
-- **v2.6.0 Interop** — A2A v1.0 Agent Card ↔ ASAP manifest bridge, external agent tokens (including MCP OAuth 2.1) → ASAP agent sessions, and `@asap-protocol/mcp-auth` for HTTP MCP servers (deferred from v2.5.0 — see [2.5.0] TypeScript note and [typescript-mcp-auth-spike.md](engineering/tasks/v2.5.0/typescript-mcp-auth-spike.md)).
 - **v2.7.0 Spec profile** — RFC 2119 profile of ASAP's identity, capability-grant, approval, and lifecycle surface ([prd-spec-profile.md](product/prd/prd-spec-profile.md)).
 - Collapse the dual `UsageMetrics`/`InMemoryMeteringStore` pair retained in S1 for API stability.
 - Reduce the `asap.transport.client` package aggregate LOC below the S2 target.

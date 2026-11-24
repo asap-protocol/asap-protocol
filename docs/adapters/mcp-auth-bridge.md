@@ -754,6 +754,7 @@ pnpm --filter example-mcp-auth-http test
 
 ## Related documentation
 
+- [Interoperability: A2A, MCP, and ASAP](../guides/interoperability.md) — the HTTP MCP flow next to the A2A flow, and where each path puts the four `asap:*` codes
 - [MCP Auth Bridge starter](../../examples/starters/mcp-auth-bridge/) — thin smoke wrapper (`examples/starters/mcp-auth-bridge/`)
 - [MCP integration](../mcp-integration.md) — Mode A vs Mode B, migration notes
 - [NeMo Agent Toolkit](../integrations/nemo-agent-toolkit.md) — experimental Path A demo using `protect_server`
