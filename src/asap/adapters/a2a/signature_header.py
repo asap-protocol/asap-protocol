@@ -5,7 +5,9 @@ member names, a string ``alg``, a non-empty string ``kid``, an optional string
 ``jku`` (``null`` reads as absent: ``a2a-sdk`` writes it so), and no ``crit``;
 and ``signature`` is base64url. Any other entry fails the card, and so do
 ``alg: none`` and every ``HS*`` name: they never reach a key lookup. A card
-carries at most :data:`MAX_CARD_SIGNATURES` entries.
+carries at most :data:`MAX_CARD_SIGNATURES` entries, and a ``protected``
+value longer than :data:`MAX_PROTECTED_HEADER_LENGTH` is malformed before it
+is decoded.
 """
 
 from __future__ import annotations
@@ -22,6 +24,13 @@ from asap.adapters.a2a.models import AgentCardSignature
 
 MAX_CARD_SIGNATURES = 16
 """Most signatures a card may carry: each one may cost a key lookup and a signature check."""
+
+MAX_PROTECTED_HEADER_LENGTH = 4096
+"""Longest ``protected`` value read, in base64url characters (3 KiB of JSON).
+
+A header holds ``alg``, ``kid``, ``typ``, and maybe ``jku``: a few hundred
+bytes. The bound keeps a deeply nested header away from the JSON decoder.
+"""
 
 _BASE64URL = re.compile(r"[A-Za-z0-9_-]*")
 _MAX_QUOTED_LENGTH = 64
@@ -89,13 +98,21 @@ def _read_entry(index: int, entry: AgentCardSignature) -> CardSignatureEntry:
 
 
 def _decode_entry(index: int, entry: AgentCardSignature) -> tuple[dict[str, Any], bytes]:
+    if len(entry.protected) > MAX_PROTECTED_HEADER_LENGTH:
+        raise A2AInvalidSignatureError(
+            index,
+            "malformed",
+            f"protected is {len(entry.protected)} characters long, longer than "
+            f"the {MAX_PROTECTED_HEADER_LENGTH} read",
+        )
     try:
         header_json = _from_base64url(entry.protected).decode("utf-8")
         header = json.loads(header_json, object_pairs_hook=_unique_members)
         if not isinstance(header, dict):
             raise ValueError("the protected header is not a JSON object")
         return header, _from_base64url(entry.signature)
-    except ValueError as exc:
+    # json.loads raises RecursionError, not ValueError, for deep nesting.
+    except (ValueError, RecursionError) as exc:
         raise A2AInvalidSignatureError(
             index,
             "malformed",

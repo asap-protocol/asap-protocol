@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Annotated, Any
 
 from pydantic import BaseModel, Field, ValidationError
+from pydantic_core import PydanticSerializationError
 
 from asap.adapters.a2a._base import NonEmptyStr
 from asap.adapters.a2a.card_security import (
@@ -151,7 +152,8 @@ def agent_card_to_manifest(
         A2AMappingInputError: A caller input is missing or conflicts with the card.
         A2AMappingError: The manifest would not be valid, for example because the
             card version is not one a manifest accepts; or the ASAP extension is
-            broken; or two skills share an id.
+            broken; or two skills share an id; or a free-form member nests deeper
+            than the model serializer allows.
 
     Example:
         >>> agent_card_to_manifest(card, agent_id="urn:asap:agent:x",
@@ -178,7 +180,16 @@ def agent_card_to_manifest(
 
 
 def _dropped_card_fields(card: AgentCard) -> tuple[DroppedField, ...]:
-    card_json = card.model_dump(mode="json")
+    try:
+        card_json = card.model_dump(mode="json")
+    except PydanticSerializationError as exc:
+        # json.loads accepts far deeper nesting than the serializer, and the
+        # canonical form does not cover a signature's unprotected header.
+        raise A2AMappingError(
+            f"Agent Card {card.name!r} nests deeper than the model serializer allows in "
+            "a free-form member (extension params or a signature's unprotected header)",
+            fields=["capabilities.extensions[].params", "signatures[].header"],
+        ) from exc
     carried = _carried_card_paths(card)
     return tuple(
         DroppedField(path=path, field=field, reason=reason)
