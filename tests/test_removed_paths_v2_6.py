@@ -15,6 +15,7 @@ import pytest
 _REMOVED_MODULES: tuple[str, ...] = (
     "asap.cli._compat",  # HK-001, issue #275
     "asap.transport.websocket",  # HK-002
+    "asap.adapters.mcp",  # HK-003
 )
 
 # (module that still exists, name that must not come back on it)

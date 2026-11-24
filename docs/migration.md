@@ -1126,6 +1126,7 @@ protocol.
 | `asap.cli._compat` ([#275](https://github.com/asap-protocol/asap-protocol/issues/275)) | `from asap.cli._compat import DEFAULT_SCHEMAS_DIR, export_all_schemas, _repl_namespace` | `from asap.cli.schemas import DEFAULT_SCHEMAS_DIR`; `from asap.schemas import export_all_schemas`; `from asap.cli.repl import _repl_namespace` |
 | `asap.transport.websocket` | `from asap.transport.websocket import WebSocketTransport` (or any other name) | `from asap.transport.ws import WebSocketTransport` (same names). Test patch targets: `asap.transport.ws.client.websockets.connect`; `asap.transport.ws.codecs.encode_envelope_frame`, `.PAYLOAD_TYPES_REQUIRING_ACK`, `.HEARTBEAT_PING_INTERVAL` |
 | `FRAME_ENCODING_BINARY` | `from asap.transport.websocket import FRAME_ENCODING_BINARY` | No replacement. v2.5.1 removed binary framing; frames are JSON text only (`FRAME_ENCODING_JSON`). Delete the reference |
+| `asap.adapters.mcp` | `from asap.adapters.mcp import protect_server, MCPAuthConfig` (or `from asap.adapters.mcp.<submodule> import ...`) | `from asap.mcp.auth import protect_server, MCPAuthConfig` (same names). Submodules keep their names: `asap.adapters.mcp.config` becomes `asap.mcp.auth.config`, and the same for `auth_middleware`, `capability_map`, `errors`, `jwt_extractor`, and `protected_server` |
 
 ---
 
