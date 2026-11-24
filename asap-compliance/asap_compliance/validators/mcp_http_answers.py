@@ -16,52 +16,20 @@ Example::
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
 
 from asap.mcp.auth.errors import AUTH_REQUIRED, CAPABILITY_DENIED, INVALID_TOKEN
 
-from asap_compliance.validators.mcp_http_transport import McpHttpResponse
+from asap_compliance.validators.http_answers import has_code, quoted_code, quoted_word
+from asap_compliance.validators.mcp_http_transport import McpHttpResponse, first_text
 
-_ASAP_CODE = re.compile(r"asap:[a-z_]+")
-_SAFE_WORD = re.compile(r"[a-z_]{1,40}")
 _BEARER_SCHEME = re.compile(r"\s*bearer(\s|$)", re.IGNORECASE)
 _ERROR_PARAMETER = re.compile(r'(?:^|[\s,])error=(?:"([^"]*)"|([^\s,]*))', re.IGNORECASE)
 
 
-def _quoted_code(text: object) -> str:
-    """The ``asap:*`` code in server text: safe to print, because it cannot hold a token."""
-    match = _ASAP_CODE.search(text) if isinstance(text, str) else None
-    return repr(match.group()) if match else "no asap:* code"
-
-
-def _quoted_word(value: object) -> str:
-    if value is None or (isinstance(value, str) and _SAFE_WORD.fullmatch(value)):
-        return repr(value)
-    return "another value"
-
-
-def _has_code(text: object, code: str) -> bool:
-    """``<code>`` or ``<code>: <detail>``, the form of Python ``tool_error_result``."""
-    return isinstance(text, str) and (text == code or text.startswith(f"{code}: "))
-
-
-def _first_text(result: Mapping[str, Any]) -> object:
-    content = result.get("content")
-    if not isinstance(content, list) or not content or not isinstance(content[0], dict):
-        return None
-    return content[0].get("text") if content[0].get("type") == "text" else None
-
-
 def describe_answer(response: McpHttpResponse) -> str:
     """Status, layer, and ``asap:*`` code of an answer, for a check message."""
-    result = response.tool_result
-    if result is None:
-        description = (response.json_body or {}).get("error_description")
-        return f"HTTP {response.status_code}, no tool result, {_quoted_code(description)}"
-    layer = "tool error result" if result.get("isError") is True else "tool result"
-    return f"HTTP {response.status_code}, {layer}, {_quoted_code(_first_text(result))}"
+    return response.describe()
 
 
 def has_bearer_challenge(response: McpHttpResponse) -> bool:
@@ -82,7 +50,7 @@ def tool_error_problem(response: McpHttpResponse, code: str) -> str | None:
     result = response.tool_result
     if response.status_code != 200 or result is None or result.get("isError") is not True:
         return f"got {describe_answer(response)}"
-    if not _has_code(_first_text(result), code):
+    if not has_code(first_text(result), code):
         return f"got {describe_answer(response)} as the first content item"
     return None
 
@@ -106,12 +74,12 @@ class BearerChallenge:
         match = _ERROR_PARAMETER.search(response.headers["www-authenticate"])
         found_error = None if match is None else match.group(1) or match.group(2)
         if found_error != self.challenge_error:
-            return f"got a Bearer challenge with error={_quoted_word(found_error)}"
+            return f"got a Bearer challenge with error={quoted_word(found_error)}"
         body = response.json_body or {}
         description = body.get("error_description")
-        if body.get("error") != self.oauth_error or not _has_code(description, self.code):
-            error = _quoted_word(body.get("error"))
-            return f"got a body with error={error} and {_quoted_code(description)}"
+        if body.get("error") != self.oauth_error or not has_code(description, self.code):
+            error = quoted_word(body.get("error"))
+            return f"got a body with error={error} and {quoted_code(description)}"
         return None
 
 

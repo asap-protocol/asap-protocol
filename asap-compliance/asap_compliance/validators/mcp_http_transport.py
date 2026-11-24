@@ -27,6 +27,8 @@ from typing import Any
 
 import httpx
 
+from asap_compliance.validators.http_answers import quoted_code
+
 MCP_HTTP_PROTOCOL_VERSION = "2026-07-28"
 # A tools/call answer is small; the cap stops a server that never ends its body.
 MAX_RESPONSE_BYTES = 1_048_576
@@ -56,6 +58,23 @@ class McpHttpResponse:
             return None
         result = body.get("result")
         return result if isinstance(result, dict) else None
+
+    def describe(self) -> str:
+        """Status, layer, and ``asap:*`` code of this answer, for a check message."""
+        result = self.tool_result
+        if result is None:
+            description = (self.json_body or {}).get("error_description")
+            return f"HTTP {self.status_code}, no tool result, {quoted_code(description)}"
+        layer = "tool error result" if result.get("isError") is True else "tool result"
+        return f"HTTP {self.status_code}, {layer}, {quoted_code(first_text(result))}"
+
+
+def first_text(result: Mapping[str, Any]) -> object:
+    """The ``text`` of a tool result's first content item, when that item is text."""
+    content = result.get("content")
+    if not isinstance(content, list) or not content or not isinstance(content[0], dict):
+        return None
+    return content[0].get("text") if content[0].get("type") == "text" else None
 
 
 class McpHttpTransport:
