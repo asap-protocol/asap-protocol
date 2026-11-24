@@ -48,3 +48,44 @@ UNMAPPED_MANIFEST_FIELDS: Mapping[str, str] = MappingProxyType(
     }
 )
 """Manifest fields that manifest → card drops, keyed by field path, with the reason."""
+
+_NO_MANIFEST_FIELD = "No manifest field"
+_A2A_SECURITY = (
+    "Describes the A2A interfaces, not the ASAP endpoint. A card signature does not cover all of it"
+)
+
+UNMAPPED_CARD_FIELDS: Mapping[str, str] = MappingProxyType(
+    {
+        "supportedInterfaces": (
+            "A2A endpoints. The manifest endpoint is the ASAP endpoint, from the ASAP "
+            "extension or the caller"
+        ),
+        "provider": _NO_MANIFEST_FIELD,
+        "documentationUrl": _NO_MANIFEST_FIELD,
+        "iconUrl": _NO_MANIFEST_FIELD,
+        "capabilities.pushNotifications": _NO_MANIFEST_FIELD,
+        "capabilities.extendedAgentCard": _NO_MANIFEST_FIELD,
+        "capabilities.extensions[]": "No manifest field for an extension other than ASAP's",
+        "securitySchemes": _A2A_SECURITY,
+        "securityRequirements": _A2A_SECURITY,
+        "defaultInputModes": "No manifest field. ASAP skills use JSON Schema",
+        "defaultOutputModes": "No manifest field. ASAP skills use JSON Schema",
+        "skills[].name": (
+            "No manifest field. Listed only when it differs from the skill id, which "
+            "manifest → card uses as the name"
+        ),
+        "skills[].tags": _NO_MANIFEST_FIELD,
+        "skills[].examples": _NO_MANIFEST_FIELD,
+        "skills[].inputModes": "No manifest field. ASAP skills use JSON Schema",
+        "skills[].outputModes": "No manifest field. ASAP skills use JSON Schema",
+        "skills[].securityRequirements": _A2A_SECURITY,
+        "signatures": (
+            "Cover the card, not a manifest. Verify them before mapping; "
+            "the manifest signature is a different scheme"
+        ),
+    }
+)
+"""Card fields (JSON names) that card → manifest drops, with the reason.
+
+``[]`` stands for any list index; a mapping call reports the concrete path.
+"""

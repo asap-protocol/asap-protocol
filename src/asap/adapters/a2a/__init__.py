@@ -55,7 +55,11 @@ from asap.adapters.a2a.security import (
     SecurityScheme,
     StringList,
 )
-from asap.adapters.a2a.unmapped import UNMAPPED_MANIFEST_FIELDS, DroppedField
+from asap.adapters.a2a.unmapped import (
+    UNMAPPED_CARD_FIELDS,
+    UNMAPPED_MANIFEST_FIELDS,
+    DroppedField,
+)
 
 __all__ = [
     "A2AAdapterError",
@@ -90,6 +94,7 @@ __all__ = [
     "SecurityScheme",
     "SkillSchemas",
     "StringList",
+    "UNMAPPED_CARD_FIELDS",
     "UNMAPPED_MANIFEST_FIELDS",
     "agent_card_to_manifest",
     "manifest_to_agent_card",

@@ -35,7 +35,11 @@ from asap.adapters.a2a.models import (
     AgentSkill,
 )
 from asap.adapters.a2a.security import SecurityRequirement, SecurityScheme
-from asap.adapters.a2a.unmapped import UNMAPPED_MANIFEST_FIELDS, DroppedField
+from asap.adapters.a2a.unmapped import (
+    UNMAPPED_CARD_FIELDS,
+    UNMAPPED_MANIFEST_FIELDS,
+    DroppedField,
+)
 from asap.models.base import ASAPBaseModel
 from asap.models.entities import Endpoint, Manifest, Skill
 
@@ -117,9 +121,10 @@ def manifest_to_agent_card(manifest: Manifest, inputs: AgentCardInputs) -> CardM
 
 @dataclass(frozen=True, slots=True)
 class ManifestMapping:
-    """Result of :func:`agent_card_to_manifest`."""
+    """Result of :func:`agent_card_to_manifest`: the manifest and the card fields it dropped."""
 
     manifest: Manifest
+    dropped: tuple[DroppedField, ...]
 
 
 def agent_card_to_manifest(
@@ -133,6 +138,8 @@ def agent_card_to_manifest(
     value that the caller also passes must equal the card's. Map only a card
     whose signature was verified; the manifest is built from the
     parsed model, so a field outside the A2A v1.0 schema never reaches it.
+    ``dropped`` lists each card value of :data:`UNMAPPED_CARD_FIELDS` that the
+    manifest does not carry.
 
     Raises:
         A2AMappingInputError: A caller input is missing or conflicts with the card.
@@ -161,7 +168,47 @@ def agent_card_to_manifest(
         )
     except ValidationError as exc:
         raise A2AMappingError.from_validation_error(source, "ASAP manifest", exc) from exc
-    return ManifestMapping(manifest=manifest)
+    return ManifestMapping(manifest=manifest, dropped=_dropped_card_fields(card))
+
+
+def _dropped_card_fields(card: AgentCard) -> tuple[DroppedField, ...]:
+    card_json = card.model_dump(mode="json")
+    carried = _carried_card_paths(card)
+    return tuple(
+        DroppedField(path=path, field=field, reason=reason)
+        for field, reason in UNMAPPED_CARD_FIELDS.items()
+        for path in _present_paths(card_json, field)
+        if path not in carried
+    )
+
+
+def _carried_card_paths(card: AgentCard) -> set[str]:
+    """Paths that match an unmapped row but that the mapping carries after all."""
+    extensions = card.capabilities.extensions or []
+    carried = {
+        f"capabilities.extensions[{index}]"
+        for index, extension in enumerate(extensions)
+        if extension.uri == ASAP_EXTENSION_URI
+    }
+    carried |= {
+        f"skills[{index}].name" for index, skill in enumerate(card.skills) if skill.name == skill.id
+    }
+    return carried
+
+
+def _present_paths(document: Mapping[str, Any], field: str) -> list[str]:
+    """Concrete paths in *document* for a table row such as ``skills[].tags``."""
+    head, _, rest = field.partition(".")
+    if head.endswith("[]"):
+        name = head.removesuffix("[]")
+        items = document.get(name) or []
+        suffix = f".{rest}" if rest else ""
+        return [f"{name}[{i}]{suffix}" for i, item in enumerate(items) if not rest or rest in item]
+    if head not in document:
+        return []
+    if not rest:
+        return [head]
+    return [f"{head}.{path}" for path in _present_paths(document[head], rest)]
 
 
 def _identity_for(
