@@ -23,13 +23,18 @@ from collections.abc import Callable, Mapping
 from typing import Any, Self
 
 import httpx
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from joserfc import jwk
 from joserfc.errors import JoseError
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from asap.adapters.a2a._ttl_cache import BoundedTTLCache
 from asap.adapters.a2a.errors import A2AKeyResolutionError
-from asap.adapters.a2a.signature_keys import CARD_VERIFY_ALGORITHMS, CardKey
+from asap.adapters.a2a.signature_keys import (
+    CARD_VERIFY_ALGORITHMS,
+    CardKey,
+    is_small_order_ed25519,
+)
 from asap.adapters.a2a.verification import SignaturePolicy
 from asap.models.base import ASAPBaseModel
 from asap.utils.guarded_fetch import (
@@ -97,7 +102,8 @@ class A2ATrustConfig(ASAPBaseModel):
 def import_pinned_key(kid: str, member: Mapping[str, Any]) -> CardKey:
     """Import one pinned JWK; raise ``ValueError`` unless it is a public OKP, EC, or RSA key.
 
-    The message never repeats a key member.
+    A small-order Ed25519 key is refused too. The
+    message never repeats a key member.
     """
     if member.get("kid", kid) != kid:
         raise ValueError(f"pinned key {kid!r} has a different kid member")
@@ -107,6 +113,9 @@ def import_pinned_key(kid: str, member: Mapping[str, Any]) -> CardKey:
         raise ValueError(f"pinned key {kid!r} is not a valid JWK ({type(exc).__name__})") from exc
     if key.key_type == "oct" or key.is_private:
         raise ValueError(f"pinned key {kid!r} must be a public OKP, EC, or RSA key")
+    public = key.public_key
+    if isinstance(public, Ed25519PublicKey) and is_small_order_ed25519(public):
+        raise ValueError(f"pinned key {kid!r} is a small-order Ed25519 key: anyone can sign for it")
     return key
 
 
