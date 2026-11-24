@@ -16,6 +16,7 @@ import type { ExternalTokenConfig } from "./external-issuers.js";
 import { createExternalTokenVerifier } from "./external-token-verifier.js";
 import { createGrantLayer, type AgentGrantResolver, type ProtectTool } from "./grant-layer.js";
 import { isPublicMcpRequest } from "./public-request.js";
+import { JwksUnavailableError } from "./remote-jwks.js";
 
 /** Set `agentJwt`, `externalTokens`, or both. */
 export interface McpAuthConfig {
@@ -39,8 +40,9 @@ export interface McpAuthConfig {
   readonly resourceMetadataUrl?: string;
   /**
    * Called when verification or a grant lookup fails for a reason other than
-   * the token, such as a resolver that throws. The request gets HTTP 500 with no detail. The
-   * package itself never logs, and this hook never receives the token.
+   * the token, such as a resolver that throws (HTTP 500 with no detail) or an
+   * issuer's JWKS that cannot be fetched (HTTP 503). The package itself never
+   * logs, and this hook never receives the token.
    */
   readonly onInternalError?: (error: unknown) => void;
 }
@@ -58,8 +60,8 @@ export interface McpProtectedHandler {
 export interface McpAuthMiddleware {
   /**
    * The token layer: `AuthInfo` for a verified token, `undefined` for a public
-   * request with no token, or the `Response` to return (401, or 500 with no
-   * detail). It never throws.
+   * request with no token, or the `Response` to return (401; 503 when an
+   * issuer's keys cannot be fetched; 500 with no detail). It never throws.
    */
   authenticate(request: Request): Promise<AuthInfo | Response | undefined>;
   /**
@@ -92,12 +94,23 @@ export interface McpAuthMiddleware {
 // RFC 6750 §2.1: "Bearer" 1*SP b64token. A token list or a second word does not match.
 const BEARER_AUTHORIZATION_PATTERN = /^Bearer +([A-Za-z0-9\-._~+/]+=*)$/i;
 const MALFORMED_AUTHORIZATION_REASON = "malformed Authorization header";
+const KEY_SOURCE_UNAVAILABLE_TEXT = "Authentication service unavailable";
 
 /** No token: per RFC 6750 §3.1 the challenge has no `error` parameter; the body still names the ASAP code. */
 function authRequiredResponse(resourceMetadataUrl: string | undefined): Response {
   const body = new OAuthError(OAuthErrorCode.InvalidToken, McpAuthErrorCode.AuthRequired).toResponseObject();
   const challenge = resourceMetadataUrl === undefined ? "Bearer" : `Bearer resource_metadata="${resourceMetadataUrl}"`;
   return Response.json(body, { status: 401, headers: { "WWW-Authenticate": challenge } });
+}
+
+/**
+ * The issuer's keys cannot be fetched (Python parity: 503 "Authentication
+ * service unavailable"). Fixed text, no host and no cause; `Retry-After` is the
+ * time until the key source may fetch again.
+ */
+function keySourceUnavailableResponse(error: JwksUnavailableError): Response {
+  const body = new OAuthError(OAuthErrorCode.TemporarilyUnavailable, KEY_SOURCE_UNAVAILABLE_TEXT).toResponseObject();
+  return Response.json(body, { status: 503, headers: { "Retry-After": String(error.retryAfterSeconds) } });
 }
 
 function invalidTokenResponse(reason: string, resourceMetadataUrl: string | undefined): Response {
@@ -155,7 +168,7 @@ export function createMcpAuthMiddleware(config: McpAuthConfig): McpAuthMiddlewar
     try {
       config.onInternalError?.(error);
     } catch {
-      // A failing hook must not turn the 500 into an unhandled throw.
+      // A failing hook must not turn the 500 or 503 into an unhandled throw.
     }
   }
 
@@ -172,9 +185,13 @@ export function createMcpAuthMiddleware(config: McpAuthConfig): McpAuthMiddlewar
       const authInfo = await verifierFor(token).verifyAccessToken(token);
       return resourceMetadataUrl === undefined ? authInfo : { ...authInfo, resourceMetadataUrl };
     } catch (error) {
-      // The verifier throws OAuthError only with fixed text; anything else is a 500 with no detail.
+      // The verifier throws OAuthError only with fixed text; a key source that cannot be
+      // reached is a 503; anything else is a 500 with no detail.
       if (!(error instanceof OAuthError)) {
         reportInternalError(error);
+      }
+      if (error instanceof JwksUnavailableError) {
+        return keySourceUnavailableResponse(error);
       }
       return bearerAuthChallengeResponse(error, { resourceMetadataUrl });
     }

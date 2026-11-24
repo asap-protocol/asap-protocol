@@ -79,8 +79,9 @@ function externalAuthInfo(token: string, issuer: TrustedIssuer, payload: JWTPayl
  * with that issuer's keys only; then `aud`, `exp`, and `nbf`. `sub` and `exp`
  * are required. An ASAP Agent or Host JWT, `alg: none`, and HMAC are refused
  * before any key lookup. There is no replay check. A bad
- * token throws `OAuthError(invalid_token, "asap:invalid_token: <fixed reason>")`;
- * a key source that fails throws a plain `Error`, which the SDK answers with 500.
+ * token throws `OAuthError(invalid_token, "asap:invalid_token: <fixed reason>")`.
+ * A `jwksUri` that cannot be fetched throws `JwksUnavailableError`, which the
+ * middleware answers with 503; any other failure is a plain `Error` (500).
  *
  * @example
  * ```ts

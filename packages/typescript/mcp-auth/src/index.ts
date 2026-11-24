@@ -21,6 +21,7 @@ export type { ConstraintSet } from "./constraints.js";
 export { assertValidGrantRules, mapExternalGrants } from "./capability-grants.js";
 export type { CapabilityGrant, ExternalGrantRule } from "./capability-grants.js";
 export type { ExternalIssuerConfig, ExternalTokenConfig } from "./external-issuers.js";
+export { JwksUnavailableError } from "./remote-jwks.js";
 export type { RemoteJwksOptions } from "./remote-jwks.js";
 export { createExternalTokenVerifier } from "./external-token-verifier.js";
 export type { ExternalPrincipal } from "./external-token-verifier.js";
