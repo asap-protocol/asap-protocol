@@ -106,8 +106,10 @@ describe("authenticate: requests with a token", () => {
     ["a string that is not a JWT", async () => "not-a-jwt", {}, "invalid JWT structure"],
     ["a token for another audience", () => mint("https://other.example/mcp"), {}, "audience mismatch"],
     ["an expired token", () => mint(), { nowSeconds: () => Date.now() / 1000 + 120 }, "token expired or missing exp"],
-    ["a token from an unknown agent", () => mint(), { resolveAgent: async () => undefined }, "unknown agent"],
-    ["a resolver key that is not Ed25519", () => mint(), { resolveAgent: async () => ({ publicKey: { kty: "RSA" }, usable: true }) }, "agent key is not an Ed25519 public JWK"],
+    // One public reason, so the answer does not tell whether the agent exists or is usable.
+    ["a token from an unknown agent", () => mint(), { resolveAgent: async () => undefined }, "agent or signature not accepted"],
+    ["a token from an agent that is not usable", () => mint(), { resolveAgent: async () => ({ publicKey: agent.publicJwk, usable: false }) }, "agent or signature not accepted"],
+    ["a resolver key that is not Ed25519", () => mint(), { resolveAgent: async () => ({ publicKey: { kty: "RSA" }, usable: true }) }, "agent or signature not accepted"],
   ])("refuses %s with 401 and a fixed reason, even on a public tool", async (_case, makeToken, agentJwt, reason) => {
     const token = await makeToken();
     const response = await middleware({}, agentJwt).authenticate(post(withToken(toolsCallHeaders(PUBLIC_TOOL), token)));

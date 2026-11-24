@@ -57,7 +57,7 @@ createServer(toNodeHandler(app)).listen(8787);
 | A verified token for a tool or method that the config does not declare | 403, `WWW-Authenticate: Bearer error="insufficient_scope", error_description="asap:capability_denied", resource_metadata="<url>"`, body `{"error":"insufficient_scope","error_description":"asap:capability_denied"}`. No `scope` parameter: no scope grants an undeclared method |
 | The resolver or the replay cache throws | 500, body `{"error":"server_error","error_description":"Internal Server Error"}`; the error goes to `onInternalError` |
 
-`<reason>` is a fixed string, such as `audience mismatch` or `jti replay detected`. No answer holds the token or any claim value.
+`<reason>` is a fixed string, such as `audience mismatch` or `jti replay detected`. No answer holds the token or any claim value. An unknown agent, an agent that is not usable, a key that is not Ed25519, and a bad signature share one reason, `agent or signature not accepted`, so the answer does not tell whether an agent exists or is revoked. `agentJwt.onTokenRefused` receives the detailed reason (an `AgentJwtFailureReason`) for your logs.
 
 ## Grants (tool results)
 

@@ -1,6 +1,6 @@
 import { createAgent, createHost, MemoryStorage, type AgentContext, type AgentKeyResolver } from "@asap-protocol/client";
 import { OAuthError, OAuthErrorCode, requireBearerAuth } from "@modelcontextprotocol/server";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { createAgentJwtVerifier, type AgentJwtVerifierConfig } from "../src/index.js";
 
@@ -8,9 +8,11 @@ const AUDIENCE = "https://mcp.example.com/mcp";
 const AGENT_JWT_TTL_SECONDS = 60;
 
 let agent: AgentContext;
+let otherAgent: AgentContext;
 
 beforeAll(async () => {
   agent = await createAgent(await createHost({ storage: new MemoryStorage() }), { mode: "delegated" });
+  otherAgent = await createAgent(await createHost({ storage: new MemoryStorage() }), { mode: "delegated" });
 });
 
 /** The minting hook: one fresh, single-use Agent JWT per request. */
@@ -65,13 +67,39 @@ describe("createAgentJwtVerifier (OAuthTokenVerifier)", () => {
   it.each([
     ["an expired token", { nowSeconds: () => Date.now() / 1000 + 2 * AGENT_JWT_TTL_SECONDS }, AUDIENCE, "token expired or missing exp"],
     ["a token for another audience", {}, "https://other.example.com/mcp", "audience mismatch"],
-    ["a token from an unknown agent", { resolveAgent: async () => undefined }, AUDIENCE, "unknown agent"],
   ])("refuses %s with asap:invalid_token and a fixed reason", async (_case, overrides, aud, reason) => {
     const token = await mint(aud);
 
     const error = await rejectionOf(verifierWith(overrides).verifyAccessToken(token), token);
 
     expect(error.message).toBe(`asap:invalid_token: ${reason}`);
+  });
+
+  // Told apart, these four tell a caller whether an agent exists and whether it is usable.
+  it.each<[string, AgentKeyResolver, string]>([
+    ["an unknown agent", async () => undefined, "unknown agent"],
+    ["an agent that is not usable", async () => ({ publicKey: agent.publicJwk, usable: false }), "agent not usable"],
+    ["a key that is not Ed25519", async () => ({ publicKey: { kty: "RSA" }, usable: true }), "agent key is not an Ed25519 public JWK"],
+    ["a bad signature", async () => ({ publicKey: otherAgent.publicJwk, usable: true }), "invalid signature"],
+  ])("gives %s one public reason, and the detailed reason to onTokenRefused only", async (_case, resolveAgent, detail) => {
+    const onTokenRefused = vi.fn();
+    const token = await mint();
+
+    const error = await rejectionOf(verifierWith({ resolveAgent, onTokenRefused }).verifyAccessToken(token), token);
+
+    expect(error.message).toBe("asap:invalid_token: agent or signature not accepted");
+    expect(onTokenRefused).toHaveBeenCalledExactlyOnceWith(detail);
+  });
+
+  it("still refuses the token when onTokenRefused throws", async () => {
+    const onTokenRefused = () => {
+      throw new Error("logger down");
+    };
+    const token = await mint();
+
+    const error = await rejectionOf(verifierWith({ resolveAgent: async () => undefined, onTokenRefused }).verifyAccessToken(token), token);
+
+    expect(error.message).toBe("asap:invalid_token: agent or signature not accepted");
   });
 
   it("refuses a string that is not a JWT", async () => {
