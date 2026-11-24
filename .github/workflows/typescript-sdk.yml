@@ -82,7 +82,7 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
-      - name: Use the newest 2.x @modelcontextprotocol/server
+      - name: Use the newest 2.x MCP SDK packages
         if: matrix.mcp-sdk == 'latest-2.x'
         shell: bash
         run: |
@@ -90,23 +90,29 @@ jobs:
           node <<'NODE'
           const { execFileSync } = require("child_process");
           const fs = require("fs");
-          const listed = JSON.parse(
-            execFileSync("npm", ["view", "@modelcontextprotocol/server@^2", "version", "--json"], { encoding: "utf8" }),
-          );
           const byNumber = (a, b) => a.split(".").map(Number).reduce((d, n, i) => d || n - Number(b.split(".")[i]), 0);
-          const newest = [listed].flat().sort(byNumber).at(-1);
-          const pkgPath = "packages/typescript/mcp-auth/package.json";
-          const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
-          pkg.devDependencies["@modelcontextprotocol/server"] = newest;
-          fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
-          console.log(`@modelcontextprotocol/server ${newest}`);
+          const newest = (name) =>
+            [JSON.parse(execFileSync("npm", ["view", `${name}@^2`, "version", "--json"], { encoding: "utf8" }))]
+              .flat()
+              .sort(byNumber)
+              .at(-1);
+          for (const pkgPath of ["packages/typescript/mcp-auth/package.json", "examples/mcp_auth_http/package.json"]) {
+            const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+            for (const deps of [pkg.dependencies ?? {}, pkg.devDependencies ?? {}]) {
+              for (const name of Object.keys(deps).filter((n) => n.startsWith("@modelcontextprotocol/"))) {
+                deps[name] = newest(name);
+                console.log(`${pkgPath}: ${name} ${deps[name]}`);
+              }
+            }
+            fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
+          }
           NODE
 
       - name: Install dependencies (mcp-auth slice)
         run: >-
           pnpm install
           ${{ matrix.mcp-sdk == 'pinned' && '--frozen-lockfile' || '--no-frozen-lockfile' }}
-          --filter "@asap-protocol/mcp-auth..."
+          --filter "@asap-protocol/mcp-auth..." --filter example-mcp-auth-http
 
       - name: Lint
         run: pnpm --filter @asap-protocol/mcp-auth run lint
@@ -116,3 +122,8 @@ jobs:
 
       - name: Test with coverage (reads tests/fixtures/interop)
         run: pnpm --filter @asap-protocol/mcp-auth test
+
+      - name: Example examples/mcp_auth_http (typecheck, protocol probe tests)
+        run: |
+          pnpm --filter example-mcp-auth-http run typecheck
+          pnpm --filter example-mcp-auth-http test
