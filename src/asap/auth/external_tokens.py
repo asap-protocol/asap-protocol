@@ -23,6 +23,7 @@ from joserfc.errors import JoseError
 from pydantic import Field, SecretStr, field_validator, model_validator
 
 from asap.auth.capabilities import CapabilityGrant
+from asap.auth.external_grants import ExternalGrantRule, ensure_unambiguous_grant_rules
 from asap.auth.jwks import issuer_matches_expected
 from asap.models.base import ASAPBaseModel
 from asap.utils.guarded_fetch import GuardedFetchError, validate_guarded_url
@@ -97,14 +98,24 @@ class ExternalIssuerConfig(ASAPBaseModel):
     """One allowlisted issuer: its identifier, the required audience, and how to verify.
 
     ``audience`` is this resource's identifier (RFC 8707); a token for another
-    audience is refused, never forwarded.
+    audience is refused, never forwarded. ``grant_rules`` is the only source of
+    grants for this issuer's tokens; no rule means no grant.
     """
 
     issuer: str
     audience: str
     key_source: ExternalKeySource | None = None
     introspection: IntrospectionEndpoint | None = None
+    grant_rules: tuple[ExternalGrantRule, ...] = ()
     allow_private_hosts: bool = False
+
+    @field_validator("grant_rules")
+    @classmethod
+    def _unambiguous_rules(
+        cls, rules: tuple[ExternalGrantRule, ...]
+    ) -> tuple[ExternalGrantRule, ...]:
+        ensure_unambiguous_grant_rules(rules)
+        return rules
 
     @field_validator("audience")
     @classmethod

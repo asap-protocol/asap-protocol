@@ -1,0 +1,108 @@
+{
+  "description": "COMPAT-002 grant mapping: validated token claims and an issuer's grant rules give the expected grants. Deny by default. Python asap.auth.external_grants.map_external_grants and the TypeScript port must both match this file. expected_grants is sorted by capability; constraints is null when the rule has none.",
+  "vectors": [
+    {
+      "name": "unmapped scope grants nothing",
+      "claims": { "scope": "files:read" },
+      "rules": [{ "scope": "files:write", "capability": "file.write" }],
+      "expected_grants": []
+    },
+    {
+      "name": "mapped scope grants only the configured capability and constraints",
+      "claims": { "scope": "files:read files:write" },
+      "rules": [{ "scope": "files:read", "capability": "file.read", "constraints": { "path": { "in": ["/srv/public"] } } }],
+      "expected_grants": [{ "capability": "file.read", "constraints": { "path": { "in": ["/srv/public"] } } }]
+    },
+    {
+      "name": "broad scope grants nothing when no rule names it",
+      "claims": { "scope": "admin asap:admin openid" },
+      "rules": [{ "scope": "files:read", "capability": "file.read" }],
+      "expected_grants": []
+    },
+    {
+      "name": "broad scope grants only what the rule that names it gives",
+      "claims": { "scope": "admin" },
+      "rules": [{ "scope": "admin", "capability": "report.read" }],
+      "expected_grants": [{ "capability": "report.read", "constraints": null }]
+    },
+    {
+      "name": "no rules grant nothing",
+      "claims": { "scope": "files:read admin", "groups": ["admins"] },
+      "rules": [],
+      "expected_grants": []
+    },
+    {
+      "name": "scope matches whole tokens only",
+      "claims": { "scope": "files:read:all files" },
+      "rules": [{ "scope": "files:read", "capability": "file.read" }],
+      "expected_grants": []
+    },
+    {
+      "name": "scope tokens are split on spaces only",
+      "claims": { "scope": "files:read\tfiles:write" },
+      "rules": [{ "scope": "files:read", "capability": "file.read" }],
+      "expected_grants": []
+    },
+    {
+      "name": "scope claim that is not a string grants nothing",
+      "claims": { "scope": ["files:read"] },
+      "rules": [{ "scope": "files:read", "capability": "file.read" }],
+      "expected_grants": []
+    },
+    {
+      "name": "claim rule matches an equal string",
+      "claims": { "tenant": "acme" },
+      "rules": [{ "claim": "tenant", "value": "acme", "capability": "billing.read" }],
+      "expected_grants": [{ "capability": "billing.read", "constraints": null }]
+    },
+    {
+      "name": "claim rule matches a string inside a list",
+      "claims": { "scp": ["files.read", "files.write"] },
+      "rules": [{ "claim": "scp", "value": "files.read", "capability": "file.read" }],
+      "expected_grants": [{ "capability": "file.read", "constraints": null }]
+    },
+    {
+      "name": "claim values are not coerced to strings",
+      "claims": { "email_verified": true, "level": 1, "ids": [1] },
+      "rules": [
+        { "claim": "email_verified", "value": "true", "capability": "a.cap" },
+        { "claim": "level", "value": "1", "capability": "b.cap" },
+        { "claim": "ids", "value": "1", "capability": "c.cap" }
+      ],
+      "expected_grants": []
+    },
+    {
+      "name": "claim match is case-sensitive",
+      "claims": { "tenant": "Acme" },
+      "rules": [{ "claim": "tenant", "value": "acme", "capability": "billing.read" }],
+      "expected_grants": []
+    },
+    {
+      "name": "nested claims are not traversed",
+      "claims": { "realm_access": { "roles": ["admin"] } },
+      "rules": [{ "claim": "realm_access.roles", "value": "admin", "capability": "report.read" }],
+      "expected_grants": []
+    },
+    {
+      "name": "rules for one capability with equal constraints give one grant",
+      "claims": { "scope": "files:read", "groups": ["readers"] },
+      "rules": [
+        { "scope": "files:read", "capability": "file.read" },
+        { "claim": "groups", "value": "readers", "capability": "file.read" }
+      ],
+      "expected_grants": [{ "capability": "file.read", "constraints": null }]
+    },
+    {
+      "name": "grants are sorted by capability",
+      "claims": { "scope": "b a" },
+      "rules": [
+        { "scope": "b", "capability": "zeta.run" },
+        { "scope": "a", "capability": "alpha.run" }
+      ],
+      "expected_grants": [
+        { "capability": "alpha.run", "constraints": null },
+        { "capability": "zeta.run", "constraints": null }
+      ]
+    }
+  ]
+}
