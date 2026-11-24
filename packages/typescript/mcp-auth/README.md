@@ -1,6 +1,6 @@
 # `@asap-protocol/mcp-auth`
 
-> **Status:** in development for ASAP v2.6.0. Version `0.1.0`. The API can change in a `0.Y.0` release.
+> **Status:** version `0.1.0`, the first version of this package (ASAP v2.6.0 train). Before `1.0.0`, a `0.Y.0` release can change the API.
 
 Middleware that protects an HTTP MCP server with ASAP identity and capability grants. It returns the same four `asap:*` error codes as the Python MCP Auth Bridge (`asap.mcp.auth`).
 
@@ -25,24 +25,41 @@ Set `agentJwt`, `externalTokens`, or both. With both, the token's `typ` header p
 
 ```ts
 import { createServer } from "node:http";
+
+import type { AgentKeyResolver, PublicJwk } from "@asap-protocol/client";
 import { createMcpAuthMiddleware } from "@asap-protocol/mcp-auth";
 import { toNodeHandler } from "@modelcontextprotocol/node";
-import { createMcpHandler } from "@modelcontextprotocol/server";
+import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
+import * as z from "zod";
+
+// Your agent records, by agent id. The resolver only reads them.
+const agents = new Map<string, { publicJwk: PublicJwk; hostThumbprint: string; active: boolean }>();
+const resolveAgent: AgentKeyResolver = async ({ agentId, hostThumbprint }) => {
+  const agent = agents.get(agentId);
+  return agent && { publicKey: agent.publicJwk, usable: agent.active && agent.hostThumbprint === hostThumbprint };
+};
 
 const auth = createMcpAuthMiddleware({
-  agentJwt: {
-    audience: "https://mcp.example.com/mcp", // required
-    resolveAgent: async ({ agentId, hostThumbprint }) => lookUpAgent(agentId, hostThumbprint),
-  },
+  agentJwt: { audience: "https://mcp.example.com/mcp", resolveAgent }, // the audience is required
   publicTools: ["echo"],
   toolCapabilities: { secure_action: "secure_action" }, // every protected tool (deny by default)
-  resourceMetadataUrl: "https://mcp.example.com/.well-known/oauth-protected-resource/mcp",
-  onInternalError: (error) => logger.error(error), // the package itself never logs
+  onInternalError: (error) => console.error(error), // the package itself never logs
 });
+
+function buildServer(): McpServer {
+  const server = new McpServer({ name: "my-mcp-server", version: "1.0.0" });
+  server.registerTool("echo", { inputSchema: z.object({ message: z.string() }) }, async ({ message }) => ({ content: [{ type: "text", text: message }] }));
+  server.registerTool(
+    "secure_action",
+    { inputSchema: z.object({ action: z.string() }) },
+    auth.protectTool("secure_action", async ({ action }) => ({ content: [{ type: "text", text: `executed: ${action}` }] })),
+  );
+  return server;
+}
 
 // legacy: "reject" serves MCP 2026-07-28 only, as a second guard for the public-tool rule.
 const app = auth.protect(createMcpHandler(buildServer, { legacy: "reject" }));
-createServer(toNodeHandler(app)).listen(8787);
+createServer(toNodeHandler(app)).listen(Number(process.env.PORT ?? 8787));
 ```
 
 `resolveAgent` returns the agent's Ed25519 public JWK and whether the agent is usable (see `verifyAgentJwt` in `@asap-protocol/client`). A tool reads the verified agent as `ctx.http?.authInfo?.extra?.principal`.
@@ -72,16 +89,20 @@ createServer(toNodeHandler(app)).listen(8787);
 `protectTool(name, callback)` wraps a tool callback. Pass the result as the third argument of `registerTool`, under the same name. `name` must be in `toolCapabilities` and not in `publicTools`; otherwise `protectTool` throws a `TypeError`. Register a public tool without `protectTool`.
 
 ```ts
-import { createMcpAuthMiddleware, staticAgentGrants } from "@asap-protocol/mcp-auth";
+import { createMcpAuthMiddleware, staticAgentGrants, type AgentKeyResolver } from "@asap-protocol/mcp-auth";
+import { McpServer } from "@modelcontextprotocol/server";
+import * as z from "zod";
 
+const resolveAgent: AgentKeyResolver = async () => undefined; // your resolver, as in the example above
 const auth = createMcpAuthMiddleware({
-  agentJwt: { audience, resolveAgent },
+  agentJwt: { audience: "https://mcp.example.com/mcp", resolveAgent },
   toolCapabilities: { secure_action: "secure_action" }, // tool name → capability, for every protected tool
   agentGrants: staticAgentGrants({
-    [agentId]: [{ capability: "secure_action", constraints: { action: { not_in: ["drop-tables"] } } }],
+    agent_01: [{ capability: "secure_action", constraints: { action: { not_in: ["drop-tables"] } } }],
   }),
 });
 
+const server = new McpServer({ name: "my-mcp-server", version: "1.0.0" });
 server.registerTool(
   "secure_action",
   { inputSchema: z.object({ action: z.string() }) },
@@ -104,14 +125,20 @@ For a tool with no `inputSchema`, write the callback with its `ctx` parameter: `
 ## Usage (external OAuth 2.1 tokens)
 
 ```ts
+import { createServer } from "node:http";
+
 import { createMcpAuthMiddleware } from "@asap-protocol/mcp-auth";
-import { createMcpHandler, getOAuthProtectedResourceMetadataUrl, oauthMetadataResponse } from "@modelcontextprotocol/server";
+import { toNodeHandler } from "@modelcontextprotocol/node";
+import { createMcpHandler, getOAuthProtectedResourceMetadataUrl, McpServer } from "@modelcontextprotocol/server";
+import * as z from "zod";
 
 const resource = new URL("https://mcp.example.com/mcp");
+const issuer = "https://auth.example.com";
+const resourceMetadataUrl = getOAuthProtectedResourceMetadataUrl(resource);
 const auth = createMcpAuthMiddleware({
   externalTokens: {
     issuers: [{
-      issuer: "https://auth.example.com",
+      issuer,
       audience: resource.href, // required (RFC 8707)
       jwksUri: "https://auth.example.com/.well-known/jwks.json", // or jwks: { keys: [...] }
       grantRules: [
@@ -121,21 +148,30 @@ const auth = createMcpAuthMiddleware({
     }],
   },
   toolCapabilities: { secure_action: "secure_action" },
-  resourceMetadataUrl: getOAuthProtectedResourceMetadataUrl(resource), // required with externalTokens
+  resourceMetadataUrl, // required with externalTokens
 });
 
-server.registerTool(
-  "secure_action",
-  { inputSchema: z.object({ action: z.string() }), scopeChallenge: auth.scopeChallenge },
-  auth.protectTool("secure_action", async ({ action }) => ({ content: [{ type: "text", text: action }] })),
-);
+function buildServer(): McpServer {
+  const server = new McpServer({ name: "my-mcp-server", version: "1.0.0" });
+  server.registerTool(
+    "secure_action",
+    { inputSchema: z.object({ action: z.string() }), scopeChallenge: auth.scopeChallenge },
+    auth.protectTool("secure_action", async ({ action }) => ({ content: [{ type: "text", text: action }] })),
+  );
+  return server;
+}
 
-// RFC 9728 metadata from the SDK helper, beside the protected MCP endpoint.
+// RFC 9728 protected-resource metadata, served beside the protected MCP endpoint.
+const metadata = { resource: resource.href, authorization_servers: [issuer], scopes_supported: ["actions:run"], bearer_methods_supported: ["header"] };
 const mcp = auth.protect(createMcpHandler(buildServer, { legacy: "reject" }));
-const app = { fetch: async (request: Request) => oauthMetadataResponse(request, metadataOptions) ?? mcp.fetch(request) };
+const app = {
+  fetch: async (request: Request) =>
+    request.method === "GET" && new URL(request.url).pathname === new URL(resourceMetadataUrl).pathname ? Response.json(metadata) : mcp.fetch(request),
+};
+createServer(toNodeHandler(app)).listen(Number(process.env.PORT ?? 8787));
 ```
 
-With `externalTokens`, `resourceMetadataUrl` is required (a `TypeError` otherwise): the server is then the resource server of MCP authorization, which must serve RFC 9728 metadata, and every 401 and 403 challenge points to it.
+With `externalTokens`, `resourceMetadataUrl` is required (a `TypeError` otherwise): the server is then the resource server of MCP authorization, which must serve RFC 9728 metadata, and every 401 and 403 challenge points to it. Serve the document yourself, as the last lines do. The SDK's `oauthMetadataResponse` does not fit here: it needs full authorization-server metadata and lists one issuer only.
 
 The verifier checks, in this order: the token is a JWT; its `typ` is not `agent+jwt` or `host+jwt`; its `alg` is `EdDSA`, `RS256`, or `ES256` (so `none` and HMAC fail before any key lookup); its unverified `iss` is on the allowlist (trailing slashes do not count); the signature verifies with **that issuer's** keys; `aud` holds the configured audience; `exp` and `nbf` hold; `sub` and `exp` are present. The token picks nothing: `jku`, `x5u`, and the `iss` URL are never fetched. There is no replay check, because a client sends the same access token on every request.
 
