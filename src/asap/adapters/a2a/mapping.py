@@ -15,9 +15,14 @@ from typing import Annotated, Any
 from pydantic import BaseModel, Field, ValidationError
 
 from asap.adapters.a2a._base import NonEmptyStr
+from asap.adapters.a2a.card_security import (
+    check_card_security_requirements,
+    prepare_card_security_schemes,
+)
 from asap.adapters.a2a.errors import A2AMappingError, A2AMappingInputError
 from asap.adapters.a2a.extension import AsapExtensionParams, SkillSchemas, build_asap_extension
 from asap.adapters.a2a.models import AgentCard, AgentExtension, AgentInterface, AgentProvider
+from asap.adapters.a2a.security import SecurityRequirement, SecurityScheme
 from asap.adapters.a2a.unmapped import UNMAPPED_MANIFEST_FIELDS, DroppedField
 from asap.models.base import ASAPBaseModel
 from asap.models.entities import Manifest, Skill
@@ -30,7 +35,9 @@ class AgentCardInputs(ASAPBaseModel):
 
     ``skill_tags`` needs an entry for every manifest skill: A2A requires a tag,
     and the mapping does not invent one. ``skill_names`` is optional; a skill
-    without an entry is named by its ``id``.
+    without an entry is named by its ``id``. ``security_schemes`` and
+    ``security_requirements`` describe the A2A interfaces, not the ASAP
+    endpoint; see :mod:`asap.adapters.a2a.card_security` for their rules.
 
     Example:
         >>> AgentCardInputs(interfaces=[interface], default_input_modes=["application/json"],
@@ -45,6 +52,8 @@ class AgentCardInputs(ASAPBaseModel):
     provider: AgentProvider | None = None
     documentation_url: NonEmptyStr | None = None
     icon_url: NonEmptyStr | None = None
+    security_schemes: dict[str, SecurityScheme] | None = None
+    security_requirements: list[SecurityRequirement] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,8 +74,9 @@ def manifest_to_agent_card(manifest: Manifest, inputs: AgentCardInputs) -> CardM
     its default.
 
     Raises:
-        A2AMappingInputError: A skill has no tags, or an input names a skill
-            that the manifest does not have.
+        A2AMappingInputError: A skill has no tags, an input names a skill that
+            the manifest does not have, or a security input breaks a rule of
+            :mod:`asap.adapters.a2a.card_security`.
         A2AMappingError: The card would not be valid, for example because a
             required field would be empty or the manifest has no skill.
 
@@ -106,6 +116,10 @@ def _card_fields(
         "version": manifest.version,
         "documentation_url": inputs.documentation_url,
         "capabilities": {"streaming": manifest.capabilities.streaming, "extensions": [extension]},
+        "security_schemes": prepare_card_security_schemes(inputs.security_schemes),
+        "security_requirements": check_card_security_requirements(
+            inputs.security_requirements, inputs.security_schemes
+        ),
         "default_input_modes": inputs.default_input_modes,
         "default_output_modes": inputs.default_output_modes,
         "skills": skills,
