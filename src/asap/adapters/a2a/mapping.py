@@ -1,7 +1,8 @@
 """Pure mapping between an ASAP manifest and an A2A v1.0 Agent Card.
 
-The functions here do no I/O and read no clock or global state. The field
-table, with a reason for every unmapped field, is in
+The functions here do no I/O and read no clock or global state. Each one
+returns its result together with the source fields it dropped, as data (see
+:mod:`asap.adapters.a2a.unmapped`). The field table is in
 ``docs/guides/interoperability.md`` ("Agent Card and manifest fields").
 """
 
@@ -11,12 +12,13 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Annotated, Any
 
-from pydantic import Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 
 from asap.adapters.a2a._base import NonEmptyStr
 from asap.adapters.a2a.errors import A2AMappingError, A2AMappingInputError
 from asap.adapters.a2a.extension import AsapExtensionParams, SkillSchemas, build_asap_extension
 from asap.adapters.a2a.models import AgentCard, AgentExtension, AgentInterface, AgentProvider
+from asap.adapters.a2a.unmapped import UNMAPPED_MANIFEST_FIELDS, DroppedField
 from asap.models.base import ASAPBaseModel
 from asap.models.entities import Manifest, Skill
 
@@ -47,9 +49,10 @@ class AgentCardInputs(ASAPBaseModel):
 
 @dataclass(frozen=True, slots=True)
 class CardMapping:
-    """Result of :func:`manifest_to_agent_card`."""
+    """Result of :func:`manifest_to_agent_card`: the card and the manifest fields it dropped."""
 
     card: AgentCard
+    dropped: tuple[DroppedField, ...]
 
 
 def manifest_to_agent_card(manifest: Manifest, inputs: AgentCardInputs) -> CardMapping:
@@ -57,7 +60,9 @@ def manifest_to_agent_card(manifest: Manifest, inputs: AgentCardInputs) -> CardM
 
     ASAP data that the card has no field for rides in the ASAP extension
     (:data:`asap.adapters.a2a.ASAP_EXTENSION_URI`). ``capabilities.streaming``
-    is always written, so a card signature covers it.
+    is always written, so a card signature covers it. ``dropped`` lists each
+    field of :data:`UNMAPPED_MANIFEST_FIELDS` that holds a value other than
+    its default.
 
     Raises:
         A2AMappingInputError: A skill has no tags, or an input names a skill
@@ -83,7 +88,7 @@ def manifest_to_agent_card(manifest: Manifest, inputs: AgentCardInputs) -> CardM
         card = AgentCard.model_validate(_card_fields(manifest, inputs, skills, extension))
     except ValidationError as exc:
         raise _invalid_target_error(source, "A2A v1.0 Agent Card", exc) from exc
-    return CardMapping(card=card)
+    return CardMapping(card=card, dropped=_dropped_manifest_fields(manifest))
 
 
 def _card_fields(
@@ -106,6 +111,17 @@ def _card_fields(
         "skills": skills,
         "icon_url": inputs.icon_url,
     }
+
+
+def _dropped_manifest_fields(manifest: Manifest) -> tuple[DroppedField, ...]:
+    dropped = []
+    for field, reason in UNMAPPED_MANIFEST_FIELDS.items():
+        owner, _, name = field.rpartition(".")
+        model: BaseModel = manifest.capabilities if owner == "capabilities" else manifest
+        default = type(model).model_fields[name].get_default(call_default_factory=True)
+        if getattr(model, name) != default:
+            dropped.append(DroppedField(path=field, field=field, reason=reason))
+    return tuple(dropped)
 
 
 def _asap_extension_for(manifest: Manifest) -> AgentExtension:
