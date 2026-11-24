@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A2A v1.0 Agent Card models** (`asap.adapters.a2a`) — Pydantic models for the A2A v1.0 Agent Card, pinned to `specification/a2a.proto` at tag `v1.0.1`. A v0.3 card is rejected with `A2AUnsupportedVersionError`. The package does not import `a2a-sdk`.
+
 ### Removed
 
 - **`asap.cli._compat`** ([#275](https://github.com/asap-protocol/asap-protocol/issues/275)) — the CLI compat shim deprecated in 2.5.1 is gone. Import `DEFAULT_SCHEMAS_DIR` from `asap.cli.schemas`, `export_all_schemas` from `asap.schemas`, and `_repl_namespace` from `asap.cli.repl`. See the [migration guide](docs/migration.md#upgrading-from-v25x-to-v260).

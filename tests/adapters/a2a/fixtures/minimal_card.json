@@ -1,0 +1,23 @@
+{
+  "name": "Research Agent",
+  "description": "Performs web research and summarization",
+  "supportedInterfaces": [
+    {
+      "url": "https://agent.example.com/a2a",
+      "protocolBinding": "JSONRPC",
+      "protocolVersion": "1.0"
+    }
+  ],
+  "version": "1.0.0",
+  "capabilities": {},
+  "defaultInputModes": ["text/plain"],
+  "defaultOutputModes": ["application/json"],
+  "skills": [
+    {
+      "id": "web_research",
+      "name": "Web research",
+      "description": "Search the web and summarize the results",
+      "tags": ["research"]
+    }
+  ]
+}

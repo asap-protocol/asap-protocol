@@ -11,8 +11,10 @@ Example:
 
 from __future__ import annotations
 
+from asap.adapters.a2a.errors import A2AAdapterError, A2AUnsupportedVersionError
 from asap.adapters.a2a.models import (
     AgentCapabilities,
+    AgentCard,
     AgentCardSignature,
     AgentExtension,
     AgentInterface,
@@ -21,7 +23,10 @@ from asap.adapters.a2a.models import (
 )
 
 __all__ = [
+    "A2AAdapterError",
+    "A2AUnsupportedVersionError",
     "AgentCapabilities",
+    "AgentCard",
     "AgentCardSignature",
     "AgentExtension",
     "AgentInterface",

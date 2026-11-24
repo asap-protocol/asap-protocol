@@ -13,11 +13,18 @@ the proto, not the sample card in the spec prose:
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any, ClassVar
 
-from pydantic import Field, StrictBool
+from pydantic import Field, StrictBool, model_validator
 
 from asap.adapters.a2a._base import A2AModel, NonEmptyStr
+from asap.adapters.a2a.errors import A2AUnsupportedVersionError
+
+# v0.3 had a top-level endpoint and version; v1.0 replaced both with supportedInterfaces.
+_V03_MARKER_KEYS = ("url", "protocolVersion")
+_V1_INTERFACE_KEYS = ("supportedInterfaces", "supported_interfaces")
+_MAX_REPORTED_VERSION_LENGTH = 32
 
 
 class AgentInterface(A2AModel):
@@ -91,3 +98,41 @@ class AgentCardSignature(A2AModel):
     protected: NonEmptyStr
     signature: NonEmptyStr
     header: dict[str, Any] | None = None
+
+
+class AgentCard(A2AModel):
+    """An A2A v1.0 Agent Card (``AgentCard``).
+
+    Parsing a v0.3 card raises :class:`A2AUnsupportedVersionError`, from
+    ``model_validate`` and ``model_validate_json`` alike. ``signatures`` are
+    parsed here and verified elsewhere, never by this model.
+
+    Example:
+        >>> card = AgentCard.model_validate_json(raw_card_json)  # doctest: +SKIP
+        >>> card.supported_interfaces[0].url  # doctest: +SKIP
+        'https://agent.example.com/a2a'
+    """
+
+    name: NonEmptyStr
+    description: NonEmptyStr
+    supported_interfaces: list[AgentInterface] = Field(min_length=1)
+    provider: AgentProvider | None = None
+    version: NonEmptyStr
+    documentation_url: str | None = None
+    capabilities: AgentCapabilities
+    default_input_modes: list[NonEmptyStr] = Field(min_length=1)
+    default_output_modes: list[NonEmptyStr] = Field(min_length=1)
+    skills: list[AgentSkill] = Field(min_length=1)
+    signatures: list[AgentCardSignature] | None = None
+    icon_url: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_v03_card(cls, data: Any) -> Any:
+        # Raised as is: pydantic wraps only ValueError and AssertionError.
+        if not isinstance(data, Mapping) or any(key in data for key in _V1_INTERFACE_KEYS):
+            return data
+        if not any(key in data for key in _V03_MARKER_KEYS):
+            return data
+        found = str(data.get("protocolVersion") or "0.3")
+        raise A2AUnsupportedVersionError(found[:_MAX_REPORTED_VERSION_LENGTH])
