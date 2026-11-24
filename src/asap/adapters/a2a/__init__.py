@@ -11,6 +11,7 @@ Example:
 
 from __future__ import annotations
 
+from asap.adapters.a2a.canonical import canonicalize_agent_card
 from asap.adapters.a2a.errors import (
     A2AAdapterError,
     A2AMappingError,
@@ -97,6 +98,7 @@ __all__ = [
     "UNMAPPED_CARD_FIELDS",
     "UNMAPPED_MANIFEST_FIELDS",
     "agent_card_to_manifest",
+    "canonicalize_agent_card",
     "manifest_to_agent_card",
     "read_asap_extension",
 ]
