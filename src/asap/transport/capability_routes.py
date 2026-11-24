@@ -16,7 +16,7 @@ from asap.auth.agent_jwt import (
 from asap.auth.jti_replay_cache import JtiReplayCacheProtocol
 from pydantic import ValidationError
 
-from asap.auth.capabilities import CapabilityGrant, CapabilityRegistry
+from asap.auth.capabilities import CapabilityGrant, CapabilityRegistry, GrantCheckResult
 from asap.auth.identity import (
     AgentStore,
     HostStore,
@@ -32,6 +32,9 @@ from asap.transport._state_deps import require_identity_limiter
 from asap.transport.rate_limit import ASAPRateLimiter
 
 logger = get_logger(__name__)
+
+# The exact path the execute route matches; OAuth2Middleware may exempt it.
+CAPABILITY_EXECUTE_PATH = "/asap/capability/execute"
 
 
 def http_error_request_id(request: Request) -> str:
@@ -197,6 +200,47 @@ async def _handle_capability_describe(request: Request, name: str) -> JSONRespon
     return JSONResponse(status_code=200, content=body)
 
 
+async def _parse_execute_body(request: Request) -> CapabilityExecuteBody | JSONResponse:
+    """Read the execute body, or return the 400 response for a bad one."""
+    try:
+        raw_body = await request.json()
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"detail": f"Invalid JSON: {e}"})
+    try:
+        return CapabilityExecuteBody.model_validate(raw_body)
+    except ValidationError as e:
+        return JSONResponse(status_code=400, content={"detail": e.errors()})
+
+
+def _execute_denied(request: Request, capability: str, check: GrantCheckResult) -> JSONResponse:
+    """Return the 403 for a refused grant check: constraint violations, or no grant."""
+    if check.violations:
+        violations = [
+            {"field": v.field, "operator": v.operator, "message": v.message}
+            for v in check.violations
+        ]
+        return JSONResponse(
+            status_code=403,
+            content={
+                "error": "constraint_violated",
+                "capability": capability,
+                "violations": violations,
+                "request_id": http_error_request_id(request),
+            },
+        )
+    return JSONResponse(
+        status_code=403,
+        content={
+            "error": {
+                "code": "capability_not_granted",
+                "message": f"agent has no active grant for {capability!r}",
+                "data": {"required_capability": capability},
+                "request_id": http_error_request_id(request),
+            },
+        },
+    )
+
+
 async def _handle_capability_execute(request: Request) -> JSONResponse:
     """Execute a capability (Agent JWT required)."""
     result, err = await verify_agent_bearer(request)
@@ -205,45 +249,14 @@ async def _handle_capability_execute(request: Request) -> JSONResponse:
     if result is None or result.agent is None:
         return JSONResponse(status_code=401, content={"detail": "Invalid agent token"})
 
-    try:
-        raw_body = await request.json()
-    except ValueError as e:
-        return JSONResponse(status_code=400, content={"detail": f"Invalid JSON: {e}"})
-    try:
-        body = CapabilityExecuteBody.model_validate(raw_body)
-    except ValidationError as e:
-        return JSONResponse(status_code=400, content={"detail": e.errors()})
+    body = await _parse_execute_body(request)
+    if isinstance(body, JSONResponse):
+        return body
 
-    registry = _registry(request)
     agent_id = result.agent.agent_id
-
-    check = registry.check_grant(agent_id, body.capability, body.arguments)
+    check = _registry(request).check_grant(agent_id, body.capability, body.arguments)
     if not check.allowed:
-        if check.violations:
-            violations = [
-                {"field": v.field, "operator": v.operator, "message": v.message}
-                for v in check.violations
-            ]
-            return JSONResponse(
-                status_code=403,
-                content={
-                    "error": "constraint_violated",
-                    "capability": body.capability,
-                    "violations": violations,
-                    "request_id": http_error_request_id(request),
-                },
-            )
-        return JSONResponse(
-            status_code=403,
-            content={
-                "error": {
-                    "code": "capability_not_granted",
-                    "message": f"agent has no active grant for {body.capability!r}",
-                    "data": {"required_capability": body.capability},
-                    "request_id": http_error_request_id(request),
-                },
-            },
-        )
+        return _execute_denied(request, body.capability, check)
 
     # Capability execution hook — callers wire actual logic via registry or handlers
     return JSONResponse(
@@ -383,7 +396,7 @@ def create_capability_router() -> APIRouter:
         limiter.check(request)
         return await _handle_capability_describe(request, name)
 
-    @router.post("/asap/capability/execute")
+    @router.post(CAPABILITY_EXECUTE_PATH)
     async def capability_execute(
         request: Request,
         limiter: ASAPRateLimiter = Depends(require_identity_limiter),
