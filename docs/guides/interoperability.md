@@ -14,7 +14,7 @@ The guide describes `asap-protocol` 2.6.0 and `@asap-protocol/mcp-auth` 0.1.0.
 | You have | You want | Read |
 |----------|----------|------|
 | An A2A v1.0 client | To call a skill of an ASAP agent | [Flow A](#flow-a-an-a2a-client-calls-an-asap-agent) |
-| An ASAP agent | To be found and called by A2A clients | [Flow A](#flow-a-an-a2a-client-calls-an-asap-agent) |
+| An ASAP agent | To be found and called by A2A clients | [Flow A](#flow-a-an-a2a-client-calls-an-asap-agent), then [Signed Agent Cards](#signed-agent-cards) |
 | An Agent Card from another party | To verify it and read it as an ASAP manifest | [Verify a card that you fetch](#step-3-verify-a-card-that-you-fetch) |
 | A Python MCP server on stdio | Agent JWTs checked against grants | [MCP Auth Bridge](../adapters/mcp-auth-bridge.md) |
 
@@ -160,7 +160,7 @@ app = create_app(manifest, registry=HandlerRegistry(), agent_card=card)
 
 - **`inputs`** holds what a card needs and a manifest lacks: the A2A interfaces, the input and output media types, and at least one tag per skill. A missing input raises `A2AMappingInputError`.
 - **`external_tokens`** writes the card's security. Each issuer becomes one OpenID Connect security scheme, and each scope rule becomes a requirement on its skill. The card can say less than the server accepts (a claim rule is not shown), never more.
-- **`CardSigner`** signs with `EdDSA` by default.
+- **`CardSigner`** signs with `EdDSA` by default. See [Signed Agent Cards](#signed-agent-cards).
 - **`create_app`** refuses a card with no signature, a card without the ASAP extension, and a card for another agent (another URN, name, or version). It serves the card with `Content-Type: application/json`, `Cache-Control: public, max-age=300`, and an `ETag`.
 - **`registry`**: put your ASAP task handlers here. Without a registry, `create_app` installs a demo echo handler on `POST /asap`.
 
@@ -191,7 +191,7 @@ The last line prints `urn:asap:agent:research True ['research-card-1']`.
 - The fetch takes HTTPS URLs only, refuses private and loopback addresses, follows no redirect, and stops after 10 seconds or 1 MiB.
 - A card that fails a check raises a typed error, a subclass of `A2AAdapterError`. It is never mapped and never cached.
 - A verified card is cached by its URL for 300 seconds.
-- `result.dropped` lists the card fields that the manifest does not carry, each with its reason.
+- `result.dropped` lists the card fields that the manifest does not carry (see [Agent Card and manifest fields](#agent-card-and-manifest-fields)).
 
 A card with the ASAP extension holds the agent URN and the ASAP endpoint. For a card without it, pass them yourself: `ingest(url, agent_id="urn:asap:agent:...", endpoints=Endpoint(asap="https://..."))`.
 
@@ -235,6 +235,184 @@ The gateway checks the token first, then the skill selection, then the grant. A 
 - A2A v1.0 has no error type for authentication and authorization failures, so the gateway answers them at the HTTP layer, before the A2A SDK runs. An OAuth client can read these answers without an A2A parser.
 - The body and the challenge never hold the token. The reason that a token was refused goes to the log only, so the answer does not tell which check failed.
 - The `a2a-sdk` client raises `A2AClientError` for a 401, 403, or 503 answer. Its `__cause__` is the `httpx.HTTPStatusError` with the status, the headers, and the body.
+
+## Agent Card and manifest fields
+
+`manifest_to_agent_card` maps a manifest to a card, and `agent_card_to_manifest` maps a card to a manifest. Both are pure functions: no network and no clock. Each returns the result and a `dropped` list: the source fields that the other format cannot carry, each with its reason. The tables below are also exported as data, `UNMAPPED_MANIFEST_FIELDS` and `UNMAPPED_CARD_FIELDS`.
+
+### Mapped fields
+
+"Extension" means the params of the ASAP extension (see [The ASAP extension](#the-asap-extension)).
+
+| ASAP manifest | A2A Agent Card | Notes |
+|---------------|----------------|-------|
+| `id` | Extension `agent_urn` | A card without the extension: you pass `agent_id` |
+| `name` | `name` | |
+| `version` | `version` | Card to manifest: a version that the manifest does not accept raises `A2AMappingError`. The mapping does not guess |
+| `description` | `description` | |
+| `endpoints.asap` | Extension `asap_endpoint` | Card to manifest: must be an `https` URL. A card without the extension: you pass `endpoints` |
+| `endpoints.events` | Extension `events_endpoint` | Card to manifest: must be a `wss` URL |
+| `capabilities.asap_version` | Extension `asap_version` | |
+| `capabilities.state_persistence` | Extension `state_persistence` | Without the extension: `false` |
+| `capabilities.streaming` | `capabilities.streaming` | Always written. An absent value reads as `false` |
+| `capabilities.skills[].id` | `skills[].id` | Skill ids must be unique |
+| `capabilities.skills[].description` | `skills[].description` | |
+| `capabilities.skills[].input_schema`, `output_schema` | Extension `skill_schemas.<skill id>` | |
+
+A card needs data that a manifest does not hold. You give it in `AgentCardInputs`:
+
+| Card field | `AgentCardInputs` field | Required |
+|------------|-------------------------|----------|
+| `supportedInterfaces` | `interfaces` | Yes, at least one |
+| `defaultInputModes`, `defaultOutputModes` | `default_input_modes`, `default_output_modes` | Yes, at least one each |
+| `skills[].tags` | `skill_tags` | Yes, at least one tag for every skill |
+| `skills[].name` | `skill_names` | No. The default is the skill `id` |
+| `provider`, `documentationUrl`, `iconUrl` | `provider`, `documentation_url`, `icon_url` | No |
+| `securitySchemes`, `securityRequirements`, `skills[].securityRequirements` | `security_schemes`, `security_requirements`, `skill_security_requirements`, or the `external_tokens` argument of `build_signed_agent_card` | No |
+
+### Manifest fields that a card does not carry
+
+| Manifest field | Reason |
+|----------------|--------|
+| `supported_versions` | ASAP HTTP wire versions of the ASAP endpoint. Each A2A interface has its own `protocolVersion`. Not in the extension params |
+| `auth` | Configures the ASAP endpoint. The card's security schemes describe the A2A interfaces and come from caller input |
+| `signature` | Signs the manifest, not the card. Agent Card signatures are separate |
+| `sla` | No A2A v1.0 field, and not in the extension params |
+| `verification` | A registry trust badge. A card must not assert it about itself |
+| `ttl_seconds` | No A2A v1.0 field. A2A uses HTTP caching headers for the card |
+| `capabilities.mcp_tools` | No A2A v1.0 field, and not in the extension params |
+| `capabilities.hardware` | No A2A v1.0 field, and not in the extension params |
+| `capabilities.inference` | No A2A v1.0 field, and not in the extension params |
+
+### Card fields that a manifest does not carry
+
+| Card field | Reason |
+|------------|--------|
+| `supportedInterfaces` | A2A endpoints. The manifest endpoint is the ASAP endpoint, from the extension or from you |
+| `provider`, `documentationUrl`, `iconUrl` | No manifest field |
+| `capabilities.pushNotifications`, `capabilities.extendedAgentCard` | No manifest field |
+| `capabilities.extensions[]` other than the ASAP extension | No manifest field |
+| `securitySchemes`, `securityRequirements`, `skills[].securityRequirements` | They describe the A2A interfaces, not the ASAP endpoint, and a card signature does not cover all of them |
+| `defaultInputModes`, `defaultOutputModes`, `skills[].inputModes`, `skills[].outputModes` | No manifest field. ASAP skills use JSON Schema |
+| `skills[].name` | No manifest field. Listed only when it differs from the skill `id`, which the mapping uses as the name |
+| `skills[].tags`, `skills[].examples` | No manifest field |
+| `signatures` | They cover the card, not a manifest. Verify them before you map the card. The manifest signature is a different scheme |
+
+### The ASAP extension
+
+ASAP data that a card has no field for rides in one A2A extension, in `capabilities.extensions[]`. A card signature covers it.
+
+- **URI:** `https://asap-protocol.com/a2a/extensions/manifest/v1`. The page at that address describes the params.
+- **`required`:** `false`, so an A2A client that does not know ASAP can still use the card.
+- A reader ignores params that it does not know. A breaking change to the params will get a new URI.
+
+| Param | Type | Required |
+|-------|------|----------|
+| `agent_urn` | string | Yes |
+| `asap_endpoint` | string | Yes |
+| `events_endpoint` | string | No |
+| `asap_version` | string | Yes |
+| `state_persistence` | boolean | No (default `false`) |
+| `skill_schemas` | object: skill `id` → `{input_schema, output_schema}`, only for skills that have a schema | No |
+
+### Mapping rules
+
+- **Security schemes come only from you.** The card's `securitySchemes` and `securityRequirements` come from `AgentCardInputs` or from the token config. The manifest's `auth` is not mapped in either direction: it configures the ASAP endpoint, while the card's schemes describe the A2A interfaces.
+- **`securityRequirements` is a list of alternatives.** A client may meet any one entry. Inside one entry, it must meet every named scheme, as in OpenAPI. A2A v1.0 does not say this; it is how ASAP reads the list.
+- **No requirement without a scope.** The mapping refuses a requirement that names no scheme, a scheme with no scope, or a scheme that the card does not declare. A signature does not cover such an entry, so it is never written.
+- **Skill schemas with empty values are refused, not changed.** A schema that holds `"required": []`, `"properties": {}`, `"enum": []`, or `"default": null` makes signing fail with `A2ACardNotSignableError`, whose `paths` name every such value. The signed form of a card drops empty values, so they would be data that no signature covers. Fix the schema at its source.
+- **A2A v0.3 cards are refused** with `A2AUnsupportedVersionError`. A v0.3 card has a top-level `url` or `protocolVersion` and no `supportedInterfaces`.
+- A card lists at most 1000 skills.
+
+## Signed Agent Cards
+
+An A2A v1.0 card can carry signatures in `signatures[]`. Each one is a JWS with a detached payload: the signed bytes are the RFC 8785 (JCS) form of the card without `signatures`, after empty values are removed, as the A2A SDKs do.
+
+### Signing
+
+- **Default:** one `EdDSA` signature with the agent's Ed25519 key.
+- **Extra `ES256` signature (opt-in):** a verifier that allows only `ES256` and `RS256` refuses a card that has only an `EdDSA` signature. To serve such verifiers too, add a second signer with a P-256 key. A verifier skips a signature whose algorithm it does not allow, so the card then passes in both kinds of verifier.
+
+```python
+from cryptography.hazmat.primitives.asymmetric.ec import SECP256R1, generate_private_key
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+from asap.adapters.a2a import CardSigner
+
+signers = [
+    CardSigner(key=Ed25519PrivateKey.generate(), kid="research-card-1"),
+    CardSigner(key=generate_private_key(SECP256R1()), kid="research-card-ec-1", alg="ES256"),
+]
+```
+
+- The protected header holds `alg`, `kid`, and `typ: "JOSE"`, plus `jku` when you set it on the signer.
+- The signer refuses a card whose signed form would lose data: an empty string, list, or object, a `null`, or an integer beyond ±(2^53 − 1). The error lists every such path.
+- `build_signed_agent_card` needs at least one signer. A card that cannot be signed is never built, so there is no unsigned card to serve.
+
+### Verification policy
+
+- **A signature is required by default.** An unsigned card fails with `A2AUnsignedCardError`. `A2ATrustConfig(policy="allow_unsigned")` accepts it, and then `result.verified` is `false`: the whole manifest is unverified data.
+- **A bad signature always fails.** A signature from a trusted key that does not verify fails the card, even when another signature verifies. The A2A Python SDK accepts the first signature that verifies; ASAP is stricter.
+- **An unknown key is skipped.** A signature whose `kid` you do not trust, or whose algorithm is off your list, is skipped. A card whose signatures are all skipped fails with `A2ANoTrustedSignatureError`. So a card can carry an old and a new key during a key rotation.
+- **A malformed signature entry fails the card**, before any key lookup. A card carries at most 16 signatures.
+- Every failure is a subclass of `A2ACardVerificationError`. No error message holds key material.
+
+### Trust store and `jku` allowlist
+
+`A2ATrustConfig` says which keys may sign the cards that you ingest, and for which agents.
+
+```python
+from asap.adapters.a2a import ANY_AGENT, A2ATrustConfig
+
+trust = A2ATrustConfig.model_validate({
+    "pinned_keys": {
+        "bank-a-card-1": {
+            "jwk": {"kty": "OKP", "crv": "Ed25519", "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"},
+            "agents": ["urn:asap:agent:bank-a"],
+        }
+    },
+    "jku_allowlist": {
+        "https://keys.bank-b.example/jwks.json": {
+            "agents": ["urn:asap:agent:bank-b", "urn:asap:agent:bank-b:payments"],
+        },
+        "https://registry.example/jwks.json": {"agents": ANY_AGENT},
+    },
+})
+```
+
+- **Every trust source names its agents.** A signature proves who signed the card, not whose card it is. So a card passes only when a key that verified may sign for the card's agent URN; otherwise ingest raises `A2ASignerScopeError`. `agents` is required. The value `ANY_AGENT` lets a source sign for every agent: whoever holds that key, or controls that `jku` host, can then make a card that verifies for any agent. Use it only for a source that you trust that much, such as your own registry key.
+- **Pinned keys come first.** A pinned `kid` is used at once, and nothing is fetched.
+- **A `jku` is fetched only when it equals an allowlist entry exactly**, character for character. A `jku` that is not on the allowlist causes no request. The fetch takes HTTPS only, refuses private and loopback addresses, follows no redirect, and reads at most 64 KiB. A fetched key set is kept for 300 seconds; an unknown `kid` does not cause a new fetch before then.
+- Pinned keys must be public OKP, EC, or RSA keys. A small-order Ed25519 key is refused.
+- `allow_private_hosts=True` lets entries and fetches reach private and loopback hosts. It is for local development and tests only.
+
+### Algorithms
+
+| Algorithm | Key | Sign | Verify |
+|-----------|-----|------|--------|
+| `EdDSA` | Ed25519 (never Ed448) | Yes, the default | Yes |
+| `Ed25519` (the RFC 9864 name) | Ed25519 | No: the A2A Python SDK cannot verify this name | Yes |
+| `ES256` | P-256 | Yes, opt-in | Yes |
+| `RS256` | RSA, 2048 bits or more | No | Yes |
+
+`none` and every `HS*` algorithm are always refused, before any key lookup. The algorithm in the header must fit the key: an `ES256` signature from an RSA key fails.
+
+### What "verified" means
+
+When `result.verified` is `true` after `AgentCardIngestor.ingest`, or after `verify_agent_card_for_agent`:
+
+- a signature over the card verified with a key that you trust;
+- no signature from a trusted key failed;
+- the signature covers every value of the ASAP extension params;
+- a key that verified may sign for the card's agent URN.
+
+It does **not** mean:
+
+- **that the card came from the URL that served it.** The URL is not signed. A copy of the card verifies from any URL.
+- **that the card is fresh.** A signed card has no expiry and no nonce. It can be served again for as long as its key stays trusted.
+- **more than the weakest key.** A card for an agent is as strong as the weakest trusted key that may sign for that agent, an `ANY_AGENT` source included.
+
+`verify_agent_card` alone checks the signatures but does not bind the card to an agent. Call `verify_agent_card_for_agent`, or `CardVerification.require_signer_for(agent_urn)`, or use `AgentCardIngestor`, which does both.
 
 ## Related documentation
 
