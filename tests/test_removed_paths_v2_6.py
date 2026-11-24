@@ -20,6 +20,8 @@ _REMOVED_MODULES: tuple[str, ...] = (
 
 # (module that still exists, name that must not come back on it)
 _REMOVED_NAMES: tuple[tuple[str, str], ...] = (
+    ("asap.errors", "RemoteFatalRPCError"),  # HK-004
+    ("asap.errors", "RemoteRecoverableRPCError"),  # HK-004
     ("asap.transport.ws", "FRAME_ENCODING_BINARY"),  # HK-006
 )
 
