@@ -1,4 +1,4 @@
-import { AGENT_JWT_TYP } from "@asap-protocol/client";
+import { AGENT_JWT_TYP, JtiReplayCacheFullError } from "@asap-protocol/client";
 import {
   bearerAuthChallengeResponse,
   isLegacyRequest,
@@ -77,7 +77,8 @@ export interface McpAuthMiddleware {
    * The token layer: `AuthInfo` for a verified token, `undefined` for a public
    * request with no token, or the `Response` to return (401; 403 for a
    * verified token on a tool or method that the config does not declare; 503
-   * when an issuer's keys cannot be fetched; 500 with no detail). It never throws.
+   * when an issuer's keys cannot be fetched or the replay cache is full; 500
+   * with no detail). It never throws.
    */
   authenticate(request: Request): Promise<AuthInfo | Response | undefined>;
   /**
@@ -113,7 +114,7 @@ export interface McpAuthMiddleware {
 // RFC 6750 §2.1: "Bearer" 1*SP b64token. A token list or a second word does not match.
 const BEARER_AUTHORIZATION_PATTERN = /^Bearer +([A-Za-z0-9\-._~+/]+=*)$/i;
 const MALFORMED_AUTHORIZATION_REASON = "malformed Authorization header";
-const KEY_SOURCE_UNAVAILABLE_TEXT = "Authentication service unavailable";
+const SERVICE_UNAVAILABLE_TEXT = "Authentication service unavailable";
 // The SDK decodes this form of Mcp-Name before it compares it with the body.
 const BASE64_SENTINEL_PREFIX = "=?base64?";
 
@@ -126,11 +127,12 @@ function authRequiredResponse(resourceMetadataUrl: string | undefined): Response
 
 /**
  * The issuer's keys cannot be fetched (Python parity: 503 "Authentication
- * service unavailable"). Fixed text, no host and no cause; `Retry-After` is the
- * time until the key source may fetch again.
+ * service unavailable"), or the replay cache is full of live records.
+ * Fixed text, no host and no cause; `Retry-After` is the time until
+ * the key source may fetch again, or until enough cache records expire.
  */
-function keySourceUnavailableResponse(error: JwksUnavailableError): Response {
-  const body = new OAuthError(OAuthErrorCode.TemporarilyUnavailable, KEY_SOURCE_UNAVAILABLE_TEXT).toResponseObject();
+function serviceUnavailableResponse(error: JwksUnavailableError | JtiReplayCacheFullError): Response {
+  const body = new OAuthError(OAuthErrorCode.TemporarilyUnavailable, SERVICE_UNAVAILABLE_TEXT).toResponseObject();
   return Response.json(body, { status: 503, headers: { "Retry-After": String(error.retryAfterSeconds) } });
 }
 
@@ -246,12 +248,12 @@ export function createMcpAuthMiddleware(config: McpAuthConfig): McpAuthMiddlewar
       authInfo = await verifierFor(token).verifyAccessToken(token);
     } catch (error) {
       // The verifier throws OAuthError only with fixed text; a key source that cannot be
-      // reached is a 503; anything else is a 500 with no detail.
+      // reached or a full replay cache is a 503; anything else is a 500 with no detail.
       if (!(error instanceof OAuthError)) {
         reportInternalError(error);
       }
-      if (error instanceof JwksUnavailableError) {
-        return keySourceUnavailableResponse(error);
+      if (error instanceof JwksUnavailableError || error instanceof JtiReplayCacheFullError) {
+        return serviceUnavailableResponse(error);
       }
       return bearerAuthChallengeResponse(error, { resourceMetadataUrl });
     }

@@ -55,7 +55,8 @@ createServer(toNodeHandler(app)).listen(8787);
 | No token | 401, `WWW-Authenticate: Bearer resource_metadata="<url>"` (or `Bearer`), body `{"error":"invalid_token","error_description":"asap:auth_required"}` |
 | Bad, expired, wrong-audience, or replayed token | 401, `WWW-Authenticate: Bearer error="invalid_token", error_description="asap:invalid_token: <reason>", resource_metadata="<url>"`, the same text in the body |
 | A verified token for a tool or method that the config does not declare | 403, `WWW-Authenticate: Bearer error="insufficient_scope", error_description="asap:capability_denied", resource_metadata="<url>"`, body `{"error":"insufficient_scope","error_description":"asap:capability_denied"}`. No `scope` parameter: no scope grants an undeclared method |
-| The resolver or the replay cache throws | 500, body `{"error":"server_error","error_description":"Internal Server Error"}`; the error goes to `onInternalError` |
+| The replay cache is full of live records (`JtiReplayCacheFullError`) | 503, body `{"error":"temporarily_unavailable","error_description":"Authentication service unavailable"}`, `Retry-After: <seconds until enough records expire>`, no `WWW-Authenticate`; the error goes to `onInternalError`. The token may be fine |
+| The resolver or the replay cache throws anything else | 500, body `{"error":"server_error","error_description":"Internal Server Error"}`; the error goes to `onInternalError` |
 
 `<reason>` is a fixed string, such as `audience mismatch` or `jti replay detected`. No answer holds the token or any claim value. An unknown agent, an agent that is not usable, a key that is not Ed25519, and a bad signature share one reason, `agent or signature not accepted`, so the answer does not tell whether an agent exists or is revoked. `agentJwt.onTokenRefused` receives the detailed reason (an `AgentJwtFailureReason`) for your logs.
 

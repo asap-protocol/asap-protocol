@@ -1,4 +1,12 @@
-import { createAgent, createHost, MemoryStorage, type AgentContext, type AgentKeyResolver } from "@asap-protocol/client";
+import {
+  createAgent,
+  createHost,
+  InMemoryJtiReplayCache,
+  JtiReplayCacheFullError,
+  MemoryStorage,
+  type AgentContext,
+  type AgentKeyResolver,
+} from "@asap-protocol/client";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 
 import { createMcpAuthMiddleware, type AgentJwtVerifierConfig, type McpAuthConfig } from "../src/index.js";
@@ -168,6 +176,24 @@ describe("authenticate: failures that are not about the token", () => {
     expect(await (response as Response).json()).toEqual(SERVER_ERROR_BODY);
     expect(onInternalError).toHaveBeenCalledOnce();
     expect(String(onInternalError.mock.calls[0]![0])).not.toContain(token);
+  });
+
+  // The cache refuses a new record rather than evict a live one; the token may be fine.
+  it("answers 503 with Retry-After when the replay cache is full of live records, and reports the error", async () => {
+    const onInternalError = vi.fn();
+    const clock = { now: 1_800_000_000 };
+    const replayCache = new InMemoryJtiReplayCache({ maxSize: 1, ttlSeconds: 90, nowSeconds: () => clock.now });
+    const auth = middleware({ onInternalError }, { replayCache });
+    await auth.authenticate(post(withToken(toolsCallHeaders(PROTECTED_TOOL), await mint())));
+    clock.now += 30;
+
+    const response = (await auth.authenticate(post(withToken(toolsCallHeaders(PROTECTED_TOOL), await mint())))) as Response;
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("retry-after")).toBe("60");
+    expect(response.headers.get("www-authenticate")).toBeNull();
+    expect(await response.json()).toEqual({ error: "temporarily_unavailable", error_description: "Authentication service unavailable" });
+    expect(onInternalError.mock.calls[0]![0]).toBeInstanceOf(JtiReplayCacheFullError);
   });
 
   it("still answers 500 when onInternalError itself throws", async () => {
