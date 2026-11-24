@@ -31,7 +31,7 @@ export interface ProtectTool {
 
 export interface GrantLayerConfig {
   readonly publicTools: ReadonlySet<string>;
-  /** Tool name → ASAP capability. A tool that is not listed uses its own name (Python `resolve_capability`). */
+  /** Tool name → ASAP capability, for every protected tool. `protectTool` accepts no other name. */
   readonly toolCapabilities?: Readonly<Record<string, string>>;
   readonly agentGrants?: AgentGrantResolver;
   /** The external issuers, for the scope that a 403 challenge asks for. */
@@ -91,18 +91,23 @@ function constraintDenial(grant: CapabilityGrant, args: unknown): CallToolResult
   return toolErrorResult(McpAuthErrorCode.ConstraintViolation, violations.map((violation) => violation.message).join("; "));
 }
 
+function wrapError(name: string, problem: string): TypeError {
+  return new TypeError(`protectTool(${JSON.stringify(name)}): ${problem}`);
+}
+
 /**
  * The grant layer (MCP-TS-002). `protectTool` wraps a tool callback; a
  * protected tool with no verified principal fails closed with
  * `asap:auth_required`, the second guard behind the token layer's header
  * rule. The checks and texts follow Python `ProtectedMCPServer`.
+ * `protectTool` is bound to its name: the name must be
+ * in `toolCapabilities`, and a call whose `Mcp-Name` is another tool fails.
  * `scopeChallenge` is the external-token exception: a
  * missing grant that a scope rule could give is HTTP 403 `insufficient_scope`
  * before the tool runs; a missing grant that no scope gives stays a tool result.
  */
 export function createGrantLayer(config: GrantLayerConfig): GrantLayer {
   const toolCapabilities = new Map(Object.entries(config.toolCapabilities ?? {}));
-  const capabilityOf = (tool: string) => toolCapabilities.get(tool) ?? tool;
   const agentGrants = config.agentGrants ?? (() => []);
   const scopesByIssuer = challengeScopes(config.externalIssuers ?? []);
 
@@ -127,13 +132,21 @@ export function createGrantLayer(config: GrantLayerConfig): GrantLayer {
     return grant === undefined ? denied(`no active grant for capability '${capability}'`) : constraintDenial(grant, args);
   }
 
+  /** The SDK checks `Mcp-Name` against the body on a 2026-07-28 request, so the header names the tool that runs. */
+  function bindingDenial(name: string, ctx: ServerContext | undefined): CallToolResult | undefined {
+    if (ctx?.http?.req?.headers.get("mcp-name") === name) return undefined;
+    config.reportInternalError(new Error(`protectTool(${JSON.stringify(name)}) ran for a request whose Mcp-Name is not that tool; register the callback under the same name`));
+    return denied(`the request is not a call to '${name}'`);
+  }
+
   function protectTool(name: string, callback: (...params: unknown[]) => ReturnType<ToolCallback>) {
-    if (config.publicTools.has(name)) return callback;
-    const capability = capabilityOf(name);
+    if (config.publicTools.has(name)) throw wrapError(name, "the tool is in publicTools; register a public tool without protectTool");
+    const capability = toolCapabilities.get(name);
+    if (capability === undefined) throw wrapError(name, "the tool is not in toolCapabilities; list every protected tool there");
     // The SDK calls (args, ctx) for a tool with an inputSchema and (ctx) for one without.
     return async (...params: unknown[]) => {
       const ctx = params.at(-1) as ServerContext | undefined;
-      const denial = await grantDenial(capability, ctx?.http?.authInfo, params.length > 1 ? params[0] : undefined);
+      const denial = bindingDenial(name, ctx) ?? (await grantDenial(capability, ctx?.http?.authInfo, params.length > 1 ? params[0] : undefined));
       return denial ?? callback(...params);
     };
   }
@@ -141,8 +154,8 @@ export function createGrantLayer(config: GrantLayerConfig): GrantLayer {
   function scopeChallenge({ request, authInfo }: Parameters<ScopeChallengeHandler>[0]): ScopeChallenge | undefined {
     const tool = request.method === "tools/call" ? request.params?.name : undefined;
     const principal = principalOf(authInfo);
-    if (typeof tool !== "string" || config.publicTools.has(tool) || principal?.kind !== "external") return undefined;
-    const capability = capabilityOf(tool);
+    const capability = typeof tool === "string" ? toolCapabilities.get(tool) : undefined;
+    if (capability === undefined || principal?.kind !== "external") return undefined;
     if (principal.grants.some((grant) => grant.capability === capability)) return undefined;
     const scope = scopesByIssuer.get(principal.issuer)?.get(capability);
     return scope === undefined ? undefined : { scopes: [scope], errorDescription: McpAuthErrorCode.CapabilityDenied };

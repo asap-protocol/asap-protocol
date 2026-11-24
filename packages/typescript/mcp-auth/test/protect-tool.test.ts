@@ -30,8 +30,11 @@ function agentAuthInfo(capabilities: readonly string[] = [CAPABILITY]): AuthInfo
   return { token: "unused", clientId: AGENT_ID, scopes: [], expiresAt: 4_102_444_800, extra: { principal } };
 }
 
+// The SDK has checked this header against the body, so it names the tool that runs.
+const TOOL_REQUEST = new Request(MCP_ENDPOINT, { headers: { "mcp-name": TOOL } });
+
 function ctxWith(authInfo: AuthInfo | undefined): ServerContext {
-  return { http: authInfo === undefined ? undefined : { authInfo } } as unknown as ServerContext;
+  return { http: { req: TOOL_REQUEST, authInfo } } as unknown as ServerContext;
 }
 
 function middleware(grants: readonly CapabilityGrant[] | undefined, overrides: Partial<McpAuthConfig> = {}) {
@@ -112,12 +115,6 @@ describe("protectTool: the grant layer for Agent JWT principals (tool result)", 
     expect(result).toEqual(toolErrorResult("asap:constraint_violation", "malformed grant constraints"));
     expect(handler).not.toHaveBeenCalled();
   });
-
-  it("uses the tool name as the capability when the map does not list the tool", async () => {
-    const auth = middleware([{ capability: "echo_upper" }]);
-
-    expect(await auth.protectTool("echo_upper", async (_ctx: ServerContext) => OK)(ctxWith(agentAuthInfo(["echo_upper"])))).toEqual(OK);
-  });
 });
 
 describe("protectTool: fail closed", () => {
@@ -143,9 +140,12 @@ describe("protectTool: fail closed", () => {
     expect(onInternalError).toHaveBeenCalledOnce();
   });
 
-  it("runs a public tool with no auth info and no grant check", async () => {
+  it("refuses a call with no HTTP request, such as over stdio, before any grant lookup", async () => {
     const handler = vi.fn(async (_ctx: ServerContext) => OK);
 
-    expect(await middleware(undefined).protectTool(PUBLIC_TOOL, handler)(ctxWith(undefined))).toEqual(OK);
+    const result = await middleware([{ capability: CAPABILITY }]).protectTool(TOOL, handler)({} as ServerContext);
+
+    expect(result).toEqual(toolErrorResult("asap:capability_denied", `the request is not a call to '${TOOL}'`));
+    expect(handler).not.toHaveBeenCalled();
   });
 });

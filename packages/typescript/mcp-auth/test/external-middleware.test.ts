@@ -35,7 +35,7 @@ function middleware(overrides: Partial<McpAuthConfig> = {}) {
       }, { issuer: "https://no-rules.example", audience: MCP_ENDPOINT, jwks: issuer.jwks }],
     },
     publicTools: [PUBLIC_TOOL],
-    toolCapabilities: { [PROTECTED_TOOL]: PROTECTED_TOOL },
+    toolCapabilities: { [PROTECTED_TOOL]: PROTECTED_TOOL, audit: "audit" },
     resourceMetadataUrl: METADATA_URL,
     ...overrides,
   });
@@ -110,7 +110,8 @@ describe("scopeChallenge: HTTP 403 insufficient_scope for a missing grant on the
 describe("protectTool for an external principal", () => {
   async function callTool(authInfo: AuthInfo, action: string) {
     const handler = vi.fn(async (_args: { action: string }, _ctx: ServerContext) => OK);
-    const result = await middleware().protectTool(PROTECTED_TOOL, handler)({ action }, { http: { authInfo } } as unknown as ServerContext);
+    const req = new Request(MCP_ENDPOINT, { headers: { "mcp-name": PROTECTED_TOOL } });
+    const result = await middleware().protectTool(PROTECTED_TOOL, handler)({ action }, { http: { req, authInfo } } as unknown as ServerContext);
     return { result, handler };
   }
 

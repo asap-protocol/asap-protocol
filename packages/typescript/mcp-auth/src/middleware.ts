@@ -53,8 +53,9 @@ export interface McpAuthConfig {
   readonly resourceMetadataUrl?: string;
   /**
    * Called when verification or a grant lookup fails for a reason other than
-   * the token, such as a resolver that throws (HTTP 500 with no detail) or an
-   * issuer's JWKS that cannot be fetched (HTTP 503). The package itself never
+   * the token, such as a resolver that throws (HTTP 500 with no detail), an
+   * issuer's JWKS that cannot be fetched (HTTP 503), or a `protectTool`
+   * callback registered under another tool's name. The package itself never
    * logs, and this hook never receives the token.
    */
   readonly onInternalError?: (error: unknown) => void;
@@ -87,12 +88,13 @@ export interface McpAuthMiddleware {
   protect(handler: McpFetchHandler): McpProtectedHandler;
   /**
    * The grant layer: wrap a tool callback, as the third argument of
-   * `registerTool`. A call runs only when the principal in
-   * `ctx.http.authInfo` holds a grant for the tool's capability and the call
+   * `registerTool` under the same name. The name must be in
+   * `toolCapabilities` and not in `publicTools`, or it throws a `TypeError`.
+   * A call runs only when its `Mcp-Name` is that name, the principal in
+   * `ctx.http.authInfo` holds a grant for the tool's capability, and the call
    * arguments meet its constraints; otherwise the result is a tool error
    * (`asap:capability_denied` or `asap:constraint_violation`). A protected
-   * tool with no verified principal gets `asap:auth_required`. A public tool
-   * runs unchanged.
+   * tool with no verified principal gets `asap:auth_required`.
    */
   protectTool: ProtectTool;
   /**

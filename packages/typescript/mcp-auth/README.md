@@ -60,7 +60,7 @@ createServer(toNodeHandler(app)).listen(8787);
 
 ## Grants (tool results)
 
-`protectTool(name, callback)` wraps a tool callback. Pass the result as the third argument of `registerTool`:
+`protectTool(name, callback)` wraps a tool callback. Pass the result as the third argument of `registerTool`, under the same name. `name` must be in `toolCapabilities` and not in `publicTools`; otherwise `protectTool` throws a `TypeError`. Register a public tool without `protectTool`.
 
 ```ts
 import { createMcpAuthMiddleware, staticAgentGrants } from "@asap-protocol/mcp-auth";
@@ -82,12 +82,13 @@ server.registerTool(
 
 A call runs only if all of these are true. Otherwise the tool returns a `CallToolResult` with `isError: true`, the same payload as the Python bridge:
 
-1. The request has a verified ASAP principal. If not: `asap:auth_required`. The token layer normally refuses such a request first; this check is a second guard.
-2. The token's `capabilities` claim holds the tool's capability. If not: `asap:capability_denied: JWT capabilities claim does not include '<capability>'`.
-3. `agentGrants` returns a grant for that capability. If not: `asap:capability_denied: no active grant for capability '<capability>'`. With no `agentGrants`, no agent has a grant. If the resolver throws, the detail is `grant lookup failed`, and the error goes to `onInternalError`.
-4. The call arguments meet the grant's constraints. If not: `asap:constraint_violation: <field>: <reason>`.
+1. The request's `Mcp-Name` header is `name`. The SDK has checked that header against the body, so this holds unless the callback was registered under another tool's name. If not: `asap:capability_denied: the request is not a call to '<name>'`, and the error goes to `onInternalError`. A call with no HTTP request (stdio) fails the same way.
+2. The request has a verified ASAP principal. If not: `asap:auth_required`. The token layer normally refuses such a request first; this check is a second guard.
+3. The token's `capabilities` claim holds the tool's capability. If not: `asap:capability_denied: JWT capabilities claim does not include '<capability>'`.
+4. `agentGrants` returns a grant for that capability. If not: `asap:capability_denied: no active grant for capability '<capability>'`. With no `agentGrants`, no agent has a grant. If the resolver throws, the detail is `grant lookup failed`, and the error goes to `onInternalError`.
+5. The call arguments meet the grant's constraints. If not: `asap:constraint_violation: <field>: <reason>`.
 
-Constraints work as in Python `validate_constraints`: a plain value is an exact match, and `max`, `min`, `in`, and `not_in` are operators. The check uses the arguments that the SDK passes to the tool, after the `inputSchema` has parsed them. A tool with no `inputSchema` gets no arguments, so a grant with constraints always fails on it. Where Python passes or raises, this package returns a violation: for example, a number that is not finite for `max` or `min`, or a number argument for `in` on a string. A public tool runs unchanged.
+Constraints work as in Python `validate_constraints`: a plain value is an exact match, and `max`, `min`, `in`, and `not_in` are operators. The check uses the arguments that the SDK passes to the tool, after the `inputSchema` has parsed them. A tool with no `inputSchema` gets no arguments, so a grant with constraints always fails on it. Where Python passes or raises, this package returns a violation: for example, a number that is not finite for `max` or `min`, or a number argument for `in` on a string.
 
 For a tool with no `inputSchema`, write the callback with its `ctx` parameter: `auth.protectTool("name", async (ctx) => ...)`.
 
