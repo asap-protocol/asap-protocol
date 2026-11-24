@@ -406,6 +406,8 @@ skip_covered = false
 
 [dependency-groups]
 dev = [
+    # A2A interop tests only; asap.adapters.a2a never imports it.
+    "a2a-sdk[signing]>=1.3,<2",
     "bandit>=1.9.3",
     "hypothesis>=6.92",
     "jsonschema>=4.20",
