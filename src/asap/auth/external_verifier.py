@@ -109,9 +109,15 @@ def _numeric_date(claims: dict[str, Any], name: str) -> float | None:
     value = claims.get(name)
     if value is None:
         return None
-    if isinstance(value, bool) or not isinstance(value, int | float) or not math.isfinite(value):
+    if isinstance(value, bool) or not isinstance(value, int | float):
         raise ExternalTokenError(Reason.MALFORMED_TOKEN, f"{name} is not a finite number")
-    return float(value)
+    try:
+        timestamp = float(value)
+    except OverflowError:
+        raise ExternalTokenError(Reason.MALFORMED_TOKEN, f"{name} is out of range") from None
+    if not math.isfinite(timestamp):
+        raise ExternalTokenError(Reason.MALFORMED_TOKEN, f"{name} is not a finite number")
+    return timestamp
 
 
 def _check_lifetime(claims: dict[str, Any]) -> datetime:
