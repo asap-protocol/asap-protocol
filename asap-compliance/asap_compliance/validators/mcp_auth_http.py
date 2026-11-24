@@ -25,7 +25,7 @@ import base64
 import json
 import secrets
 import time
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -44,16 +44,12 @@ from asap_compliance.validators.mcp_http_answers import (
     tool_error_problem,
     tool_success_problem,
 )
-from asap_compliance.validators.mcp_http_transport import (
-    McpHttpResponse,
-    McpHttpTransport,
-    McpHttpTransportError,
-)
-from asap_compliance.validators.probe_tokens import (
-    ComplianceEndpointTokenProvider,
-    ProbeTokenError,
-    ProbeTokenKind,
-    ProbeTokenProvider,
+from asap_compliance.validators.mcp_http_transport import McpHttpResponse, McpHttpTransport
+from asap_compliance.validators.probe_tokens import ProbeTokenKind, ProbeTokenProvider
+from asap_compliance.validators.profile_run import (
+    ProfileCheck,
+    endpoint_token_provider,
+    run_profile_checks,
 )
 
 # Built by the harness; no server accepts it.
@@ -248,10 +244,8 @@ async def _check_token_not_echoed(run: _ProbeRun) -> str | None:
     return f"the answers to requests {sorted(set(echoed))} hold one" if echoed else None
 
 
-_CheckRunner = Callable[[_ProbeRun], Awaitable[str | None]]
-
-# (check ID, runner, what passing means), in the order the checks run.
-_PROFILE_CHECKS: tuple[tuple[str, _CheckRunner, str], ...] = (
+# The checks, in the order they run.
+_PROFILE_CHECKS: tuple[ProfileCheck[_ProbeRun], ...] = (
     ("public_tool", _check_public_tool, _EXPECT_TOOL_RESULT),
     ("auth_required", _check_auth_required, _EXPECT_AUTH_REQUIRED),
     ("invalid_token", _check_invalid_token, _EXPECT_INVALID_TOKEN),
@@ -288,35 +282,6 @@ _PROFILE_CHECKS: tuple[tuple[str, _CheckRunner, str], ...] = (
 MCP_AUTH_HTTP_CHECK_IDS: tuple[str, ...] = tuple(check_id for check_id, _, _ in _PROFILE_CHECKS)
 
 
-async def _run_check(
-    run: _ProbeRun, check_id: str, runner: _CheckRunner, passing: str
-) -> CheckResult:
-    if check_id in run.config.skip_checks:
-        return CheckResult(check_id, True, "skipped")
-    try:
-        problem = await runner(run)
-    except (McpHttpTransportError, ProbeTokenError) as exc:
-        problem = str(exc)
-    if problem is None:
-        return CheckResult(check_id, True, passing)
-    return CheckResult(check_id, False, f"expected {passing}; {problem}")
-
-
-def _endpoint_token_provider(
-    config: McpAuthHttpComplianceConfig, http_transport: httpx.AsyncBaseTransport | None
-) -> ProbeTokenProvider:
-    if config.probe_tokens_url is None:
-        raise ValueError(
-            "the mcp-auth-http profile needs fresh probe tokens: got probe_tokens_url=None "
-            "and no token_provider; set one of them"
-        )
-    return ComplianceEndpointTokenProvider(
-        config.probe_tokens_url,
-        timeout_seconds=config.timeout_seconds,
-        http_transport=http_transport,
-    )
-
-
 async def validate_mcp_auth_http_async(
     config: McpAuthHttpComplianceConfig,
     *,
@@ -339,12 +304,17 @@ async def validate_mcp_auth_http_async(
         ValueError: if there is neither a ``token_provider`` nor a ``probe_tokens_url``.
     """
     if token_provider is None:
-        token_provider = _endpoint_token_provider(config, http_transport)
+        token_provider = endpoint_token_provider(
+            config.profile,
+            config.probe_tokens_url,
+            timeout_seconds=config.timeout_seconds,
+            http_transport=http_transport,
+        )
     transport = McpHttpTransport(
         config.mcp_url, timeout_seconds=config.timeout_seconds, http_transport=http_transport
     )
     run = _ProbeRun(config, transport, token_provider)
-    checks = [await _run_check(run, *check) for check in _PROFILE_CHECKS]
+    checks = await run_profile_checks(run, _PROFILE_CHECKS, skip_checks=config.skip_checks)
     return McpAuthHttpResult(profile=config.profile, checks=checks)
 
 
