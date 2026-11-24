@@ -10,6 +10,7 @@ from __future__ import annotations
 import base64
 import json
 import warnings
+from collections.abc import Mapping
 
 from cryptography.hazmat.primitives.asymmetric.types import PrivateKeyTypes
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
@@ -43,3 +44,15 @@ def forged_signature(header: object, *, signature: str = "c2lnbmF0dXJl") -> Agen
     text = header if isinstance(header, str) else json.dumps(header)
     protected = base64.urlsafe_b64encode(text.encode()).rstrip(b"=").decode()
     return AgentCardSignature(protected=protected, signature=signature)
+
+
+class RecordingKeyResolver:
+    """A card key resolver over fixed keys that records every lookup."""
+
+    def __init__(self, keys: Mapping[str, Key]) -> None:
+        self.keys = dict(keys)
+        self.calls: list[tuple[str, str | None]] = []
+
+    async def __call__(self, kid: str, jku: str | None) -> Key | None:
+        self.calls.append((kid, jku))
+        return self.keys.get(kid)

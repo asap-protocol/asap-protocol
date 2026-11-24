@@ -25,6 +25,8 @@ from asap.adapters.a2a.errors import (
     A2AInvalidSignatureError,
     A2AMappingError,
     A2AMappingInputError,
+    A2ANoTrustedSignatureError,
+    A2AUnsignedCardError,
     A2AUnsupportedVersionError,
     InvalidSignatureReason,
 )
@@ -67,6 +69,7 @@ from asap.adapters.a2a.security import (
     StringList,
 )
 from asap.adapters.a2a.signature_header import MAX_CARD_SIGNATURES
+from asap.adapters.a2a.signature_keys import CARD_VERIFY_ALGORITHMS, CardKey
 from asap.adapters.a2a.signing import (
     CardSigningAlgorithm,
     CardSigningKey,
@@ -77,6 +80,11 @@ from asap.adapters.a2a.unmapped import (
     UNMAPPED_MANIFEST_FIELDS,
     DroppedField,
 )
+from asap.adapters.a2a.verification import (
+    CardKeyResolver,
+    CardVerification,
+    verify_agent_card,
+)
 
 __all__ = [
     "A2AAdapterError",
@@ -86,6 +94,8 @@ __all__ = [
     "A2AInvalidSignatureError",
     "A2AMappingError",
     "A2AMappingInputError",
+    "A2ANoTrustedSignatureError",
+    "A2AUnsignedCardError",
     "A2AUnsupportedVersionError",
     "APIKeySecurityScheme",
     "ASAP_EXTENSION_URI",
@@ -99,10 +109,14 @@ __all__ = [
     "AgentSkill",
     "AsapExtensionParams",
     "AuthorizationCodeOAuthFlow",
+    "CARD_VERIFY_ALGORITHMS",
     "CanonicalCardForm",
+    "CardKey",
+    "CardKeyResolver",
     "CardMapping",
     "CardSigningAlgorithm",
     "CardSigningKey",
+    "CardVerification",
     "ClientCredentialsOAuthFlow",
     "DeviceCodeOAuthFlow",
     "DroppedField",
@@ -129,4 +143,5 @@ __all__ = [
     "manifest_to_agent_card",
     "read_asap_extension",
     "sign_agent_card",
+    "verify_agent_card",
 ]

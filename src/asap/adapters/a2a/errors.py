@@ -76,6 +76,34 @@ class A2ACardVerificationError(A2AAdapterError):
     """The card's signatures do not meet the policy: the card must not be mapped or cached."""
 
 
+class A2AUnsignedCardError(A2ACardVerificationError):
+    """The card has no signature, and the policy requires one."""
+
+    def __init__(self, card_name: str) -> None:
+        super().__init__(
+            "asap:adapters/a2a/unsigned_card",
+            f"Agent Card {card_name!r} has no signatures and the policy requires one; "
+            "policy='allow_unsigned' accepts it as unverified",
+            {},
+        )
+
+
+class A2ANoTrustedSignatureError(A2ACardVerificationError):
+    """The card has signatures, and none is from a trusted key with an allowed algorithm.
+
+    ``skipped`` says why each signature was not checked.
+    """
+
+    def __init__(self, card_name: str, skipped: Sequence[str]) -> None:
+        super().__init__(
+            "asap:adapters/a2a/no_trusted_signature",
+            f"Agent Card {card_name!r} has no signature from a trusted key with an allowed "
+            f"algorithm: {'; '.join(skipped)}",
+            {"skipped": list(skipped)},
+        )
+        self.skipped = tuple(skipped)
+
+
 class A2AInvalidSignatureError(A2ACardVerificationError):
     """One signature fails the card: it is malformed, uses ``none`` or HMAC, or does not verify.
 
