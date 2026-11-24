@@ -42,8 +42,8 @@ export interface GrantLayerConfig {
 export interface GrantLayer {
   readonly protectTool: ProtectTool;
   readonly scopeChallenge: ScopeChallengeHandler;
-  /** Whether `protectTool` has wrapped a callback for this tool name. */
-  readonly isWrapped: (name: string) => boolean;
+  /** Whether this call entered the wrapper for its tool. */
+  readonly usedWrapper: (authInfo: AuthInfo | undefined) => boolean;
 }
 
 /**
@@ -112,7 +112,8 @@ export function createGrantLayer(config: GrantLayerConfig): GrantLayer {
   const toolCapabilities = new Map(Object.entries(config.toolCapabilities ?? {}));
   const agentGrants = config.agentGrants ?? (() => []);
   const scopesByIssuer = challengeScopes(config.externalIssuers ?? []);
-  const wrappedTools = new Set<string>();
+  // Each verified request gets its own AuthInfo. The SDK passes it to the callback.
+  const callsUsingWrapper = new WeakSet<AuthInfo>();
 
   async function agentGrantsOf(principal: AgentJwtPrincipal): Promise<readonly CapabilityGrant[] | undefined> {
     try {
@@ -152,9 +153,7 @@ export function createGrantLayer(config: GrantLayerConfig): GrantLayer {
     return denied(`no active grant for capability '${capability}'`);
   }
 
-  /** The SDK checks `Mcp-Name` against the body on a 2026-07-28 request, so the header names the tool that runs. */
-  function bindingDenial(name: string, ctx: ServerContext | undefined): CallToolResult | undefined {
-    if (ctx?.http?.req?.headers.get("mcp-name") === name) return undefined;
+  function bindingDenial(name: string): CallToolResult {
     config.reportInternalError(new Error(`protectTool(${JSON.stringify(name)}) ran for a request whose Mcp-Name is not that tool; register the callback under the same name`));
     return denied(`the request is not a call to '${name}'`);
   }
@@ -163,11 +162,15 @@ export function createGrantLayer(config: GrantLayerConfig): GrantLayer {
     if (config.publicTools.has(name)) throw wrapError(name, "the tool is in publicTools; register a public tool without protectTool");
     const capability = toolCapabilities.get(name);
     if (capability === undefined) throw wrapError(name, "the tool is not in toolCapabilities; list every protected tool there");
-    wrappedTools.add(name);
     // The SDK calls (args, ctx) for a tool with an inputSchema and (ctx) for one without.
     return async (...params: unknown[]) => {
       const ctx = params.at(-1) as ServerContext | undefined;
-      const denial = bindingDenial(name, ctx) ?? (await grantDenial(name, capability, ctx?.http?.authInfo, params.length > 1 ? params[0] : undefined));
+      const http = ctx?.http;
+      // The SDK checks Mcp-Name against the body on a 2026-07-28 request.
+      if (http?.req?.headers.get("mcp-name") !== name) return bindingDenial(name);
+      const authInfo = http.authInfo;
+      if (authInfo !== undefined) callsUsingWrapper.add(authInfo);
+      const denial = await grantDenial(name, capability, authInfo, params.length > 1 ? params[0] : undefined);
       return denial ?? callback(...params);
     };
   }
@@ -182,5 +185,5 @@ export function createGrantLayer(config: GrantLayerConfig): GrantLayer {
     return scope === undefined ? undefined : { scopes: [scope], errorDescription: McpAuthErrorCode.CapabilityDenied };
   }
 
-  return { protectTool: protectTool as ProtectTool, scopeChallenge, isWrapped: (name) => wrappedTools.has(name) };
+  return { protectTool: protectTool as ProtectTool, scopeChallenge, usedWrapper: (authInfo) => authInfo !== undefined && callsUsingWrapper.has(authInfo) };
 }

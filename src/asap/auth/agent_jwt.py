@@ -235,7 +235,7 @@ def _lifetime_within(claims: dict[str, Any], *, now_ts: float, max_seconds: floa
     exp_ts = float(claims["exp"])
     try:
         iat_ts = float(claims["iat"])
-    except (KeyError, TypeError, ValueError):
+    except (KeyError, TypeError, ValueError, OverflowError):
         iat_ts = now_ts
     return exp_ts - min(iat_ts, now_ts) <= max_seconds
 

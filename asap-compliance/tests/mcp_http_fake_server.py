@@ -147,7 +147,7 @@ class FakeMcpAuthServer:
 
 
 def _tool_result(call: dict[str, Any], text: str, *, is_error: bool = False) -> httpx.Response:
-    result: dict[str, Any] = {"content": [{"type": "text", "text": text}]}
+    result: dict[str, Any] = {"resultType": "complete", "content": [{"type": "text", "text": text}]}
     if is_error:
         result["isError"] = True
     return httpx.Response(200, json={"jsonrpc": "2.0", "id": call["id"], "result": result})

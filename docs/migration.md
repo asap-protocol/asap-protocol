@@ -1132,7 +1132,7 @@ protocol.
 | Removed path | Before (v2.5.x) | After (v2.6.0) |
 |--------------|-----------------|----------------|
 | `asap.cli._compat` ([#275](https://github.com/asap-protocol/asap-protocol/issues/275)) | `from asap.cli._compat import DEFAULT_SCHEMAS_DIR, export_all_schemas, _repl_namespace` | `from asap.cli.schemas import DEFAULT_SCHEMAS_DIR`; `from asap.schemas import export_all_schemas`; `from asap.cli.repl import _repl_namespace` |
-| `asap.transport.websocket` | `from asap.transport.websocket import WebSocketTransport` (or any other name) | `from asap.transport.ws import WebSocketTransport` (same names). Test patch targets: `asap.transport.ws.client.websockets.connect`; `asap.transport.ws.codecs.encode_envelope_frame`, `.PAYLOAD_TYPES_REQUIRING_ACK`, `.HEARTBEAT_PING_INTERVAL` |
+| `asap.transport.websocket` | `from asap.transport.websocket import WebSocketTransport` | `from asap.transport.ws import WebSocketTransport`. For the third-party module formerly exported by the shim, use `import websockets`. Test patch targets: `asap.transport.ws.client.websockets.connect`; `asap.transport.ws.codecs.encode_envelope_frame`, `.PAYLOAD_TYPES_REQUIRING_ACK`, `.HEARTBEAT_PING_INTERVAL` |
 | `FRAME_ENCODING_BINARY` | `from asap.transport.websocket import FRAME_ENCODING_BINARY` | No replacement. v2.5.1 removed binary framing; frames are JSON text only (`FRAME_ENCODING_JSON`). Delete the reference |
 | `asap.adapters.mcp` | `from asap.adapters.mcp import protect_server, MCPAuthConfig` (or `from asap.adapters.mcp.<submodule> import ...`) | `from asap.mcp.auth import protect_server, MCPAuthConfig` (same names). Submodules keep their names: `asap.adapters.mcp.config` becomes `asap.mcp.auth.config`, and the same for `auth_middleware`, `capability_map`, `errors`, `jwt_extractor`, and `protected_server` |
 | `RemoteFatalRPCError`, `RemoteRecoverableRPCError` (Python) | `from asap.errors import RemoteRecoverableRPCError`, then `except RemoteRecoverableRPCError:` | `from asap.errors import RemoteRPCError`, then `except RemoteRPCError as exc:` and branch on `exc.is_recoverable`. The TypeScript classes of the same names in `@asap-protocol/client` are not affected |
@@ -1212,17 +1212,14 @@ walks through each one.
 
 ### Upgrading from v2.5.11 to v2.5.12
 
-**v2.5.12 (security & correctness patch)** — **shipped**
-([tag `v2.5.12`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.12)) —
-authentication, authorization, and input validation fixes in the Python
-reference implementation. This is **not** v2.6.0 Interop. There are **no
-wire-protocol or manifest schema** changes relative to v2.5.11, but some
-requests that v2.5.11 accepted are now refused. The table below lists them.
+**v2.5.12** is a maintenance patch for authentication, authorization, and
+input validation in the Python reference implementation. The wire protocol
+and manifest schema match v2.5.11. The table lists requests that v2.5.12 refuses.
 
 #### What lands in v2.5.12
 
-- **Published behavior** — the six changes in the table below.
-- **Published requirements** — `opentelemetry-api>=1.45.2` (CVE-2026-126360),
+- **Package behavior** follows the six changes in the table.
+- **Package requirements** include `opentelemetry-api>=1.45.2` (CVE-2026-126360),
   with the SDK and the OTLP exporter at 1.45.2 and the instrumentation
   packages at 0.66b2.
 - **Repository locks** — the root lock, `apps/example-agent`,
@@ -1246,7 +1243,8 @@ requests that v2.5.11 accepted are now refused. The table below lists them.
 
 #### Upgrade steps
 
-1. Bump with `pip install 'asap-protocol==2.5.12'` (or `uv add asap-protocol`).
+1. After [PyPI](https://pypi.org/project/asap-protocol/#history) lists 2.5.12, run
+   `pip install 'asap-protocol==2.5.12'` or `uv add 'asap-protocol==2.5.12'`.
 2. Check your deployment against each row of the table above.
 3. TypeScript `@asap-protocol/*` packages remain at **2.4.1**.
 

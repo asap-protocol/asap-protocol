@@ -20,6 +20,7 @@ from asap.adapters.a2a.canonical import (
 )
 from asap.adapters.a2a.errors import (
     A2AAdapterError,
+    A2AAgentMismatchError,
     A2ACanonicalFormError,
     A2ACardFetchError,
     A2ACardNotSignableError,
@@ -113,6 +114,7 @@ from asap.adapters.a2a.verification import (
 
 __all__ = [
     "A2AAdapterError",
+    "A2AAgentMismatchError",
     "A2ACanonicalFormError",
     "A2ACardFetchError",
     "A2ACardNotSignableError",

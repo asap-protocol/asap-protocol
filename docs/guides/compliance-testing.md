@@ -289,7 +289,9 @@ The fields of `A2ABridgeComplianceConfig`. The defaults are those of the example
 | `skip_checks` | `[]` | Check IDs to skip. A skipped check passes with the message `skipped` |
 | `profile` | `a2a-bridge` | The profile name. Any other value is refused |
 
-**Private targets.** `allow_private_targets` is off by default. Then `base_url` and `probe_tokens_url` must be `https` URLs to a public host: no IP address that is not public, no `localhost`, and no user info. This is the URL rule of card ingest. When the switch is on, an `https` URL may name any host, and an `http` URL is accepted only for a loopback or private IP address or a `localhost` name, so that a token never crosses a public network in clear text. Turn it on only for a local run, or for a CI run against a server on the same machine or private network. The `mcp-auth-http` profile has no such switch: it accepts any `http` or `https` URL.
+**Private targets.** By default, `base_url` and `probe_tokens_url` require HTTPS and a public-looking host. The profile rejects private IP literals, localhost names, and user information. It checks the URL before the connection and does not check DNS results. Use a trusted host and network for a compliance run.
+
+With `allow_private_targets` enabled, the profile accepts HTTPS for any host. It also accepts HTTP for loopback and private IP literals and localhost names. Enable this option only for local or private CI targets. The `mcp-auth-http` profile accepts HTTP and HTTPS without this switch.
 
 **What a verified card proves.** `card_signature` proves who signed the card. It does not prove where the card was served from, or that it is fresh: a signed card can be served again from another URL for as long as its key is trusted. No check of this profile claims either one. The calls go to `<base_url>/a2a`, never to a URL read from the card, so probe tokens go only to the configured origin.
 

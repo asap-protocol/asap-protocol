@@ -42,7 +42,8 @@ class SkillSchemas(_ExtensionParamsModel):
 class AsapExtensionParams(_ExtensionParamsModel):
     """The ``params`` of the ASAP extension. Unknown params are ignored on read.
 
-    ``skill_schemas`` lists only skills that have a schema.
+    ``skill_schemas`` lists only skills that have a schema. The card stores
+    ``asap_streaming`` when the ASAP endpoint and A2A interfaces differ.
     """
 
     agent_urn: NonEmptyStr
@@ -51,6 +52,7 @@ class AsapExtensionParams(_ExtensionParamsModel):
     asap_version: NonEmptyStr
     state_persistence: StrictBool = False
     skill_schemas: dict[str, SkillSchemas] | None = None
+    asap_streaming: StrictBool | None = None
 
 
 def build_asap_extension(params: AsapExtensionParams) -> AgentExtension:

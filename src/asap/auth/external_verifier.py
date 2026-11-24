@@ -19,9 +19,9 @@ must be a three-segment JWS; any other such shape, a JWE included, is
 no issuer, so it goes to the introspection issuer with this server's client
 credentials whoever minted it. ``TokenIntrospector`` posts through the guarded
 POST and reuses an answer for at most the issuer's
-``introspection.cache_ttl_seconds`` (default 60 s; ``0`` asks every time), so a
-revoked token stops working within that time. Its answer then gets the same
-claim checks as a verified JWT, plus ``active`` and, when present, ``iss``.
+``introspection.cache_ttl_seconds`` after receipt (default 60 s).
+A value of zero sends a request on every call. The verifier applies the same
+claim checks as for a verified JWT. It also checks ``active`` and, when present, ``iss``.
 
 Errors carry a typed reason and never the token or its signature.
 """
@@ -77,6 +77,20 @@ def _is_jose_header(segment: str) -> bool:
         return True
 
 
+def _extract_compact_with_header(token: str) -> tuple[dict[str, Any], bytes]:
+    """Read the unverified JWS header and require a JSON object."""
+    try:
+        compact = extract_compact(token.encode("utf-8"))
+        header = compact.headers()
+    except (JoseError, UnicodeError, TypeError, ValueError, RecursionError) as exc:
+        raise ExternalTokenError(
+            Reason.MALFORMED_TOKEN, f"not a usable JWS compact token ({type(exc).__name__})"
+        ) from None
+    if not isinstance(header, dict):
+        raise ExternalTokenError(Reason.MALFORMED_TOKEN, "the JWS header is not an object")
+    return header, compact.payload
+
+
 def _unverified_parts(token: str) -> tuple[dict[str, Any], dict[str, Any]] | None:
     """Return the header and payload of a JWS compact token, or None for an opaque token.
 
@@ -93,19 +107,17 @@ def _unverified_parts(token: str) -> tuple[dict[str, Any], dict[str, Any]] | Non
                 Reason.MALFORMED_TOKEN, "a JOSE header, but not a three-segment JWS"
             )
         return None
+    header, raw_payload = _extract_compact_with_header(token)
     try:
-        compact = extract_compact(token.encode("utf-8"))
-        payload = json.loads(compact.payload)
-    # RecursionError: json.loads recurses out past about 10,000 nested levels,
-    # and joserfc allows a payload of 128,000 bytes.
-    except (JoseError, UnicodeError, ValueError, RecursionError) as exc:
+        payload = json.loads(raw_payload)
+    except (ValueError, RecursionError) as exc:
         # ``from None``: a chained exception could print part of the token.
         raise ExternalTokenError(
             Reason.MALFORMED_TOKEN, f"not a usable JWS compact token ({type(exc).__name__})"
         ) from None
     if not isinstance(payload, dict):
         raise ExternalTokenError(Reason.MALFORMED_TOKEN, "the JWT payload is not an object")
-    return dict(compact.headers()), payload
+    return header, payload
 
 
 def _check_header(header: dict[str, Any]) -> None:
@@ -194,7 +206,9 @@ def principal_from_claims(
 class ExternalTokenVerifier:
     """Turn a bearer token into an :class:`ExternalPrincipal`, or raise :class:`ExternalTokenError`.
 
-    One instance per app: it holds the key cache of each allowlisted issuer.
+    One instance per app holds the key cache for each issuer.
+    Include a key ID (``kid``) in JWTs when the issuer publishes multiple keys.
+    Before a key rotation, check that the issuer supplies key IDs.
     ``resolver`` and ``transport`` are the test seams of the guarded fetch.
 
     Example:
@@ -240,10 +254,13 @@ class ExternalTokenVerifier:
             raise ExternalTokenError(Reason.UNTRUSTED_ISSUER, f"iss {claimed!r} is not allowlisted")
         if self._introspection is not None and issuer is self._introspection[0]:
             return await self._introspect(token, *self._introspection)
-        kid = header.get("kid")
-        keys = await self._key_sources[issuer.issuer].keys_for(
-            kid if isinstance(kid, str) else None
-        )
+        raw_kid = header.get("kid")
+        kid = raw_kid if isinstance(raw_kid, str) else None
+        keys = await self._key_sources[issuer.issuer].keys_for(kid)
+        if kid is None and len(keys.keys) != 1:
+            raise ExternalTokenError(
+                Reason.INVALID_SIGNATURE, "kid is required when the issuer publishes multiple keys"
+            )
         try:
             verified = jose_jwt.decode(token, keys, algorithms=[header["alg"]])
         except (JoseError, TypeError, ValueError) as exc:
