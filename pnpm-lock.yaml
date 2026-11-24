@@ -306,6 +306,10 @@ importers:
         version: 3.25.76
 
   packages/typescript/mcp-auth:
+    dependencies:
+      jose:
+        specifier: ^6.0.10
+        version: 6.2.3
     devDependencies:
       '@asap-protocol/client':
         specifier: workspace:*

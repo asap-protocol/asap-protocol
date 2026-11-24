@@ -18,7 +18,9 @@
     "@asap-protocol/client": "^2.5.0",
     "@modelcontextprotocol/server": "^2.4.0"
   },
-  "dependencies": {},
+  "dependencies": {
+    "jose": "^6.0.10"
+  },
   "files": [
     "dist"
   ],
