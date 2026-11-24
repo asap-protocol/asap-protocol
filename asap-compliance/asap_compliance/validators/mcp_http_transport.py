@@ -52,7 +52,10 @@ class McpHttpResponse:
     def tool_result(self) -> dict[str, Any] | None:
         """The JSON-RPC ``result`` when the body is the response to this request, else ``None``."""
         body = self.json_body
-        if body is None or body.get("jsonrpc") != "2.0" or body.get("id") != self.request_id:
+        if body is None or body.get("jsonrpc") != "2.0" or "error" in body:
+            return None
+        response_id = body.get("id")
+        if isinstance(response_id, bool) or response_id != self.request_id:
             return None
         result = body.get("result")
         return result if isinstance(result, dict) else None
