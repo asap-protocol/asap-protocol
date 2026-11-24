@@ -70,7 +70,7 @@ export interface McpAuthConfig {
    * callback registered under another tool's name, a protected tool
    * registered without `scopeChallenge` (seen when an access token lacks a
    * scope that a grant rule maps), or a tool in `toolCapabilities` whose call
-   * got a result although `protectTool` never wrapped it. The package itself
+   * got a result without using `protectTool` for that call. The package itself
    * never logs, and this hook never receives the token.
    */
   readonly onInternalError?: (error: unknown) => void;
@@ -211,22 +211,17 @@ async function routeOfBody(request: Request): Promise<BodyRoute | Response> {
 }
 
 /**
- * A tool in `toolCapabilities` that was registered without
- * `protectTool` runs with no grant check. The package does not see
- * `registerTool`, so it cannot stop that call; it can see, afterwards, that a
- * call to the tool got a result although `protectTool` never wrapped it. The
- * SDK registers tools before it dispatches, so a wrapped tool is known by then.
- * A JSON-RPC error (for example a tool that this request's server does not
- * register) and any answer other than 200 are not reported.
+ * Identify a protected tool result when the call did not use the wrapper.
+ * The middleware reports the tool after dispatch. A JSON-RPC error response
+ * or a non-200 response does not confirm that the call reached a tool.
  */
-async function resultOfUnwrappedTool(request: Request, response: Response, declared: ReadonlySet<string>, isWrapped: (name: string) => boolean): Promise<string | undefined> {
+async function resultOfUnwrappedTool(request: Request, response: Response, declared: ReadonlySet<string>): Promise<string | undefined> {
   const name = request.headers.get("mcp-name");
-  const tool = [...declared].find((declaredTool) => declaredTool === name);
-  if (request.headers.get("mcp-method") !== "tools/call" || tool === undefined || isWrapped(tool) || response.status !== 200) return undefined;
-  if (String(response.headers.get("content-type")).startsWith("text/event-stream")) return tool;
+  if (request.headers.get("mcp-method") !== "tools/call" || name === null || !declared.has(name) || response.status !== 200) return undefined;
+  if (String(response.headers.get("content-type")).startsWith("text/event-stream")) return name;
   try {
     const body: unknown = await response.clone().json();
-    return isJsonObject(body) && "result" in body ? tool : undefined;
+    return isJsonObject(body) && "result" in body ? name : undefined;
   } catch {
     return undefined;
   }
@@ -332,22 +327,23 @@ export function createMcpAuthMiddleware(config: McpAuthConfig): McpAuthMiddlewar
   function protect(handler: McpFetchHandler): McpProtectedHandler {
     return {
       fetch: async (request: Request): Promise<Response> => {
-        if (route instanceof Response) return route;
         const authInfo = await authenticate(request);
         if (authInfo instanceof Response) {
           return authInfo;
         }
         const route = await routeOfBody(request);
+        if (route instanceof Response) return route;
         // A notification passes only when allowMethods lists it and the token verified: by default none reaches a handler.
         const deniedNotification = route.notification !== undefined && (authInfo === undefined || !allowMethods.has(route.notification));
         if (route.legacy || deniedNotification) {
           return authInfo === undefined ? authRequiredResponse(resourceMetadataUrl) : capabilityDeniedResponse(resourceMetadataUrl);
         }
         const response = await handler.fetch(request, authInfo === undefined ? undefined : { authInfo });
-        const unwrapped = await resultOfUnwrappedTool(request, response, declaredProtected, grantLayer.isWrapped);
+        if (grantLayer.usedWrapper(authInfo)) return response;
+        const unwrapped = await resultOfUnwrappedTool(request, response, declaredProtected);
         if (unwrapped !== undefined) {
           const name = JSON.stringify(unwrapped);
-          reportInternalError(new Error(`toolCapabilities lists ${name}, but protectTool(${name}, ...) was never called on this middleware: a call to the tool got a result with no grant check; register it as registerTool(${name}, config, auth.protectTool(${name}, callback))`));
+          reportInternalError(new Error(`The call to ${name} returned a result without its protectTool wrapper. Register the tool with registerTool(${name}, config, auth.protectTool(${name}, callback)).`));
         }
         return response;
       },
