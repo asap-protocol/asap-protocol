@@ -121,6 +121,23 @@ class A2AInvalidSignatureError(A2ACardVerificationError):
         self.reason: InvalidSignatureReason = reason
 
 
+class A2AKeyResolutionError(A2ACardVerificationError):
+    """The key for a card signature could not be resolved, so the card fails.
+
+    ``refusal`` is the stable code of the guarded fetch of ``jku`` (for example
+    ``"http_status"`` or ``"host_not_public"``), or ``"invalid_jwks"``.
+    """
+
+    def __init__(self, jku: str, refusal: str, detail: str) -> None:
+        super().__init__(
+            "asap:adapters/a2a/key_resolution",
+            f"no key could be read from the jku {jku!r} ({refusal}): {detail}",
+            {"jku": jku, "refusal": refusal},
+        )
+        self.jku = jku
+        self.refusal = refusal
+
+
 class A2AMappingInputError(A2AAdapterError):
     """A caller input that the mapping needs is missing, or it conflicts with the source.
 

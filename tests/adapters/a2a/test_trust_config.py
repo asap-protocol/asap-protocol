@@ -29,6 +29,7 @@ _BAD_CONFIGS = {
     "http jku": {"jku_allowlist": ["http://keys.example.com/jwks.json"]},
     "loopback jku": {"jku_allowlist": ["https://127.0.0.1/jwks.json"]},
     "localhost jku": {"jku_allowlist": ["https://localhost/jwks.json"]},
+    "jku with user info": {"jku_allowlist": [f"https://agent:{_SECRET}@keys.example.com/jwks"]},
     "hmac algorithm": {"algorithms": ["ES256", "HS256"]},
     "no algorithm": {"algorithms": []},
     "unknown policy": {"policy": "allow-unsigned"},

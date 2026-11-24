@@ -23,6 +23,7 @@ from asap.adapters.a2a.errors import (
     A2ACardNotSignableError,
     A2ACardVerificationError,
     A2AInvalidSignatureError,
+    A2AKeyResolutionError,
     A2AMappingError,
     A2AMappingInputError,
     A2ANoTrustedSignatureError,
@@ -75,7 +76,7 @@ from asap.adapters.a2a.signing import (
     CardSigningKey,
     sign_agent_card,
 )
-from asap.adapters.a2a.trust import A2ATrustConfig
+from asap.adapters.a2a.trust import JWKS_MAX_BYTES, A2AKeyResolver, A2ATrustConfig
 from asap.adapters.a2a.unmapped import (
     UNMAPPED_CARD_FIELDS,
     UNMAPPED_MANIFEST_FIELDS,
@@ -94,6 +95,8 @@ __all__ = [
     "A2ACardNotSignableError",
     "A2ACardVerificationError",
     "A2AInvalidSignatureError",
+    "A2AKeyResolutionError",
+    "A2AKeyResolver",
     "A2AMappingError",
     "A2AMappingInputError",
     "A2ANoTrustedSignatureError",
@@ -126,6 +129,7 @@ __all__ = [
     "HTTPAuthSecurityScheme",
     "ImplicitOAuthFlow",
     "InvalidSignatureReason",
+    "JWKS_MAX_BYTES",
     "MAX_CARD_NESTING_DEPTH",
     "MAX_CARD_SIGNATURES",
     "ManifestMapping",
