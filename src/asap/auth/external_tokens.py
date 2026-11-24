@@ -1,4 +1,4 @@
-"""External OAuth access tokens: the issuer config (v2.6.0).
+"""External OAuth access tokens: config, principal, and typed errors (v2.6.0).
 
 COMPAT-001 of ``product/prd/prd-interop.md``: a
 bearer token from a configured issuer becomes an ephemeral principal for one
@@ -6,16 +6,23 @@ request. The config is strict: at least one issuer, a required audience per
 issuer, and no "accept any issuer" mode. Every URL in it must pass
 :func:`asap.utils.guarded_fetch.validate_guarded_url` unless that issuer sets
 ``allow_private_hosts`` for local development.
+
+The principal is :class:`ExternalPrincipal`; a refused token raises
+:class:`ExternalTokenError` with a typed reason.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import datetime
+from enum import StrEnum
 from typing import Annotated, Any, Literal, cast
 
 from joserfc import jwk
 from joserfc.errors import JoseError
 from pydantic import Field, SecretStr, field_validator, model_validator
 
+from asap.auth.capabilities import CapabilityGrant
 from asap.auth.jwks import issuer_matches_expected
 from asap.models.base import ASAPBaseModel
 from asap.utils.guarded_fetch import GuardedFetchError, validate_guarded_url
@@ -148,3 +155,51 @@ class ExternalTokenConfig(ASAPBaseModel):
             if issuer_matches_expected({"iss": iss}, entry.issuer):
                 return entry
         return None
+
+
+@dataclass(frozen=True, slots=True)
+class ExternalPrincipal:
+    """Caller identity derived from one external access token; lives for one request.
+
+    Not an ``AgentSession``: it has no host, no key, and no
+    registry entry. ``grants`` come only from the issuer's mapping rules.
+    """
+
+    issuer: str
+    subject: str
+    client_id: str | None
+    scopes: tuple[str, ...]
+    expires_at: datetime
+    grants: tuple[CapabilityGrant, ...]
+
+    @property
+    def key(self) -> tuple[str, str]:
+        """The stable ``(iss, sub)`` key."""
+        return (self.issuer, self.subject)
+
+
+class ExternalTokenErrorReason(StrEnum):
+    """Why the external-token path refused a bearer token."""
+
+    MALFORMED_TOKEN = "malformed_token"
+    TOKEN_TYPE_REJECTED = "token_type_rejected"
+    UNTRUSTED_ISSUER = "untrusted_issuer"
+    ALGORITHM_REJECTED = "algorithm_rejected"
+    INVALID_SIGNATURE = "invalid_signature"
+    AUDIENCE_MISMATCH = "audience_mismatch"
+    TOKEN_EXPIRED = "token_expired"
+    TOKEN_NOT_YET_VALID = "token_not_yet_valid"
+    MISSING_CLAIM = "missing_claim"
+    TOKEN_INACTIVE = "token_inactive"
+    KEY_SOURCE_UNAVAILABLE = "key_source_unavailable"
+
+
+class ExternalTokenError(Exception):
+    """A bearer token was refused on the external-token path.
+
+    The message never holds the token or its signature.
+    """
+
+    def __init__(self, reason: ExternalTokenErrorReason, detail: str) -> None:
+        super().__init__(f"{reason.value}: {detail}")
+        self.reason = reason
