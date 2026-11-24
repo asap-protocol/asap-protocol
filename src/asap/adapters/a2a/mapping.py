@@ -53,7 +53,9 @@ class AgentCardInputs(ASAPBaseModel):
     and the mapping does not invent one. ``skill_names`` is optional; a skill
     without an entry is named by its ``id``. ``security_schemes`` and
     ``security_requirements`` describe the A2A interfaces, not the ASAP
-    endpoint; see :mod:`asap.adapters.a2a.card_security` for their rules.
+    endpoint; ``skill_security_requirements`` (skill ``id`` → requirements)
+    holds a skill's own requirements under the same rules; see
+    :mod:`asap.adapters.a2a.card_security`.
 
     Example:
         >>> AgentCardInputs(interfaces=[interface], default_input_modes=["application/json"],
@@ -70,6 +72,7 @@ class AgentCardInputs(ASAPBaseModel):
     icon_url: NonEmptyStr | None = None
     security_schemes: dict[str, SecurityScheme] | None = None
     security_requirements: list[SecurityRequirement] | None = None
+    skill_security_requirements: dict[str, list[SecurityRequirement]] = Field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,6 +108,9 @@ def manifest_to_agent_card(manifest: Manifest, inputs: AgentCardInputs) -> CardM
     _require_unique_skill_ids(skill_ids, source)
     _require_known_skill_ids("skill_tags", inputs.skill_tags, skill_ids)
     _require_known_skill_ids("skill_names", inputs.skill_names, skill_ids)
+    _require_known_skill_ids(
+        "skill_security_requirements", inputs.skill_security_requirements, skill_ids
+    )
     skills = [_card_skill(skill, inputs) for skill in manifest.capabilities.skills]
     try:
         extension = _asap_extension_for(manifest)
@@ -319,6 +325,12 @@ def _card_skill(skill: Skill, inputs: AgentCardInputs) -> dict[str, Any]:
         "name": inputs.skill_names.get(skill.id, skill.id),
         "description": skill.description,
         "tags": _tags_for(skill.id, inputs),
+        "security_requirements": check_card_security_requirements(
+            inputs.skill_security_requirements.get(skill.id),
+            inputs.security_schemes,
+            input_name="skill_security_requirements",
+            where=f"skill_security_requirements[{skill.id!r}]",
+        ),
     }
 
 

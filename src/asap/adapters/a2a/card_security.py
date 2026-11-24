@@ -40,8 +40,14 @@ def prepare_card_security_schemes(
 def check_card_security_requirements(
     requirements: list[SecurityRequirement] | None,
     schemes: dict[str, SecurityScheme] | None,
+    *,
+    input_name: str = "security_requirements",
+    where: str | None = None,
 ) -> list[SecurityRequirement] | None:
     """Return *requirements* if a card signature covers every one; empty is ``None``.
+
+    The rules are the same for the card and for one skill; *input_name* names
+    the caller input in the error, and *where* the list (default *input_name*).
 
     Raises:
         A2AMappingInputError: A requirement names no scheme, names a scheme that
@@ -51,21 +57,24 @@ def check_card_security_requirements(
         return None
     declared = set(schemes or {})
     for index, requirement in enumerate(requirements):
+        location = f"{where or input_name}[{index}]"
         named = requirement.schemes or {}
         if not named:
-            _refuse_requirement(index, "names no scheme")
+            _refuse_requirement(input_name, location, "names no scheme")
         for name, scopes in named.items():
             if name not in declared:
-                _refuse_requirement(index, f"names scheme {name!r}, which is not declared")
+                problem = f"names scheme {name!r}, which is not declared"
+                _refuse_requirement(input_name, location, problem)
             if not scopes.scopes or not all(scopes.scopes):
-                _refuse_requirement(index, f"lists no scope (or an empty one) for {name!r}")
+                problem = f"lists no scope (or an empty one) for {name!r}"
+                _refuse_requirement(input_name, location, problem)
     return requirements
 
 
-def _refuse_requirement(index: int, problem: str) -> None:
+def _refuse_requirement(input_name: str, location: str, problem: str) -> None:
     raise A2AMappingInputError(
-        "security_requirements",
-        f"security_requirements[{index}] {problem}: a card signature does not cover a "
+        input_name,
+        f"{location} {problem}: a card signature does not cover a "
         "requirement without a declared scheme and at least one non-empty scope (or role) "
         "for each scheme it names",
     )
