@@ -17,16 +17,29 @@ from asap_compliance.validators.mcp_auth_http import (
     validate_mcp_auth_http,
     validate_mcp_auth_http_async,
 )
+from asap_compliance.validators.probe_tokens import ProbeTokenError, ProbeTokenKind
 
-from .mcp_http_fake_server import FakeMcpAuthServer, Fault
+from .mcp_http_fake_server import PROBE_TOKENS_PATH, FakeMcpAuthServer, Fault
 
 _MCP_URL = "http://mcp.test/mcp"
+_CREDENTIAL_CHECKS = {"valid_jwt", "replayed_jwt", "external_valid_token", "undeclared_tool"}
+
+
+def _config(**fields: Any) -> McpAuthHttpComplianceConfig:
+    probe_tokens_url = f"http://mcp.test{PROBE_TOKENS_PATH}"
+    return McpAuthHttpComplianceConfig(
+        mcp_url=_MCP_URL, probe_tokens_url=probe_tokens_url, **fields
+    )
 
 
 async def _run(server: FakeMcpAuthServer, **config_fields: Any) -> McpAuthHttpResult:
-    config = McpAuthHttpComplianceConfig(mcp_url=_MCP_URL, **config_fields)
     transport = httpx.MockTransport(server.handle)
-    return await validate_mcp_auth_http_async(config, http_transport=transport)
+    return await validate_mcp_auth_http_async(_config(**config_fields), http_transport=transport)
+
+
+class _NoProbeTokens:
+    async def probe_token(self, kind: ProbeTokenKind) -> str:
+        raise ProbeTokenError(f"no {kind.value!r} token in this test")
 
 
 def _failed(result: McpAuthHttpResult) -> set[str]:
@@ -71,7 +84,7 @@ class TestMcpAuthHttpConfig:
 
 
 class TestTokenLayerChecks:
-    """Checks whose credential the harness builds itself."""
+    """Token checks, each with the credential its case needs."""
 
     async def test_a_server_that_follows_the_s6_table_passes_every_check(self) -> None:
         result = await _run(FakeMcpAuthServer())
@@ -91,6 +104,11 @@ class TestTokenLayerChecks:
             (Fault.NO_WWW_AUTHENTICATE, "www_authenticate_on_401"),
             (Fault.ECHOES_TOKEN_IN_BODY, "token_not_echoed"),
             (Fault.ECHOES_TOKEN_IN_HEADER, "token_not_echoed"),
+            (Fault.REFUSES_VALID_TOKENS, "valid_jwt"),
+            (Fault.ACCEPTS_REPLAY, "replayed_jwt"),
+            (Fault.REFUSES_VALID_TOKENS, "external_valid_token"),
+            (Fault.EXTERNAL_SINGLE_USE, "external_valid_token"),
+            (Fault.RUNS_UNDECLARED_TOOL, "undeclared_tool"),
         ],
     )
     async def test_a_server_with_the_fault_fails_the_check(
@@ -104,8 +122,31 @@ class TestTokenLayerChecks:
     async def test_a_server_that_answers_200_to_everything_fails_the_http_checks(self) -> None:
         result = await _run(FakeMcpAuthServer(Fault.ANSWERS_200_TO_EVERYTHING))
 
-        http_checks = {"auth_required", "invalid_token", "bad_signature", "www_authenticate_on_401"}
-        assert http_checks <= _failed(result)
+        http_checks = {"auth_required", "invalid_token", "bad_signature", "replayed_jwt"}
+        assert {*http_checks, "undeclared_tool", "www_authenticate_on_401"} <= _failed(result)
+
+    async def test_two_runs_in_a_row_pass_because_each_call_gets_a_fresh_token(self) -> None:
+        server = FakeMcpAuthServer()
+
+        assert (await _run(server)).passed
+        assert (await _run(server)).passed
+
+    async def test_a_passed_token_provider_is_used_and_its_errors_fail_only_its_checks(
+        self,
+    ) -> None:
+        transport = httpx.MockTransport(FakeMcpAuthServer().handle)
+        result = await validate_mcp_auth_http_async(
+            _config(), token_provider=_NoProbeTokens(), http_transport=transport
+        )
+
+        assert _failed(result) == _CREDENTIAL_CHECKS
+        assert all("in this test" in c.message for c in result.checks if not c.passed)
+
+    async def test_a_run_with_no_token_source_is_refused(self) -> None:
+        config = McpAuthHttpComplianceConfig(mcp_url=_MCP_URL)
+
+        with pytest.raises(ValueError, match="probe_tokens_url"):
+            await validate_mcp_auth_http_async(config)
 
     async def test_the_bad_signature_token_is_an_agent_jwt_for_the_server_audience(self) -> None:
         server = FakeMcpAuthServer()
@@ -143,17 +184,15 @@ class TestTokenLayerChecks:
         def unreachable(request: httpx.Request) -> httpx.Response:
             raise httpx.ConnectError("connection refused", request=request)
 
-        config = McpAuthHttpComplianceConfig(mcp_url=_MCP_URL)
         result = await validate_mcp_auth_http_async(
-            config, http_transport=httpx.MockTransport(unreachable)
+            _config(), http_transport=httpx.MockTransport(unreachable)
         )
 
         call_checks = {"public_tool", "auth_required", "invalid_token", "bad_signature"}
-        assert _failed(result) == {*call_checks, "www_authenticate_on_401"}
+        assert _failed(result) == {*call_checks, *_CREDENTIAL_CHECKS, "www_authenticate_on_401"}
         assert all("ConnectError" in c.message for c in result.checks if c.name in call_checks)
 
     def test_the_sync_wrapper_runs_the_profile(self) -> None:
-        config = McpAuthHttpComplianceConfig(mcp_url=_MCP_URL)
         transport = httpx.MockTransport(FakeMcpAuthServer().handle)
 
-        assert validate_mcp_auth_http(config, http_transport=transport).passed
+        assert validate_mcp_auth_http(_config(), http_transport=transport).passed

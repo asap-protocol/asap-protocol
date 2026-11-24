@@ -32,6 +32,7 @@ from asap_compliance.config import McpAuthHttpComplianceConfig
 from asap_compliance.validators.handshake import CheckResult
 from asap_compliance.validators.mcp_http_answers import (
     AUTH_REQUIRED_401,
+    CAPABILITY_DENIED_403,
     INVALID_TOKEN_401,
     has_bearer_challenge,
     tool_success_problem,
@@ -41,9 +42,16 @@ from asap_compliance.validators.mcp_http_transport import (
     McpHttpTransport,
     McpHttpTransportError,
 )
+from asap_compliance.validators.probe_tokens import (
+    ComplianceEndpointTokenProvider,
+    ProbeTokenError,
+    ProbeTokenKind,
+    ProbeTokenProvider,
+)
 
 # Built by the harness; no server accepts it.
 _MALFORMED_TOKEN = "asap-compliance-malformed-token"
+_UNDECLARED_TOOL = "asap_compliance_undeclared_tool"
 # A JWT part this long belongs to one token; a shorter one could match by chance.
 _MIN_ECHO_FRAGMENT = 16
 # What passing means, for the check messages.
@@ -51,6 +59,9 @@ _EXPECT_TOOL_RESULT = "HTTP 200 and a tool result"
 _EXPECT_AUTH_REQUIRED = "HTTP 401, a Bearer challenge with no error, asap:auth_required"
 _EXPECT_INVALID_TOKEN = (
     'HTTP 401, a Bearer challenge with error="invalid_token", asap:invalid_token'
+)
+_EXPECT_CAPABILITY_DENIED_403 = (
+    'HTTP 403, a Bearer challenge with error="insufficient_scope", asap:capability_denied'
 )
 
 
@@ -68,10 +79,11 @@ class McpAuthHttpResult:
 
 @dataclass
 class _ProbeRun:
-    """One profile run: what to call, and every token and answer so far."""
+    """One profile run: what to call, where tokens come from, every token and answer so far."""
 
     config: McpAuthHttpComplianceConfig
     transport: McpHttpTransport
+    tokens: ProbeTokenProvider
     sent_tokens: list[str] = field(default_factory=list)
     responses: list[McpHttpResponse] = field(default_factory=list)
 
@@ -136,6 +148,41 @@ async def _check_bad_signature(run: _ProbeRun) -> str | None:
     return INVALID_TOKEN_401.problem(await run.call_protected(token))
 
 
+async def _check_valid_jwt(run: _ProbeRun) -> str | None:
+    """A fresh Agent JWT with the grant, allowed arguments."""
+    token = await run.tokens.probe_token(ProbeTokenKind.AGENT_JWT)
+    return tool_success_problem(await run.call_protected(token))
+
+
+async def _check_replayed_jwt(run: _ProbeRun) -> str | None:
+    """One fresh Agent JWT, sent twice: an Agent JWT is single-use."""
+    return await _second_use_problem(run, ProbeTokenKind.AGENT_JWT, INVALID_TOKEN_401.problem)
+
+
+async def _check_external_valid_token(run: _ProbeRun) -> str | None:
+    """One fresh access token, sent twice: MCP sends it on every request, so it is reusable."""
+    return await _second_use_problem(run, ProbeTokenKind.EXTERNAL, tool_success_problem)
+
+
+async def _second_use_problem(
+    run: _ProbeRun,
+    kind: ProbeTokenKind,
+    second_use_problem: Callable[[McpHttpResponse], str | None],
+) -> str | None:
+    token = await run.tokens.probe_token(kind)
+    first_use = tool_success_problem(await run.call_protected(token))
+    if first_use is not None:
+        return f"on the first use, {first_use}"
+    second_use = second_use_problem(await run.call_protected(token))
+    return None if second_use is None else f"on the second use, {second_use}"
+
+
+async def _check_undeclared_tool(run: _ProbeRun) -> str | None:
+    """A fresh Agent JWT, a tool that the server does not declare (deny by default)."""
+    token = await run.tokens.probe_token(ProbeTokenKind.AGENT_JWT)
+    return CAPABILITY_DENIED_403.problem(await run.call(_UNDECLARED_TOOL, {}, token))
+
+
 async def _check_www_authenticate_on_401(run: _ProbeRun) -> str | None:
     """Every HTTP 401 answer of the run so far."""
     unauthorized = [response for response in run.responses if response.status_code == 401]
@@ -170,6 +217,14 @@ _PROFILE_CHECKS: tuple[tuple[str, _CheckRunner, str], ...] = (
     ("auth_required", _check_auth_required, _EXPECT_AUTH_REQUIRED),
     ("invalid_token", _check_invalid_token, _EXPECT_INVALID_TOKEN),
     ("bad_signature", _check_bad_signature, _EXPECT_INVALID_TOKEN),
+    ("valid_jwt", _check_valid_jwt, _EXPECT_TOOL_RESULT),
+    (
+        "replayed_jwt",
+        _check_replayed_jwt,
+        f"{_EXPECT_TOOL_RESULT}, then on the second use {_EXPECT_INVALID_TOKEN}",
+    ),
+    ("external_valid_token", _check_external_valid_token, f"{_EXPECT_TOOL_RESULT}, twice"),
+    ("undeclared_tool", _check_undeclared_tool, _EXPECT_CAPABILITY_DENIED_403),
     # These two judge every answer of the run, so they run last.
     (
         "www_authenticate_on_401",
@@ -189,32 +244,55 @@ async def _run_check(
         return CheckResult(check_id, True, "skipped")
     try:
         problem = await runner(run)
-    except McpHttpTransportError as exc:
+    except (McpHttpTransportError, ProbeTokenError) as exc:
         problem = str(exc)
     if problem is None:
         return CheckResult(check_id, True, passing)
     return CheckResult(check_id, False, f"expected {passing}; {problem}")
 
 
+def _endpoint_token_provider(
+    config: McpAuthHttpComplianceConfig, http_transport: httpx.AsyncBaseTransport | None
+) -> ProbeTokenProvider:
+    if config.probe_tokens_url is None:
+        raise ValueError(
+            "the mcp-auth-http profile needs fresh probe tokens: got probe_tokens_url=None "
+            "and no token_provider; set one of them"
+        )
+    return ComplianceEndpointTokenProvider(
+        config.probe_tokens_url,
+        timeout_seconds=config.timeout_seconds,
+        http_transport=http_transport,
+    )
+
+
 async def validate_mcp_auth_http_async(
     config: McpAuthHttpComplianceConfig,
     *,
+    token_provider: ProbeTokenProvider | None = None,
     http_transport: httpx.AsyncBaseTransport | None = None,
 ) -> McpAuthHttpResult:
     """Run the ``mcp-auth-http`` profile against a remote HTTP MCP server.
 
     Args:
         config: Profile configuration: the MCP URL, and the tools and arguments to call.
+        token_provider: Source of fresh probe tokens, asked once per request that needs
+            one. Default: the server's test-only probe endpoint at ``probe_tokens_url``.
         http_transport: Optional httpx transport, for tests with a mock server.
 
     Returns:
         One ``CheckResult`` per ID in ``MCP_AUTH_HTTP_CHECK_IDS``, in that order. A check
-        that gets no full HTTP answer fails, and the run goes on.
+        that gets no full HTTP answer, or no token, fails, and the run goes on.
+
+    Raises:
+        ValueError: if there is neither a ``token_provider`` nor a ``probe_tokens_url``.
     """
+    if token_provider is None:
+        token_provider = _endpoint_token_provider(config, http_transport)
     transport = McpHttpTransport(
         config.mcp_url, timeout_seconds=config.timeout_seconds, http_transport=http_transport
     )
-    run = _ProbeRun(config, transport)
+    run = _ProbeRun(config, transport, token_provider)
     checks = [await _run_check(run, *check) for check in _PROFILE_CHECKS]
     return McpAuthHttpResult(profile=config.profile, checks=checks)
 
@@ -222,13 +300,17 @@ async def validate_mcp_auth_http_async(
 def validate_mcp_auth_http(
     config: McpAuthHttpComplianceConfig,
     *,
+    token_provider: ProbeTokenProvider | None = None,
     http_transport: httpx.AsyncBaseTransport | None = None,
 ) -> McpAuthHttpResult:
     """Sync wrapper for :func:`validate_mcp_auth_http_async`."""
     try:
         asyncio.get_running_loop()
     except RuntimeError:
-        return asyncio.run(validate_mcp_auth_http_async(config, http_transport=http_transport))
+        profile_run = validate_mcp_auth_http_async(
+            config, token_provider=token_provider, http_transport=http_transport
+        )
+        return asyncio.run(profile_run)
     raise RuntimeError(
         "Cannot call sync validate_mcp_auth_http from inside a running event loop. "
         "Use validate_mcp_auth_http_async."

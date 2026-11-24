@@ -117,6 +117,11 @@ class McpAuthHttpComplianceConfig(BaseModel):
         pattern=_HTTP_URL_PATTERN,
         description="MCP endpoint URL of the server under test",
     )
+    probe_tokens_url: str | None = Field(
+        default=None,
+        pattern=_HTTP_URL_PATTERN,
+        description="Test-only probe endpoint (POST) for fresh tokens, if no provider is passed",
+    )
     timeout_seconds: float = Field(
         default=10.0,
         gt=0,
