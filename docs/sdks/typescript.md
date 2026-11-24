@@ -67,6 +67,31 @@ const agent = await createAgent(host, { mode: "delegated" });
 
 Always import `@asap-protocol/client/storage-node` **only in Node/desktop** builds so bundlers do not pull `node:fs` or native addons into browser chunks.
 
+## Agent JWT verification (server side)
+
+A server that accepts ASAP Agent JWTs checks them with `verifyAgentJwt` (added in 2.5.0). It runs the token checks of the Python `verify_agent_jwt`: `typ: agent+jwt`, `alg` `EdDSA` or its RFC 9864 name `Ed25519`, an Ed25519 signature, `exp` (required), `iat` (at most 60 seconds ahead), `jti`, and `aud`.
+
+```ts
+import { InMemoryJtiReplayCache, verifyAgentJwt } from "@asap-protocol/client";
+
+const replayCache = new InMemoryJtiReplayCache();
+const result = await verifyAgentJwt(token, {
+  audience: "https://mcp.example.com/mcp", // required
+  resolveAgent: async ({ agentId, hostThumbprint }) => lookUpAgent(agentId, hostThumbprint),
+  replayCache, // an Agent JWT is single-use
+});
+if (!result.ok) {
+  // result.reason is a fixed AgentJwtFailureReason string, safe to return to the caller
+}
+```
+
+- **`resolveAgent`** gets the token's `sub` (`agentId`) and `iss` (`hostThumbprint`). It returns `undefined` for an unknown agent, or `{ publicKey, usable }`: the agent's Ed25519 public JWK, and `usable: false` when the agent is revoked, expired, or pending, when its host is revoked, or when the agent does not belong to that host. The Python function reads these facts from its host and agent stores; here your resolver supplies them.
+- **`replayCache`** records each `jti` under the agent id. `InMemoryJtiReplayCache` serves one process; implement `JtiReplayCache` on a shared store when several instances serve the same audience. Without a cache, a replayed token is not detected.
+- **`nowSeconds`** replaces the clock (seconds since the epoch), for tests.
+- A bad token never throws. A throw from `resolveAgent` or `replayCache` propagates, so a store failure is not reported as a bad token.
+
+The package README lists every difference from the Python verifier.
+
 ## Discovery and capabilities
 
 ```ts

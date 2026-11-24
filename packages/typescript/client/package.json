@@ -1,6 +1,6 @@
 {
   "name": "@asap-protocol/client",
-  "version": "2.4.1",
+  "version": "2.5.0",
   "description": "Official TypeScript client for the ASAP Protocol",
   "type": "module",
   "license": "Apache-2.0",
