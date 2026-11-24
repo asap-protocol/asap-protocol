@@ -79,6 +79,10 @@ from asap.adapters.a2a.signing import (
     CardSigningKey,
     sign_agent_card,
 )
+from asap.adapters.a2a.token_security import (
+    ExternalTokenCardSecurity,
+    external_token_card_security,
+)
 from asap.adapters.a2a.trust import JWKS_MAX_BYTES, A2AKeyResolver, A2ATrustConfig
 from asap.adapters.a2a.unmapped import (
     UNMAPPED_CARD_FIELDS,
@@ -133,6 +137,7 @@ __all__ = [
     "ClientCredentialsOAuthFlow",
     "DeviceCodeOAuthFlow",
     "DroppedField",
+    "ExternalTokenCardSecurity",
     "HTTPAuthSecurityScheme",
     "ImplicitOAuthFlow",
     "InvalidSignatureReason",
@@ -155,6 +160,7 @@ __all__ = [
     "agent_card_to_manifest",
     "canonical_card_form",
     "canonicalize_agent_card",
+    "external_token_card_security",
     "manifest_to_agent_card",
     "read_asap_extension",
     "sign_agent_card",
