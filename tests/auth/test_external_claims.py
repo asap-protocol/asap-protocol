@@ -41,6 +41,16 @@ _NON_FINITE_DATES = {
 }
 
 
+@pytest.fixture(autouse=True)
+def _clock_at_now(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pin the clock that the lifetime check reads to ``_NOW``, the instant the cases use.
+
+    The cases are built at import. Unpinned, a test that ran about 15 s after
+    import saw the small-skew token expired, and 60 s after, the ``nbf`` case valid.
+    """
+    monkeypatch.setattr("asap.auth.external_verifier.time.time", lambda: float(_NOW))
+
+
 @pytest.fixture
 def idp() -> LocalIssuer:
     return LocalIssuer("https://idp.example/")
