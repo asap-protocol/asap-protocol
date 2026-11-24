@@ -4,9 +4,19 @@ See ``docs/guides/interoperability.md`` ("External access tokens on an ASAP serv
 When ``create_app`` gets an ``external_token_config``, a bearer whose JOSE
 header ``typ`` is not exactly ``agent+jwt`` goes to the external verifier, and
 an Agent JWT keeps its own path. A failed verifier never falls back to the
-other one. A rejected token gets one 401 body for every reason, so the
-response does not tell which issuers are allowlisted; the typed reason goes to
-the log. Neither the response nor the log ever holds the token.
+other one. A rejected token gets one 401 body for every reason, so the body
+does not tell which check failed; the typed reason goes to the log. Neither
+the response nor the log ever holds the token.
+
+What the answer still shows: when the named issuer is listed but its keys (or
+the introspection endpoint) cannot be had right now, the answer is 503, while
+a token that names an unlisted issuer gets the 401. A key fetch can also make
+the answer slower. So a caller can learn that an issuer is listed while its key
+source is down. This is kept on purpose: the 503 lets a legitimate caller tell
+an outage from a bad token, and the issuer list is not a secret (RFC 9728
+metadata can publish it). Checking the unverified claims before the keys would
+not close the gap, because a forged token can carry the right ``aud``, ``exp``,
+and ``sub``.
 """
 
 from __future__ import annotations
