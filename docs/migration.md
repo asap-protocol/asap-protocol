@@ -1108,6 +1108,25 @@ Scope: [prd-v2.5.4-distribution-loop.md](../product/prd/prd-v2.5.4-distribution-
 
 ---
 
+### Upgrading from v2.5.x to v2.6.0
+
+**v2.6.0 (Interop)** is in development and is not released yet. This section
+grows as each change lands.
+
+#### Removed import paths
+
+v2.5.1 deprecated six import paths and said that v2.6.0 removes them (see
+`CHANGELOG.md` `[2.5.1]`, "Deprecated"). In v2.6.0, an import of a removed
+path fails with `ModuleNotFoundError` or `ImportError`. Change each import to
+its replacement before you upgrade. These removals do not change the wire
+protocol.
+
+| Removed path | Before (v2.5.x) | After (v2.6.0) |
+|--------------|-----------------|----------------|
+| `asap.cli._compat` ([#275](https://github.com/asap-protocol/asap-protocol/issues/275)) | `from asap.cli._compat import DEFAULT_SCHEMAS_DIR, export_all_schemas, _repl_namespace` | `from asap.cli.schemas import DEFAULT_SCHEMAS_DIR`; `from asap.schemas import export_all_schemas`; `from asap.cli.repl import _repl_namespace` |
+
+---
+
 ### Upgrading from v2.5.11 to v2.5.12
 
 **v2.5.12 (security & correctness patch)** — **shipped**

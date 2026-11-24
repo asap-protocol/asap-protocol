@@ -7,9 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **`asap.cli._compat`** ([#275](https://github.com/asap-protocol/asap-protocol/issues/275)) — the CLI compat shim deprecated in 2.5.1 is gone. Import `DEFAULT_SCHEMAS_DIR` from `asap.cli.schemas`, `export_all_schemas` from `asap.schemas`, and `_repl_namespace` from `asap.cli.repl`. See the [migration guide](docs/migration.md#upgrading-from-v25x-to-v260).
+
 ### Follow-up (planned)
 
-- **v2.6.0 Interop** — A2A v1.0 Agent Card ↔ ASAP manifest bridge, external agent tokens (including MCP OAuth 2.1) → ASAP agent sessions, and `@asap-protocol/mcp-auth` for HTTP MCP servers (deferred from v2.5.0 — see [2.5.0] TypeScript note and [typescript-mcp-auth-spike.md](engineering/tasks/v2.5.0/typescript-mcp-auth-spike.md)); removes the `asap.cli._compat` shim (#275).
+- **v2.6.0 Interop** — A2A v1.0 Agent Card ↔ ASAP manifest bridge, external agent tokens (including MCP OAuth 2.1) → ASAP agent sessions, and `@asap-protocol/mcp-auth` for HTTP MCP servers (deferred from v2.5.0 — see [2.5.0] TypeScript note and [typescript-mcp-auth-spike.md](engineering/tasks/v2.5.0/typescript-mcp-auth-spike.md)).
 - **v2.7.0 Spec profile** — RFC 2119 profile of ASAP's identity, capability-grant, approval, and lifecycle surface ([prd-spec-profile.md](product/prd/prd-spec-profile.md)).
 - Collapse the dual `UsageMetrics`/`InMemoryMeteringStore` pair retained in S1 for API stability.
 - Reduce the `asap.transport.client` package aggregate LOC below the S2 target.

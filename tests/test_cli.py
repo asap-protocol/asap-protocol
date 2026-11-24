@@ -12,7 +12,7 @@ from typer.testing import CliRunner
 
 from asap import __version__
 from asap.cli import app
-from asap.cli._compat import DEFAULT_SCHEMAS_DIR
+from asap.cli.schemas import DEFAULT_SCHEMAS_DIR
 from asap.crypto.keys import generate_keypair, serialize_private_key
 from asap.economics.delegation_storage import SQLiteDelegationStorage
 from asap.schemas import TOTAL_SCHEMA_COUNT
@@ -1096,7 +1096,7 @@ class TestReplNamespace:
     """Cover _repl_namespace and sample_envelope (line 471)."""
 
     def test_namespace_contains_expected_keys(self) -> None:
-        from asap.cli._compat import _repl_namespace
+        from asap.cli.repl import _repl_namespace
 
         ns = _repl_namespace()
         assert "Envelope" in ns
@@ -1106,7 +1106,7 @@ class TestReplNamespace:
         assert "sample_envelope" in ns
 
     def test_sample_envelope_produces_valid_envelope(self) -> None:
-        from asap.cli._compat import _repl_namespace
+        from asap.cli.repl import _repl_namespace
 
         ns = _repl_namespace()
         envelope = ns["sample_envelope"]()
