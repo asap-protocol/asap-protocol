@@ -46,6 +46,7 @@ from asap.auth.external_tokens import (
 from asap.auth.external_verifier import ExternalTokenVerifier
 from asap.models.entities import Manifest
 from asap.observability import get_logger
+from asap.transport.handlers import HandlerRegistry
 from asap.transport.server import create_app
 from asap.utils.guarded_fetch import AddressResolver
 from examples.a2a_gateway import refusals
@@ -92,7 +93,9 @@ def create_gateway_app(
     card = build_signed_agent_card(
         manifest, card_inputs, signers=signers, external_tokens=external_tokens
     ).card
-    app: FastAPI = create_app(manifest, agent_card=card)
+    # An empty registry: create_app would otherwise install its default echo
+    # handler on POST /asap, with no auth. A skill runs only through the gate.
+    app: FastAPI = create_app(manifest, registry=HandlerRegistry(), agent_card=card)
     sdk_card = ParseDict(card.model_dump(mode="json"), SdkAgentCard())
     handler = DefaultRequestHandler(SkillCallExecutor(skills), InMemoryTaskStore(), sdk_card)
     [rpc_route] = create_jsonrpc_routes(

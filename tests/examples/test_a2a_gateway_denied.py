@@ -26,6 +26,8 @@ from asap.adapters.a2a import (
     CardSigner,
 )
 from asap.auth.external_tokens import ExternalTokenConfig
+from asap.models.envelope import Envelope
+from asap.models.payloads import TaskRequest
 from examples.a2a_gateway.client import call_skill, pinned_card_verifier
 from examples.a2a_gateway.demo_agent import (
     DEMO_SKILLS,
@@ -222,3 +224,24 @@ def test_the_sdk_call_context_never_holds_the_token() -> None:
 
     assert context.state["headers"] == {"a2a-version": "1.0"}
     assert "secret-token" not in repr(context.state)
+
+
+async def test_the_asap_endpoint_beside_the_card_runs_no_handler(
+    http: httpx.AsyncClient, calls: list[str]
+) -> None:
+    request = TaskRequest(conversation_id="c-1", skill_id="echo", input={"text": "hi"})
+    envelope = Envelope(
+        asap_version="0.1",
+        sender="urn:asap:agent:client",
+        recipient="urn:asap:agent:a2a-gateway-demo",
+        payload_type="task.request",
+        payload=request.model_dump(),
+    )
+    body = {"jsonrpc": "2.0", "id": 1, "method": "asap.send"}
+
+    response = await http.post(
+        "/asap", json=body | {"params": {"envelope": envelope.model_dump(mode="json")}}
+    )
+
+    assert "result" not in response.json() and "error" in response.json()
+    assert calls == []

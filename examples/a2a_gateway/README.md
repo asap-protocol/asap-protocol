@@ -145,6 +145,7 @@ uv run pytest tests/examples/test_a2a_gateway.py tests/examples/test_a2a_gateway
 - It does not send the caller's token anywhere. The `a2a-sdk` layer and the skills do not see the `Authorization` header.
 - It does not check the arguments against the skill's JSON Schema. Only the grant constraints are checked.
 - It keeps no task, and it has no streaming or push notifications.
+- It registers no ASAP handler: `POST /asap` (the endpoint that the card's ASAP extension names) answers every task with an error, so a skill runs only through `POST /a2a` and its checks.
 
 ## Card signatures
 
