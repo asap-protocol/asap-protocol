@@ -1,6 +1,7 @@
 import { AGENT_JWT_TYP } from "@asap-protocol/client";
 import {
   bearerAuthChallengeResponse,
+  isLegacyRequest,
   OAuthError,
   OAuthErrorCode,
   type AuthInfo,
@@ -83,7 +84,9 @@ export interface McpAuthMiddleware {
    * Put the token layer in front of an MCP handler. SDK 2.4 has no request
    * middleware, so the layer wraps `handler.fetch`: a refused request gets its
    * `Response`, and any other request reaches `handler.fetch(request, { authInfo })`.
-   * Tools read the result as `ctx.http?.authInfo`.
+   * Tools read the result as `ctx.http?.authInfo`. A request that the SDK's
+   * `isLegacyRequest` would route to 2025-era serving is refused too (401 with
+   * no token, 403 with one), because that path skips the SDK's `Mcp-Name` check.
    */
   protect(handler: McpFetchHandler): McpProtectedHandler;
   /**
@@ -150,6 +153,21 @@ function tokenSurface(config: McpAuthConfig): { callableTools: ReadonlySet<strin
   const allowMethods = new Set(config.allowMethods);
   if (allowMethods.has("tools/call")) throw new TypeError('allowMethods cannot list "tools/call": publicTools and toolCapabilities name the tools a token may call');
   return { callableTools, allowMethods };
+}
+
+/**
+ * The header rule holds only on the SDK's 2026-07-28 path.
+ * `isLegacyRequest` runs the SDK's own routing step on a clone of the body
+ * (with its default 4 MiB limit). Under SDK 2.4.0 every request that passes
+ * the header rule routes there already, so this guards against a later SDK
+ * 2.x that routes differently. A body that cannot be read counts as legacy.
+ */
+async function routedAsLegacy(request: Request): Promise<boolean> {
+  try {
+    return await isLegacyRequest(request);
+  } catch {
+    return true;
+  }
 }
 
 function invalidTokenResponse(reason: string, resourceMetadataUrl: string | undefined): Response {
@@ -249,6 +267,9 @@ export function createMcpAuthMiddleware(config: McpAuthConfig): McpAuthMiddlewar
         const authInfo = await authenticate(request);
         if (authInfo instanceof Response) {
           return authInfo;
+        }
+        if (await routedAsLegacy(request)) {
+          return authInfo === undefined ? authRequiredResponse(resourceMetadataUrl) : capabilityDeniedResponse(resourceMetadataUrl);
         }
         return handler.fetch(request, authInfo === undefined ? undefined : { authInfo });
       },
