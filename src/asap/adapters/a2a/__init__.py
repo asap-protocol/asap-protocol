@@ -1,4 +1,4 @@
-"""A2A v1.0 Agent Card models for the ASAP A2A bridge.
+"""A2A v1.0 Agent Card and security scheme models for the ASAP A2A bridge.
 
 Pinned spec: A2A v1.0, ``specification/a2a.proto`` at tag ``v1.0.1``. This
 package holds no A2A wire runtime and never imports ``a2a-sdk``.
@@ -21,6 +21,14 @@ from asap.adapters.a2a.models import (
     AgentProvider,
     AgentSkill,
 )
+from asap.adapters.a2a.security import (
+    AuthorizationCodeOAuthFlow,
+    ClientCredentialsOAuthFlow,
+    DeviceCodeOAuthFlow,
+    ImplicitOAuthFlow,
+    OAuthFlows,
+    PasswordOAuthFlow,
+)
 
 __all__ = [
     "A2AAdapterError",
@@ -32,4 +40,10 @@ __all__ = [
     "AgentInterface",
     "AgentProvider",
     "AgentSkill",
+    "AuthorizationCodeOAuthFlow",
+    "ClientCredentialsOAuthFlow",
+    "DeviceCodeOAuthFlow",
+    "ImplicitOAuthFlow",
+    "OAuthFlows",
+    "PasswordOAuthFlow",
 ]
