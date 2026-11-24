@@ -19,20 +19,6 @@ VECTOR_PATH = Path(__file__).resolve().parents[2] / "fixtures" / "interop" / "mc
 VECTOR: dict[str, Any] = json.loads(VECTOR_PATH.read_text(encoding="utf-8"))
 
 
-def _drop_null_fields(value: Any) -> Any:
-    """Remove keys whose value is ``None``, recursively.
-
-    ``tool_error_result`` puts ``"annotations": null`` in each content item. The
-    vector holds the MCP wire shape, where an absent optional field and a null
-    one are compared as equal here.
-    """
-    if isinstance(value, dict):
-        return {key: _drop_null_fields(item) for key, item in value.items() if item is not None}
-    if isinstance(value, list):
-        return [_drop_null_fields(item) for item in value]
-    return value
-
-
 def test_vector_lists_the_four_python_codes() -> None:
     """The vector and the Python module define the same four code strings."""
     python_codes = [
@@ -48,4 +34,4 @@ def test_vector_lists_the_four_python_codes() -> None:
 def test_tool_error_result_matches_vector(case: dict[str, Any]) -> None:
     """``tool_error_result`` builds the payload that the vector records."""
     result = errors.tool_error_result(case["code"], case["detail"])
-    assert _drop_null_fields(result) == case["result"]
+    assert result == case["result"]

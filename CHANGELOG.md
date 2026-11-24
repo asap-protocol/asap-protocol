@@ -51,6 +51,8 @@ Tag [`v2.5.12`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5
 - **Agent URN validation** — `validate_agent_urn` now matches the whole value, so an agent URN with a trailing newline (for example `urn:asap:agent:research\n`) is refused. This applies to `Manifest.id`, `Agent.id`, `Envelope.sender`, `Envelope.recipient`, and `RegistryEntry.id`. Before, the `$` in `AGENT_URN_PATTERN` also matched before a final newline, so such an id passed validation and did not compare equal to the same id without the newline. `AGENT_URN_PATTERN` is unchanged.
 - **Weekly adoption telemetry (maintainer tooling)** — `telemetry-weekly.yml` has its Monday schedule back. The PyPI collector retries PyPI Stats HTTP 429, 5xx, and connection errors with backoff. If PyPI still fails, the snapshot records `pypi.fetch_error` and the job continues. A missing `TELEMETRY_GITHUB_TOKEN` still fails the job, now before any collector runs. Snapshots stay workflow artifacts only. See [docs/maintainers/telemetry.md](docs/maintainers/telemetry.md).
 
+- **MCP stdio bridge: no more `"annotations": null`** — `tools/call` results from `MCPServer` and the auth bridge's `asap:*` error results (`tool_error_result`) now leave the optional `annotations` field out of each content item instead of sending `null`. MCP TypeScript SDK 2.x clients rejected the null and can now read these results; the text and `isError` do not change.
+
 ### Documentation
 
 - **docs/migration.md** — removed the "Key Improvements in ASAP" table from the A2A section. It described an old Agent Card format, not A2A v1.0. The v2.6.0 interoperability guide will replace that section.
