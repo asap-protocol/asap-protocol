@@ -13,7 +13,12 @@ import warnings
 from collections.abc import Mapping
 
 from cryptography.hazmat.primitives.asymmetric.types import PrivateKeyTypes
-from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+from cryptography.hazmat.primitives.serialization import (
+    Encoding,
+    NoEncryption,
+    PrivateFormat,
+    PublicFormat,
+)
 from joserfc import jws
 from joserfc.errors import SecurityWarning
 from joserfc.jwk import Key
@@ -24,6 +29,11 @@ from asap.adapters.a2a import AgentCard, AgentCardSignature, canonicalize_agent_
 def public_pem(private_key: PrivateKeyTypes) -> bytes:
     """The PEM public key, the form the ``a2a-sdk`` key provider returns."""
     return private_key.public_key().public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
+
+
+def private_pem(private_key: PrivateKeyTypes) -> bytes:
+    """The PEM private key, the form the ``a2a-sdk`` signer takes."""
+    return private_key.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption())
 
 
 def sign_with_joserfc(card: AgentCard, key: Key, *, alg: str, kid: str) -> AgentCard:

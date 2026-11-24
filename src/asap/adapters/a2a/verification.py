@@ -41,12 +41,16 @@ class CardVerification:
 
     ``verified`` is false only for an unsigned card accepted under
     ``allow_unsigned``: such a card is unverified data. ``signer_kids`` lists
-    the keys whose signature verified.
+    the keys whose signature verified. ``uncovered`` lists the values of a
+    verified card that no signature covers, by path (see
+    :func:`asap.adapters.a2a.canonical_card_form`); it is empty when
+    ``verified`` is false, because then nothing is covered.
     """
 
     card: AgentCard
     verified: bool
     signer_kids: tuple[str, ...]
+    uncovered: tuple[str, ...] = ()
 
 
 async def verify_agent_card(
@@ -104,7 +108,9 @@ async def verify_agent_card(
         signer_kids.append(entry.kid)
     if not signer_kids:
         raise A2ANoTrustedSignatureError(card.name, skipped)
-    return CardVerification(card=card, verified=True, signer_kids=tuple(signer_kids))
+    return CardVerification(
+        card=card, verified=True, signer_kids=tuple(signer_kids), uncovered=form.uncovered
+    )
 
 
 def _checked_algorithms(algorithms: Collection[str]) -> frozenset[str]:
