@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from asap.adapters.a2a import OAuthFlows
+from asap.adapters.a2a import OAuthFlows, SecurityRequirement, SecurityScheme
 
 _SCOPES = {"agent:read": "Read agent data"}
 _AUTHORIZE = "https://idp.example.com/authorize"
@@ -27,6 +27,24 @@ _FLOWS: dict[str, dict[str, Any]] = {
     },
     "implicit": {"authorizationUrl": _AUTHORIZE, "scopes": _SCOPES},
     "password": {"tokenUrl": _TOKEN, "scopes": _SCOPES},
+}
+
+
+_SCHEMES: dict[str, dict[str, Any]] = {
+    "apiKey": {"apiKeySecurityScheme": {"location": "header", "name": "X-API-Key"}},
+    "bearer": {"httpAuthSecurityScheme": {"scheme": "Bearer", "bearerFormat": "JWT"}},
+    "oidc": {
+        "openIdConnectSecurityScheme": {
+            "openIdConnectUrl": "https://idp.example.com/.well-known/openid-configuration"
+        }
+    },
+    "mtls": {"mtlsSecurityScheme": {"description": "Client certificate"}},
+    "oauth": {
+        "oauth2SecurityScheme": {
+            "flows": {"clientCredentials": _FLOWS["clientCredentials"]},
+            "oauth2MetadataUrl": "https://idp.example.com/.well-known/oauth-authorization-server",
+        }
+    },
 }
 
 
@@ -67,3 +85,63 @@ def test_oauth_flow_requires_scopes(scopes: dict[str, str] | None) -> None:
 def test_oauth_flow_requires_its_urls() -> None:
     with pytest.raises(ValidationError):
         OAuthFlows.model_validate({"deviceCode": {"tokenUrl": _TOKEN, "scopes": _SCOPES}})
+
+
+@pytest.mark.parametrize("name", sorted(_SCHEMES))
+def test_each_scheme_wrapper_parses_and_dumps_unchanged(name: str) -> None:
+    data = _SCHEMES[name]
+
+    assert SecurityScheme.model_validate(data).model_dump(mode="json") == data
+
+
+def test_wrapper_exposes_the_scheme_under_its_snake_case_name() -> None:
+    scheme = SecurityScheme.model_validate(_SCHEMES["oidc"])
+
+    assert scheme.open_id_connect_security_scheme is not None
+    assert scheme.open_id_connect_security_scheme.open_id_connect_url.startswith("https://idp")
+    assert scheme.mtls_security_scheme is None
+
+
+@pytest.mark.parametrize(
+    "data",
+    [{**_SCHEMES["bearer"], **_SCHEMES["mtls"]}, {}, {"type": "http", "scheme": "bearer"}],
+    ids=["two-wrapper-keys", "no-wrapper-key", "v0.3-type-field"],
+)
+def test_scheme_needs_exactly_one_wrapper_key(data: dict[str, Any]) -> None:
+    with pytest.raises(ValidationError, match="exactly one"):
+        SecurityScheme.model_validate(data)
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        {"apiKeySecurityScheme": {"location": "header"}},
+        {"httpAuthSecurityScheme": {"scheme": ""}},
+        {"openIdConnectSecurityScheme": {}},
+        {"oauth2SecurityScheme": {}},
+    ],
+    ids=["api-key-name", "http-scheme", "oidc-url", "oauth2-flows"],
+)
+def test_scheme_rejects_a_missing_required_field(data: dict[str, Any]) -> None:
+    with pytest.raises(ValidationError):
+        SecurityScheme.model_validate(data)
+
+
+def test_requirement_with_scopes_round_trips() -> None:
+    data: dict[str, Any] = {"schemes": {"oauth": {"list": ["agent:read"]}, "mtls": {"list": []}}}
+
+    requirement = SecurityRequirement.model_validate(data)
+
+    assert requirement.schemes is not None
+    assert requirement.schemes["oauth"].scopes == ["agent:read"]
+    assert requirement.model_dump(mode="json") == data
+
+
+def test_requirement_without_a_list_key_is_accepted() -> None:
+    data: dict[str, Any] = {"schemes": {"bearer": {}}}
+
+    requirement = SecurityRequirement.model_validate(data)
+
+    assert requirement.schemes is not None
+    assert requirement.schemes["bearer"].scopes is None
+    assert requirement.model_dump(mode="json") == data

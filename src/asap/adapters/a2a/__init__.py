@@ -22,17 +22,26 @@ from asap.adapters.a2a.models import (
     AgentSkill,
 )
 from asap.adapters.a2a.security import (
+    APIKeySecurityScheme,
     AuthorizationCodeOAuthFlow,
     ClientCredentialsOAuthFlow,
     DeviceCodeOAuthFlow,
+    HTTPAuthSecurityScheme,
     ImplicitOAuthFlow,
+    MutualTlsSecurityScheme,
+    OAuth2SecurityScheme,
     OAuthFlows,
+    OpenIdConnectSecurityScheme,
     PasswordOAuthFlow,
+    SecurityRequirement,
+    SecurityScheme,
+    StringList,
 )
 
 __all__ = [
     "A2AAdapterError",
     "A2AUnsupportedVersionError",
+    "APIKeySecurityScheme",
     "AgentCapabilities",
     "AgentCard",
     "AgentCardSignature",
@@ -43,7 +52,14 @@ __all__ = [
     "AuthorizationCodeOAuthFlow",
     "ClientCredentialsOAuthFlow",
     "DeviceCodeOAuthFlow",
+    "HTTPAuthSecurityScheme",
     "ImplicitOAuthFlow",
+    "MutualTlsSecurityScheme",
+    "OAuth2SecurityScheme",
     "OAuthFlows",
+    "OpenIdConnectSecurityScheme",
     "PasswordOAuthFlow",
+    "SecurityRequirement",
+    "SecurityScheme",
+    "StringList",
 ]
