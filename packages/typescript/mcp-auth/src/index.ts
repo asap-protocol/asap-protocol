@@ -9,14 +9,7 @@
  * ```
  */
 
-/**
- * The MCP protocol revision this package targets.
- *
- * The SDK does not export it: in `@modelcontextprotocol/server` 2.4.0,
- * `LATEST_PROTOCOL_VERSION` is still `"2025-11-25"`, and the 2026-07-28
- * revision is internal to the SDK.
- */
-export const MCP_PROTOCOL_VERSION = "2026-07-28";
+export { MCP_PROTOCOL_VERSION } from "./public-request.js";
 
 export { McpAuthErrorCode, toolErrorResult } from "./errors.js";
 export { createAgentJwtVerifier } from "./agent-jwt-verifier.js";
