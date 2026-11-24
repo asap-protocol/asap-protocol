@@ -9,19 +9,24 @@ checks ``aud``, ``exp``, ``nbf``, and ``sub`` and maps the grants. So
 refused before any key is looked up or fetched. There is no replay check: an
 OAuth access token is sent on every request until it expires.
 
-Opaque tokens (RFC 7662; any bearer that does not have three
-dot-separated segments) go to the one issuer configured with introspection,
-as do JWTs that name it; the header checks still run first, so
-an ASAP token or another issuer's token is never sent. ``TokenIntrospector``
-posts through the guarded POST and caches an active answer until shortly
-before its ``exp``. Its answer then gets the same claim checks as a verified
-JWT, plus ``active`` and, when present, ``iss``.
+Opaque tokens (RFC 7662) go to the one issuer configured with
+introspection, as do JWTs that name it. A JWS gets the header and issuer
+checks first, so an ASAP token or a JWT of another issuer is never sent. A
+bearer whose first dot-separated segment is base64url JSON (a JOSE header)
+must be a three-segment JWS; any other such shape, a JWE included, is
+``malformed_token`` and is never sent. Every other bearer is opaque: it names
+no issuer, so it goes to the introspection issuer with this server's client
+credentials whoever minted it. ``TokenIntrospector`` posts through the guarded
+POST and caches an active answer until shortly before its ``exp``. Its answer
+then gets the same claim checks as a verified JWT, plus ``active`` and, when
+present, ``iss``.
 
 Errors carry a typed reason and never the token or its signature.
 """
 
 from __future__ import annotations
 
+import base64
 import json
 import math
 import time
@@ -58,14 +63,33 @@ _ASAP_TOKEN_TYPES = frozenset({"agent+jwt", "host+jwt"})
 Reason = ExternalTokenErrorReason
 
 
+def _is_jose_header(segment: str) -> bool:
+    """Return True if ``segment`` is base64url of a JSON object, as a JWS or JWE header is."""
+    try:
+        decoded = base64.b64decode(segment + "=" * (-len(segment) % 4), b"-_", validate=True)
+        return isinstance(json.loads(decoded), dict)
+    except ValueError:
+        return False
+    except RecursionError:
+        # Nested past about 10,000 levels: no opaque token looks like that; never send it.
+        return True
+
+
 def _unverified_parts(token: str) -> tuple[dict[str, Any], dict[str, Any]] | None:
     """Return the header and payload of a JWS compact token, or None for an opaque token.
 
     Any bearer with three dot-separated segments counts as a JWS, even one
     joserfc refuses (its header limit is 512 bytes), so it is never sent to
-    the introspection issuer when it names another issuer.
+    the introspection issuer when it names another issuer. A bearer whose
+    first segment is a JOSE header but that has another number of segments
+    (a JWE, or a JWS with a segment added or removed) is malformed, not
+    opaque, for the same reason.
     """
     if token.count(".") != 2:
+        if _is_jose_header(token.split(".", 1)[0]):
+            raise ExternalTokenError(
+                Reason.MALFORMED_TOKEN, "a JOSE header, but not a three-segment JWS"
+            )
         return None
     try:
         compact = extract_compact(token.encode("utf-8"))

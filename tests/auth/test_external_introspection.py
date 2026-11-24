@@ -20,7 +20,7 @@ from asap.auth.external_tokens import (
     ExternalTokenErrorReason,
 )
 from asap.auth.external_verifier import ExternalTokenVerifier
-from tests.auth.local_issuer import LocalIssuer
+from tests.auth.local_issuer import LocalIssuer, nested_payload_token, unsigned_token
 
 _ISSUER = "https://idp.example"
 _AUDIENCE = "https://api.example/asap"
@@ -144,19 +144,43 @@ async def test_jwt_of_the_introspection_issuer_is_introspected(
     assert parse_qs(endpoint.requests[0].content.decode())["token"] == [token]
 
 
-@pytest.mark.parametrize("typ_or_issuer", ["agent+jwt", "host+jwt", "https://other.example"])
-async def test_asap_tokens_and_other_issuers_are_never_sent(
-    endpoint: _FakeIntrospectionEndpoint, typ_or_issuer: str
+def _never_sent_tokens() -> dict[str, tuple[str, Reason]]:
+    idp, other = LocalIssuer(_ISSUER), LocalIssuer("https://other.example")
+    agent_jwt = idp.mint(idp.claims(_AUDIENCE), header={"typ": "agent+jwt"})
+    other_jwt = other.mint(other.claims(_AUDIENCE))
+    header, payload, _ = other_jwt.split(".")
+    jwe_header = unsigned_token({"alg": "RSA-OAEP-256", "enc": "A256GCM"}, {}).split(".")[0]
+    return {
+        "agent+jwt": (agent_jwt, Reason.TOKEN_TYPE_REJECTED),
+        "host+jwt": (idp.mint(idp.claims(_AUDIENCE), header={"typ": "host+jwt"}), Reason.TOKEN_TYPE_REJECTED),
+        "another issuer": (other_jwt, Reason.UNTRUSTED_ISSUER),
+        # JOSE-shaped but not a three-segment JWS: these were sent before the
+        # malformed-token check.
+        "a JWT plus a dot": (other_jwt + ".", Reason.MALFORMED_TOKEN),
+        "an agent+jwt plus a dot": (agent_jwt + ".", Reason.MALFORMED_TOKEN),
+        "header and payload, one dot": (f"{header}.{payload}", Reason.MALFORMED_TOKEN),
+        "a JWE, five segments": (f"{jwe_header}.a2V5.aXY.Y2lwaGVy.dGFn", Reason.MALFORMED_TOKEN),
+        "a JOSE header alone": (header, Reason.MALFORMED_TOKEN),
+        "JSON nested too deeply to read": (nested_payload_token({}).split(".")[1] + ".x", Reason.MALFORMED_TOKEN),
+    }  # fmt: skip
+
+
+@pytest.mark.parametrize("name", list(_never_sent_tokens()))
+async def test_asap_tokens_other_issuers_and_jose_shapes_are_never_sent(
+    endpoint: _FakeIntrospectionEndpoint, name: str
 ) -> None:
-    if typ_or_issuer.startswith("https://"):
-        other = LocalIssuer(typ_or_issuer)
-        token, reason = other.mint(other.claims(_AUDIENCE)), Reason.UNTRUSTED_ISSUER
-    else:
-        idp = LocalIssuer(_ISSUER)
-        token = idp.mint(idp.claims(_AUDIENCE), header={"typ": typ_or_issuer})
-        reason = Reason.TOKEN_TYPE_REJECTED
+    token, reason = _never_sent_tokens()[name]
     await _refused(endpoint.verifier(), token, reason)
     assert endpoint.requests == []
+
+
+@pytest.mark.parametrize("token", ["ory_at_x8Yb2Q.k9JdW1", "a.b", "opaque.with.three.dots"])
+async def test_dotted_opaque_tokens_are_still_introspected(
+    endpoint: _FakeIntrospectionEndpoint, token: str
+) -> None:
+    # The first segment is not base64url JSON, so nothing marks these as JOSE.
+    assert (await endpoint.verifier().verify(token)).subject == "user-9"
+    assert parse_qs(endpoint.requests[0].content.decode())["token"] == [token]
 
 
 async def test_jwt_issuer_next_to_the_introspection_issuer_still_verifies_locally(
