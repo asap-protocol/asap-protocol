@@ -1,6 +1,8 @@
 import { AGENT_JWT_TYP, JtiReplayCacheFullError } from "@asap-protocol/client";
 import {
   bearerAuthChallengeResponse,
+  DEFAULT_MAX_REQUEST_BODY_SIZE,
+  isJsonContentType,
   isJSONRPCNotification,
   isLegacyRequest,
   OAuthError,
@@ -101,6 +103,8 @@ export interface McpAuthMiddleware {
    * `isLegacyRequest` would route to 2025-era serving is refused too (401 with
    * no token, 403 with one), because that path skips the SDK's `Mcp-Name` check;
    * so is a JSON-RPC notification whose method `allowMethods` does not list.
+   * After the header checks, `protect` refuses a POST with an unsupported
+   * media type (415) or a body over 4 MiB (413) before it calls the handler.
    */
   protect(handler: McpFetchHandler): McpProtectedHandler;
   /**
@@ -177,20 +181,28 @@ interface BodyRoute {
   readonly notification?: string;
 }
 
+function bodyErrorResponse(status: number, message: string): Response {
+  return Response.json({ jsonrpc: "2.0", id: null, error: { code: -32000, message } }, { status });
+}
+
 /**
- * The body, read once with the SDK's own 4 MiB limit, as the SDK will route it.
- * The header rule holds only on the SDK's 2026-07-28 path;
- * `isLegacyRequest` runs the SDK's routing step. Under SDK 2.4.0 every request
- * that passes the header rule routes there already, so this guards against a
- * later SDK 2.x that routes differently. A body that cannot be read or parsed
- * counts as legacy; a body over the limit goes on to the SDK, which answers 413.
- * The headers are the same for a request and a notification, so
- * only the body tells that a message is a notification.
+ * The header rule holds on the SDK's 2026-07-28 path. Inspect the body to
+ * confirm that route and detect notifications. Refuse excess data here because
+ * the downstream handler can use a different limit. Treat a read or parse
+ * error as legacy traffic.
  */
-async function routeOfBody(request: Request): Promise<BodyRoute> {
+async function routeOfBody(request: Request): Promise<BodyRoute | Response> {
+  if (request.method === "POST" && !isJsonContentType(request.headers.get("content-type"))) {
+    return bodyErrorResponse(415, "Unsupported Media Type: Content-Type must be application/json");
+  }
   try {
-    const read = await readRequestBody(request.clone());
-    if (read.tooLarge) return { legacy: false };
+    const copy = request.clone();
+    const read = await readRequestBody(copy);
+    if (read.tooLarge) {
+      // Release both branches of the body stream when neither handler will read them.
+      void Promise.allSettled([copy.body?.cancel(), request.body?.cancel()]);
+      return bodyErrorResponse(413, `Payload Too Large: Request body must not exceed ${DEFAULT_MAX_REQUEST_BODY_SIZE} bytes`);
+    }
     const body: unknown = JSON.parse(read.text);
     return { legacy: await isLegacyRequest(request, body), notification: isJSONRPCNotification(body) ? body.method : undefined };
   } catch {
@@ -320,6 +332,7 @@ export function createMcpAuthMiddleware(config: McpAuthConfig): McpAuthMiddlewar
   function protect(handler: McpFetchHandler): McpProtectedHandler {
     return {
       fetch: async (request: Request): Promise<Response> => {
+        if (route instanceof Response) return route;
         const authInfo = await authenticate(request);
         if (authInfo instanceof Response) {
           return authInfo;

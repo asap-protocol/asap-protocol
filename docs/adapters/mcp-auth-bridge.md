@@ -729,7 +729,7 @@ The token layer answers with HTTP. The grant layer answers with a tool result.
 
 The two kinds of token differ in one case. With an Agent JWT, a missing grant is always a tool result, as in the Python bridge. With an access token, it is HTTP 403 when a scope can give the grant, so that a standard MCP client can ask for that scope; otherwise it is a tool result. A constraint violation is a tool result on both paths, because it depends on the arguments.
 
-Some answers come from the MCP SDK, not from this package: HTTP 400 when the headers disagree with the body (`-32020`) or a `_meta` key is missing (`-32602`), and HTTP 415 for a wrong `Content-Type`.
+After the token and header checks, `protect` answers HTTP 415 for an unsupported `Content-Type` and HTTP 413 for a body over 4 MiB. The MCP SDK answers HTTP 400 when the headers disagree with the body (`-32020`) or a `_meta` key is missing (`-32602`).
 
 ### Limits
 
