@@ -123,6 +123,7 @@ See [Compliance Testing Guide](https://github.com/asap-protocol/asap-protocol/bl
 **Learn**
 - [Docs](docs/index.md) | [API Reference](docs/api-reference.md)
 - [MCP Auth Bridge](docs/adapters/mcp-auth-bridge.md) — v2.5.0 opt-in JWT + capability grants for native stdio MCP
+- [Interoperability: A2A, MCP, and ASAP](docs/guides/interoperability.md) — ASAP grants in front of A2A v1.0 agents and HTTP MCP servers
 - [TypeScript client SDK](docs/sdks/typescript.md) — `@asap-protocol/client` (identity, capabilities, streaming, adapters)
 - [Tutorials](https://github.com/asap-protocol/asap-protocol/tree/main/docs/tutorials) — First agent to production checklist
 - [Migration from A2A/MCP](https://github.com/asap-protocol/asap-protocol/blob/main/docs/migration.md)
