@@ -21,6 +21,7 @@ from asap.adapters.a2a import (
     A2AInvalidSignatureError,
     A2AKeyResolver,
     A2ATrustConfig,
+    AllowedJku,
     manifest_to_agent_card,
     verify_agent_card,
 )
@@ -42,6 +43,7 @@ _SMALL_ORDER = {
 }
 # R = the identity point, S = 0: valid for every message under the identity key.
 _UNIVERSAL_FORGERY = _IDENTITY + bytes(32)
+_AGENTS = ["urn:asap:agent:research"]
 
 
 def _b64url(raw: bytes) -> str:
@@ -65,7 +67,9 @@ def test_a_small_order_key_does_not_fit_and_the_universal_forgery_fails(raw: byt
 @pytest.mark.parametrize("name", ["identity", "order 8"])
 def test_a_small_order_pinned_key_is_refused_when_the_config_is_built(name: str) -> None:
     with pytest.raises(ValidationError, match="small-order"):
-        A2ATrustConfig.model_validate({"pinned_keys": {"k1": _jwk(_SMALL_ORDER[name])}})
+        A2ATrustConfig.model_validate(
+            {"pinned_keys": {"k1": {"jwk": _jwk(_SMALL_ORDER[name]), "agents": _AGENTS}}}
+        )
 
 
 async def test_a_small_order_key_from_a_jwks_fails_the_card_as_a_key_mismatch() -> None:
@@ -77,7 +81,9 @@ async def test_a_small_order_key_from_a_jwks_fails_the_card_as_a_key_mismatch() 
         return ["93.184.216.34"]
 
     resolver = A2AKeyResolver(
-        A2ATrustConfig(jku_allowlist=[jku]), dns_resolver=public_dns, transport=transport
+        A2ATrustConfig(jku_allowlist={jku: AllowedJku(agents=_AGENTS)}),
+        dns_resolver=public_dns,
+        transport=transport,
     )
     card = manifest_to_agent_card(research_manifest(), research_card_inputs()).card
     header = {"alg": "EdDSA", "kid": "k1", "jku": jku}

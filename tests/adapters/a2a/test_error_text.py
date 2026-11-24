@@ -29,7 +29,9 @@ from asap.adapters.a2a import (
     A2AKeyResolver,
     A2AMappingError,
     A2ANoTrustedSignatureError,
+    ANY_AGENT,
     A2ATrustConfig,
+    AllowedJku,
     A2AUncoveredExtensionError,
     A2AUnsignedCardError,
     A2AUnsupportedVersionError,
@@ -92,7 +94,9 @@ async def _key_resolution() -> object:
     jku = "https://keys.example.com/jwks.json"
     jwks = httpx.MockTransport(lambda request: httpx.Response(200, json={"keys": [member] * 2}))
     resolver = A2AKeyResolver(
-        A2ATrustConfig(jku_allowlist=[jku]), dns_resolver=_public_dns, transport=jwks
+        A2ATrustConfig(jku_allowlist={jku: AllowedJku(agents=ANY_AGENT)}),
+        dns_resolver=_public_dns,
+        transport=jwks,
     )
     return await resolver("k1", jku)
 

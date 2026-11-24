@@ -39,6 +39,8 @@ _BAD_CONFIGS = {
     "pinned key without agents": {"pinned_keys": {"k1": {"jwk": _PUBLIC_JWK}}},
     "pinned key with no agent": {"pinned_keys": {"k1": {"jwk": _PUBLIC_JWK, "agents": []}}},
     "jku without agents": {"jku_allowlist": {_JKU: {}}},
+    "bare pinned JWK, no scope": {"pinned_keys": {"k1": _PUBLIC_JWK}},
+    "jku list, no scope": {"jku_allowlist": [_JKU]},
     "http jku": {"jku_allowlist": {"http://keys.example.com/jwks.json": _AGENTS}},
     "loopback jku": {"jku_allowlist": {"https://127.0.0.1/jwks.json": _AGENTS}},
     "localhost jku": {"jku_allowlist": {"https://localhost/jwks.json": _AGENTS}},

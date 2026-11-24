@@ -39,7 +39,7 @@ from asap.adapters.a2a.signature_keys import (
     CardKey,
     is_small_order_ed25519,
 )
-from asap.adapters.a2a.trust_scope import ANY_AGENT, AllowedJku, PinnedCardKey
+from asap.adapters.a2a.trust_scope import AllowedJku, PinnedCardKey
 from asap.adapters.a2a.verification import SignaturePolicy
 from asap.models.base import ASAPBaseModel
 from asap.utils.guarded_fetch import (
@@ -77,28 +77,6 @@ class A2ATrustConfig(ASAPBaseModel):
     allow_private_hosts: bool = False
     jwks_cache_ttl_seconds: float = Field(default=300.0, gt=0, le=86400)
     jwks_cache_max_entries: int = Field(default=32, ge=1, le=1024)
-
-    @field_validator("pinned_keys", mode="before")
-    @classmethod
-    def _read_unscoped_pinned_keys(cls, keys: Any) -> Any:
-        # Transitional: a bare JWK
-        # still reads as signing for any agent until every caller is scoped.
-        if not isinstance(keys, dict):
-            return keys
-        return {
-            kid: {"jwk": entry, "agents": ANY_AGENT}
-            if isinstance(entry, dict) and "kty" in entry
-            else entry
-            for kid, entry in keys.items()
-        }
-
-    @field_validator("jku_allowlist", mode="before")
-    @classmethod
-    def _read_unscoped_jku_allowlist(cls, urls: Any) -> Any:
-        # Transitional, like _read_unscoped_pinned_keys: removed later.
-        if isinstance(urls, list | tuple | set | frozenset):
-            return {url: {"agents": ANY_AGENT} for url in urls}
-        return urls
 
     @field_validator("pinned_keys")
     @classmethod

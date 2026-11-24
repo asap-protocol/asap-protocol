@@ -22,8 +22,10 @@ from asap.adapters.a2a import (
     A2AKeyResolver,
     A2AMappingError,
     A2ATrustConfig,
+    AllowedJku,
     AgentCard,
     AgentCardIngestor,
+    PinnedCardKey,
     agent_card_to_manifest,
     manifest_to_agent_card,
     sign_agent_card,
@@ -35,6 +37,7 @@ from tests.adapters.a2a.signing_helpers import forged_signature
 
 _KEY = ed25519.Ed25519PrivateKey.generate()
 _JKU = "https://keys.example.com/jwks.json"
+_AGENT = "urn:asap:agent:research"
 _CARD_URL = "https://agent.example.com/.well-known/agent-card.json"
 # Deeper than json.loads accepts, and short enough for the 64 KiB JWKS limit.
 _TOO_DEEP_FOR_JSON = 30_000
@@ -118,7 +121,7 @@ async def test_a_nested_card_body_is_a_typed_fetch_error() -> None:
 
 async def test_a_nested_jwks_is_a_typed_key_resolution_error() -> None:
     resolver = A2AKeyResolver(
-        A2ATrustConfig(jku_allowlist=[_JKU]),
+        A2ATrustConfig(jku_allowlist={_JKU: AllowedJku(agents=[_AGENT])}),
         dns_resolver=_public_dns,
         transport=_serving('{"keys":' + _nested_array_text(_TOO_DEEP_FOR_JSON) + "}"),
     )
@@ -142,7 +145,7 @@ async def test_a_deep_unprotected_header_on_a_valid_signature_is_a_typed_ingest_
     card_json["signatures"][0]["header"] = _deep_object(2000)
     public_jwk = {**OKPKey.import_key(_KEY.public_key()).as_dict(), "kid": "k1"}
     ingestor = AgentCardIngestor(
-        A2ATrustConfig.model_validate({"pinned_keys": {"k1": public_jwk}}),
+        A2ATrustConfig(pinned_keys={"k1": PinnedCardKey(jwk=public_jwk, agents=[_AGENT])}),
         dns_resolver=_public_dns,
         transport=_serving(json.dumps(card_json)),
     )

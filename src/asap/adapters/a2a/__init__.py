@@ -87,6 +87,13 @@ from asap.adapters.a2a.token_security import (
     external_token_card_security,
 )
 from asap.adapters.a2a.trust import JWKS_MAX_BYTES, A2AKeyResolver, A2ATrustConfig
+from asap.adapters.a2a.trust_scope import (
+    ANY_AGENT,
+    AgentScope,
+    AllowedJku,
+    PinnedCardKey,
+    scope_allows,
+)
 from asap.adapters.a2a.unmapped import (
     UNMAPPED_CARD_FIELDS,
     UNMAPPED_MANIFEST_FIELDS,
@@ -115,6 +122,7 @@ __all__ = [
     "A2AUncoveredExtensionError",
     "A2AUnsignedCardError",
     "A2AUnsupportedVersionError",
+    "ANY_AGENT",
     "APIKeySecurityScheme",
     "ASAP_EXTENSION_URI",
     "AgentCapabilities",
@@ -125,7 +133,9 @@ __all__ = [
     "AgentExtension",
     "AgentInterface",
     "AgentProvider",
+    "AgentScope",
     "AgentSkill",
+    "AllowedJku",
     "AsapExtensionParams",
     "AuthorizationCodeOAuthFlow",
     "CARD_VERIFY_ALGORITHMS",
@@ -156,6 +166,7 @@ __all__ = [
     "OAuthFlows",
     "OpenIdConnectSecurityScheme",
     "PasswordOAuthFlow",
+    "PinnedCardKey",
     "SecurityRequirement",
     "SecurityScheme",
     "SignaturePolicy",
@@ -170,6 +181,7 @@ __all__ = [
     "external_token_card_security",
     "manifest_to_agent_card",
     "read_asap_extension",
+    "scope_allows",
     "sign_agent_card",
     "verify_agent_card",
 ]

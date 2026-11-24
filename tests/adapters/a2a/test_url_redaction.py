@@ -16,7 +16,9 @@ from pydantic import ValidationError
 from asap.adapters.a2a import (
     A2ACardFetchError,
     A2AKeyResolutionError,
+    ANY_AGENT,
     A2ATrustConfig,
+    AllowedJku,
     AgentCardIngestor,
 )
 
@@ -72,6 +74,6 @@ def test_a_malformed_allowlist_entry_is_a_validation_error_without_the_password(
     entry: str,
 ) -> None:
     with pytest.raises(ValidationError, match="jku_allowlist") as raised:
-        A2ATrustConfig(jku_allowlist=[entry])
+        A2ATrustConfig(jku_allowlist={entry: AllowedJku(agents=ANY_AGENT)})
 
     assert _SECRET not in str(raised.value)
