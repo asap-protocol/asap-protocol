@@ -14,7 +14,7 @@ from typing import Any
 import httpx
 import pytest
 
-from asap.auth.introspection import TokenIntrospector
+from asap.auth.introspection import TokenInfo, TokenIntrospector
 
 _NOW = 1_700_000_000.0
 
@@ -95,13 +95,56 @@ async def test_capped_cache_serializes_misses_only_for_the_same_token() -> None:
         tasks.create_task(check_again())
         try:
             await second_entered.wait()
-            assert await introspector.introspect("other") is None
+            assert await asyncio.wait_for(introspector.introspect("other"), timeout=2) is None
             assert calls == ["same", "other"]
         finally:
             allow_first_answer.set()
 
     assert first.result() is None
     assert calls == ["same", "other"]
+
+
+async def test_capped_refresh_notifies_a_caller_on_another_event_loop() -> None:
+    main_loop = asyncio.get_running_loop()
+    first_started = asyncio.Event()
+    allow_first_answer = asyncio.Event()
+    second_waiting = asyncio.Event()
+    calls = 0
+
+    async def post(
+        url: str, form: Mapping[str, str], *, basic_auth: tuple[str, str]
+    ) -> dict[str, Any]:
+        nonlocal calls
+        calls += 1
+        first_started.set()
+        await allow_first_answer.wait()
+        return {"active": False}
+
+    async def check_in_other_loop() -> TokenInfo | None:
+        request = asyncio.create_task(introspector.introspect("same"))
+        asyncio.get_running_loop().call_soon(main_loop.call_soon_threadsafe, second_waiting.set)
+        return await asyncio.wait_for(request, timeout=3)
+
+    introspector = TokenIntrospector(
+        "https://auth.example/introspect",
+        "client",
+        "secret",
+        poster=post,
+        max_cache_ttl_seconds=10,
+    )
+    async with asyncio.TaskGroup() as tasks:
+        first = tasks.create_task(introspector.introspect("same"))
+        await asyncio.wait_for(first_started.wait(), timeout=2)
+        second = tasks.create_task(
+            asyncio.to_thread(asyncio.run, check_in_other_loop(), debug=True)
+        )
+        try:
+            await asyncio.wait_for(second_waiting.wait(), timeout=2)
+        finally:
+            allow_first_answer.set()
+
+    assert first.result() is second.result() is None
+    assert calls == 1
 
 
 async def test_cap_of_zero_asks_the_endpoint_every_time(clock: dict[str, float]) -> None:

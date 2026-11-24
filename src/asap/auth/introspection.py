@@ -11,9 +11,9 @@ import asyncio
 import time
 from collections import OrderedDict
 from collections.abc import Mapping
+from concurrent.futures import Future
 from threading import Lock
 from typing import Any, Optional, Protocol
-from weakref import WeakValueDictionary
 
 import httpx
 from pydantic import Field
@@ -136,7 +136,7 @@ class TokenIntrospector:
         # None keeps the lifetime-based TTL. Zero disables the cache.
         self._max_cache_ttl = max_cache_ttl_seconds
         self._cache: OrderedDict[str, _CacheEntry] = OrderedDict()
-        self._refresh_locks: WeakValueDictionary[str, asyncio.Lock] = WeakValueDictionary()
+        self._refreshes: dict[str, Future[None]] = {}
         self._lock = Lock()
         self._max_size = max_cache_size
 
@@ -158,11 +158,26 @@ class TokenIntrospector:
         if self._max_cache_ttl is None or self._max_cache_ttl == 0:
             return await self._read_or_refresh(token)
 
-        # Keep only locks that a caller currently holds or waits for.
-        with self._lock:
-            refresh_lock = self._refresh_locks.setdefault(token, asyncio.Lock())
-        async with refresh_lock:
+        return await self._read_or_refresh_in_order(token)
+
+    async def _read_or_refresh_in_order(self, token: str) -> TokenInfo | None:
+        """Wait for any refresh of this token before reading or replacing its entry."""
+        while True:
+            with self._lock:
+                pending = self._refreshes.get(token)
+                if pending is None:
+                    self._refreshes[token] = Future()
+                    break
+            # Each caller can use a different event loop. Its cancellation
+            # cannot cancel the refresh or the waiters in other loops.
+            await asyncio.shield(asyncio.wrap_future(pending))
+
+        try:
             return await self._read_or_refresh(token)
+        finally:
+            with self._lock:
+                completed = self._refreshes.pop(token)
+            completed.set_result(None)
 
     async def _read_or_refresh(self, token: str) -> TokenInfo | None:
         """Use a current cache entry or get an answer from the issuer."""
