@@ -75,6 +75,7 @@ from asap.adapters.a2a.signing import (
     CardSigningKey,
     sign_agent_card,
 )
+from asap.adapters.a2a.trust import A2ATrustConfig
 from asap.adapters.a2a.unmapped import (
     UNMAPPED_CARD_FIELDS,
     UNMAPPED_MANIFEST_FIELDS,
@@ -96,6 +97,7 @@ __all__ = [
     "A2AMappingError",
     "A2AMappingInputError",
     "A2ANoTrustedSignatureError",
+    "A2ATrustConfig",
     "A2AUnsignedCardError",
     "A2AUnsupportedVersionError",
     "APIKeySecurityScheme",
