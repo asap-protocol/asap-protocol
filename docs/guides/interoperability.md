@@ -161,7 +161,7 @@ app = create_app(manifest, registry=HandlerRegistry(), agent_card=card)
 ```
 
 - **`inputs`** holds what a card needs and a manifest lacks: the A2A interfaces, the input and output media types, and at least one tag per skill. A missing input raises `A2AMappingInputError`.
-- **`external_tokens`** writes the card's security. Each issuer becomes one OpenID Connect security scheme, and each scope rule becomes a requirement on its skill. The card can say less than the server accepts (a claim rule is not shown), never more.
+- **`external_tokens`** writes the card's security. An issuer configured for OpenID Connect discovery publishes its discovery URL. Other issuers publish an HTTP Bearer scheme. Each scope rule becomes a requirement on its skill. The card can say less than the server accepts (a claim rule is not shown), never more.
 - **`CardSigner`** signs with `EdDSA` by default. See [Signed Agent Cards](#signed-agent-cards).
 - **`create_app`** refuses a card with no signature, a card without the ASAP extension, and a card for another agent (another URN, name, or version). It serves the card with `Content-Type: application/json`, `Cache-Control: public, max-age=300`, and an `ETag`.
 - **`registry`**: put your ASAP task handlers here. Without a registry, `create_app` installs a demo echo handler on `POST /asap`.
@@ -256,7 +256,7 @@ The gateway checks the token first, then the skill selection, then the grant. A 
 | `endpoints.events` | Extension `events_endpoint` | Card to manifest: must be a `wss` URL |
 | `capabilities.asap_version` | Extension `asap_version` | |
 | `capabilities.state_persistence` | Extension `state_persistence` | Without the extension: `false` |
-| `capabilities.streaming` | `capabilities.streaming` | Always written. An absent value reads as `false` |
+| `capabilities.streaming` | `capabilities.streaming` | The mapper copies this value. The reference gateway advertises `false` because it serves only `SendMessage`. An absent value reads as `false` |
 | `capabilities.skills[].id` | `skills[].id` | Skill ids must be unique |
 | `capabilities.skills[].description` | `skills[].description` | |
 | `capabilities.skills[].input_schema`, `output_schema` | Extension `skill_schemas.<skill id>` | |
@@ -414,7 +414,7 @@ It does **not** mean:
 - **that the card is fresh.** A signed card has no expiry and no nonce. It can be served again for as long as its key stays trusted.
 - **more than the weakest key.** A card for an agent is as strong as the weakest trusted key that may sign for that agent, an `ANY_AGENT` source included.
 
-`verify_agent_card` alone checks the signatures but does not bind the card to an agent. Call `verify_agent_card_for_agent`, or `CardVerification.require_signer_for(agent_urn)`, or use `AgentCardIngestor`, which does both.
+`verify_agent_card` alone checks the signatures but does not bind the card to an agent. When you know the expected URN, pass it to `verify_agent_card_for_agent` or to `AgentCardIngestor.ingest` as `agent_id`. Both compare the expected URN with the signed extension when present. For a card without the extension, both use the supplied URN to check the signer. `CardVerification.require_signer_for(agent_urn)` checks only the signer's scope.
 
 ## External access tokens on an ASAP server (Python)
 
@@ -473,7 +473,7 @@ How a token is checked, in this order:
 4. The claims: `aud` must name the audience; `exp` is required and `nbf` is checked, with 30 seconds of clock skew; `sub` must be a non-empty string; then `required_claims`.
 5. The grants, from the rules.
 
-Every fetch (JWKS, OpenID discovery, introspection) takes HTTPS only, refuses private addresses, and follows no redirect. A fetched key set is kept for 300 seconds. An unknown `kid` fetches the set again, at most once every 30 seconds per issuer.
+Every fetch (JWKS, OpenID discovery, introspection) takes HTTPS only, refuses private addresses, and follows no redirect. A fetched key set is kept for 300 seconds. An unknown `kid` fetches the set again, at most once every 30 seconds per issuer. A JWT without a `kid` requires a set with exactly one key. Include the signing key's `kid` in tokens before publishing a second key for rotation.
 
 ### Grant rules
 
@@ -567,7 +567,7 @@ opaque_token_issuer = {
 - At most one issuer may use introspection. An opaque token names no issuer, so it goes to that one endpoint, with this server's client credentials (HTTP Basic).
 - A bearer shaped like a JWT is never sent to the endpoint unless its `iss` is that issuer.
 - The answer must say `active: true`. Its claims then get the same checks as a JWT: `aud`, `exp`, `sub`, `required_claims`, and the grant rules.
-- `cache_ttl_seconds` (default 60, at most 3600) bounds how long an answer is reused. A token revoked at the issuer stops working within that time. `0` asks the endpoint on every request.
+- `cache_ttl_seconds` (default 60, at most 3600) limits how long the server reuses a response after it arrives. Revocation takes effect when the server receives an inactive response from the issuer. `0` asks the endpoint on every request.
 
 ## Flow B: an MCP client calls an HTTP MCP server
 
@@ -688,7 +688,7 @@ The `mcp-auth-http` profile of `asap-compliance` checks Flow B against a running
 
 - **No token passthrough.** A server never sends on the token that it received. Every path checks the audience, so a token for another resource is refused. The gateway also removes `Authorization` and `Cookie` before the A2A SDK and the skills see the request.
 - **An audience on every token.** The audience is required config on every path. No mode skips it, and no mode accepts any issuer.
-- **No replay check on access tokens.** An OAuth client sends the same access token on every request until it expires, and MCP requires the token on every request. Refusing a second use would break every standard client. An access token works until its `exp`. For an opaque token, a revocation at the issuer takes effect within the introspection cache time.
+- **No replay check on access tokens.** An OAuth client sends the same access token on every request until it expires, and MCP requires the token on every request. Refusing a second use would break every standard client. An access token works until its `exp`. For opaque tokens, the server can reuse a cached active response until its cache entry expires.
 - **Agent JWTs work once.** A replay cache keeps the `jti` of each accepted Agent JWT and refuses it a second time. A token whose `exp` is more than 120 seconds after the current time, or after its `iat`, is refused, so a token cannot outlive its replay record. The default replay cache of `@asap-protocol/mcp-auth` is in memory, in one process: several server instances with one audience need a shared cache.
 - **Token types are kept apart.** The header `typ` picks the check: `agent+jwt` for an Agent JWT, any other token for the access-token check. A token that one check refuses is never tried with the other, and the access-token check refuses an ASAP Agent JWT or Host JWT.
 - **Fetches are guarded.** In Python, every fetch of a card, a key set, OpenID discovery, or introspection takes HTTPS only, resolves the host once and refuses private, loopback, and link-local addresses, follows no redirect, and stops at a size and time limit. In Node.js, `@asap-protocol/mcp-auth` cannot check the address behind a host name; see [Key fetch and SSRF](../adapters/mcp-auth-bridge.md#key-fetch-and-ssrf).
