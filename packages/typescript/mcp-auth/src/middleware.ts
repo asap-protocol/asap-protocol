@@ -63,9 +63,11 @@ export interface McpAuthConfig {
   /**
    * Called when verification or a grant lookup fails for a reason other than
    * the token, such as a resolver that throws (HTTP 500 with no detail), an
-   * issuer's JWKS that cannot be fetched (HTTP 503), or a `protectTool`
-   * callback registered under another tool's name. The package itself never
-   * logs, and this hook never receives the token.
+   * issuer's JWKS that cannot be fetched (HTTP 503), a `protectTool`
+   * callback registered under another tool's name, or a protected tool
+   * registered without `scopeChallenge` (seen when an access token lacks a
+   * scope that a grant rule maps). The package itself never logs, and this
+   * hook never receives the token.
    */
   readonly onInternalError?: (error: unknown) => void;
 }
@@ -115,7 +117,8 @@ export interface McpAuthMiddleware {
    * each protected tool. When an external principal has no grant for the
    * tool's capability and a scope rule of its issuer gives one, the SDK
    * answers HTTP 403 `insufficient_scope` with that scope and
-   * `asap:capability_denied`, before the tool runs.
+   * `asap:capability_denied`, before the tool runs. Without it, the call gets
+   * a tool result, and `onInternalError` gets an error that names the tool.
    */
   scopeChallenge: ScopeChallengeHandler;
 }
