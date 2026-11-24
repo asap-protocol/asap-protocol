@@ -93,6 +93,22 @@ class TestComplianceEndpointTokenProvider:
         with pytest.raises(ProbeTokenError, match="'external_out_of_grant'"):
             await _provider(endpoint.handle).probe_token(ProbeTokenKind.EXTERNAL_OUT_OF_GRANT)
 
+    async def test_the_optional_wrong_audience_token_of_the_a2a_gateway_is_read(self) -> None:
+        external = {"valid": "v-1", "out_of_grant": "o-1", "wrong_audience": "w-1"}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"test_only": True, "external": external})
+
+        token = await _provider(handler).probe_token(ProbeTokenKind.EXTERNAL_WRONG_AUDIENCE)
+
+        assert token == "w-1"
+
+    async def test_a_set_without_a_wrong_audience_token_raises_and_names_the_kind(self) -> None:
+        endpoint = _ProbeEndpoint()
+
+        with pytest.raises(ProbeTokenError, match="'external_wrong_audience'"):
+            await _provider(endpoint.handle).probe_token(ProbeTokenKind.EXTERNAL_WRONG_AUDIENCE)
+
     @pytest.mark.parametrize("status_code", [307, 401, 404])
     async def test_an_answer_other_than_200_raises_without_the_body(self, status_code: int) -> None:
         seen: list[str] = []

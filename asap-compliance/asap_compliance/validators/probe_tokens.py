@@ -28,6 +28,8 @@ class ProbeTokenKind(StrEnum):
     AGENT_JWT_OUT_OF_GRANT = "agent_jwt_out_of_grant"
     EXTERNAL = "external"
     EXTERNAL_OUT_OF_GRANT = "external_out_of_grant"
+    # An access token with the grant, for another audience (a2a-bridge).
+    EXTERNAL_WRONG_AUDIENCE = "external_wrong_audience"
 
 
 class ProbeTokenError(RuntimeError):
@@ -47,6 +49,12 @@ class _ProbeTokenPair(BaseModel):
     out_of_grant: str = Field(min_length=1)
 
 
+class _ExternalProbeTokens(_ProbeTokenPair):
+    """The ``external`` group; ``examples/a2a_gateway`` also gives ``wrong_audience``."""
+
+    wrong_audience: str | None = Field(default=None, min_length=1)
+
+
 class _ProbeTokenSet(BaseModel):
     """The JSON of a test-only probe endpoint (``examples/mcp_auth_http/src/compliance.ts``).
 
@@ -59,7 +67,7 @@ class _ProbeTokenSet(BaseModel):
 
     test_only: Literal[True]
     agent_jwt: _ProbeTokenPair | None = None
-    external: _ProbeTokenPair | None = None
+    external: _ExternalProbeTokens | None = None
 
     def token(self, kind: ProbeTokenKind) -> str | None:
         match kind:
@@ -71,6 +79,8 @@ class _ProbeTokenSet(BaseModel):
                 return None if self.external is None else self.external.valid
             case ProbeTokenKind.EXTERNAL_OUT_OF_GRANT:
                 return None if self.external is None else self.external.out_of_grant
+            case ProbeTokenKind.EXTERNAL_WRONG_AUDIENCE:
+                return None if self.external is None else self.external.wrong_audience
             case _:
                 assert_never(kind)
 
