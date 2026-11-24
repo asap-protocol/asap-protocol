@@ -25,8 +25,6 @@ import os
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
-from joserfc.errors import JoseError
-from joserfc.jws import extract_compact
 
 from asap.auth.agent_jwt import AGENT_JWT_TYP
 from asap.auth.capabilities import GrantCheckResult
@@ -38,7 +36,7 @@ from asap.auth.external_tokens import (
     ExternalTokenErrorReason,
     JwksUriKeySource,
 )
-from asap.auth.external_verifier import ExternalTokenVerifier
+from asap.auth.external_verifier import ExternalTokenVerifier, _extract_compact_with_header
 from asap.auth.jwks import issuer_matches_expected
 from asap.auth.middleware import DEFAULT_CUSTOM_CLAIM, ENV_ISSUER, OAuth2Config
 from asap.observability import get_logger
@@ -102,8 +100,8 @@ def is_agent_jwt(token: str) -> bool:
     still sees every token it could accept before.
     """
     try:
-        header = extract_compact(token.encode("utf-8")).headers()
-    except (JoseError, UnicodeError, ValueError):
+        header, _ = _extract_compact_with_header(token)
+    except ExternalTokenError:
         return False
     return header.get("typ") == AGENT_JWT_TYP
 

@@ -104,6 +104,9 @@ export function createExternalTokenVerifier(config: ExternalTokenConfig): OAuthT
         if (error instanceof errors.JOSEError) throw invalidToken(reasonFor(error));
         throw error;
       }
+      if (!Number.isFinite(payload.exp) || (payload.nbf !== undefined && !Number.isFinite(payload.nbf))) {
+        throw invalidToken("missing or invalid claim");
+      }
       if (typeof payload.sub !== "string" || payload.sub.trim() === "") throw invalidToken("missing or invalid claim");
       return externalAuthInfo(token, issuer, payload);
     },

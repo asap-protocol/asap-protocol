@@ -36,7 +36,7 @@ def _answer(
 
 
 def _tool_answer(text: str, *, is_error: bool = False, request_id: int = 1) -> McpHttpResponse:
-    result: dict[str, Any] = {"content": [{"type": "text", "text": text}]}
+    result: dict[str, Any] = {"resultType": "complete", "content": [{"type": "text", "text": text}]}
     if is_error:
         result["isError"] = True
     return _answer(200, {"jsonrpc": "2.0", "id": request_id, "result": result})
@@ -77,6 +77,37 @@ _LOOKALIKE_CODE = _challenge(401, "invalid_token", "asap:invalid_tokens", _ERROR
 class TestToolResults:
     def test_a_tool_result_that_is_not_an_error_is_a_success(self) -> None:
         assert tool_success_problem(_tool_answer("executed: deploy")) is None
+
+    @pytest.mark.parametrize(
+        "result",
+        [
+            {"resultType": "input_required", "requestState": "pending"},
+            {"resultType": "input_required", "content": []},
+            {"content": []},
+            {"resultType": "complete"},
+            {"resultType": "complete", "content": {}},
+            {"resultType": "complete", "content": [], "isError": 0},
+        ],
+    )
+    def test_success_requires_a_complete_tool_result(self, result: dict[str, Any]) -> None:
+        answer = _answer(200, {"jsonrpc": "2.0", "id": 1, "result": result})
+        assert tool_success_problem(answer) is not None
+
+    def test_empty_content_can_complete_a_tool_call(self) -> None:
+        result = {"resultType": "complete", "content": [], "isError": False}
+        assert (
+            tool_success_problem(_answer(200, {"jsonrpc": "2.0", "id": 1, "result": result}))
+            is None
+        )
+
+    def test_input_required_cannot_report_a_completed_error(self) -> None:
+        result = {
+            "resultType": "input_required",
+            "isError": True,
+            "content": [{"type": "text", "text": "asap:capability_denied"}],
+        }
+        answer = _answer(200, {"jsonrpc": "2.0", "id": 1, "result": result})
+        assert tool_error_problem(answer, "asap:capability_denied") is not None
 
     @pytest.mark.parametrize(
         "answer",
