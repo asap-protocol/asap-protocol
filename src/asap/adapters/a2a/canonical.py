@@ -20,7 +20,7 @@ from typing import Any, cast
 import jcs
 from pydantic_core import PydanticSerializationError
 
-from asap.adapters.a2a.errors import A2ACanonicalFormError
+from asap.adapters.a2a.errors import A2ACanonicalFormError, describe_card, quoted_prefix
 from asap.adapters.a2a.models import AgentCard
 
 MAX_CARD_NESTING_DEPTH = 128
@@ -63,7 +63,7 @@ def canonical_card_form(card: AgentCard) -> CanonicalCardForm:
         dumped = card.model_dump(mode="json", exclude={"signatures"})
     except PydanticSerializationError as exc:
         raise A2ACanonicalFormError(
-            f"Agent Card {card.name!r} has nesting deeper than the model serializer allows"
+            f"{describe_card(card.name)} has nesting deeper than the model serializer allows"
         ) from exc
     uncovered: list[str] = []
     projection = _strip_empty_values(dumped, "", 1, uncovered)
@@ -71,7 +71,8 @@ def canonical_card_form(card: AgentCard) -> CanonicalCardForm:
         payload = cast(bytes, jcs.canonicalize(projection))
     except ValueError as exc:
         raise A2ACanonicalFormError(
-            f"Agent Card {card.name!r} holds text that is not valid Unicode: {exc}"
+            f"{describe_card(card.name)} holds text that is not valid Unicode: "
+            f"{quoted_prefix(str(exc), _MAX_REPORTED_PATH_LENGTH)}"
         ) from exc
     return CanonicalCardForm(payload=payload, uncovered=tuple(uncovered))
 
@@ -92,7 +93,7 @@ def _strip_empty_values(value: Any, path: str, depth: int, uncovered: list[str])
         if depth > MAX_CARD_NESTING_DEPTH:
             raise A2ACanonicalFormError(
                 f"nesting deeper than {MAX_CARD_NESTING_DEPTH} (the a2a-sdk limit for a "
-                f"canonical form) at {path[:_MAX_REPORTED_PATH_LENGTH]!r}"
+                f"canonical form) at {quoted_prefix(path, _MAX_REPORTED_PATH_LENGTH)}"
             )
         return _strip_container(value, path, depth, uncovered)
     if value is None or value == "":

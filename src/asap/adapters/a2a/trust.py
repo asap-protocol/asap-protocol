@@ -29,7 +29,7 @@ from joserfc.errors import JoseError
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from asap.adapters.a2a._ttl_cache import BoundedTTLCache
-from asap.adapters.a2a.errors import A2AKeyResolutionError, without_user_info
+from asap.adapters.a2a.errors import A2AKeyResolutionError, quoted_prefix, without_user_info
 from asap.adapters.a2a.signature_keys import (
     CARD_VERIFY_ALGORITHMS,
     CardKey,
@@ -193,10 +193,10 @@ def _keys_by_kid(jku: str, document: dict[str, Any]) -> dict[str, CardKey]:
         if not isinstance(kid, str):
             continue
         if kid in keys:
-            raise A2AKeyResolutionError(jku, "invalid_jwks", f"kid {kid[:64]!r} repeats")
+            raise A2AKeyResolutionError(jku, "invalid_jwks", f"kid {quoted_prefix(kid)} repeats")
         try:
             keys[kid] = jwk.import_key(member)
         except (JoseError, ValueError, TypeError, KeyError) as exc:
-            detail = f"key {kid[:64]!r} is not a valid JWK ({type(exc).__name__})"
+            detail = f"key {quoted_prefix(kid)} is not a valid JWK ({type(exc).__name__})"
             raise A2AKeyResolutionError(jku, "invalid_jwks", detail) from exc
     return keys

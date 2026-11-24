@@ -20,7 +20,13 @@ from asap.adapters.a2a.card_security import (
     check_card_security_requirements,
     prepare_card_security_schemes,
 )
-from asap.adapters.a2a.errors import A2AMappingError, A2AMappingInputError
+from asap.adapters.a2a.errors import (
+    A2AMappingError,
+    A2AMappingInputError,
+    describe_card,
+    describe_paths,
+    quoted_prefix,
+)
 from asap.adapters.a2a.extension import (
     ASAP_EXTENSION_URI,
     AsapExtensionParams,
@@ -159,7 +165,7 @@ def agent_card_to_manifest(
         >>> agent_card_to_manifest(card, agent_id="urn:asap:agent:x",
         ...     endpoints=Endpoint(asap="https://x.example/asap")).manifest  # doctest: +SKIP
     """
-    source = f"Agent Card {card.name!r}"
+    source = describe_card(card.name)
     params = read_asap_extension(card)
     manifest_id, manifest_endpoints = _identity_for(params, agent_id, endpoints)
     _require_unique_skill_ids([skill.id for skill in card.skills], source)
@@ -186,7 +192,7 @@ def _dropped_card_fields(card: AgentCard) -> tuple[DroppedField, ...]:
         # json.loads accepts far deeper nesting than the serializer, and the
         # canonical form does not cover a signature's unprotected header.
         raise A2AMappingError(
-            f"Agent Card {card.name!r} nests deeper than the model serializer allows in "
+            f"{describe_card(card.name)} nests deeper than the model serializer allows in "
             "a free-form member (extension params or a signature's unprotected header)",
             fields=["capabilities.extensions[].params", "signatures[].header"],
         ) from exc
@@ -250,8 +256,8 @@ def _require_equal(input_name: str, given: object, from_card: object) -> None:
     if given is not None and given != from_card:
         raise A2AMappingInputError(
             input_name,
-            f"{input_name} {given!r} conflicts with the card's ASAP extension, "
-            f"which gives {from_card!r}",
+            f"{input_name} {quoted_prefix(str(given))} conflicts with the card's ASAP "
+            f"extension, which gives {quoted_prefix(str(from_card))}",
         )
 
 
@@ -372,7 +378,7 @@ def _require_unique_skill_ids(skill_ids: list[str], source: str) -> None:
     duplicates = sorted({skill_id for skill_id in skill_ids if skill_ids.count(skill_id) > 1})
     if duplicates:
         raise A2AMappingError(
-            f"{source} has duplicate skill ids {duplicates}: tags, names, and schemas "
+            f"{source} has duplicate skill ids {describe_paths(duplicates)}: tags, names, and schemas "
             "are keyed by skill id, so each id must be unique",
             fields=["skills"],
         )

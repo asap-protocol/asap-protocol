@@ -31,7 +31,7 @@ from asap.adapters.a2a.errors import (
     A2ACardFetchError,
     A2AMappingError,
     A2AUncoveredExtensionError,
-    without_user_info,
+    describe_url,
 )
 from asap.adapters.a2a.extension import ASAP_EXTENSION_URI
 from asap.adapters.a2a.mapping import agent_card_to_manifest
@@ -162,5 +162,5 @@ def _parse_card(url: str, document: dict[str, Any]) -> AgentCard:
     try:
         return AgentCard.model_validate(document)
     except ValidationError as exc:
-        source = f"Agent Card at {without_user_info(url)!r}"
+        source = f"Agent Card at {describe_url(url)}"
         raise A2AMappingError.from_validation_error(source, "A2A v1.0 Agent Card", exc) from exc

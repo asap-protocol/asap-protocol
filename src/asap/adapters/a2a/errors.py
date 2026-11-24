@@ -50,6 +50,11 @@ def describe_card(name: str) -> str:
     return f"Agent Card {quoted_prefix(name)}"
 
 
+def describe_url(url: str) -> str:
+    """Quote a URL for an error message: without its user info, escaped and cut."""
+    return quoted_prefix(without_user_info(url), _MAX_QUOTED_URL_LENGTH)
+
+
 def describe_paths(paths: Sequence[str]) -> str:
     """List card paths for an error message: at most ten, each escaped and cut."""
     shown = [quoted_prefix(path, _MAX_LISTED_PATH_LENGTH) for path in paths[:_MAX_LISTED_PATHS]]
@@ -198,8 +203,7 @@ class A2AKeyResolutionError(A2ACardVerificationError):
         shown = without_user_info(jku)
         super().__init__(
             "asap:adapters/a2a/key_resolution",
-            f"no key could be read from the jku {quoted_prefix(shown, _MAX_QUOTED_URL_LENGTH)} "
-            f"({refusal}): {detail}",
+            f"no key could be read from the jku {describe_url(shown)} ({refusal}): {detail}",
             {"jku": shown, "refusal": refusal},
         )
         self.jku = shown
@@ -218,8 +222,7 @@ class A2ACardFetchError(A2AAdapterError):
         shown = without_user_info(url)[:_MAX_KEPT_URL_LENGTH]
         super().__init__(
             "asap:adapters/a2a/card_fetch",
-            f"the Agent Card at {quoted_prefix(shown, _MAX_QUOTED_URL_LENGTH)} could not be "
-            f"fetched ({refusal})",
+            f"the Agent Card at {describe_url(shown)} could not be fetched ({refusal})",
             {"url": shown, "refusal": refusal},
         )
         self.url = shown

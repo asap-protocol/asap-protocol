@@ -17,6 +17,11 @@ from cryptography.hazmat.primitives.asymmetric import ed25519
 from joserfc.jwk import OKPKey
 
 from asap.adapters.a2a import (
+    sign_agent_card,
+    canonical_card_form,
+    A2AMappingInputError,
+    A2ACardNotSignableError,
+    A2ACanonicalFormError,
     A2AAdapterError,
     A2ACardFetchError,
     A2AInvalidSignatureError,
@@ -112,6 +117,33 @@ async def _mapping_dict_key() -> object:
     return agent_card_to_manifest(AgentCard.model_validate(card_json))
 
 
+async def _canonical_form() -> object:
+    card_json = _card_json(name=_EVIL)
+    deep: dict[str, Any] = {"leaf": 1}
+    for _ in range(400):
+        deep = {"next": deep}
+    _params(card_json)["deep"] = deep
+    return canonical_card_form(AgentCard.model_validate(card_json))
+
+
+async def _not_signable() -> object:
+    card_json = _card_json(name=_EVIL)
+    _params(card_json)[_EVIL] = []
+    return sign_agent_card(AgentCard.model_validate(card_json), _KEY, kid="k1")
+
+
+async def _mapping_duplicate_skill_ids() -> object:
+    skill = {"id": _EVIL, "name": "n", "description": "d", "tags": ["t"]}
+    return agent_card_to_manifest(_card(skills=[skill] * 50))
+
+
+async def _mapping_conflicting_input() -> object:
+    card_json = _card_json(name=_EVIL)
+    _params(card_json)["agent_urn"] = _EVIL
+    card = AgentCard.model_validate(card_json)
+    return agent_card_to_manifest(card, agent_id="urn:asap:agent:other")
+
+
 _CASES: dict[str, tuple[type[A2AAdapterError], Callable[[], Awaitable[object]]]] = {
     "unsupported version": (A2AUnsupportedVersionError, _unsupported_version),
     "unsigned card": (A2AUnsignedCardError, _unsigned_card),
@@ -122,6 +154,10 @@ _CASES: dict[str, tuple[type[A2AAdapterError], Callable[[], Awaitable[object]]]]
     "uncovered extension": (A2AUncoveredExtensionError, _uncovered_extension),
     "mapping, validator message": (A2AMappingError, _mapping_validator_message),
     "mapping, dict key in loc": (A2AMappingError, _mapping_dict_key),
+    "canonical form": (A2ACanonicalFormError, _canonical_form),
+    "not signable": (A2ACardNotSignableError, _not_signable),
+    "mapping, duplicate skill ids": (A2AMappingError, _mapping_duplicate_skill_ids),
+    "mapping input, conflict": (A2AMappingInputError, _mapping_conflicting_input),
 }
 
 
