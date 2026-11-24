@@ -26,6 +26,7 @@ from asap.auth.agent_jwt import (
     JtiReplayCache,
     JwtVerifyResult,
     _ed25519_private_key_to_okp_key,
+    _validate_standard_claims,
     create_agent_jwt,
     create_host_jwt,
     verify_agent_jwt,
@@ -105,6 +106,22 @@ async def _verify(token: str, agent_key: Ed25519PrivateKey, host_key: Ed25519Pri
     return await verify_agent_jwt(
         token, hosts, agents, expected_audience=_AUDIENCE, jti_replay_cache=JtiReplayCache()
     )
+
+
+def test_issuance_date_conversion_failure_returns_claim_error() -> None:
+    """A conversion failure uses the same claim result as an invalid issuance date."""
+
+    class UnrepresentableDate:
+        def __float__(self) -> float:
+            raise OverflowError
+
+    error = _validate_standard_claims(
+        {"iat": UnrepresentableDate(), "exp": _NOW + 60, "jti": "local-test"},
+        now_ts=_NOW,
+        expected_audience=None,
+        max_lifetime_seconds=AGENT_JWT_MAX_LIFETIME_SECONDS,
+    )
+    assert error == "invalid iat (too far in the future)"
 
 
 def test_the_cap_is_the_ttl_plus_the_iat_skew() -> None:

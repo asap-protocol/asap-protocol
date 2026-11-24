@@ -10,7 +10,7 @@ Sprint roadmaps and release checklists per protocol version. Pair each folder wi
 |--------|-----|--------|
 | _(none)_ — create `v2.6.0/` at v2.6.0 Interop kickoff | [prd-interop.md](../../product/prd/prd-interop.md) | **NEXT** (now: Phase 0 reset, no active feature sprint) |
 
-The **v2.5.x train is closed** at library **2.5.11**. Maintenance patches 2.5.5–2.5.12 shipped without task folders; see [`CHANGELOG.md`](../../CHANGELOG.md). Planned scope ships only in minor releases ([release policy](../../docs/maintainers/release-policy.md)). Train index: [prd-roadmap.md](../../product/prd/prd-roadmap.md).
+The **v2.5.x train is closed** at library **2.5.11**. The maintenance patches have no task folders. See [`CHANGELOG.md`](../../CHANGELOG.md). Planned scope ships only in minor releases ([release policy](../../docs/maintainers/release-policy.md)). Train index: [prd-roadmap.md](../../product/prd/prd-roadmap.md).
 
 ---
 

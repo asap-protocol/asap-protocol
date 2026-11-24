@@ -29,6 +29,7 @@ on:
       - '.github/workflows/**'
       - '.github/actions/**'
   pull_request:
+    types: [opened, synchronize, reopened, edited]
     branches: [main, development, release/2.5.0, release/2.6.0]
     paths:
       - 'src/**'
