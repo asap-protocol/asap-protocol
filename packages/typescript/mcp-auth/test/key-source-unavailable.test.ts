@@ -36,6 +36,7 @@ function middleware(overrides: Partial<McpAuthConfig> = {}) {
       jwksFetch: { fetch: fakeFetch, nowMs: () => clockMs, refreshCooldownMs: 30_000, maxBytes: 1024, timeoutMs: 20 },
     },
     toolCapabilities: { [PROTECTED_TOOL]: PROTECTED_TOOL },
+    resourceMetadataUrl: "https://mcp.example.com/.well-known/oauth-protected-resource/mcp",
     ...overrides,
   });
 }

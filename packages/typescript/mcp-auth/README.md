@@ -114,7 +114,7 @@ const auth = createMcpAuthMiddleware({
     }],
   },
   toolCapabilities: { secure_action: "secure_action" },
-  resourceMetadataUrl: getOAuthProtectedResourceMetadataUrl(resource),
+  resourceMetadataUrl: getOAuthProtectedResourceMetadataUrl(resource), // required with externalTokens
 });
 
 server.registerTool(
@@ -127,6 +127,8 @@ server.registerTool(
 const mcp = auth.protect(createMcpHandler(buildServer, { legacy: "reject" }));
 const app = { fetch: async (request: Request) => oauthMetadataResponse(request, metadataOptions) ?? mcp.fetch(request) };
 ```
+
+With `externalTokens`, `resourceMetadataUrl` is required (a `TypeError` otherwise): the server is then the resource server of MCP authorization, which must serve RFC 9728 metadata, and every 401 and 403 challenge points to it.
 
 The verifier checks, in this order: the token is a JWT; its `typ` is not `agent+jwt` or `host+jwt`; its `alg` is `EdDSA`, `RS256`, or `ES256` (so `none` and HMAC fail before any key lookup); its unverified `iss` is on the allowlist (trailing slashes do not count); the signature verifies with **that issuer's** keys; `aud` holds the configured audience; `exp` and `nbf` hold; `sub` and `exp` are present. The token picks nothing: `jku`, `x5u`, and the `iss` URL are never fetched. There is no replay check, because a client sends the same access token on every request.
 

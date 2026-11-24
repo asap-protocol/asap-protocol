@@ -78,6 +78,11 @@ describe("createMcpAuthMiddleware with both token types: one verifier per token,
   it("refuses a config with no token type", () => {
     expect(() => middleware({ agentJwt: undefined, externalTokens: undefined })).toThrow("agentJwt, externalTokens, or both");
   });
+
+  // MCP authorization: a protected MCP server MUST serve RFC 9728 metadata, and with external tokens this server is the resource server.
+  it("refuses externalTokens with no resourceMetadataUrl", () => {
+    expect(() => middleware({ resourceMetadataUrl: undefined })).toThrow("externalTokens needs resourceMetadataUrl");
+  });
 });
 
 async function externalAuthInfo(scope: string, extra = {}): Promise<AuthInfo> {

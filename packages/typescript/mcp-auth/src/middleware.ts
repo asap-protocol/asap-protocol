@@ -50,7 +50,12 @@ export interface McpAuthConfig {
   readonly allowMethods?: readonly string[];
   /** The grants of a verified Agent JWT principal, for example `staticAgentGrants(...)`. Default: none (deny). */
   readonly agentGrants?: AgentGrantResolver;
-  /** RFC 9728 metadata URL: `resource_metadata` in every 401 challenge, and in `AuthInfo` for the SDK's 403 challenge. */
+  /**
+   * RFC 9728 metadata URL: `resource_metadata` in every 401 and 403
+   * challenge, and in `AuthInfo` for the SDK's 403 challenge. Required with
+   * `externalTokens`, because the server is then the resource server of MCP
+   * authorization, which must serve this metadata.
+   */
   readonly resourceMetadataUrl?: string;
   /**
    * Called when verification or a grant lookup fails for a reason other than
@@ -203,8 +208,8 @@ function tokenVerifierRouter(agent?: OAuthTokenVerifier, external?: OAuthTokenVe
  * headers, before the SDK parses the body. A request that carries a token is
  * always verified, even for a public tool, and then reaches only the tools and
  * methods that the config declares (deny by default). It throws a `TypeError`
- * for a config with no token type, an invalid issuer config, or `tools/call`
- * in `allowMethods`.
+ * for a config with no token type, an invalid issuer config, `externalTokens`
+ * with no `resourceMetadataUrl`, or `tools/call` in `allowMethods`.
  *
  * @example
  * ```ts
@@ -217,6 +222,12 @@ function tokenVerifierRouter(agent?: OAuthTokenVerifier, external?: OAuthTokenVe
  * ```
  */
 export function createMcpAuthMiddleware(config: McpAuthConfig): McpAuthMiddleware {
+  if (config.externalTokens !== undefined && config.resourceMetadataUrl === undefined) {
+    throw new TypeError(
+      "externalTokens needs resourceMetadataUrl: with external tokens the server is the resource server of MCP authorization, " +
+        "which must serve RFC 9728 metadata; pass its URL, for example getOAuthProtectedResourceMetadataUrl(new URL(<MCP endpoint>))",
+    );
+  }
   const verifierFor = tokenVerifierRouter(
     config.agentJwt && createAgentJwtVerifier(config.agentJwt),
     config.externalTokens && createExternalTokenVerifier(config.externalTokens),
