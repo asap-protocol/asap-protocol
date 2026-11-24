@@ -420,7 +420,7 @@ This server has one public tool, `echo`, and one protected tool, `secure_action`
 ```ts
 import { createServer } from "node:http";
 
-import type { AgentKeyResolver, ResolvedAgentKey } from "@asap-protocol/client";
+import type { AgentKeyResolver, PublicJwk } from "@asap-protocol/client";
 import { createMcpAuthMiddleware, type CapabilityGrant } from "@asap-protocol/mcp-auth";
 import { toNodeHandler } from "@modelcontextprotocol/node";
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
@@ -431,7 +431,7 @@ const MCP_URL = "https://mcp.example.com/mcp";
 
 // The agents that you accept, by agent id. Load them from your own records.
 interface KnownAgent {
-  publicJwk: ResolvedAgentKey["publicKey"]; // the agent's Ed25519 public key, as a JWK
+  publicJwk: PublicJwk; // the agent's Ed25519 public key, as a JWK
   hostThumbprint: string; // the host that the agent belongs to
   active: boolean; // false when you revoke the agent or its host
   grants: CapabilityGrant[]; // the capabilities that the agent may use
@@ -493,7 +493,7 @@ The package checks the Agent JWT itself: the type (`typ: agent+jwt`), the Ed2551
 
 - The resolver gets the token's `sub` as `agentId` and its `iss` as `hostThumbprint` (the key thumbprint of the agent's host).
 - Return `undefined` for an agent that you do not know.
-- Otherwise return the agent's Ed25519 public key (a JWK) and `usable`. Return `usable: false` when the agent or its host is revoked, expired, or pending, or when the agent does not belong to that host. The package does not check the host binding: your resolver must.
+- Otherwise return the agent's Ed25519 public key (a JWK, typed `PublicJwk`; it needs no DOM lib) and `usable`. Return `usable: false` when the agent or its host is revoked, expired, or pending, or when the agent does not belong to that host. The package does not check the host binding: your resolver must.
 - The resolver runs **before** the signature check, with values that nobody has verified yet. Keep it a read-only lookup. Do not record "last used" times or other state in it.
 - If the resolver throws, the caller gets HTTP 500 with no detail, and `onInternalError` gets the error.
 
