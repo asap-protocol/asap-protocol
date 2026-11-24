@@ -70,7 +70,9 @@ def _unverified_parts(token: str) -> tuple[dict[str, Any], dict[str, Any]] | Non
     try:
         compact = extract_compact(token.encode("utf-8"))
         payload = json.loads(compact.payload)
-    except (JoseError, UnicodeError, ValueError) as exc:
+    # RecursionError: json.loads recurses out past about 10,000 nested levels,
+    # and joserfc allows a payload of 128,000 bytes.
+    except (JoseError, UnicodeError, ValueError, RecursionError) as exc:
         # ``from None``: a chained exception could print part of the token.
         raise ExternalTokenError(
             Reason.MALFORMED_TOKEN, f"not a usable JWS compact token ({type(exc).__name__})"
@@ -85,7 +87,9 @@ def _check_header(header: dict[str, Any]) -> None:
     if isinstance(typ, str) and typ.lower().removeprefix("application/") in _ASAP_TOKEN_TYPES:
         raise ExternalTokenError(Reason.TOKEN_TYPE_REJECTED, f"typ {typ!r} is an ASAP token")
     alg = header.get("alg")
-    if alg not in ALLOWED_EXTERNAL_JWT_ALGORITHMS:
+    # Type first: a list or an object in ``alg`` is unhashable and would raise
+    # TypeError in the set lookup. ``typ`` and ``kid`` are type-checked where read.
+    if not isinstance(alg, str) or alg not in ALLOWED_EXTERNAL_JWT_ALGORITHMS:
         raise ExternalTokenError(
             Reason.ALGORITHM_REJECTED, f"alg {alg!r} is not an allowed asymmetric algorithm"
         )

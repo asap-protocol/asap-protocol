@@ -17,7 +17,7 @@ from asap.auth.capabilities import CapabilityRegistry
 from asap.auth.external_tokens import ExternalTokenConfig
 from asap.auth.identity import InMemoryAgentStore, InMemoryHostStore
 from asap.transport.server import create_app
-from tests.auth.local_issuer import LocalIssuer, unsigned_token
+from tests.auth.local_issuer import LocalIssuer, nested_payload_token, unsigned_token
 from tests.transport.test_capability_execute_unchanged import (
     _ASAP_CHALLENGE,
     EXPECTED_AGENT_PATH,
@@ -141,6 +141,9 @@ def _rejected_tokens(idp: LocalIssuer) -> dict[str, str]:
         "expired": idp.mint(idp.claims(_AUDIENCE, scope="files:read", lifetime_seconds=-600)),
         "host+jwt": idp.mint(idp.claims(_AUDIENCE), header={"typ": "host+jwt"}),
         "alg none": unsigned_token({"alg": "none"}, idp.claims(_AUDIENCE, scope="files:read")),
+        # Both used to be unhandled 500s.
+        "alg list": unsigned_token({"alg": ["ES256"]}, idp.claims(_AUDIENCE, scope="files:read")),
+        "payload nested too deeply": nested_payload_token({"alg": "ES256", "kid": idp.kid}),
     }
 
 
