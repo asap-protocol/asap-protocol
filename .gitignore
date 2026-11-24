@@ -26,6 +26,8 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+# The A2A extension page route; with core.ignorecase, MANIFEST matches its `manifest` folder.
+!apps/web/src/app/a2a/extensions/manifest/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template before PyInstaller builds the exe, so may be deleted later.
