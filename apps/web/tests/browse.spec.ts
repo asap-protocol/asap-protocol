@@ -1,43 +1,49 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 test.describe('Browse Page', () => {
-    test('has Search capability and displays agents', async ({ page }) => {
-        await page.goto('/browse');
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/browse');
+    await expect(page.getByRole('heading', { name: 'Agent Registry' })).toBeVisible();
+  });
 
-        await expect(page).toHaveTitle(/Browse Agents/);
-        await expect(page.getByRole('heading', { name: 'Agent Registry' })).toBeVisible();
+  test('searches agent cards by name and description', async ({ page }) => {
+    await expect(page).toHaveTitle(/Browse Agents/);
+    const search = page.getByPlaceholder('Search agents by name or description...');
+    const first = page.getByRole('link', { name: /^Load Test Agent 0\b/ });
+    const second = page.getByRole('link', { name: /^Load Test Agent 1\b/ });
+    await expect(first).toBeVisible();
+    await expect(second).toBeVisible();
 
-        // Verify search bar is visible (use data-testid to avoid strict mode when multiple tables)
-        await expect(page.getByTestId('data-table-search').first()).toBeVisible();
+    await search.fill('Load Test Agent 0');
+    await expect(first).toBeVisible();
+    await expect(second).toHaveCount(0);
 
-        // Verify DataTable renders (use .first() when multiple instances exist)
-        await expect(page.getByTestId('data-table').first()).toBeVisible();
+    await search.fill('Fixture agent 1 for client-side load testing');
+    await expect(second).toBeVisible();
+    await expect(first).toHaveCount(0);
+  });
 
-        // Verify table has header row with expected columns
-        const dataTable = page.getByTestId('data-table').first();
-        await expect(dataTable.getByRole('columnheader', { name: /Name/i })).toBeVisible();
-        await expect(dataTable.getByRole('columnheader', { name: /Status/i })).toBeVisible();
+  test('shows the empty state when a trust filter excludes all agents', async ({ page }) => {
+    await expect(page.getByRole('heading', { name: 'Skills' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Trust Levels' })).toBeVisible();
+    const publishedSla = page.getByRole('checkbox', { name: 'Has published SLA' });
+    const agent = page.getByRole('link', { name: /^Load Test Agent 0\b/ });
+    await expect(agent).toBeVisible();
 
-        // Filter tags should be visible (use .first() when multiple instances exist)
-        await expect(page.getByRole('heading', { name: 'Skills' }).first()).toBeVisible();
-        await expect(page.getByRole('heading', { name: 'Trust Levels' }).first()).toBeVisible();
+    await publishedSla.check();
+    await expect(
+      page.getByRole('heading', { name: 'No agents match your criteria' })
+    ).toBeVisible();
+    await expect(agent).toHaveCount(0);
 
-        // Check SLA checkbox presence (use .first() when multiple instances exist)
-        await expect(page.getByText('Has published SLA').first()).toBeVisible();
-    });
+    await publishedSla.uncheck();
+    await expect(agent).toBeVisible();
+  });
 
-    test('can sort agents by name', async ({ page }) => {
-        await page.goto('/browse');
-        const dataTable = page.getByTestId('data-table').first();
-        const nameButton = dataTable.getByRole('button', { name: 'Name' });
-        await nameButton.click();
-        // Verify sort indicator appears (data-sort-direction for reliable E2E)
-        const nameHeader = dataTable.getByRole('columnheader', { name: /Name/i });
-        await expect(nameHeader).toHaveAttribute('data-sort-direction', /(ascending|descending)/);
-    });
+  test('opens agent details from a card', async ({ page }) => {
+    await page.getByRole('link', { name: /^Load Test Agent 0\b/ }).click();
 
-    test('shows pagination controls', async ({ page }) => {
-        await page.goto('/browse');
-        await expect(page.getByTestId('data-table-pagination').first()).toBeVisible();
-    });
+    await expect(page).toHaveURL(/\/agents\//);
+    await expect(page.getByRole('heading', { name: 'Load Test Agent 0' })).toBeVisible();
+  });
 });
