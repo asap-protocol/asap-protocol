@@ -3,7 +3,9 @@
 The gateway serves a signed A2A v1.0 Agent Card beside the ASAP manifest.
 An ``a2a-sdk`` client resolves the card with a signature verifier, and ASAP's
 own ingest pipeline verifies the same served card and maps it back to
-the gateway's manifest. Everything runs in process over ``httpx.ASGITransport``.
+the gateway's manifest. The client then calls one skill with an access token
+from the local issuer, under the grant its scope maps to. Everything runs
+in process over ``httpx.ASGITransport``.
 """
 
 from __future__ import annotations
@@ -20,7 +22,7 @@ from joserfc.jwk import OKPKey
 
 from asap.adapters.a2a import A2ATrustConfig, AgentCardIngestor, CardSigner
 from asap.auth.external_tokens import ExternalTokenConfig
-from examples.a2a_gateway.client import pinned_card_verifier
+from examples.a2a_gateway.client import call_skill, pinned_card_verifier
 from examples.a2a_gateway.demo_agent import (
     A2A_PATH,
     DEMO_GRANT_RULES,
@@ -122,3 +124,44 @@ async def test_the_manifest_and_the_card_describe_the_same_agent(http: httpx.Asy
 def test_the_skills_must_match_the_manifest() -> None:
     with pytest.raises(ValueError, match="must match the manifest skills"):
         _gateway(skills={"echo": DEMO_SKILLS["echo"]})
+
+
+async def test_an_a2a_client_calls_a_skill_with_an_external_token_under_an_asap_grant(
+    http: httpx.AsyncClient,
+) -> None:
+    token = ISSUER.mint(ISSUER.claims(AUDIENCE, scope="demo:greet"))
+
+    reply = await call_skill(
+        http,
+        ORIGIN,
+        verify_card=pinned_card_verifier(CARD_KID, CARD_KEY.public_key()),
+        token=token,
+        skill_id="greet",
+        arguments={"name": "Ada", "language": "pt"},
+    )
+
+    assert reply == {"greeting": "Olá, Ada!"}
+
+
+def _rpc_headers(scope: str) -> dict[str, str]:
+    token = ISSUER.mint(ISSUER.claims(AUDIENCE, scope=scope))
+    return {"Authorization": f"Bearer {token}", "A2A-Version": "1.0"}
+
+
+@pytest.mark.parametrize(
+    ("method", "params", "code", "text"),
+    [
+        ("ListTasks", {}, -32004, "SendMessage only"),
+        ("SendMessage", {"message": {"parts": [{"data": {}}]}}, -32602, "no skill selected"),
+    ],
+)
+async def test_after_authentication_only_a_selected_skill_call_reaches_the_sdk(
+    http: httpx.AsyncClient, method: str, params: dict[str, object], code: int, text: str
+) -> None:
+    body = {"jsonrpc": "2.0", "id": 7, "method": method, "params": params}
+
+    response = await http.post(A2A_PATH, json=body, headers=_rpc_headers("demo:echo"))
+
+    assert (response.status_code, response.json()["id"]) == (200, 7)
+    assert response.json()["error"]["code"] == code
+    assert text in response.json()["error"]["message"]
