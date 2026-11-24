@@ -7,7 +7,7 @@ JSON-RPC code of :class:`asap.errors.ASAPError`; no new code is reserved.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from asap.errors import FatalError
 
@@ -64,6 +64,33 @@ class A2ACardNotSignableError(A2AAdapterError):
     def __init__(self, message: str, *, paths: Sequence[str] = ()) -> None:
         super().__init__("asap:adapters/a2a/not_signable", message, {"paths": list(paths)})
         self.paths = tuple(paths)
+
+
+InvalidSignatureReason = Literal[
+    "malformed", "forbidden_algorithm", "key_mismatch", "bad_signature"
+]
+"""Why one signature fails the card; see :class:`A2AInvalidSignatureError`."""
+
+
+class A2ACardVerificationError(A2AAdapterError):
+    """The card's signatures do not meet the policy: the card must not be mapped or cached."""
+
+
+class A2AInvalidSignatureError(A2ACardVerificationError):
+    """One signature fails the card: it is malformed, uses ``none`` or HMAC, or does not verify.
+
+    ``index`` is its position in ``signatures``; ``reason`` is stable. ``key_mismatch``
+    means that the trusted key for its ``kid`` does not fit its ``alg``.
+    """
+
+    def __init__(self, index: int, reason: InvalidSignatureReason, detail: str) -> None:
+        super().__init__(
+            "asap:adapters/a2a/invalid_signature",
+            f"signature {index} of the Agent Card is invalid ({reason}): {detail}",
+            {"index": index, "reason": reason},
+        )
+        self.index = index
+        self.reason: InvalidSignatureReason = reason
 
 
 class A2AMappingInputError(A2AAdapterError):
