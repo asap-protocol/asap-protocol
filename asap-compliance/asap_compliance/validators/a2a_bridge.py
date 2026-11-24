@@ -49,7 +49,12 @@ from asap.adapters.a2a import (
 )
 
 from asap_compliance.config import A2ABridgeComplianceConfig
-from asap_compliance.validators.a2a_answers import message_success_problem
+from asap_compliance.validators.a2a_answers import (
+    CONSTRAINT_VIOLATION_403,
+    INVALID_PARAMS,
+    message_success_problem,
+    rpc_error_problem,
+)
 from asap_compliance.validators.a2a_transport import (
     A2A_PROTOCOL_VERSION,
     AGENT_CARD_PATH,
@@ -58,23 +63,37 @@ from asap_compliance.validators.a2a_transport import (
     A2AHttpTransport,
 )
 from asap_compliance.validators.handshake import CheckResult
-from asap_compliance.validators.http_answers import AUTH_REQUIRED_401, INVALID_TOKEN_401
+from asap_compliance.validators.http_answers import (
+    AUTH_REQUIRED_401,
+    CAPABILITY_DENIED_403,
+    INVALID_TOKEN_401,
+)
 from asap_compliance.validators.http_exchange import HttpExchangeError
 from asap_compliance.validators.probe_tokens import ProbeTokenKind, ProbeTokenProvider
 from asap_compliance.validators.profile_run import (
     CheckAbortedError,
     ProfileCheck,
+    echoed_token_problem,
     endpoint_token_provider,
     run_profile_checks,
+    unchallenged_401_problem,
 )
 
 # Built by the harness; no gateway accepts it.
 _MALFORMED_TOKEN = "asap-compliance-malformed-token"
+_UNDECLARED_SKILL = "asap_compliance_undeclared_skill"
 _EXPECT_MESSAGE = "HTTP 200 and a JSON-RPC result whose message has a data part"
 _EXPECT_AUTH_REQUIRED = "HTTP 401, a Bearer challenge with no error, asap:auth_required"
 _EXPECT_INVALID_TOKEN = (
     'HTTP 401, a Bearer challenge with error="invalid_token", asap:invalid_token'
 )
+_EXPECT_CAPABILITY_DENIED = (
+    'HTTP 403, a Bearer challenge with error="insufficient_scope", asap:capability_denied'
+)
+_EXPECT_CONSTRAINT_VIOLATION = (
+    "HTTP 403 with no WWW-Authenticate header, access_denied, asap:constraint_violation"
+)
+_EXPECT_INVALID_PARAMS = f"HTTP 200 and a JSON-RPC error {INVALID_PARAMS} for the request"
 _EXPECT_CARD_DOCUMENT = f"HTTP 200 and a JSON object at {AGENT_CARD_PATH}"
 _EXPECT_CARD_V1 = "a card that parses as an A2A v1.0 Agent Card"
 _EXPECT_CARD_SIGNATURE = (
@@ -291,6 +310,37 @@ async def _check_external_wrong_audience(run: _BridgeRun) -> str | None:
     return INVALID_TOKEN_401.problem(await run.call_skill(token))
 
 
+async def _check_external_wrong_capability(run: _BridgeRun) -> str | None:
+    """A fresh access token whose scopes give no grant for the skill."""
+    token = await run.tokens.probe_token(ProbeTokenKind.EXTERNAL_OUT_OF_GRANT)
+    return CAPABILITY_DENIED_403.problem(await run.call_skill(token))
+
+
+async def _check_external_constraint_violation(run: _BridgeRun) -> str | None:
+    """A fresh access token with the grant, arguments that break the grant's constraint."""
+    token = await run.tokens.probe_token(ProbeTokenKind.EXTERNAL)
+    config = run.config
+    response = await run.call(config.skill_id, config.constraint_violation_arguments, token)
+    return CONSTRAINT_VIOLATION_403.problem(response)
+
+
+async def _check_undeclared_skill(run: _BridgeRun) -> str | None:
+    """A fresh access token with the grant, a skill id that the card does not list."""
+    token = await run.tokens.probe_token(ProbeTokenKind.EXTERNAL)
+    response = await run.call(_UNDECLARED_SKILL, run.config.allowed_arguments, token)
+    return rpc_error_problem(response, INVALID_PARAMS)
+
+
+async def _check_www_authenticate_on_401(run: _BridgeRun) -> str | None:
+    """Every HTTP 401 answer of the run so far."""
+    return unchallenged_401_problem(run.responses)
+
+
+async def _check_token_not_echoed(run: _BridgeRun) -> str | None:
+    """Every answer of the run so far, the card and manifest included, against every token."""
+    return echoed_token_problem(run.sent_tokens, run.responses)
+
+
 def _named_agent_urn(card: AgentCard) -> str | None:
     """The URN in the card's ASAP extension; None when it has none, or the extension is bad."""
     try:
@@ -313,6 +363,20 @@ _PROFILE_CHECKS: tuple[ProfileCheck[_BridgeRun], ...] = (
     ("invalid_token", _check_invalid_token, _EXPECT_INVALID_TOKEN),
     ("bad_signature", _check_bad_signature, _EXPECT_INVALID_TOKEN),
     ("external_wrong_audience", _check_external_wrong_audience, _EXPECT_INVALID_TOKEN),
+    ("external_wrong_capability", _check_external_wrong_capability, _EXPECT_CAPABILITY_DENIED),
+    (
+        "external_constraint_violation",
+        _check_external_constraint_violation,
+        _EXPECT_CONSTRAINT_VIOLATION,
+    ),
+    ("undeclared_skill", _check_undeclared_skill, _EXPECT_INVALID_PARAMS),
+    # These two judge every answer of the run, so they run last.
+    (
+        "www_authenticate_on_401",
+        _check_www_authenticate_on_401,
+        "a WWW-Authenticate header with the Bearer scheme on every HTTP 401",
+    ),
+    ("token_not_echoed", _check_token_not_echoed, "no answer that holds a token the run sent"),
 )
 
 A2A_BRIDGE_CHECK_IDS: tuple[str, ...] = tuple(check_id for check_id, _, _ in _PROFILE_CHECKS)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import urljoin
 
 import httpx
 import pytest
@@ -184,8 +185,9 @@ class TestCardDocumentChecks:
             config, http_transport=httpx.MockTransport(unreachable)
         )
 
-        assert not any(check.passed for check in result.checks)
-        assert all("ConnectError" in check.message for check in result.checks)
+        assert _failed(result) == set(A2A_BRIDGE_CHECK_IDS) - {"token_not_echoed"}
+        requests = [c for c in result.checks if c.name not in _RUN_WIDE_CHECKS]
+        assert all("ConnectError" in check.message for check in requests)
         assert attempts.count("/.well-known/agent-card.json") == 1
 
     async def test_a_skipped_check_passes_with_the_message_skipped(self) -> None:
@@ -315,7 +317,14 @@ class TestInterfaceAndManifestChecks:
 
 
 _TOKEN_CHECKS = {"auth_required", "invalid_token", "bad_signature", "external_wrong_audience"}
-_CREDENTIAL_CHECKS = {"external_valid_token", "bad_signature", "external_wrong_audience"}
+_GRANT_CHECKS = {"external_wrong_capability", "external_constraint_violation", "undeclared_skill"}
+_CREDENTIAL_CHECKS = {
+    "external_valid_token",
+    "bad_signature",
+    "external_wrong_audience",
+    *_GRANT_CHECKS,
+}
+_RUN_WIDE_CHECKS = {"www_authenticate_on_401", "token_not_echoed"}
 
 
 class _NoProbeTokens:
@@ -348,7 +357,7 @@ class TestTokenLayerChecks:
     ) -> None:
         result = await _run(FakeA2AGateway(fault))
 
-        assert _failed(result) == failed
+        assert failed <= _failed(result)
 
     async def test_two_runs_in_a_row_pass_because_each_call_gets_a_fresh_token(self) -> None:
         server = FakeA2AGateway()
@@ -384,3 +393,74 @@ class TestTokenLayerChecks:
         )
 
         assert "compact JWS" in _message(result, "bad_signature")
+
+
+class TestGrantLayerChecks:
+    """Grant errors, in the layers of the gateway's refusal table."""
+
+    @pytest.mark.parametrize(
+        ("fault", "check_id"),
+        [
+            (Fault.GRANTS_EVERYTHING, "external_wrong_capability"),
+            (Fault.DENIAL_WITHOUT_CHALLENGE, "external_wrong_capability"),
+            (Fault.IGNORES_CONSTRAINTS, "external_constraint_violation"),
+            (Fault.CONSTRAINT_WITH_CHALLENGE, "external_constraint_violation"),
+            (Fault.RUNS_UNDECLARED_SKILL, "undeclared_skill"),
+            (Fault.NO_WWW_AUTHENTICATE, "www_authenticate_on_401"),
+            (Fault.ECHOES_TOKEN_IN_BODY, "token_not_echoed"),
+            (Fault.ECHOES_TOKEN_IN_HEADER, "token_not_echoed"),
+        ],
+    )
+    async def test_a_gateway_with_the_fault_fails_the_check(
+        self, fault: Fault, check_id: str
+    ) -> None:
+        result = await _run(FakeA2AGateway(fault))
+
+        assert check_id in _failed(result)
+
+    async def test_a_gateway_that_answers_200_to_everything_fails_every_refusal(self) -> None:
+        result = await _run(FakeA2AGateway(Fault.ANSWERS_200_TO_EVERYTHING))
+
+        assert {*_TOKEN_CHECKS, *_GRANT_CHECKS, "www_authenticate_on_401"} <= _failed(result)
+
+    async def test_the_constraint_check_sends_the_configured_arguments(self) -> None:
+        allowed = {"name": "Ada", "language": "en"}
+
+        result = await _run(FakeA2AGateway(), constraint_violation_arguments=allowed)
+
+        assert _failed(result) == {"external_constraint_violation"}
+
+    async def test_no_check_message_holds_a_token_that_the_gateway_echoed(self) -> None:
+        faults = (Fault.ECHOES_TOKEN_IN_BODY, Fault.ECHOES_TOKEN_IN_HEADER)
+        server = FakeA2AGateway(*faults, Fault.INVALID_TOKEN_AS_403)
+
+        result = await _run(server)
+
+        messages = "\n".join(check.message for check in result.checks)
+        parts = {part for token in server.received_tokens for part in [token, *token.split(".")]}
+        assert len(server.received_tokens) >= 5
+        assert not [part for part in parts if len(part) >= 16 and part in messages]
+
+
+@pytest.mark.a2a_gateway_live
+class TestLiveGateway:
+    """Against ``python -m examples.a2a_gateway.serve --compliance`` (CI: live flows)."""
+
+    async def test_the_profile_passes_twice_in_a_row(self, live_a2a_gateway_url: str) -> None:
+        probe_tokens_url = urljoin(live_a2a_gateway_url, PROBE_TOKENS_PATH)
+        # Demo only: the gateway makes a new card key at each start, so the operator
+        # copies it from the test-only probe set. The profile never reads it, and the
+        # agent URN is the demo's fixed value, from this test, not from the target.
+        async with httpx.AsyncClient() as http:
+            card_key = (await http.post(probe_tokens_url)).json()["card_key"]
+        config = A2ABridgeComplianceConfig(
+            base_url=live_a2a_gateway_url,
+            allow_private_targets=True,
+            expected_agent_urn=AGENT_URN,
+            card_keys={card_key["kid"]: card_key["jwk"]},
+            probe_tokens_url=probe_tokens_url,
+        )
+
+        for _ in range(2):
+            result = await validate_a2a_bridge_async(config)
+            assert result.passed, [check for check in result.checks if not check.passed]

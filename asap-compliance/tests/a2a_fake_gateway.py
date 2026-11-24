@@ -19,6 +19,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from joserfc.jwk import OKPKey
 
 from asap.adapters.a2a import (
+    ASAP_EXTENSION_URI,
     AgentCard,
     AgentCardInputs,
     AgentInterface,
@@ -62,6 +63,14 @@ class Fault(StrEnum):
     REFUSES_VALID_TOKENS = "refuses_valid_tokens"
     SINGLE_USE_TOKENS = "single_use_tokens"
     ANSWERS_200_TO_EVERYTHING = "answers_200_to_everything"
+    GRANTS_EVERYTHING = "grants_everything"
+    DENIAL_WITHOUT_CHALLENGE = "denial_without_challenge"
+    IGNORES_CONSTRAINTS = "ignores_constraints"
+    CONSTRAINT_WITH_CHALLENGE = "constraint_with_challenge"
+    RUNS_UNDECLARED_SKILL = "runs_undeclared_skill"
+    NO_WWW_AUTHENTICATE = "no_www_authenticate"
+    ECHOES_TOKEN_IN_BODY = "echoes_token_in_body"
+    ECHOES_TOKEN_IN_HEADER = "echoes_token_in_header"
 
 
 def demo_manifest(agent_urn: str = AGENT_URN, version: str = "1.0.0") -> Manifest:
@@ -167,14 +176,46 @@ class FakeA2AGateway:
         if authorization is None:
             if Fault.AUTH_REQUIRED_AS_RPC_ERROR in self.faults:
                 return _rpc_error(call, -32001)
-            return _refusal(401, "invalid_token", "asap:auth_required", "Bearer")
+            return self._refusal(401, "invalid_token", "asap:auth_required", "Bearer")
         token = authorization.removeprefix("Bearer ")
         self.received_tokens.append(token)
+        response = self._with_token(call, token)
+        if Fault.ECHOES_TOKEN_IN_HEADER in self.faults:
+            response.headers["x-received-token"] = token
+        return response
+
+    def _with_token(self, call: dict[str, Any], token: str) -> httpx.Response:
         kind = self._token_kind(token)
-        if kind is None:
-            status = 403 if Fault.INVALID_TOKEN_AS_403 in self.faults else 401
-            return _refusal(status, "invalid_token", "asap:invalid_token", _INVALID_CHALLENGE)
+        if kind is not None:
+            return self._grant_layer(call, kind)
+        status = 403 if Fault.INVALID_TOKEN_AS_403 in self.faults else 401
+        echo = f": got {token}" if Fault.ECHOES_TOKEN_IN_BODY in self.faults else ""
+        code = f"asap:invalid_token{echo}"
+        return self._refusal(status, "invalid_token", code, _INVALID_CHALLENGE)
+
+    def _grant_layer(self, call: dict[str, Any], kind: str) -> httpx.Response:
+        """Skill selection, then the grant, then its constraint."""
+        message = call["params"]["message"]
+        skill_id = message.get("metadata", {}).get(ASAP_EXTENSION_URI, {}).get("skill_id")
+        if skill_id not in ("echo", "greet") and Fault.RUNS_UNDECLARED_SKILL not in self.faults:
+            return _rpc_error(call, -32602)
+        if kind == "out_of_grant" and Fault.GRANTS_EVERYTHING not in self.faults:
+            no_challenge = Fault.DENIAL_WITHOUT_CHALLENGE in self.faults
+            challenge = None if no_challenge else _SCOPE_CHALLENGE
+            return self._refusal(403, "insufficient_scope", "asap:capability_denied", challenge)
+        language = message["parts"][0]["data"].get("language")
+        if language not in ("en", "pt") and Fault.IGNORES_CONSTRAINTS not in self.faults:
+            with_challenge = Fault.CONSTRAINT_WITH_CHALLENGE in self.faults
+            challenge = _SCOPE_CHALLENGE if with_challenge else None
+            return self._refusal(403, "access_denied", "asap:constraint_violation", challenge)
         return _greeting(call)
+
+    def _refusal(self, status: int, error: str, code: str, challenge: str | None) -> httpx.Response:
+        if Fault.NO_WWW_AUTHENTICATE in self.faults:
+            challenge = None
+        headers = {} if challenge is None else {"www-authenticate": challenge}
+        body = {"error": error, "error_description": code}
+        return httpx.Response(status, json=body, headers=headers)
 
     def _token_kind(self, token: str) -> str | None:
         """The token layer: signature, audience, and (with a fault) single use."""
@@ -202,16 +243,11 @@ class FakeA2AGateway:
 
 
 _INVALID_CHALLENGE = 'Bearer error="invalid_token", error_description="asap:invalid_token"'
+_SCOPE_CHALLENGE = 'Bearer error="insufficient_scope", error_description="asap:capability_denied"'
 
 
 def _b64url(raw: bytes) -> str:
     return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
-
-
-def _refusal(status: int, error: str, code: str, challenge: str | None) -> httpx.Response:
-    headers = {} if challenge is None else {"www-authenticate": challenge}
-    body = {"error": error, "error_description": code}
-    return httpx.Response(status, json=body, headers=headers)
 
 
 def _rpc_error(call: dict[str, Any], code: int) -> httpx.Response:
