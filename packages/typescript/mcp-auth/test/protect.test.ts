@@ -2,8 +2,8 @@ import { createAgent, createHost, MemoryStorage, type AgentContext } from "@asap
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { createMcpAuthMiddleware, MCP_PROTOCOL_VERSION } from "../src/index.js";
-import { MCP_ENDPOINT, NOT_PUBLIC_REQUESTS, post, PROTECTED_TOOL, PUBLIC_TOOL, toolsCallHeaders } from "./mcp-requests.js";
+import { createMcpAuthMiddleware } from "../src/index.js";
+import { MCP_ENDPOINT, NOT_PUBLIC_REQUESTS, post, PROTECTED_TOOL, PUBLIC_TOOL, toolsCallBody, toolsCallHeaders } from "./mcp-requests.js";
 
 let agent: AgentContext;
 let toolRuns: string[];
@@ -40,12 +40,6 @@ function protectedHandler() {
     },
   });
   return auth.protect(createMcpHandler(buildServer));
-}
-
-/** A 2026-07-28 tools/call body (both _meta keys are required). */
-function toolsCallBody(tool: string): unknown {
-  const _meta = { "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION, "io.modelcontextprotocol/clientCapabilities": {} };
-  return { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: tool, arguments: {}, _meta } };
 }
 
 async function resultText(response: Response): Promise<string> {

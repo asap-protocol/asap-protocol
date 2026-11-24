@@ -16,6 +16,12 @@ export function post(headers: HeaderList, body: unknown = {}): Request {
   });
 }
 
+/** A 2026-07-28 tools/call body (both _meta keys are required). */
+export function toolsCallBody(tool: string, args: Record<string, unknown> = {}): unknown {
+  const _meta = { "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION, "io.modelcontextprotocol/clientCapabilities": {} };
+  return { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: tool, arguments: args, _meta } };
+}
+
 export function toolsCallHeaders(tool: string): HeaderList {
   return [["mcp-protocol-version", MCP_PROTOCOL_VERSION], ["mcp-method", "tools/call"], ["mcp-name", tool]];
 }
