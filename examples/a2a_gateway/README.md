@@ -114,6 +114,8 @@ result = await AgentCardIngestor(trust).ingest("https://gateway.example/.well-kn
 
 `agents` is a tuple of agent URNs in code (a list in a JSON or YAML config read with `A2ATrustConfig.model_validate`). The same card, checked with a key pinned for another agent, fails with `A2ASignerScopeError`. A key that may sign for every agent needs the explicit value `agents=ANY_AGENT`. A `verified` card is still not bound to the URL it came from, and it has no expiry: it can be served again from any URL while its key is trusted.
 
+If you already have a card and an expected agent URN, call `verify_agent_card_for_agent`. For a signed card, it checks the signer scope and compares the URN in the ASAP extension with the expected URN. A card without the extension uses the expected URN for the signer scope check.
+
 ### 4. Call a skill
 
 The interface is A2A JSON-RPC at `POST /a2a`. Send the headers `A2A-Version: 1.0` and `Authorization: Bearer <access token>`. The token must come from a configured issuer and name the gateway's audience. Select the skill with the message metadata key `https://asap-protocol.com/a2a/extensions/manifest/v1`, and put the arguments in one `data` part:

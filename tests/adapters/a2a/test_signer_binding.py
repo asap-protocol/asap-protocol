@@ -19,6 +19,7 @@ from joserfc.jwk import OKPKey
 
 from asap.adapters.a2a import (
     ANY_AGENT,
+    A2AAgentMismatchError,
     A2AKeyResolver,
     A2ASignerScopeError,
     A2ATrustConfig,
@@ -156,12 +157,24 @@ async def test_a_card_without_the_extension_binds_the_callers_agent_id(
     assert result.manifest.id == agent_id
 
 
-async def test_verify_agent_card_for_agent_binds_without_a_manifest() -> None:
+async def test_verify_agent_card_for_agent_checks_scope_for_a_card_without_extension() -> None:
     resolver = A2AKeyResolver(_PINNED_A_AND_B)
-    card = _card(_BANK_B, _KEY_A, "a1")
+    card = _without_extension(_card(_BANK_A, _KEY_A, "a1"), _KEY_A, "a1")
 
     with pytest.raises(A2ASignerScopeError):
         await verify_agent_card_for_agent(card, _BANK_B, resolver)
     result = await verify_agent_card_for_agent(card, _BANK_A, resolver)
 
     assert result.verified is True
+
+
+async def test_verify_agent_card_for_agent_checks_the_declared_urn() -> None:
+    trust = A2ATrustConfig(
+        pinned_keys={"a1": PinnedCardKey(jwk=_jwk(_KEY_A, "a1"), agents=(_BANK_A, _BANK_B))}
+    )
+    resolver = A2AKeyResolver(trust)
+    card = _card(_BANK_A, _KEY_A, "a1")
+
+    assert (await verify_agent_card_for_agent(card, _BANK_A, resolver)).verified
+    with pytest.raises(A2AAgentMismatchError):
+        await verify_agent_card_for_agent(card, _BANK_B, resolver)
