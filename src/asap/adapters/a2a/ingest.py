@@ -31,6 +31,7 @@ from asap.adapters.a2a.errors import (
     A2ACardFetchError,
     A2AMappingError,
     A2AUncoveredExtensionError,
+    without_user_info,
 )
 from asap.adapters.a2a.extension import ASAP_EXTENSION_URI
 from asap.adapters.a2a.mapping import agent_card_to_manifest
@@ -127,7 +128,10 @@ class AgentCardIngestor:
                 transport=self._transport,
             )
         except GuardedFetchError as exc:
-            raise A2ACardFetchError(url, exc.code) from exc
+            error = A2ACardFetchError(exc.url, exc.code)
+            # The guarded fetch repeats a URL that does not parse as given, user
+            # info included: then its error must not be chained into a traceback.
+            raise error from (exc if error.url == exc.url else None)
         card = _parse_card(url, document)
         verification = await verify_agent_card(
             card, self._key_resolver, algorithms=self._trust.algorithms, policy=self._trust.policy
@@ -158,5 +162,5 @@ def _parse_card(url: str, document: dict[str, Any]) -> AgentCard:
     try:
         return AgentCard.model_validate(document)
     except ValidationError as exc:
-        source = f"Agent Card at {url!r}"
+        source = f"Agent Card at {without_user_info(url)!r}"
         raise A2AMappingError.from_validation_error(source, "A2A v1.0 Agent Card", exc) from exc

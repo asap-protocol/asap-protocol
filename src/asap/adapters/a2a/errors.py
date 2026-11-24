@@ -6,6 +6,7 @@ JSON-RPC code of :class:`asap.errors.ASAPError`; no new code is reserved.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Literal
 
@@ -16,6 +17,20 @@ if TYPE_CHECKING:
 
 _MAX_LISTED_PATHS = 10
 _MAX_LISTED_PATH_LENGTH = 120
+# The user info of a URL: everything between "//" and the last "@" of the
+# authority. Matched on the text, so a URL that does not parse loses it too.
+_URL_USER_INFO = re.compile(r"^([A-Za-z][A-Za-z0-9+.-]*:)?([/\\]{2})[^/\\?#]*@")
+
+
+def without_user_info(url: str) -> str:
+    """Return *url* without its user info (``user:password@``), whether it parses or not.
+
+    Example:
+        >>> without_user_info("https://agent:secret@agent.example.com/card")
+        'https://agent.example.com/card'
+    """
+    return _URL_USER_INFO.sub(r"\1\2", url, count=1)
+
 
 A2A_SUPPORTED_VERSION = "1.0"
 """The only A2A version whose Agent Card the adapter reads (pinned proto tag ``v1.0.1``)."""
@@ -128,16 +143,18 @@ class A2AKeyResolutionError(A2ACardVerificationError):
     """The key for a card signature could not be resolved, so the card fails.
 
     ``refusal`` is the stable code of the guarded fetch of ``jku`` (for example
-    ``"http_status"`` or ``"host_not_public"``), or ``"invalid_jwks"``.
+    ``"http_status"`` or ``"host_not_public"``), or ``"invalid_jwks"``. ``jku``
+    is kept without its user info.
     """
 
     def __init__(self, jku: str, refusal: str, detail: str) -> None:
+        shown = without_user_info(jku)
         super().__init__(
             "asap:adapters/a2a/key_resolution",
-            f"no key could be read from the jku {jku!r} ({refusal}): {detail}",
-            {"jku": jku, "refusal": refusal},
+            f"no key could be read from the jku {shown!r} ({refusal}): {detail}",
+            {"jku": shown, "refusal": refusal},
         )
-        self.jku = jku
+        self.jku = shown
         self.refusal = refusal
 
 
@@ -146,15 +163,17 @@ class A2ACardFetchError(A2AAdapterError):
 
     ``refusal`` is the stable code of :class:`asap.utils.guarded_fetch.GuardedFetchError`,
     for example ``"scheme_not_https"``, ``"host_not_public"``, or ``"too_large"``.
+    ``url`` is kept without its user info.
     """
 
     def __init__(self, url: str, refusal: str) -> None:
+        shown = without_user_info(url)
         super().__init__(
             "asap:adapters/a2a/card_fetch",
-            f"the Agent Card at {url!r} could not be fetched ({refusal})",
-            {"url": url, "refusal": refusal},
+            f"the Agent Card at {shown!r} could not be fetched ({refusal})",
+            {"url": shown, "refusal": refusal},
         )
-        self.url = url
+        self.url = shown
         self.refusal = refusal
 
 

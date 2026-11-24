@@ -29,7 +29,7 @@ from joserfc.errors import JoseError
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from asap.adapters.a2a._ttl_cache import BoundedTTLCache
-from asap.adapters.a2a.errors import A2AKeyResolutionError
+from asap.adapters.a2a.errors import A2AKeyResolutionError, without_user_info
 from asap.adapters.a2a.signature_keys import (
     CARD_VERIFY_ALGORITHMS,
     CardKey,
@@ -89,8 +89,9 @@ class A2ATrustConfig(ASAPBaseModel):
     @model_validator(mode="after")
     def _check_jku_allowlist(self) -> Self:
         for url in self.jku_allowlist:
-            if httpx.URL(url).userinfo:
-                # Checked first and not echoed: the user info may be a credential.
+            if without_user_info(url) != url:
+                # Checked on the text first, so a URL that does not parse is
+                # covered too, and never echoed: the user info may be a credential.
                 raise ValueError("a jku_allowlist entry holds user info; a jku never carries one")
             try:
                 validate_guarded_url(url, allow_private_hosts=self.allow_private_hosts)
