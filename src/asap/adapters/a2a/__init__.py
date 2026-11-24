@@ -20,6 +20,7 @@ from asap.adapters.a2a.canonical import (
 from asap.adapters.a2a.errors import (
     A2AAdapterError,
     A2ACanonicalFormError,
+    A2ACardNotSignableError,
     A2AMappingError,
     A2AMappingInputError,
     A2AUnsupportedVersionError,
@@ -62,6 +63,11 @@ from asap.adapters.a2a.security import (
     SecurityScheme,
     StringList,
 )
+from asap.adapters.a2a.signing import (
+    CardSigningAlgorithm,
+    CardSigningKey,
+    sign_agent_card,
+)
 from asap.adapters.a2a.unmapped import (
     UNMAPPED_CARD_FIELDS,
     UNMAPPED_MANIFEST_FIELDS,
@@ -71,6 +77,7 @@ from asap.adapters.a2a.unmapped import (
 __all__ = [
     "A2AAdapterError",
     "A2ACanonicalFormError",
+    "A2ACardNotSignableError",
     "A2AMappingError",
     "A2AMappingInputError",
     "A2AUnsupportedVersionError",
@@ -88,6 +95,8 @@ __all__ = [
     "AuthorizationCodeOAuthFlow",
     "CanonicalCardForm",
     "CardMapping",
+    "CardSigningAlgorithm",
+    "CardSigningKey",
     "ClientCredentialsOAuthFlow",
     "DeviceCodeOAuthFlow",
     "DroppedField",
@@ -111,4 +120,5 @@ __all__ = [
     "canonicalize_agent_card",
     "manifest_to_agent_card",
     "read_asap_extension",
+    "sign_agent_card",
 ]

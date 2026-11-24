@@ -54,6 +54,18 @@ class A2ACanonicalFormError(A2AAdapterError):
         super().__init__("asap:adapters/a2a/canonical_form", message, {})
 
 
+class A2ACardNotSignableError(A2AAdapterError):
+    """``sign_agent_card`` refused: the signature would not cover the whole card, or the key is wrong.
+
+    ``paths`` lists the card values that the canonical form drops or rounds
+    (empty for a key or algorithm problem). Messages never hold key material.
+    """
+
+    def __init__(self, message: str, *, paths: Sequence[str] = ()) -> None:
+        super().__init__("asap:adapters/a2a/not_signable", message, {"paths": list(paths)})
+        self.paths = tuple(paths)
+
+
 class A2AMappingInputError(A2AAdapterError):
     """A caller input that the mapping needs is missing, or it conflicts with the source.
 
