@@ -161,6 +161,13 @@ jobs:
             mypy-${{ runner.os }}-${{ hashFiles('uv.lock', 'pyproject.toml') }}-
       - name: Type check with mypy
         run: uv run mypy src/ scripts/ tests/
+      # The root run excludes asap-compliance (pyproject.toml): its tests/ and the
+      # root tests/ are both the module "tests", which one mypy run refuses. So the
+      # package is checked from its own folder, with the root config (strict, and
+      # the relaxed tests.* profile for its tests).
+      - name: Type check asap-compliance with mypy
+        working-directory: asap-compliance
+        run: uv run --project .. mypy --config-file ../pyproject.toml asap_compliance tests
       - name: Build docs
         run: uv run mkdocs build
 
