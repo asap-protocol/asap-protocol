@@ -21,6 +21,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Any, cast
 
+import httpx
 from a2a.helpers import new_data_message
 from a2a.server.agent_execution import AgentExecutor, RequestContext
 from a2a.server.context import ServerCallContext
@@ -36,11 +37,17 @@ from fastapi.responses import JSONResponse, Response
 from google.protobuf.json_format import ParseDict, ParseError
 
 from asap.adapters.a2a import AgentCardInputs, CardSigner, build_signed_agent_card
-from asap.auth.external_tokens import ExternalPrincipal, ExternalTokenConfig, ExternalTokenError
+from asap.auth.external_tokens import (
+    ExternalPrincipal,
+    ExternalTokenConfig,
+    ExternalTokenError,
+    ExternalTokenErrorReason,
+)
 from asap.auth.external_verifier import ExternalTokenVerifier
 from asap.models.entities import Manifest
 from asap.observability import get_logger
 from asap.transport.server import create_app
+from asap.utils.guarded_fetch import AddressResolver
 from examples.a2a_gateway import refusals
 from examples.a2a_gateway.demo_agent import A2A_PATH, SkillHandler
 from examples.a2a_gateway.skill_call import (
@@ -65,8 +72,13 @@ def create_gateway_app(
     signers: Sequence[CardSigner],
     external_tokens: ExternalTokenConfig,
     skills: Mapping[str, SkillHandler],
+    dns_resolver: AddressResolver | None = None,
+    transport: httpx.AsyncBaseTransport | None = None,
 ) -> FastAPI:
     """Return the gateway app for *manifest*, whose skills run as *skills*.
+
+    *dns_resolver* and *transport* reach the token verifier's key fetches; they
+    are for tests, as in :class:`asap.adapters.a2a.AgentCardIngestor`.
 
     Raises:
         ValueError: *skills* does not hold exactly the manifest's skills.
@@ -86,9 +98,8 @@ def create_gateway_app(
     [rpc_route] = create_jsonrpc_routes(
         handler, rpc_url=A2A_PATH, context_builder=SkillCallContextBuilder()
     )
-    gate = A2AGate(
-        ExternalTokenVerifier(external_tokens), skill_ids, cast(Dispatch, rpc_route.endpoint)
-    )
+    verifier = ExternalTokenVerifier(external_tokens, resolver=dns_resolver, transport=transport)
+    gate = A2AGate(verifier, skill_ids, cast(Dispatch, rpc_route.endpoint))
     app.add_api_route(A2A_PATH, gate.handle, methods=["POST"], include_in_schema=False)
     return app
 
@@ -131,6 +142,8 @@ class A2AGate:
             # The typed reason goes to the log only, never the token; the answer
             # is the same for every reason, so it names no allowlisted issuer.
             logger.warning("a2a_gateway.token_rejected", reason=exc.reason.value)
+            if exc.reason is ExternalTokenErrorReason.KEY_SOURCE_UNAVAILABLE:
+                return refusals.auth_unavailable()
             return refusals.invalid_token()
 
     def _decide(

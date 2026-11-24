@@ -17,10 +17,23 @@ from a2a.client.errors import A2AClientError
 from a2a.utils.signing import InvalidSignaturesError
 from fastapi import FastAPI
 from joserfc.jwk import OKPKey
+from starlette.requests import Request
 
-from asap.adapters.a2a import A2AInvalidSignatureError, A2ATrustConfig, AgentCardIngestor
+from asap.adapters.a2a import (
+    A2AInvalidSignatureError,
+    A2ATrustConfig,
+    AgentCardIngestor,
+    CardSigner,
+)
+from asap.auth.external_tokens import ExternalTokenConfig
 from examples.a2a_gateway.client import call_skill, pinned_card_verifier
-from examples.a2a_gateway.demo_agent import DEMO_SKILLS, SkillHandler
+from examples.a2a_gateway.demo_agent import (
+    DEMO_SKILLS,
+    SkillHandler,
+    demo_card_inputs,
+    demo_manifest,
+)
+from examples.a2a_gateway.gateway import SkillCallContextBuilder, create_gateway_app
 from tests.examples.test_a2a_gateway import (
     AUDIENCE,
     CARD_KEY,
@@ -29,6 +42,7 @@ from tests.examples.test_a2a_gateway import (
     ORIGIN,
     build_gateway,
 )
+from tests.auth.local_issuer import LocalIssuer
 
 _VERIFY_CARD = pinned_card_verifier(CARD_KID, CARD_KEY.public_key())
 _CARD_JWK = {**OKPKey.import_key(CARD_KEY.public_key()).as_dict(), "kid": CARD_KID}
@@ -168,3 +182,43 @@ async def test_a_tampered_card_fails_both_verifiers_and_no_call_is_made(
     with pytest.raises(A2AInvalidSignatureError):
         await ingestor.ingest(f"{ORIGIN}/.well-known/agent-card.json")
     assert "/a2a" not in calls_made and calls == []
+
+
+async def test_an_unreachable_key_source_is_503() -> None:
+    idp = LocalIssuer("https://idp.example")
+    issuer_entry = idp.config_entry(
+        AUDIENCE,
+        key_source={"kind": "jwks_uri", "jwks_uri": "https://idp.example/jwks"},
+        grant_rules=[{"scope": "demo:echo", "capability": "echo"}],
+    )
+    failing_idp = httpx.MockTransport(lambda request: httpx.Response(500))
+    app = create_gateway_app(
+        demo_manifest(ORIGIN),
+        demo_card_inputs(ORIGIN),
+        signers=[CardSigner(key=CARD_KEY, kid=CARD_KID)],
+        external_tokens=ExternalTokenConfig.model_validate({"issuers": [issuer_entry]}),
+        skills=DEMO_SKILLS,
+        dns_resolver=_public_dns,
+        transport=failing_idp,
+    )
+    token = idp.mint(idp.claims(AUDIENCE, scope="demo:echo"))
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=ORIGIN) as http:
+        response = await http.post("/a2a", json={}, headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 503
+    assert response.json() == _body("temporarily_unavailable", "Authentication service unavailable")
+    assert "www-authenticate" not in response.headers
+
+
+def test_the_sdk_call_context_never_holds_the_token() -> None:
+    headers = [
+        (b"authorization", b"Bearer secret-token"),
+        (b"cookie", b"s=1"),
+        (b"a2a-version", b"1.0"),
+    ]
+    request = Request({"type": "http", "method": "POST", "path": "/a2a", "headers": headers})
+
+    context = SkillCallContextBuilder().build(request)
+
+    assert context.state["headers"] == {"a2a-version": "1.0"}
+    assert "secret-token" not in repr(context.state)

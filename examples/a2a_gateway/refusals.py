@@ -45,6 +45,11 @@ def invalid_token() -> JSONResponse:
     return _refusal(401, "invalid_token", INVALID_TOKEN, _challenge("invalid_token", INVALID_TOKEN))
 
 
+def auth_unavailable() -> JSONResponse:
+    """503 when the issuer's key source cannot be reached."""
+    return _refusal(503, "temporarily_unavailable", "Authentication service unavailable")
+
+
 def capability_denied() -> JSONResponse:
     """403 when the token's grants do not cover the selected skill."""
     challenge = _challenge("insufficient_scope", CAPABILITY_DENIED)
