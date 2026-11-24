@@ -19,6 +19,7 @@ from fastapi.responses import JSONResponse
 from joserfc import jwk
 from joserfc.errors import JoseError
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.types import Scope
 
 from asap.auth._scope_parse import parse_scope
 from asap.auth.jwks import JWKSValidator
@@ -152,13 +153,33 @@ def path_under_prefix(path: str, prefix: str) -> bool:
     return path == normalized or path.startswith(f"{normalized}/")
 
 
+def _route_path(scope: Scope) -> str:
+    """Return the path routing matches: ``scope["path"]`` without ``root_path``.
+
+    A ``Mount``, a server ``--root-path`` or ``FastAPI.root_path`` puts the prefix
+    in ``root_path`` and keeps it at the front of ``path``. ``root_path`` is removed
+    only when it is a whole-segment prefix of ``path``; otherwise ``path`` is
+    returned unchanged (a path that was never prefixed). This is the rule
+    Starlette's router applies, so access checks see the path that gets routed.
+    """
+    path: str = scope["path"]
+    root_path: str = scope.get("root_path", "")
+    if not root_path or not path.startswith(root_path):
+        return path
+    rest = path[len(root_path) :]
+    if rest and not rest.startswith("/"):
+        return path
+    return rest
+
+
 class OAuth2Middleware(BaseHTTPMiddleware):
     """Middleware that validates JWT Bearer tokens using JWKS.
 
     Extracts Authorization: Bearer <token>, validates the JWT signature
     with keys from jwks_uri, checks exp, and optionally enforces a
     required scope. Sets request.state.oauth2_claims on success.
-    Skips ``/asap/agent/*`` (Host JWT, not IdP access tokens).
+    Skips ``/asap/agent/*`` (Host JWT, not IdP access tokens). Paths are matched
+    as routed, without the ASGI ``root_path``.
 
     Returns 401 if the token is missing or invalid, 403 if scope is insufficient.
     """
@@ -406,7 +427,8 @@ class OAuth2Middleware(BaseHTTPMiddleware):
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
         """Validate JWT and optionally scope; return 401/403 or pass to next."""
-        if not self._should_validate(request.url.path):
+        route_path = _route_path(request.scope)
+        if not self._should_validate(route_path):
             return await call_next(request)
 
         token = _get_bearer_token(request)
@@ -421,7 +443,7 @@ class OAuth2Middleware(BaseHTTPMiddleware):
         claims, error = await self.validate_bearer_token(
             token,
             path=request.url.path,
-            enforce_required_scope=self._enforces_global_scope(request.url.path),
+            enforce_required_scope=self._enforces_global_scope(route_path),
         )
         if error is not None:
             return error

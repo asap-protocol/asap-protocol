@@ -7,7 +7,7 @@
 > **Created**: 2026-11-18
 > **Last Updated**: 2026-11-18
 >
-> **Current library**: `asap-protocol` **2.5.11** — release history lives in [`CHANGELOG.md`](../../CHANGELOG.md) and [GitHub Releases](https://github.com/asap-protocol/asap-protocol/releases)
+> See [GitHub Releases](https://github.com/asap-protocol/asap-protocol/releases/latest) for the latest published library and the [changelog](../../CHANGELOG.md) for release history.
 > **Replaces**: [prd-v2.5-roadmap.md](./prd-v2.5-roadmap.md) (v2.5.x train index, **closed** 2026-11-18). From now on this file is the only public train index. New trains do not get their own index file.
 
 ---
@@ -20,7 +20,7 @@ The next planned train kept its `v2.5.5` label while the library moved past that
 
 The reset fixes this:
 
-1. **The v2.5.x train is closed at 2.5.11.** No more planned scope ships on 2.5.x. A 2.5.12 ships only if a security fix requires it, under the release policy (§3).
+1. **The v2.5.x train is closed at 2.5.11.** No more planned scope ships on 2.5.x. Maintenance patches follow the release policy (§3).
 2. **Planned scope ships only in minor releases** (`x.Y.0`). Patches are unplanned maintenance.
 3. **PRDs are named by track, not by version** (`prd-interop.md`, `prd-spec-profile.md`). The target version lives in the PRD header, so a slip changes one field, not a filename.
 4. **This file is the single public train index.**
@@ -31,7 +31,7 @@ The reset fixes this:
 
 | Phase | Version | Track / PRD | Scope | Exit criteria | Status |
 |-------|---------|-------------|-------|---------------|--------|
-| **0 — Reset** | none (2.5.12 only if a CVE requires it) | — (this file) | Close the v2.5 train. Publish the release policy and the integration support tiers (§3). Restore weekly adoption telemetry ([runbook](../../docs/maintainers/telemetry.md)). Triage the automated regression-test PRs. Find 1–3 external design partners. | Telemetry baseline collected; policy and tiers published | **Active** |
+| **0 — Reset** | maintenance patches under the release policy | — (this file) | Close the v2.5 train. Publish the release policy and the integration support tiers (§3). Restore weekly adoption telemetry ([runbook](../../docs/maintainers/telemetry.md)). Triage the automated regression-test PRs. Find 1–3 external design partners. | Telemetry baseline collected; policy and tiers published | **Active** |
 | **Interop** | **v2.6.0** | [prd-interop.md](./prd-interop.md) | **P1** A2A v1.0 Agent Card ↔ ASAP manifest bridge, including signed-card verification (COMPAT-005/006). **P1** accept external agent tokens as ASAP agent sessions, including MCP OAuth 2.1 bearer tokens (COMPAT-001/002). **P1** `@asap-protocol/mcp-auth` for HTTP MCP servers (MCP-TS-001..003). **P2** discovery bridge (COMPAT-003). **MUST** interoperability guide (COMPAT-004). Housekeeping: remove the six import paths deprecated in v2.5.1 for v2.6.0, including the `asap.cli._compat` shim ([#275](https://github.com/asap-protocol/asap-protocol/issues/275)) (HK-001..HK-007). | One A2A↔ASAP flow and one MCP-HTTP↔ASAP flow work end to end, each with compliance checks | **Next** — PLANNED |
 | **Spec profile** | **v2.7.0** | [prd-spec-profile.md](./prd-spec-profile.md) | RFC 2119 spec scoped to ASAP's unique surface (identity, capability grants, approval, lifecycle, error registry), written as a profile on A2A / MCP / OAuth. Security and privacy considerations (PRIV-*). Capability-aware introspection (INTRO-*). Each MUST maps to an `asap-compliance` check. TSOA (`@asap-protocol/openapi`) stays default-defer. | Spec published; compliance covers 100% of MUST statements | PLANNED (after Interop) |
 | **Decision gate** | — | this file | Review adoption data after v2.6.0 and v2.7.0, then decide the v3 direction | Decision recorded | After v2.7.0 |

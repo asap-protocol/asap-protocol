@@ -71,9 +71,9 @@ def _encode(typ: str, claims: dict[str, Any], okp: OKPKey) -> str:
 
 
 def _standard_claims(*, iss: str, jti: str) -> dict[str, Any]:
-    """Build clock claims that pass expiry and future-iat checks."""
+    """Build clock claims that pass the expiry, future-iat, and Agent JWT lifetime checks."""
     now = int(time.time())
-    return {"iss": iss, "iat": now, "exp": now + 300, "jti": jti}
+    return {"iss": iss, "iat": now, "exp": now + 60, "jti": jti}
 
 
 async def _save_active_agent() -> tuple[InMemoryHostStore, InMemoryAgentStore, str, OKPKey]:

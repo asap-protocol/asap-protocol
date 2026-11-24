@@ -33,7 +33,7 @@ from asap.auth.identity import (
     HostStore,
     jwk_thumbprint_sha256,
 )
-from asap.auth.jti_replay_cache import JtiReplayCacheProtocol
+from asap.auth.jti_replay_cache import JtiReplayCacheProtocol, check_and_record_until
 from asap.models.ids import generate_id
 
 # Encode/decode: EdDSA (RFC 8037 Ed25519); joserfc also accepts "Ed25519" alias.
@@ -56,6 +56,20 @@ HOST_REVOKED_ERROR = "host revoked"
 
 # Clock skew allowance for ``iat`` checks (seconds).
 _IAT_MAX_FUTURE_SKEW_SECONDS = 60
+
+# The longest Agent JWT lifetime that
+# ``verify_agent_jwt`` accepts, counted from now and from ``iat``: the TTL plus
+# the ``iat`` skew. It bounds how long a captured token works, and how long a
+# replay cache keeps its ``jti`` (until ``exp`` plus the ``iat`` skew).
+AGENT_JWT_MAX_LIFETIME_SECONDS = AGENT_JWT_TTL_SECONDS + _IAT_MAX_FUTURE_SKEW_SECONDS
+
+# The longest a replay cache keeps a Host JWT ``jti``, counted from now: a
+# default-TTL token from a clock up to the ``iat`` skew ahead, plus the skew
+# margin after its ``exp``. Host JWTs have no lifetime cap, so a later ``exp``
+# does not hold the record longer.
+_HOST_JWT_REPLAY_RECORD_MAX_SECONDS = (
+    DEFAULT_HOST_JWT_TTL_SECONDS + 2 * _IAT_MAX_FUTURE_SKEW_SECONDS
+)
 
 
 @dataclass(frozen=True)
@@ -93,7 +107,10 @@ class JwtVerifyResult:
 
 
 class JtiReplayCache:
-    """In-memory ``jti`` replay guard (default 90s window).
+    """In-memory ``jti`` replay guard.
+
+    A record lives ``ttl_seconds`` (default 90 s), or until ``keep_until``
+    when the caller passes a later one.
 
     Partition keys isolate tokens per host thumbprint or per agent id so
     unrelated identities do not share ``jti`` namespaces.
@@ -128,14 +145,18 @@ class JtiReplayCache:
         key = (partition_key, jti)
         return key in self._expiry_by_key and self._expiry_by_key[key] > now
 
-    def check_and_record(self, partition_key: str, jti: str) -> bool:
+    def check_and_record(
+        self, partition_key: str, jti: str, *, keep_until: float | None = None
+    ) -> bool:
         """Record ``jti`` for ``partition_key``.
 
-        Returns:
-            True if this is the first use within the TTL window.
+        ``keep_until`` (seconds since the epoch) keeps the record at least
+        until then when that is later than ``ttl_seconds`` from now.
 
-            False if the same ``(partition_key, jti)`` was seen within the TTL
-            (replay).
+        Returns:
+            True on first use: no live record of ``(partition_key, jti)``.
+
+            False if that record is still live (replay).
         """
         if not jti or not str(jti).strip():
             return False
@@ -144,7 +165,8 @@ class JtiReplayCache:
         key = (partition_key, jti)
         if key in self._expiry_by_key and self._expiry_by_key[key] > now:
             return False
-        self._expiry_by_key[key] = now + self._ttl
+        expiry = now + self._ttl
+        self._expiry_by_key[key] = expiry if keep_until is None else max(expiry, keep_until)
         self._evict_to_max_size()
         return True
 
@@ -154,10 +176,19 @@ def _unverified_header_and_payload(token: str) -> tuple[dict[str, Any], dict[str
 
     Uses :func:`joserfc.jws.extract_compact` to decode the compact
     serialisation, avoiding manual base64url padding.
+
+    Raises ``ValueError`` or ``JoseError`` for any malformed token, including a
+    header or payload that is not a JSON object and a payload nested too deeply
+    for ``json.loads`` (``RecursionError``).
     """
-    obj = _jws_extract_compact(token.encode("utf-8"))
-    header = dict(obj.headers())
-    payload: dict[str, Any] = json.loads(obj.payload)
+    try:
+        obj = _jws_extract_compact(token.encode("utf-8"))
+        header = dict(obj.headers())
+        payload = json.loads(obj.payload)
+    except (TypeError, RecursionError) as e:
+        raise ValueError(str(e)) from e
+    if not isinstance(payload, dict):
+        raise ValueError("JWT payload is not a JSON object")
     return header, payload
 
 
@@ -178,7 +209,7 @@ def _iat_not_in_future(claims: dict[str, Any], *, now_ts: float) -> bool:
         return True
     try:
         iat_ts = float(iat)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return False
     return iat_ts <= now_ts + float(_IAT_MAX_FUTURE_SKEW_SECONDS)
 
@@ -190,9 +221,34 @@ def _exp_valid(claims: dict[str, Any], *, now_ts: float) -> bool:
         return False
     try:
         exp_ts = float(exp)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return False
     return now_ts < exp_ts
+
+
+def _lifetime_within(claims: dict[str, Any], *, now_ts: float, max_seconds: float) -> bool:
+    """Return True if ``exp`` is at most ``max_seconds`` after now and after ``iat``.
+
+    Runs after :func:`_exp_valid`, so ``exp`` parses. An ``iat`` that is absent
+    or does not parse counts as now; the ``iat`` check refuses a bad one next.
+    """
+    exp_ts = float(claims["exp"])
+    try:
+        iat_ts = float(claims["iat"])
+    except (KeyError, TypeError, ValueError, OverflowError):
+        iat_ts = now_ts
+    return exp_ts - min(iat_ts, now_ts) <= max_seconds
+
+
+def _replay_keep_until(claims: dict[str, Any]) -> float:
+    """Return ``exp`` plus the ``iat`` skew: until when a replay record must block reuse.
+
+    The skew margin covers a shared cache read by a worker whose clock runs
+    behind the one that recorded the ``jti``: it still accepts the token after
+    the recording worker's ``exp``. Runs after :func:`_exp_valid`, so ``exp``
+    parses.
+    """
+    return float(claims["exp"]) + _IAT_MAX_FUTURE_SKEW_SECONDS
 
 
 def _jti_present(claims: dict[str, Any]) -> bool:
@@ -205,12 +261,14 @@ def _validate_standard_claims(
     *,
     now_ts: float,
     expected_audience: str | list[str] | None,
+    max_lifetime_seconds: float | None = None,
 ) -> str | None:
     """Validate the shared ``exp``/``iat``/``jti``/``aud`` claims.
 
     Returns the first failure reason, or ``None`` when all checks pass. Used by
     both :func:`verify_host_jwt` and :func:`verify_agent_jwt` so the standard
-    claim gate has a single source of truth.
+    claim gate has a single source of truth. ``max_lifetime_seconds`` (Agent
+    JWTs only) caps how far ``exp`` may be after now and after ``iat``.
 
     Example:
         >>> err = _validate_standard_claims(claims, now_ts=now, expected_audience="aud")
@@ -219,6 +277,10 @@ def _validate_standard_claims(
     """
     if not _exp_valid(claims, now_ts=now_ts):
         return "token expired or missing exp"
+    if max_lifetime_seconds is not None and not _lifetime_within(
+        claims, now_ts=now_ts, max_seconds=max_lifetime_seconds
+    ):
+        return "token lifetime too long"
     if not _iat_not_in_future(claims, now_ts=now_ts):
         return "invalid iat (too far in the future)"
     if not _jti_present(claims):
@@ -254,6 +316,16 @@ async def verify_host_jwt(
     read-only replay checks. This preserves reusable polling tokens on
     read-only routes while still rejecting Host JWTs whose ``jti`` was already
     consumed by a recording route (issue #249).
+
+    A recording check stores the ``jti`` under ``iss`` with ``keep_until`` set
+    to ``exp`` plus the 60 s ``iat`` skew, at most 420 s after now (see
+    :func:`~asap.auth.jti_replay_cache.check_and_record_until`).
+    :class:`JtiReplayCache` and
+    :class:`~asap.auth.jti_replay_cache.RedisJtiReplayCache` keep the record
+    until then, or for their own window when that ends later, so a second use
+    of a token from :func:`create_host_jwt` with the default TTL is refused
+    while the token is valid. A cache whose ``check_and_record`` has no
+    ``keep_until`` parameter keeps the record for its own window only.
     """
     try:
         header, unverified_payload = _unverified_header_and_payload(token)
@@ -269,7 +341,8 @@ async def verify_host_jwt(
             return JwtVerifyResult(ok=False, error="missing or invalid host_public_key claim")
         okp = _okp_from_public_jwk(host_pub_claim)
         decoded = jose_jwt.decode(token, okp, algorithms=JWT_ALGS_VERIFY)
-    except (JoseError, ValueError, TypeError) as e:
+    except (JoseError, ValueError, TypeError, KeyError) as e:
+        # joserfc raises KeyError for a ``crv`` it does not know.
         return JwtVerifyResult(ok=False, error=f"invalid host JWT: {e!s}")
 
     claims = _claims_dict(decoded)
@@ -290,8 +363,9 @@ async def verify_host_jwt(
     if jti_replay_cache is not None:
         partition = str(iss)
         jti = str(claims["jti"])
+        keep_until = min(_replay_keep_until(claims), now_ts + _HOST_JWT_REPLAY_RECORD_MAX_SECONDS)
         jti_ok = (
-            jti_replay_cache.check_and_record(partition, jti)
+            check_and_record_until(jti_replay_cache, partition, jti, keep_until=keep_until)
             if record_jti
             else not jti_replay_cache.contains(partition, jti)
         )
@@ -316,6 +390,19 @@ async def verify_agent_jwt(
     """Verify an Agent JWT: typ, signatures, host/agent rows, exp/iat/jti, capabilities.
 
     When ``expected_audience`` is set, ``aud`` must match (RFC 7519 §4.1.3).
+    ``exp`` may be at most :data:`AGENT_JWT_MAX_LIFETIME_SECONDS` (120 s) after
+    now and after ``iat`` ("token lifetime too long").
+
+    ``jti_replay_cache`` records the ``jti`` under the agent id with
+    ``keep_until`` set to ``exp`` plus the 60 s ``iat`` skew (see
+    :func:`~asap.auth.jti_replay_cache.check_and_record_until`).
+    :class:`JtiReplayCache` and
+    :class:`~asap.auth.jti_replay_cache.RedisJtiReplayCache` keep the record
+    until then, or for their own window when that ends later, so a second use
+    is refused while the token is valid. The in-memory cache drops a live
+    record early only when it holds more than ``max_size`` records. A cache
+    whose ``check_and_record`` has no ``keep_until`` parameter keeps the
+    record for its own window only.
 
     On success, slides idle timeout via ``agent_store.touch_if_current`` (LIFE-005
     ``last_used_at``). That persist is conditional: it refuses if status, host, or
@@ -351,7 +438,12 @@ async def verify_agent_jwt(
     claims = _claims_dict(decoded)
     now_ts = time.time()
     if (
-        err := _validate_standard_claims(claims, now_ts=now_ts, expected_audience=expected_audience)
+        err := _validate_standard_claims(
+            claims,
+            now_ts=now_ts,
+            expected_audience=expected_audience,
+            max_lifetime_seconds=AGENT_JWT_MAX_LIFETIME_SECONDS,
+        )
     ) is not None:
         return JwtVerifyResult(ok=False, error=err)
 
@@ -372,7 +464,8 @@ async def verify_agent_jwt(
 
     if jti_replay_cache is not None:
         jti = str(claims["jti"])
-        if not jti_replay_cache.check_and_record(agent.agent_id, jti):
+        keep_until = _replay_keep_until(claims)
+        if not check_and_record_until(jti_replay_cache, agent.agent_id, jti, keep_until=keep_until):
             return JwtVerifyResult(ok=False, error="jti replay detected")
 
     if (expired := expired_agent_error(agent)) is not None:

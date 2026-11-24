@@ -2,11 +2,17 @@
 
 **ASAP (Async Simple Agent Protocol)** is a protocol for agent-to-agent communication with typed messages, async transports, discovery, and authorization. It adds the capability, approval, and compliance layer for agents, and works alongside A2A and MCP rather than replacing them.
 
-**Latest on PyPI:** **v2.5.11** ([CHANGELOG](https://github.com/asap-protocol/asap-protocol/blob/main/CHANGELOG.md#2511---2026-11-09), [GitHub Release](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.11)), a security floors patch — see [Migration (v2.5.10 → v2.5.11)](migration.md#upgrading-from-v2510-to-v2511). The **v2.5.x train is closed** at 2.5.11: v2.5.5–v2.5.11 were maintenance patches (security fixes, dependency floors, regression tests), with per-patch notes in the [CHANGELOG](https://github.com/asap-protocol/asap-protocol/blob/main/CHANGELOG.md). Feature releases on the 2.5 line: **v2.5.0 MCP Auth Bridge** — opt-in Agent JWT + capability grants for native stdio MCP ([MCP Auth Bridge](adapters/mcp-auth-bridge.md)); **v2.5.3 Adapter Lab II** — [workflow connectors](integrations/workflow-connectors.md), automation security, experimental MAF / NAT guides; **v2.5.4 Distribution Loop** — [Build for agents](guides/build-for-agents.md) and thin starters. **`asap-compliance` 1.3.0** on PyPI (tag [`v2.5.0.1`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.0.1)). **TypeScript npm line: v2.4.1** — [`@asap-protocol/client`](https://www.npmjs.com/package/@asap-protocol/client), [`@asap-protocol/mastra`](integrations/mastra.md), [`@asap-protocol/openai-agents`](integrations/openai-agents.md).
+See [PyPI](https://pypi.org/project/asap-protocol/#history) and [GitHub Releases](https://github.com/asap-protocol/asap-protocol/releases/latest) for published versions. For the v2.5.12 maintenance patch, see the [upgrade guide](migration.md#upgrading-from-v2511-to-v2512). The v2.5.x feature train closed at 2.5.11. See the [changelog](https://github.com/asap-protocol/asap-protocol/blob/main/CHANGELOG.md) for the history of the maintenance patches.
+
+The v2.5 feature releases include the following:
+
+- **v2.5.0** adds [MCP Auth Bridge](adapters/mcp-auth-bridge.md) authorization for native stdio MCP.
+- **v2.5.3** adds [workflow connectors](integrations/workflow-connectors.md), [automation security guidance](guides/automation-connector-security.md), and experimental integrations for [MAF](integrations/microsoft-agent-framework.md) and [NAT](integrations/nemo-agent-toolkit.md).
+- **v2.5.4** adds [starter projects and guidance](guides/build-for-agents.md).
 
 **Next:** **v2.6.0 Interop** (A2A v1.0 Agent Card bridge, external agent tokens including MCP OAuth 2.1, and `@asap-protocol/mcp-auth` for HTTP MCP servers), then **v2.7.0 Spec profile** (an RFC 2119 profile of ASAP's identity, capability-grant, approval, and lifecycle surface). See the [roadmap](https://github.com/asap-protocol/asap-protocol/blob/main/product/prd/prd-roadmap.md).
 
-Upgrade: [v2.5.10 → v2.5.11](migration.md#upgrading-from-v2510-to-v2511) · [v2.5.9 → v2.5.10](migration.md#upgrading-from-v259-to-v2510) · [v2.5.8 → v2.5.9](migration.md#upgrading-from-v258-to-v259) · [v2.5.7 → v2.5.8](migration.md#upgrading-from-v257-to-v258) · [v2.5.6 → v2.5.7](migration.md#upgrading-from-v256-to-v257) · [v2.5.5 → v2.5.6](migration.md#upgrading-from-v255-to-v256) · [v2.5.4 → v2.5.5](migration.md#upgrading-from-v254-to-v255) · [v2.5.3 → v2.5.4](migration.md#upgrading-from-v253-to-v254) · [v2.5.2 → v2.5.3](migration.md#upgrading-from-v252-to-v253) · [v2.5.1 → v2.5.2](migration.md#upgrading-from-v251) · [v2.5.0 → v2.5.1](migration.md#upgrading-from-v250-to-v251) · [v2.4.1 → v2.5.0](migration.md#upgrading-from-v241-to-v250) · [v2.4.0 → v2.4.1](migration.md#upgrading-from-v240-to-v241).
+Upgrade: [v2.5.11 → v2.5.12](migration.md#upgrading-from-v2511-to-v2512) · [v2.5.10 → v2.5.11](migration.md#upgrading-from-v2510-to-v2511) · [v2.5.9 → v2.5.10](migration.md#upgrading-from-v259-to-v2510) · [v2.5.8 → v2.5.9](migration.md#upgrading-from-v258-to-v259) · [v2.5.7 → v2.5.8](migration.md#upgrading-from-v257-to-v258) · [v2.5.6 → v2.5.7](migration.md#upgrading-from-v256-to-v257) · [v2.5.5 → v2.5.6](migration.md#upgrading-from-v255-to-v256) · [v2.5.4 → v2.5.5](migration.md#upgrading-from-v254-to-v255) · [v2.5.3 → v2.5.4](migration.md#upgrading-from-v253-to-v254) · [v2.5.2 → v2.5.3](migration.md#upgrading-from-v252-to-v253) · [v2.5.1 → v2.5.2](migration.md#upgrading-from-v251) · [v2.5.0 → v2.5.1](migration.md#upgrading-from-v250-to-v251) · [v2.4.1 → v2.5.0](migration.md#upgrading-from-v241-to-v250) · [v2.4.0 → v2.4.1](migration.md#upgrading-from-v240-to-v241).
 
 ## Features
 
@@ -25,14 +31,14 @@ Upgrade: [v2.5.10 → v2.5.11](migration.md#upgrading-from-v2510-to-v2511) · [v
 ## Installation
 
 ```bash
-# Using uv (recommended) — installs latest on PyPI (currently 2.5.11)
+# Install the latest PyPI release with uv
 uv add asap-protocol
 
-# Using pip (pin for reproducible upgrades)
-pip install asap-protocol==2.5.11
+# Install the latest PyPI release with pip
+pip install asap-protocol
 ```
 
-📦 **Available on [PyPI](https://pypi.org/project/asap-protocol/):** `asap-protocol` **2.5.11** ([GitHub Release `v2.5.11`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.11)). **`asap-compliance` 1.3.0** via tag [`v2.5.0.1`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.0.1). TypeScript `@asap-protocol/*` packages remain at **2.4.1**.
+To pin a Python version, select a release from [PyPI](https://pypi.org/project/asap-protocol/#history). `asap-compliance` remains at 1.3.0. The TypeScript packages remain at 2.4.1.
 
 ## Quick Start
 

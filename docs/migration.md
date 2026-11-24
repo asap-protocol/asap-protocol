@@ -1119,6 +1119,55 @@ Scope: [prd-v2.5.4-distribution-loop.md](../product/prd/prd-v2.5.4-distribution-
 
 ---
 
+### Upgrading from v2.5.11 to v2.5.12
+
+**v2.5.12** is a maintenance patch for authentication, authorization, and
+input validation in the Python reference implementation. The wire protocol
+and manifest schema match v2.5.11. The table lists requests that v2.5.12 refuses.
+
+#### What lands in v2.5.12
+
+- **Package behavior** follows the six changes in the table.
+- **Package requirements** include `opentelemetry-api>=1.45.2` (CVE-2026-126360),
+  with the SDK and the OTLP exporter at 1.45.2 and the instrumentation
+  packages at 0.66b2.
+- **Repository locks** — the root lock, `apps/example-agent`,
+  `asap-compliance`, and `apps/registry-bot` record editable
+  `asap-protocol` 2.5.12.
+- **Web app** — `next` and `eslint-config-next` 16.4.6. That change is this
+  repository, not a PyPI requirement.
+- **npm / compliance** — `@asap-protocol/*` remain **2.4.1**;
+  `asap-compliance` remains **1.3.0**.
+
+#### Behavior changes
+
+| Change | Who is affected | What to do |
+|--------|-----------------|------------|
+| **OAuth2 under a path prefix.** `OAuth2Middleware` matches `path_prefix` (default `/asap`), the operator API prefixes (`/usage`, `/sla`, `/audit`), and the `/asap/agent/` exemption against the routed path: the request path without the ASGI `root_path`. | Apps created with `oauth2_config` and served under a prefix (`Mount`, `uvicorn --root-path`, or `FastAPI.root_path`). Requests to their `path_prefix` routes now need a valid access token and the configured `required_scope`, as they do without a prefix. v2.5.11 passed these requests to the route without an access token check. The operator APIs and the `/asap/agent/*` exemption also follow the routed path, so they behave as they do without a prefix. A request whose path has an encoded `?` or `#` (`%3F` or `%23`) right after `/asap` now gets 404 instead of 401. No route serves such a path. | Send a valid access token from each client of the prefixed routes. Apps without a prefix need no change. |
+| **Constraint checks fail closed.** A check that cannot be evaluated is a violation. This applies to `CapabilityRegistry.check_grant`, `POST /asap/capability/execute`, and the MCP Auth Bridge. | Grants with a `max` or `min` bound that is `NaN`, `Infinity`, or `-Infinity` (for example `Infinity` as "no limit"): every call they apply to is refused. Calls that send `NaN`, `Infinity`, or `-Infinity` for a field with a `max` or `min`: refused. Constraints whose operand types the operator cannot compare (for example `in` with a string bound and a number argument, or a `max` that is not a number): refused with 403 `constraint_violated` instead of 500. | Use finite numeric bounds, and remove a constraint instead of setting it to `Infinity`. Send finite numbers of the type that the constraint expects. |
+| **Malformed input gets a 4xx or protocol error.** | Clients, monitors, and tests that expect a 500 or a closed connection. A malformed Host JWT or Agent JWT on the identity and capability routes gets 401. The MCP Auth Bridge returns `asap:invalid_token`. A deeply nested JSON body on `POST /asap` or `POST /asap/stream` gets the JSON-RPC parse error (`-32700`). A deeply nested WebSocket frame is ignored, as other invalid JSON is, and the connection stays open. A deeply nested MCP stdio line gets the parse error, and the server keeps running. `validate_delegation` returns `Invalid or malformed token`. | No change for a working client. Update alerts and tests that match a 500 for these inputs. |
+| **Agent URN with a trailing newline.** `validate_agent_urn` matches the whole value. | Code that builds `Manifest.id`, `Agent.id`, `Envelope.sender`, `Envelope.recipient`, or `RegistryEntry.id` from text that ends in a newline, for example a line read from a file. Validation now raises `ValidationError`. | Strip the value before you build the model. |
+| **Agent JWT lifetime cap.** `verify_agent_jwt` refuses an Agent JWT whose `exp` is more than 120 seconds after the current time or after its `iat` (`token lifetime too long`). | Callers that mint their own Agent JWTs with a longer lifetime. The capability routes answer 401, and the MCP Auth Bridge returns `asap:invalid_token`. `create_agent_jwt` mints 60-second tokens and is not affected. Host JWTs are not capped. | Mint Agent JWTs with `create_agent_jwt`, or keep `exp` at most 120 seconds after `iat`. |
+| **Replay records last until the token expires.** `JtiReplayCache` and `RedisJtiReplayCache` keep a `jti` until the token's `exp` plus 60 seconds when that is later than their own window (default 90 seconds): at most 180 seconds for an Agent JWT and at most 420 seconds for a Host JWT. | Hosts that send a Host JWT to `POST /asap/agent/register`, `/asap/agent/revoke`, `/asap/agent/rotate-key`, or `/asap/agent/reactivate`, and then, more than 90 seconds later, send it to one of those routes again or poll `GET /asap/agent/status` with it. They now get 401 `jti replay detected` until the record ends. Clients that send an Agent JWT again more than 90 seconds after its first use, while it is valid, get the same answer. Default caches hold each record longer. A custom cache whose `check_and_record` has no `keep_until` parameter keeps its own window and logs `asap.auth.jti_cache_without_keep_until` once per class. | Mint a new Host JWT with `create_host_jwt` for each of those requests, and use a separate one for status polling. Keep `create_host_jwt` at its default `ttl_seconds` (300). In a custom cache, add a keyword argument `keep_until` (seconds since the epoch) to `check_and_record` and keep the record until then. Size `JtiReplayCache(max_size=...)` and Redis memory for the longer records. |
+
+#### Upgrade steps
+
+1. After [PyPI](https://pypi.org/project/asap-protocol/#history) lists 2.5.12, run
+   `pip install 'asap-protocol==2.5.12'` or `uv add 'asap-protocol==2.5.12'`.
+2. Check your deployment against each row of the table above.
+3. TypeScript `@asap-protocol/*` packages remain at **2.4.1**.
+
+#### Backward compatibility
+
+- **Wire protocol**: Unchanged from v2.5.11.
+- **Breaking changes**: None for a client that mints its tokens with
+  `create_host_jwt` and `create_agent_jwt` at their default lifetimes, sends
+  a new token for each identity request, and uses finite constraint bounds.
+  The table above lists the requests that v2.5.11 accepted and v2.5.12
+  refuses.
+
+---
+
 ### Upgrading from v2.5.10 to v2.5.11
 
 **v2.5.11 (security floors patch)** — **shipped**

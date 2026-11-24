@@ -7,13 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Follow-up (planned)
+
+- **v2.6.0 Interop** — A2A v1.0 Agent Card ↔ ASAP manifest bridge, external agent tokens (including MCP OAuth 2.1) → ASAP agent sessions, and `@asap-protocol/mcp-auth` for HTTP MCP servers (deferred from v2.5.0 — see [2.5.0] TypeScript note and [typescript-mcp-auth-spike.md](engineering/tasks/v2.5.0/typescript-mcp-auth-spike.md)); removes the `asap.cli._compat` shim (#275).
+- **v2.7.0 Spec profile** — RFC 2119 profile of ASAP's identity, capability-grant, approval, and lifecycle surface ([prd-spec-profile.md](product/prd/prd-spec-profile.md)).
+- Collapse the dual `UsageMetrics`/`InMemoryMeteringStore` pair retained in S1 for API stability.
+- Reduce the `asap.transport.client` package aggregate LOC below the S2 target.
+
+---
+
+## [2.5.12] - 2026-11-24
+
+**Security & correctness patch** — authentication, authorization, and input
+validation fixes in the Python reference implementation, and the
+OpenTelemetry security floor. This is **not** v2.6.0 Interop. npm
+`@asap-protocol/*` packages remain at **2.4.1**. PyPI `asap-compliance`
+remains **1.3.0**.
+See [GitHub Releases](https://github.com/asap-protocol/asap-protocol/releases/latest) and
+[PyPI](https://pypi.org/project/asap-protocol/#history) for published versions.
+
 ### Security
 
+- **Capability constraints** — a `max` or `min` constraint now returns a violation when the argument or the bound is `NaN`, `Infinity`, or `-Infinity`. This applies to `CapabilityRegistry.check_grant`, `POST /asap/capability/execute`, and the MCP Auth Bridge.
+- **OAuth2 middleware** — `OAuth2Middleware` now matches `path_prefix`, the operator API prefixes, and the `/asap/agent/` exemption against the routed path (the request path without the ASGI `root_path`). An app served under a prefix (`Mount`, `uvicorn --root-path`, or `FastAPI.root_path`) now requires a valid token on its `/asap` routes, as it does without a prefix.
+- **Malformed tokens and nested JSON before authentication** — `verify_agent_jwt` and `verify_host_jwt` now return `invalid JWT structure` for a payload nested past the interpreter's recursion limit (about 10,000 levels) and for a header or payload that is not a JSON object. `verify_host_jwt` also refuses a `host_public_key` with an unknown `crv` and an `exp` or `iat` too large for a float. The identity and capability routes answer 401 instead of 500, and the MCP Auth Bridge answers `asap:invalid_token` instead of an internal error. A deeply nested body on `POST /asap` or `POST /asap/stream` gets the JSON-RPC parse error, a deeply nested WebSocket frame is ignored like other invalid JSON instead of closing the connection, a deeply nested MCP stdio line gets the parse error instead of stopping the server, and `validate_delegation` returns `Invalid or malformed token`.
+- **Agent JWT lifetime** — `verify_agent_jwt` refuses an Agent JWT whose `exp` is more than 120 seconds after the current time or after its `iat` (`token lifetime too long`). `create_agent_jwt` mints 60-second tokens, which pass. `verify_agent_jwt` also passes `keep_until`, the token's `exp` plus 60 seconds of clock skew, to `check_and_record` of the replay cache, and `JtiReplayCache` and `RedisJtiReplayCache` keep the `jti` until then when that is later than their own window (default 90 seconds), so a second use is refused while the token is valid. A custom cache whose `check_and_record` has no `keep_until` parameter is called with two arguments as before and keeps its own window; the first call for each cache class logs `asap.auth.jti_cache_without_keep_until`. Host JWTs are not capped. Callers that mint Agent JWTs valid for longer than 120 seconds must shorten them.
+- **Host JWT replay window** — on the routes that record a Host JWT `jti` (`POST /asap/agent/register`, `/asap/agent/revoke`, `/asap/agent/rotate-key`, and `/asap/agent/reactivate`), `verify_host_jwt` now passes `keep_until`, the token's `exp` plus 60 seconds of clock skew and at most 420 seconds after the current time, to `check_and_record` of the replay cache. `JtiReplayCache` and `RedisJtiReplayCache` keep the `jti` until then when that is later than their own window (default 90 seconds), so a second use of a Host JWT from `create_host_jwt` with the default 300-second TTL is refused while the token is valid, and `GET /asap/agent/status` refuses a token already used on one of those routes for as long. A custom cache whose `check_and_record` has no `keep_until` parameter keeps its own window, as for Agent JWTs. Host JWTs are still not capped; mint them with the default `ttl_seconds` (300), because a longer one keeps its record for 420 seconds only.
 - **opentelemetry-api** floor `>=1.45.2` for CVE-2026-126360 (was 1.45.1). SDK and OTLP exporter move to 1.45.2; instrumentation to 0.66b2. Root and satellite locks refreshed.
 - **apps/web**: `next` and `eslint-config-next` 16.4.3 → **16.4.6** for GHSA-mfr8-8qww-v76h and GHSA-vc7v-qv4w-wrv8 (cache information disclosure across root params in `use cache`).
 
 ### Fixed
 
+- **Capability constraints** — when a constraint and its argument have types the operator cannot compare (for example `in` on a string with a number argument, or a `max` that is not a number), `validate_constraints` now returns a violation with the usual `field` and `operator` instead of raising `TypeError`. `POST /asap/capability/execute` answers 403 `constraint_violated` instead of 500.
+- **Agent URN validation** — `validate_agent_urn` now matches the whole value, so an agent URN with a trailing newline (for example `urn:asap:agent:research\n`) is refused. This applies to `Manifest.id`, `Agent.id`, `Envelope.sender`, `Envelope.recipient`, and `RegistryEntry.id`. Before, the `$` in `AGENT_URN_PATTERN` also matched before a final newline, so such an id passed validation and did not compare equal to the same id without the newline. `AGENT_URN_PATTERN` is unchanged.
 - **Weekly adoption telemetry (maintainer tooling)** — `telemetry-weekly.yml` has its Monday schedule back. The PyPI collector retries PyPI Stats HTTP 429, 5xx, and connection errors with backoff. If PyPI still fails, the snapshot records `pypi.fetch_error` and the job continues. A missing `TELEMETRY_GITHUB_TOKEN` still fails the job, now before any collector runs. Snapshots stay workflow artifacts only. See [docs/maintainers/telemetry.md](docs/maintainers/telemetry.md).
 
 ### Documentation
@@ -24,12 +50,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Release policy** ([docs/maintainers/release-policy.md](docs/maintainers/release-policy.md)) and **integration support tiers** ([docs/integrations/support-tiers.md](docs/integrations/support-tiers.md)) published. Planned scope ships only in minor releases; patches are unplanned maintenance.
 - **Status docs deduplicated** — `AGENTS.md`, `README.md`, `docs/index.md`, `product/README.md`, `product/checkpoints.md`, and `engineering/tasks/README.md` now carry only the current version, the next train, and a link here. Release history lives in this file and GitHub Releases.
 
-### Follow-up (planned)
+### Migration
 
-- **v2.6.0 Interop** — A2A v1.0 Agent Card ↔ ASAP manifest bridge, external agent tokens (including MCP OAuth 2.1) → ASAP agent sessions, and `@asap-protocol/mcp-auth` for HTTP MCP servers (deferred from v2.5.0 — see [2.5.0] TypeScript note and [typescript-mcp-auth-spike.md](engineering/tasks/v2.5.0/typescript-mcp-auth-spike.md)); removes the `asap.cli._compat` shim (#275).
-- **v2.7.0 Spec profile** — RFC 2119 profile of ASAP's identity, capability-grant, approval, and lifecycle surface ([prd-spec-profile.md](product/prd/prd-spec-profile.md)).
-- Collapse the dual `UsageMetrics`/`InMemoryMeteringStore` pair retained in S1 for API stability.
-- Reduce the `asap.transport.client` package aggregate LOC below the S2 target.
+- **v2.5.11 → v2.5.12**: See [migration guide](docs/migration.md#upgrading-from-v2511-to-v2512).
+  No wire-protocol or manifest schema change. Some requests that 2.5.11 accepted are
+  now refused; the guide lists who is affected and what to do.
 
 ---
 

@@ -825,7 +825,7 @@ class ASAPRequestHandler:
         except UnicodeDecodeError as e:
             _server.logger.warning("asap.request.invalid_encoding", error=str(e))
             raise ValueError(f"Invalid UTF-8 encoding: {e}") from e
-        except json.JSONDecodeError as e:
+        except (json.JSONDecodeError, RecursionError) as e:
             _server.logger.warning("asap.request.invalid_json", error=str(e))
             raise ValueError(f"Invalid JSON: {e}") from e
 

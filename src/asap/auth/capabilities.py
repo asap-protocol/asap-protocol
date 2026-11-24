@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Literal
@@ -52,10 +53,29 @@ class ConstraintViolation:
     message: str
 
 
+def _is_non_finite(value: Any) -> bool:
+    return isinstance(value, float) and not math.isfinite(value)
+
+
+def _cannot_evaluate(field: str, operator: str, expected: Any, actual: Any) -> ConstraintViolation:
+    """Fail closed: a check that cannot be evaluated is a violation, not a pass."""
+    return ConstraintViolation(
+        field, operator, expected, actual, f"{field}: cannot evaluate {operator} constraint"
+    )
+
+
 def _check_operator(
     field: str, operator: str, expected: Any, actual: Any
 ) -> ConstraintViolation | None:
     """Return a violation if *actual* fails the *operator* check, else None."""
+    if operator in ("max", "min") and isinstance(actual, (int, float)):
+        # NaN compares False with every bound, so it would pass silently.
+        if _is_non_finite(actual):
+            return ConstraintViolation(
+                field, operator, expected, actual, f"{field}: expected a finite number"
+            )
+        if _is_non_finite(expected):
+            return _cannot_evaluate(field, operator, expected, actual)
     if operator == "max":
         if not isinstance(actual, (int, float)):
             return ConstraintViolation(
@@ -121,6 +141,9 @@ def validate_constraints(
     - A ``dict`` whose keys are operator names (``max``, ``min``, ``in``,
       ``not_in``) → each operator is evaluated independently, allowing
       multiple operators per field.
+
+    A check that cannot be evaluated (a non-finite ``max``/``min`` operand, or
+    operand types the operator cannot compare) is a violation.
     """
     violations: list[ConstraintViolation] = []
     for field, spec in constraints.items():
@@ -141,7 +164,12 @@ def validate_constraints(
             for op, expected in spec.items():
                 if op not in OPERATOR_KEYS:
                     continue
-                v = _check_operator(field, op, expected, actual)
+                try:
+                    v = _check_operator(field, op, expected, actual)
+                except TypeError:
+                    # Operand types the operator cannot compare, e.g. a number
+                    # against an ``in`` string or a ``max`` that is not a number.
+                    v = _cannot_evaluate(field, op, expected, actual)
                 if v is not None:
                     violations.append(v)
         else:

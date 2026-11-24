@@ -117,7 +117,7 @@ def create_jsonrpc_router() -> APIRouter:
         body = await request.body()
         try:
             parsed = json.loads(body)
-        except (json.JSONDecodeError, UnicodeDecodeError):
+        except (json.JSONDecodeError, UnicodeDecodeError, RecursionError):
             request.app.state.limiter.check(request)
             return await handler.handle_message(request)
 

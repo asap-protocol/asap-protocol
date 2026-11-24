@@ -317,7 +317,7 @@ class MCPServer:
                         "error": {"code": PARSE_ERROR, "message": "Parse error"},
                     }
                 return cast("dict[str, Any]", data)
-            except json.JSONDecodeError:
+            except (json.JSONDecodeError, RecursionError):
                 return {
                     "jsonrpc": "2.0",
                     "id": None,
