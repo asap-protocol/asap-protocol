@@ -135,6 +135,10 @@ class McpAuthHttpComplianceConfig(BaseModel):
         default_factory=lambda: {"action": "deploy"},
         description="Arguments of a protected call that the grant allows",
     )
+    constraint_violation_arguments: dict[str, Any] = Field(
+        default_factory=lambda: {"action": "forbidden-action"},
+        description="Arguments of a protected call that break the grant's constraint",
+    )
     public_tool: str = Field(
         default="echo",
         description="Tool that the server serves with no token",

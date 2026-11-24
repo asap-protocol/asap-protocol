@@ -17,6 +17,7 @@ import httpx
 PUBLIC_TOOL = "echo"
 PROTECTED_TOOL = "secure_action"
 PROBE_TOKENS_PATH = "/compliance/probe-tokens"
+_FORBIDDEN_ACTION = "forbidden-action"
 _RESOURCE_METADATA = 'resource_metadata="http://mcp.test/.well-known/oauth-protected-resource/mcp"'
 
 
@@ -34,6 +35,10 @@ class Fault(StrEnum):
     ACCEPTS_REPLAY = "accepts_replay"
     EXTERNAL_SINGLE_USE = "external_single_use"
     RUNS_UNDECLARED_TOOL = "runs_undeclared_tool"
+    GRANTS_EVERYTHING = "grants_everything"
+    AGENT_DENIAL_AS_403 = "agent_denial_as_403"
+    EXTERNAL_DENIAL_IN_TOOL_RESULT = "external_denial_in_tool_result"
+    IGNORES_CONSTRAINTS = "ignores_constraints"
     ANSWERS_200_TO_EVERYTHING = "answers_200_to_everything"
 
 
@@ -85,7 +90,27 @@ class FakeMcpAuthServer:
             return self._challenge(401, "invalid_token", f"asap:invalid_token{echo}")
         if call["params"]["name"] not in (PUBLIC_TOOL, PROTECTED_TOOL):
             return self._undeclared_tool(call)
+        if call["params"]["name"] == PROTECTED_TOOL:
+            return self._grant_layer(call, kind, echo)
         return _tool_result(call, f"executed{echo}")
+
+    def _grant_layer(self, call: dict[str, Any], kind: str, echo: str) -> httpx.Response:
+        if kind.endswith("_out_of_grant") and Fault.GRANTS_EVERYTHING not in self.faults:
+            return self._capability_denied(call, kind, echo)
+        forbidden = call["params"]["arguments"].get("action") == _FORBIDDEN_ACTION
+        if forbidden and Fault.IGNORES_CONSTRAINTS not in self.faults:
+            text = f"asap:constraint_violation: action: is in the forbidden values{echo}"
+            return _tool_result(call, text, is_error=True)
+        return _tool_result(call, f"executed{echo}")
+
+    def _capability_denied(self, call: dict[str, Any], kind: str, echo: str) -> httpx.Response:
+        """A tool result on the Agent JWT path; HTTP 403 on the external-token path."""
+        external = kind.startswith("external")
+        if external and Fault.EXTERNAL_DENIAL_IN_TOOL_RESULT not in self.faults:
+            return self._challenge(403, "insufficient_scope", "asap:capability_denied")
+        if not external and Fault.AGENT_DENIAL_AS_403 in self.faults:
+            return self._challenge(403, "insufficient_scope", "asap:capability_denied")
+        return _tool_result(call, f"asap:capability_denied{echo}", is_error=True)
 
     def _refuses(self, token: str, kind: str) -> bool:
         """The token layer: an Agent JWT is single-use; an access token is not."""

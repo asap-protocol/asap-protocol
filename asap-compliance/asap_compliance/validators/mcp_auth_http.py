@@ -4,11 +4,16 @@ Runs against a remote Streamable HTTP MCP server protected by ``@asap-protocol/m
 over plain HTTP. Each check sends its own requests and judges each answer with
 :mod:`asap_compliance.validators.mcp_http_answers`, so it passes only for the right code
 in the layer of the ``@asap-protocol/mcp-auth`` README's error-code table. Each check
-picks the credential of its case.
+picks the credential of its case. Each token comes fresh from a
+:class:`~asap_compliance.validators.probe_tokens.ProbeTokenProvider`, so a second run
+passes too.
 
 Example::
 
-    config = McpAuthHttpComplianceConfig(mcp_url="http://127.0.0.1:8787/mcp")
+    config = McpAuthHttpComplianceConfig(
+        mcp_url="http://127.0.0.1:8787/mcp",
+        probe_tokens_url="http://127.0.0.1:8787/compliance/probe-tokens",
+    )
     result = await validate_mcp_auth_http_async(config)
     assert result.passed, [check for check in result.checks if not check.passed]
 """
@@ -27,6 +32,7 @@ from typing import Any
 import httpx
 
 from asap.auth.agent_jwt import AGENT_JWT_TYP, CAPABILITIES_CLAIM
+from asap.mcp.auth.errors import CAPABILITY_DENIED, CONSTRAINT_VIOLATION
 
 from asap_compliance.config import McpAuthHttpComplianceConfig
 from asap_compliance.validators.handshake import CheckResult
@@ -35,6 +41,7 @@ from asap_compliance.validators.mcp_http_answers import (
     CAPABILITY_DENIED_403,
     INVALID_TOKEN_401,
     has_bearer_challenge,
+    tool_error_problem,
     tool_success_problem,
 )
 from asap_compliance.validators.mcp_http_transport import (
@@ -63,6 +70,8 @@ _EXPECT_INVALID_TOKEN = (
 _EXPECT_CAPABILITY_DENIED_403 = (
     'HTTP 403, a Bearer challenge with error="insufficient_scope", asap:capability_denied'
 )
+_EXPECT_CAPABILITY_DENIED_RESULT = "HTTP 200 and a tool error result asap:capability_denied"
+_EXPECT_CONSTRAINT_VIOLATION = "HTTP 200 and a tool error result asap:constraint_violation"
 
 
 @dataclass
@@ -177,6 +186,36 @@ async def _second_use_problem(
     return None if second_use is None else f"on the second use, {second_use}"
 
 
+async def _check_wrong_capability(run: _ProbeRun) -> str | None:
+    """A fresh Agent JWT without the grant: on this path a grant error is a tool result."""
+    token = await run.tokens.probe_token(ProbeTokenKind.AGENT_JWT_OUT_OF_GRANT)
+    return tool_error_problem(await run.call_protected(token), CAPABILITY_DENIED)
+
+
+async def _check_constraint_violation(run: _ProbeRun) -> str | None:
+    """A fresh Agent JWT with the grant, arguments that break the grant's constraint."""
+    return await _constraint_violation_problem(run, ProbeTokenKind.AGENT_JWT)
+
+
+async def _check_external_wrong_capability(run: _ProbeRun) -> str | None:
+    """A fresh access token whose scopes give no grant: HTTP 403 on this path (MCP-TS-002)."""
+    token = await run.tokens.probe_token(ProbeTokenKind.EXTERNAL_OUT_OF_GRANT)
+    return CAPABILITY_DENIED_403.problem(await run.call_protected(token))
+
+
+async def _check_external_constraint_violation(run: _ProbeRun) -> str | None:
+    """A fresh access token with the grant, arguments that break the constraint."""
+    return await _constraint_violation_problem(run, ProbeTokenKind.EXTERNAL)
+
+
+async def _constraint_violation_problem(run: _ProbeRun, kind: ProbeTokenKind) -> str | None:
+    # A constraint depends on the arguments, so it stays a tool result on both paths.
+    token = await run.tokens.probe_token(kind)
+    config = run.config
+    response = await run.call(config.protected_tool, config.constraint_violation_arguments, token)
+    return tool_error_problem(response, CONSTRAINT_VIOLATION)
+
+
 async def _check_undeclared_tool(run: _ProbeRun) -> str | None:
     """A fresh Agent JWT, a tool that the server does not declare (deny by default)."""
     token = await run.tokens.probe_token(ProbeTokenKind.AGENT_JWT)
@@ -223,7 +262,19 @@ _PROFILE_CHECKS: tuple[tuple[str, _CheckRunner, str], ...] = (
         _check_replayed_jwt,
         f"{_EXPECT_TOOL_RESULT}, then on the second use {_EXPECT_INVALID_TOKEN}",
     ),
+    ("wrong_capability", _check_wrong_capability, _EXPECT_CAPABILITY_DENIED_RESULT),
+    ("constraint_violation", _check_constraint_violation, _EXPECT_CONSTRAINT_VIOLATION),
     ("external_valid_token", _check_external_valid_token, f"{_EXPECT_TOOL_RESULT}, twice"),
+    (
+        "external_wrong_capability",
+        _check_external_wrong_capability,
+        _EXPECT_CAPABILITY_DENIED_403,
+    ),
+    (
+        "external_constraint_violation",
+        _check_external_constraint_violation,
+        _EXPECT_CONSTRAINT_VIOLATION,
+    ),
     ("undeclared_tool", _check_undeclared_tool, _EXPECT_CAPABILITY_DENIED_403),
     # These two judge every answer of the run, so they run last.
     (

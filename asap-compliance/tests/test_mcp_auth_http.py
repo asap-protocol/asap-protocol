@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import json
 from typing import Any
+from urllib.parse import urljoin
 
 import httpx
 import pytest
@@ -22,7 +23,19 @@ from asap_compliance.validators.probe_tokens import ProbeTokenError, ProbeTokenK
 from .mcp_http_fake_server import PROBE_TOKENS_PATH, FakeMcpAuthServer, Fault
 
 _MCP_URL = "http://mcp.test/mcp"
-_CREDENTIAL_CHECKS = {"valid_jwt", "replayed_jwt", "external_valid_token", "undeclared_tool"}
+_GRANT_CHECKS = {
+    "wrong_capability",
+    "constraint_violation",
+    "external_wrong_capability",
+    "external_constraint_violation",
+}
+_CREDENTIAL_CHECKS = {
+    "valid_jwt",
+    "replayed_jwt",
+    "external_valid_token",
+    "undeclared_tool",
+    *_GRANT_CHECKS,
+}
 
 
 def _config(**fields: Any) -> McpAuthHttpComplianceConfig:
@@ -196,3 +209,53 @@ class TestTokenLayerChecks:
         transport = httpx.MockTransport(FakeMcpAuthServer().handle)
 
         assert validate_mcp_auth_http(_config(), http_transport=transport).passed
+
+
+class TestGrantLayerChecks:
+    """Grant errors, in their layers (PRD MCP-TS-002)."""
+
+    @pytest.mark.parametrize(
+        ("fault", "check_id"),
+        [
+            (Fault.GRANTS_EVERYTHING, "wrong_capability"),
+            (Fault.AGENT_DENIAL_AS_403, "wrong_capability"),
+            (Fault.IGNORES_CONSTRAINTS, "constraint_violation"),
+            (Fault.GRANTS_EVERYTHING, "external_wrong_capability"),
+            (Fault.EXTERNAL_DENIAL_IN_TOOL_RESULT, "external_wrong_capability"),
+            (Fault.IGNORES_CONSTRAINTS, "external_constraint_violation"),
+        ],
+    )
+    async def test_a_server_with_the_fault_fails_the_check(
+        self, fault: Fault, check_id: str
+    ) -> None:
+        result = await _run(FakeMcpAuthServer(fault))
+
+        assert check_id in _failed(result)
+
+    async def test_a_server_that_answers_200_to_everything_fails_every_grant_check(self) -> None:
+        result = await _run(FakeMcpAuthServer(Fault.ANSWERS_200_TO_EVERYTHING))
+
+        assert _failed(result).issuperset(_GRANT_CHECKS)
+
+    async def test_the_constraint_checks_send_the_configured_arguments(self) -> None:
+        result = await _run(
+            FakeMcpAuthServer(), constraint_violation_arguments={"action": "deploy"}
+        )
+
+        assert _failed(result) == {"constraint_violation", "external_constraint_violation"}
+
+
+@pytest.mark.mcp_http_live
+class TestLiveExampleServer:
+    """Against ``examples/mcp_auth_http`` started with ``--compliance`` (CI: live flows)."""
+
+    async def test_the_profile_passes_twice_in_a_row(self, live_mcp_http_url: str) -> None:
+        # The example serves its probe endpoint at the path that the fake server copies.
+        config = McpAuthHttpComplianceConfig(
+            mcp_url=live_mcp_http_url,
+            probe_tokens_url=urljoin(live_mcp_http_url, PROBE_TOKENS_PATH),
+        )
+
+        for _ in range(2):
+            result = await validate_mcp_auth_http_async(config)
+            assert result.passed, [check for check in result.checks if not check.passed]
