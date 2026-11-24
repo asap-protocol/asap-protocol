@@ -4,11 +4,28 @@ from __future__ import annotations
 
 from typing import Any
 
+import httpx
 import pytest
 from joserfc.jwk import OKPKey
 from pydantic import ValidationError
 
 from asap_compliance.config import A2A_BRIDGE_PROFILE, A2ABridgeComplianceConfig
+from asap_compliance.validators.a2a_bridge import (
+    A2A_BRIDGE_CHECK_IDS,
+    A2ABridgeResult,
+    validate_a2a_bridge,
+    validate_a2a_bridge_async,
+)
+
+from .a2a_fake_gateway import (
+    AGENT_URN,
+    BASE_URL,
+    CARD_KID,
+    CARD_PUBLIC_JWK,
+    PROBE_TOKENS_PATH,
+    FakeA2AGateway,
+    Fault,
+)
 
 _AGENT_URN = "urn:asap:agent:a2a-gateway-demo"
 _CARD_KEY = OKPKey.generate_key("Ed25519", private=True)
@@ -106,3 +123,75 @@ class TestA2ABridgeConfig:
             A2ABridgeComplianceConfig(**_config_fields(card_keys={"card-1": private_jwk}))
 
         assert private_jwk["d"] not in str(excinfo.value)
+
+
+def _profile_config(**fields: Any) -> A2ABridgeComplianceConfig:
+    base: dict[str, Any] = {
+        "base_url": BASE_URL,
+        "expected_agent_urn": AGENT_URN,
+        "card_keys": {CARD_KID: CARD_PUBLIC_JWK},
+        "probe_tokens_url": f"{BASE_URL}{PROBE_TOKENS_PATH}",
+    }
+    return A2ABridgeComplianceConfig(**{**base, **fields})
+
+
+async def _run(server: FakeA2AGateway, **config_fields: Any) -> A2ABridgeResult:
+    transport = httpx.MockTransport(server.handle)
+    return await validate_a2a_bridge_async(
+        _profile_config(**config_fields), http_transport=transport
+    )
+
+
+def _failed(result: A2ABridgeResult) -> set[str]:
+    return {check.name for check in result.checks if not check.passed}
+
+
+class TestCardDocumentChecks:
+    """The card at the well-known path."""
+
+    async def test_a_gateway_that_follows_s5_passes_every_check(self) -> None:
+        result = await _run(FakeA2AGateway())
+
+        assert result.passed, [check for check in result.checks if not check.passed]
+        assert result.profile == "a2a-bridge"
+        assert [check.name for check in result.checks] == list(A2A_BRIDGE_CHECK_IDS)
+
+    @pytest.mark.parametrize("fault", [Fault.NO_CARD, Fault.CARD_NOT_JSON])
+    async def test_a_gateway_with_the_fault_fails_the_check(self, fault: Fault) -> None:
+        result = await _run(FakeA2AGateway(fault))
+
+        assert "card_well_known" in _failed(result)
+        assert not result.passed
+
+    async def test_an_unreachable_gateway_fails_each_check_without_raising(self) -> None:
+        attempts: list[str] = []
+
+        def unreachable(request: httpx.Request) -> httpx.Response:
+            attempts.append(request.url.path)
+            raise httpx.ConnectError("connection refused", request=request)
+
+        config = _profile_config()
+        result = await validate_a2a_bridge_async(
+            config, http_transport=httpx.MockTransport(unreachable)
+        )
+
+        assert not any(check.passed for check in result.checks)
+        assert all("ConnectError" in check.message for check in result.checks)
+        assert attempts.count("/.well-known/agent-card.json") == 1
+
+    async def test_a_skipped_check_passes_with_the_message_skipped(self) -> None:
+        result = await _run(FakeA2AGateway(Fault.NO_CARD), skip_checks=["card_well_known"])
+
+        card_check = next(check for check in result.checks if check.name == "card_well_known")
+        assert (card_check.passed, card_check.message) == (True, "skipped")
+
+    async def test_a_run_with_no_token_source_is_refused(self) -> None:
+        config = _profile_config(probe_tokens_url=None)
+
+        with pytest.raises(ValueError, match="probe_tokens_url"):
+            await validate_a2a_bridge_async(config)
+
+    def test_the_sync_wrapper_runs_the_profile(self) -> None:
+        transport = httpx.MockTransport(FakeA2AGateway().handle)
+
+        assert validate_a2a_bridge(_profile_config(), http_transport=transport).passed
