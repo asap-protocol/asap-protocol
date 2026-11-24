@@ -69,6 +69,7 @@ jobs:
       contents: read
     outputs:
       python: ${{ steps.filter.outputs.python }}
+      optional_wheels: ${{ steps.filter.outputs.optional_wheels }}
       web: ${{ steps.filter.outputs.web }}
       compliance_live: ${{ steps.filter.outputs.compliance_live }}
       # Prettier diffs this same SHA. One base for both consumers.
@@ -130,6 +131,12 @@ jobs:
               - 'pyproject.toml'
               - 'uv.lock'
               - '.github/**'
+            optional_wheels:
+              - 'src/asap/integrations/**'
+              - 'scripts/check_optional_wheel.py'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - '.github/workflows/ci.yml'
             web:
               - 'apps/web/**'
               - '.github/**'
@@ -317,6 +324,33 @@ jobs:
           uv sync --frozen --group dev
           uv run pytest tests/ -q --tb=short
 
+  test-optional-wheels:
+    name: test (optional wheel extras)
+    runs-on: ubuntu-latest
+    needs: [changes]
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.optional_wheels == 'true') }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          enable-cache: true
+      - name: Install and test each extra from the wheel
+        env:
+          OTEL_SDK_DISABLED: 'true'
+        run: |
+          temp_dir=$(mktemp -d)
+          export CREWAI_STORAGE_DIR="$temp_dir/crew-storage"
+          uv build --python 3.13 --wheel --out-dir "$temp_dir"
+          wheels=("$temp_dir"/asap_protocol-*.whl)
+          for extra in crewai llamaindex; do
+            uv venv --python 3.13 --seed "$temp_dir/$extra"
+            python="$temp_dir/$extra/bin/python"
+            "$python" -I -m pip install "${wheels[0]}[$extra]"
+            "$python" -I -m pip check
+            "$python" -I "$GITHUB_WORKSPACE/scripts/check_optional_wheel.py" "$extra"
+          done
+
   test-web:
     name: test (web)
     runs-on: ubuntu-latest
@@ -411,14 +445,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Setup Python
         uses: ./.github/actions/setup-python
-        with:
-          # Omit extras whose transitive deps have no OSV fix on PyPI (diskcache, nltk).
-          sync-flags: --no-extra crewai --no-extra llamaindex
       # CVE-2026-4539: pygments advisory with no patched PyPI release yet (override pins >=2.20 when available).
       # CVE-2026-4963 / CVE-2026-2654: smolagents optional extra; OSV lists no fix version on PyPI as of 2026-05 (see SECURITY.md).
       # PYSEC-2026-89 / PYSEC-2025-183 / PYSEC-2024-271: optional/transitive; see SECURITY.md.
       - name: Scan for vulnerabilities (pip-audit)
-        run: uv run pip-audit --ignore-vuln CVE-2026-4539 --ignore-vuln CVE-2026-4963 --ignore-vuln CVE-2026-2654 --ignore-vuln PYSEC-2024-271 --ignore-vuln PYSEC-2026-89 --ignore-vuln PYSEC-2025-183
+        run: uv run --no-sync pip-audit --ignore-vuln CVE-2026-4539 --ignore-vuln CVE-2026-4963 --ignore-vuln CVE-2026-2654 --ignore-vuln PYSEC-2024-271 --ignore-vuln PYSEC-2026-89 --ignore-vuln PYSEC-2025-183
       - name: Scan for security issues (bandit)
         run: uv run bandit -r src/ -ll
 
