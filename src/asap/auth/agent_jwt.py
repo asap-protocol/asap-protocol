@@ -33,7 +33,7 @@ from asap.auth.identity import (
     HostStore,
     jwk_thumbprint_sha256,
 )
-from asap.auth.jti_replay_cache import JtiReplayCacheProtocol
+from asap.auth.jti_replay_cache import JtiReplayCacheProtocol, check_and_record_until
 from asap.models.ids import generate_id
 
 # Encode/decode: EdDSA (RFC 8037 Ed25519); joserfc also accepts "Ed25519" alias.
@@ -59,7 +59,8 @@ _IAT_MAX_FUTURE_SKEW_SECONDS = 60
 
 # The longest Agent JWT lifetime that
 # ``verify_agent_jwt`` accepts, counted from now and from ``iat``: the TTL plus
-# the ``iat`` skew. A longer-lived token would outlast its replay-cache record.
+# the ``iat`` skew. It bounds how long a captured token works, and how long a
+# replay cache keeps its ``jti`` (until ``exp`` plus the ``iat`` skew).
 AGENT_JWT_MAX_LIFETIME_SECONDS = AGENT_JWT_TTL_SECONDS + _IAT_MAX_FUTURE_SKEW_SECONDS
 
 
@@ -98,7 +99,10 @@ class JwtVerifyResult:
 
 
 class JtiReplayCache:
-    """In-memory ``jti`` replay guard (default 90s window).
+    """In-memory ``jti`` replay guard.
+
+    A record lives ``ttl_seconds`` (default 90 s), or until ``keep_until``
+    when the caller passes a later one.
 
     Partition keys isolate tokens per host thumbprint or per agent id so
     unrelated identities do not share ``jti`` namespaces.
@@ -133,14 +137,18 @@ class JtiReplayCache:
         key = (partition_key, jti)
         return key in self._expiry_by_key and self._expiry_by_key[key] > now
 
-    def check_and_record(self, partition_key: str, jti: str) -> bool:
+    def check_and_record(
+        self, partition_key: str, jti: str, *, keep_until: float | None = None
+    ) -> bool:
         """Record ``jti`` for ``partition_key``.
 
-        Returns:
-            True if this is the first use within the TTL window.
+        ``keep_until`` (seconds since the epoch) keeps the record at least
+        until then when that is later than ``ttl_seconds`` from now.
 
-            False if the same ``(partition_key, jti)`` was seen within the TTL
-            (replay).
+        Returns:
+            True on first use: no live record of ``(partition_key, jti)``.
+
+            False if that record is still live (replay).
         """
         if not jti or not str(jti).strip():
             return False
@@ -149,7 +157,8 @@ class JtiReplayCache:
         key = (partition_key, jti)
         if key in self._expiry_by_key and self._expiry_by_key[key] > now:
             return False
-        self._expiry_by_key[key] = now + self._ttl
+        expiry = now + self._ttl
+        self._expiry_by_key[key] = expiry if keep_until is None else max(expiry, keep_until)
         self._evict_to_max_size()
         return True
 
@@ -352,8 +361,18 @@ async def verify_agent_jwt(
 
     When ``expected_audience`` is set, ``aud`` must match (RFC 7519 §4.1.3).
     ``exp`` may be at most :data:`AGENT_JWT_MAX_LIFETIME_SECONDS` (120 s) after
-    now and after ``iat`` ("token lifetime too long"), so a token cannot
-    outlive the replay-cache record of its ``jti``.
+    now and after ``iat`` ("token lifetime too long").
+
+    ``jti_replay_cache`` records the ``jti`` under the agent id with
+    ``keep_until`` set to ``exp`` plus the 60 s ``iat`` skew (see
+    :func:`~asap.auth.jti_replay_cache.check_and_record_until`).
+    :class:`JtiReplayCache` and
+    :class:`~asap.auth.jti_replay_cache.RedisJtiReplayCache` keep the record
+    until then, or for their own window when that ends later, so a second use
+    is refused while the token is valid. The in-memory cache drops a live
+    record early only when it holds more than ``max_size`` records. A cache
+    whose ``check_and_record`` has no ``keep_until`` parameter keeps the
+    record for its own window only.
 
     On success, slides idle timeout via ``agent_store.touch_if_current`` (LIFE-005
     ``last_used_at``). That persist is conditional: it refuses if status, host, or
@@ -415,7 +434,11 @@ async def verify_agent_jwt(
 
     if jti_replay_cache is not None:
         jti = str(claims["jti"])
-        if not jti_replay_cache.check_and_record(agent.agent_id, jti):
+        # The skew margin covers a shared cache read by a worker whose clock
+        # runs behind the one that recorded the ``jti``: it still accepts the
+        # token after the recording worker's ``exp``.
+        keep_until = float(claims["exp"]) + _IAT_MAX_FUTURE_SKEW_SECONDS
+        if not check_and_record_until(jti_replay_cache, agent.agent_id, jti, keep_until=keep_until):
             return JwtVerifyResult(ok=False, error="jti replay detected")
 
     if (expired := expired_agent_error(agent)) is not None:

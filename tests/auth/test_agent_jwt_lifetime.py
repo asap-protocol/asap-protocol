@@ -1,14 +1,17 @@
 """Agent JWT lifetime cap.
 
 ``verify_agent_jwt`` accepted any ``exp`` in the future, and the replay cache
-records a ``jti`` for a fixed window (90 s by default). A captured token with
+recorded a ``jti`` for a fixed window (90 s by default). A captured token with
 ``exp`` a year ahead was accepted again once its record had expired. The cap is
 :data:`AGENT_JWT_MAX_LIFETIME_SECONDS`: the 60 s TTL plus the 60 s ``iat`` skew,
-counted from now and from ``iat``. Host JWTs keep their own TTL.
+counted from now and from ``iat``. Host JWTs keep their own TTL. A token within
+the cap could still outlive the 90 s record, so the replay cache now keeps the
+``jti`` until ``exp`` plus that skew when that is later than its window.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import Any
 
@@ -21,6 +24,7 @@ from asap.auth.agent_jwt import (
     AGENT_JWT_TYP,
     JWT_ALGS_SIGN,
     JtiReplayCache,
+    JwtVerifyResult,
     _ed25519_private_key_to_okp_key,
     create_agent_jwt,
     create_host_jwt,
@@ -34,11 +38,15 @@ from asap.auth.identity import (
     InMemoryHostStore,
     jwk_thumbprint_sha256,
 )
+from asap.auth.jti_replay_cache import JtiReplayCacheProtocol, RedisJtiReplayCache
 from tests.crypto.jwk_helpers import ed25519_public_jwk
 
 _NOW = 2_000_000_000
 _AUDIENCE = "https://mcp.example.com/mcp"
 _LIFETIME_ERROR = "token lifetime too long"
+_REPLAY_ERROR = "jti replay detected"
+# The clock skew allowed on ``iat``; a replay record outlives ``exp`` by it.
+_SKEW_SECONDS = 60
 
 pytestmark = pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
 
@@ -149,3 +157,97 @@ async def test_does_not_cap_a_host_jwt() -> None:
     result = await verify_host_jwt(token, InMemoryHostStore(), expected_audience=_AUDIENCE)
 
     assert result.ok is True
+
+
+def _fakeredis_cache() -> RedisJtiReplayCache:
+    fakeredis = pytest.importorskip("fakeredis")
+    return RedisJtiReplayCache(fakeredis.FakeStrictRedis(decode_responses=False))
+
+
+_DEFAULT_CACHES = [
+    pytest.param(JtiReplayCache, id="memory"),
+    pytest.param(_fakeredis_cache, id="redis"),
+]
+
+
+@pytest.mark.parametrize("make_cache", _DEFAULT_CACHES)
+async def test_refuses_a_replay_after_the_default_window_until_exp(
+    make_cache: Callable[[], JtiReplayCacheProtocol], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    agent_key, host_key = Ed25519PrivateKey.generate(), Ed25519PrivateKey.generate()
+    hosts, agents = await _stores(agent_key, host_key)
+    cache = make_cache()
+    exp = _NOW + AGENT_JWT_MAX_LIFETIME_SECONDS
+    token = _signed(agent_key, host_key, iat=_NOW, exp=exp)
+
+    async def use_at(now: float) -> JwtVerifyResult:
+        monkeypatch.setattr("time.time", lambda: now)
+        return await verify_agent_jwt(
+            token, hosts, agents, expected_audience=_AUDIENCE, jti_replay_cache=cache
+        )
+
+    first = await use_at(_NOW)
+    replay = await use_at(exp - 1)  # past the default 90 s window, before exp
+
+    assert first.ok is True
+    assert (replay.ok, replay.error) == (False, _REPLAY_ERROR)
+    assert first.claims is not None
+    monkeypatch.setattr("time.time", lambda: float(exp + _SKEW_SECONDS - 1))
+    assert cache.contains("a1", first.claims["jti"]) is True
+
+
+@pytest.mark.parametrize("make_cache", _DEFAULT_CACHES)
+def test_keep_until_never_shortens_the_window(
+    make_cache: Callable[[], JtiReplayCache | RedisJtiReplayCache],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cache = make_cache()
+
+    assert cache.check_and_record("a1", "jwt_1", keep_until=_NOW + 10) is True
+    monkeypatch.setattr("time.time", lambda: float(_NOW + 89))
+    assert cache.check_and_record("a1", "jwt_1", keep_until=_NOW + 10) is False
+
+
+@pytest.mark.parametrize("forwards_kwargs", [False, True], ids=["two arguments", "**kwargs"])
+async def test_calls_a_cache_without_keep_until_with_two_arguments(
+    forwards_kwargs: bool, caplog: pytest.LogCaptureFixture
+) -> None:
+    class TwoArgumentCache:
+        """A cache written before ``keep_until``: it keeps its own window."""
+
+        def __init__(self) -> None:
+            self.recorded: set[tuple[str, str]] = set()
+
+        def contains(self, partition_key: str, jti: str) -> bool:
+            return (partition_key, jti) in self.recorded
+
+        def check_and_record(self, partition_key: str, jti: str) -> bool:
+            first_use = (partition_key, jti) not in self.recorded
+            self.recorded.add((partition_key, jti))
+            return first_use
+
+    class ForwardingCache(TwoArgumentCache):
+        """A wrapper whose ``**kwargs`` reach the two-argument method."""
+
+        def check_and_record(self, *args: Any, **kwargs: Any) -> bool:
+            return super().check_and_record(*args, **kwargs)
+
+    agent_key, host_key = Ed25519PrivateKey.generate(), Ed25519PrivateKey.generate()
+    hosts, agents = await _stores(agent_key, host_key)
+    token = _signed(agent_key, host_key, iat=_NOW, exp=_NOW + 60)
+    cache = ForwardingCache() if forwards_kwargs else TwoArgumentCache()
+
+    with caplog.at_level("WARNING"):
+        results = [
+            await verify_agent_jwt(
+                token, hosts, agents, expected_audience=_AUDIENCE, jti_replay_cache=cache
+            )
+            for _ in range(2)
+        ]
+
+    assert [(r.ok, r.error) for r in results] == [(True, None), (False, _REPLAY_ERROR)]
+    warned = [
+        r.msg["cache_class"] for r in caplog.records
+        if isinstance(r.msg, dict) and r.msg["event"] == "asap.auth.jti_cache_without_keep_until"
+    ]  # fmt: skip
+    assert warned == [type(cache).__qualname__]
