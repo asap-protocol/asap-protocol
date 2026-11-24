@@ -3,7 +3,7 @@
 from pathlib import Path
 
 import pytest
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 WORKFLOWS = Path(__file__).resolve().parents[1] / ".github" / "workflows"
 
