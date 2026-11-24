@@ -1,6 +1,6 @@
 /**
  * Load test: browse page with 500+ agents. Uses /browse/load-test (api/fixtures/registry?count=500).
- * Run: ENABLE_FIXTURE_ROUTES=true npx playwright test tests/load/browse-500.spec.ts or npm run test:load
+ * Run with `npm run test:load` from `apps/web`.
  */
 
 import { test, expect } from '@playwright/test';
@@ -30,7 +30,8 @@ test.describe('Browse page load test (500+ agents)', () => {
     await expect(page.getByText(/tracking 500 agents/)).toBeVisible({ timeout: 30_000 });
 
     const metrics = await page.evaluate(() => {
-      const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+      const nav = performance.getEntriesByType('navigation')[0] as
+        PerformanceNavigationTiming | undefined;
       if (!nav) {
         return { error: 'No navigation entry' };
       }
@@ -46,8 +47,8 @@ test.describe('Browse page load test (500+ agents)', () => {
         memoryMB:
           // @ts-expect-error performance.memory is non-standard but heavily used in Chrome
           typeof performance.memory !== 'undefined'
-            // @ts-expect-error performance.memory is non-standard
-            ? Math.round(performance.memory.usedJSHeapSize / 1024 / 1024)
+            ? // @ts-expect-error performance.memory is non-standard
+              Math.round(performance.memory.usedJSHeapSize / 1024 / 1024)
             : null,
       };
     });
