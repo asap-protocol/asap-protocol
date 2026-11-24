@@ -212,7 +212,7 @@ async def _process_ws_message(
     """
     try:
         data = json.loads(raw)
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, RecursionError):
         return WSCloseAction.CONTINUE
     if _is_heartbeat_pong(data):
         return WSCloseAction.CONTINUE

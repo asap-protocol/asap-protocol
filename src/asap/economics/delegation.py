@@ -105,7 +105,7 @@ def _parse_claim_from_jwt(token: str, claim: str) -> Optional[str]:
             return None
         val = claims.get(claim)
         return str(val) if val is not None else None
-    except (ValueError, KeyError, TypeError, json.JSONDecodeError):
+    except (ValueError, KeyError, TypeError, json.JSONDecodeError, RecursionError):
         return None
 
 

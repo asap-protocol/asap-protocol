@@ -154,10 +154,19 @@ def _unverified_header_and_payload(token: str) -> tuple[dict[str, Any], dict[str
 
     Uses :func:`joserfc.jws.extract_compact` to decode the compact
     serialisation, avoiding manual base64url padding.
+
+    Raises ``ValueError`` or ``JoseError`` for any malformed token, including a
+    header or payload that is not a JSON object and a payload nested too deeply
+    for ``json.loads`` (``RecursionError``).
     """
-    obj = _jws_extract_compact(token.encode("utf-8"))
-    header = dict(obj.headers())
-    payload: dict[str, Any] = json.loads(obj.payload)
+    try:
+        obj = _jws_extract_compact(token.encode("utf-8"))
+        header = dict(obj.headers())
+        payload = json.loads(obj.payload)
+    except (TypeError, RecursionError) as e:
+        raise ValueError(str(e)) from e
+    if not isinstance(payload, dict):
+        raise ValueError("JWT payload is not a JSON object")
     return header, payload
 
 
@@ -178,7 +187,7 @@ def _iat_not_in_future(claims: dict[str, Any], *, now_ts: float) -> bool:
         return True
     try:
         iat_ts = float(iat)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return False
     return iat_ts <= now_ts + float(_IAT_MAX_FUTURE_SKEW_SECONDS)
 
@@ -190,7 +199,7 @@ def _exp_valid(claims: dict[str, Any], *, now_ts: float) -> bool:
         return False
     try:
         exp_ts = float(exp)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return False
     return now_ts < exp_ts
 
@@ -269,7 +278,8 @@ async def verify_host_jwt(
             return JwtVerifyResult(ok=False, error="missing or invalid host_public_key claim")
         okp = _okp_from_public_jwk(host_pub_claim)
         decoded = jose_jwt.decode(token, okp, algorithms=JWT_ALGS_VERIFY)
-    except (JoseError, ValueError, TypeError) as e:
+    except (JoseError, ValueError, TypeError, KeyError) as e:
+        # joserfc raises KeyError for a ``crv`` it does not know.
         return JwtVerifyResult(ok=False, error=f"invalid host JWT: {e!s}")
 
     claims = _claims_dict(decoded)
