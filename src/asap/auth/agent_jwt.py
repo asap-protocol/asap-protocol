@@ -63,6 +63,14 @@ _IAT_MAX_FUTURE_SKEW_SECONDS = 60
 # replay cache keeps its ``jti`` (until ``exp`` plus the ``iat`` skew).
 AGENT_JWT_MAX_LIFETIME_SECONDS = AGENT_JWT_TTL_SECONDS + _IAT_MAX_FUTURE_SKEW_SECONDS
 
+# The longest a replay cache keeps a Host JWT ``jti``, counted from now: a
+# default-TTL token from a clock up to the ``iat`` skew ahead, plus the skew
+# margin after its ``exp``. Host JWTs have no lifetime cap, so a later ``exp``
+# does not hold the record longer.
+_HOST_JWT_REPLAY_RECORD_MAX_SECONDS = (
+    DEFAULT_HOST_JWT_TTL_SECONDS + 2 * _IAT_MAX_FUTURE_SKEW_SECONDS
+)
+
 
 @dataclass(frozen=True)
 class JwtVerifyResult:
@@ -232,6 +240,17 @@ def _lifetime_within(claims: dict[str, Any], *, now_ts: float, max_seconds: floa
     return exp_ts - min(iat_ts, now_ts) <= max_seconds
 
 
+def _replay_keep_until(claims: dict[str, Any]) -> float:
+    """Return ``exp`` plus the ``iat`` skew: until when a replay record must block reuse.
+
+    The skew margin covers a shared cache read by a worker whose clock runs
+    behind the one that recorded the ``jti``: it still accepts the token after
+    the recording worker's ``exp``. Runs after :func:`_exp_valid`, so ``exp``
+    parses.
+    """
+    return float(claims["exp"]) + _IAT_MAX_FUTURE_SKEW_SECONDS
+
+
 def _jti_present(claims: dict[str, Any]) -> bool:
     jti = claims.get("jti")
     return isinstance(jti, str) and bool(jti.strip())
@@ -297,6 +316,16 @@ async def verify_host_jwt(
     read-only replay checks. This preserves reusable polling tokens on
     read-only routes while still rejecting Host JWTs whose ``jti`` was already
     consumed by a recording route (issue #249).
+
+    A recording check stores the ``jti`` under ``iss`` with ``keep_until`` set
+    to ``exp`` plus the 60 s ``iat`` skew, at most 420 s after now (see
+    :func:`~asap.auth.jti_replay_cache.check_and_record_until`).
+    :class:`JtiReplayCache` and
+    :class:`~asap.auth.jti_replay_cache.RedisJtiReplayCache` keep the record
+    until then, or for their own window when that ends later, so a second use
+    of a token from :func:`create_host_jwt` with the default TTL is refused
+    while the token is valid. A cache whose ``check_and_record`` has no
+    ``keep_until`` parameter keeps the record for its own window only.
     """
     try:
         header, unverified_payload = _unverified_header_and_payload(token)
@@ -334,8 +363,9 @@ async def verify_host_jwt(
     if jti_replay_cache is not None:
         partition = str(iss)
         jti = str(claims["jti"])
+        keep_until = min(_replay_keep_until(claims), now_ts + _HOST_JWT_REPLAY_RECORD_MAX_SECONDS)
         jti_ok = (
-            jti_replay_cache.check_and_record(partition, jti)
+            check_and_record_until(jti_replay_cache, partition, jti, keep_until=keep_until)
             if record_jti
             else not jti_replay_cache.contains(partition, jti)
         )
@@ -434,10 +464,7 @@ async def verify_agent_jwt(
 
     if jti_replay_cache is not None:
         jti = str(claims["jti"])
-        # The skew margin covers a shared cache read by a worker whose clock
-        # runs behind the one that recorded the ``jti``: it still accepts the
-        # token after the recording worker's ``exp``.
-        keep_until = float(claims["exp"]) + _IAT_MAX_FUTURE_SKEW_SECONDS
+        keep_until = _replay_keep_until(claims)
         if not check_and_record_until(jti_replay_cache, agent.agent_id, jti, keep_until=keep_until):
             return JwtVerifyResult(ok=False, error="jti replay detected")
 

@@ -1167,7 +1167,7 @@ Constraints:
 
 | Item | Behavior |
 |------|----------|
-| Default TTL | 90 seconds per `(partition_key, jti)` key; an Agent JWT `jti` stays until the token's `exp` plus 60 seconds when that is later |
+| Default TTL | 90 seconds per `(partition_key, jti)` key; an Agent JWT or Host JWT `jti` stays until the token's `exp` plus 60 seconds when that is later (a Host JWT `jti` at most 420 seconds) |
 | Key shape | `{prefix}:{partition_key}:{jti}` (default prefix `asap:jti-replay`) |
 | Recording routes | Register / revoke / rotate-key call `check_and_record` |
 | Status polling | `GET /asap/agent/status` uses `record_jti=False` (read-only `contains`) |
