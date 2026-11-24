@@ -6,8 +6,11 @@ Used for JWKS, OIDC discovery, token introspection, and A2A Agent Cards
 imports ``asap.auth``: a module inside either package would create an import
 cycle.
 
-Rules: HTTPS only; every address of the host must be public; redirects are
-never followed; the body is read with a byte limit and a total deadline.
+Rules: HTTPS only, with no user info in the URL; every address of the host
+must be public; redirects are never followed; the body is read with a byte
+limit and a total deadline. :func:`guarded_post_form_json` sends a form POST
+(RFC 7662 introspection) under the same rules; its form and credentials never
+appear in a URL, an error, or a log.
 ``allow_private_hosts=True`` disables the address checks for
 local development and tests; HTTPS stays required.
 
@@ -28,7 +31,7 @@ import asyncio
 import ipaddress
 import json
 import socket
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from typing import Any, Literal
 
 import httpx
@@ -100,6 +103,10 @@ def validate_guarded_url(url: str, *, allow_private_hosts: bool = False) -> http
         parsed = httpx.URL(url)
     except httpx.InvalidURL as exc:
         raise GuardedFetchError(url, "invalid_url", str(exc)) from exc
+    if parsed.userinfo:
+        # Credentials go in a header; the message must not echo them.
+        redacted = str(parsed.copy_with(userinfo=b""))
+        raise GuardedFetchError(redacted, "invalid_url", "the URL holds user info")
     if parsed.scheme != "https":
         raise GuardedFetchError(
             url, "scheme_not_https", f"scheme is {parsed.scheme!r}, expected 'https'"
@@ -188,6 +195,8 @@ async def _fetch_pinned(
     max_bytes: int,
     timeout_seconds: float,
     transport: httpx.AsyncBaseTransport | None,
+    form: Mapping[str, str] | None,
+    basic_auth: tuple[str, str] | None,
 ) -> bytes:
     host = url.raw_host.decode("ascii")
     headers = {
@@ -206,11 +215,55 @@ async def _fetch_pinned(
             trust_env=False,
         ) as client,
         client.stream(
-            "GET", url.copy_with(host=address), headers=headers, extensions=extensions
+            "GET" if form is None else "POST",
+            url.copy_with(host=address),
+            headers=headers,
+            extensions=extensions,
+            data=form,
+            auth=basic_auth,
         ) as response,
     ):
         _check_response_head(str(url), response, max_bytes)
         return await _read_limited_body(str(url), response, max_bytes)
+
+
+async def _guarded_json_request(
+    url: str,
+    *,
+    form: Mapping[str, str] | None,
+    basic_auth: tuple[str, str] | None,
+    allow_private_hosts: bool,
+    max_bytes: int,
+    timeout_seconds: float,
+    resolver: AddressResolver | None,
+    transport: httpx.AsyncBaseTransport | None,
+) -> dict[str, Any]:
+    parsed = validate_guarded_url(url, allow_private_hosts=allow_private_hosts)
+    try:
+        async with asyncio.timeout(timeout_seconds):
+            addresses = await resolve_public_addresses(
+                parsed, allow_private_hosts=allow_private_hosts, resolver=resolver
+            )
+            body = await _fetch_pinned(
+                parsed,
+                addresses[0],
+                max_bytes=max_bytes,
+                timeout_seconds=timeout_seconds,
+                transport=transport,
+                form=form,
+                basic_auth=basic_auth,
+            )
+    except (TimeoutError, httpx.TimeoutException) as exc:
+        raise GuardedFetchError(url, "timeout", f"no response within {timeout_seconds}s") from exc
+    except httpx.HTTPError as exc:
+        raise GuardedFetchError(url, "transport_error", type(exc).__name__) from exc
+    try:
+        document = json.loads(body, parse_constant=_refuse_json_constant)
+    except ValueError as exc:
+        raise GuardedFetchError(url, "invalid_json", str(exc)) from exc
+    if not isinstance(document, dict):
+        raise GuardedFetchError(url, "invalid_json", f"top level is {type(document).__name__}")
+    return document
 
 
 async def guarded_fetch_json(
@@ -230,27 +283,45 @@ async def guarded_fetch_json(
     Example:
         >>> jwks = await guarded_fetch_json("https://issuer.example/jwks.json")
     """
-    parsed = validate_guarded_url(url, allow_private_hosts=allow_private_hosts)
-    try:
-        async with asyncio.timeout(timeout_seconds):
-            addresses = await resolve_public_addresses(
-                parsed, allow_private_hosts=allow_private_hosts, resolver=resolver
-            )
-            body = await _fetch_pinned(
-                parsed,
-                addresses[0],
-                max_bytes=max_bytes,
-                timeout_seconds=timeout_seconds,
-                transport=transport,
-            )
-    except (TimeoutError, httpx.TimeoutException) as exc:
-        raise GuardedFetchError(url, "timeout", f"no response within {timeout_seconds}s") from exc
-    except httpx.HTTPError as exc:
-        raise GuardedFetchError(url, "transport_error", type(exc).__name__) from exc
-    try:
-        document = json.loads(body, parse_constant=_refuse_json_constant)
-    except ValueError as exc:
-        raise GuardedFetchError(url, "invalid_json", str(exc)) from exc
-    if not isinstance(document, dict):
-        raise GuardedFetchError(url, "invalid_json", f"top level is {type(document).__name__}")
-    return document
+    return await _guarded_json_request(
+        url,
+        form=None,
+        basic_auth=None,
+        allow_private_hosts=allow_private_hosts,
+        max_bytes=max_bytes,
+        timeout_seconds=timeout_seconds,
+        resolver=resolver,
+        transport=transport,
+    )
+
+
+async def guarded_post_form_json(
+    url: str,
+    form: Mapping[str, str],
+    *,
+    basic_auth: tuple[str, str] | None = None,
+    allow_private_hosts: bool = False,
+    max_bytes: int = DEFAULT_GUARDED_FETCH_MAX_BYTES,
+    timeout_seconds: float = DEFAULT_GUARDED_FETCH_TIMEOUT_SECONDS,
+    resolver: AddressResolver | None = None,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> dict[str, Any]:
+    """POST ``form`` (``application/x-www-form-urlencoded``) through the guard; read a JSON object.
+
+    Same rules as :func:`guarded_fetch_json`. ``basic_auth`` is sent as HTTP
+    Basic client authentication (RFC 6749 §2.3.1). Errors name the URL and the
+    reason only, never the form or the credentials.
+
+    Example:
+        >>> info = await guarded_post_form_json(url, {"token": token}, basic_auth=(cid, secret))
+    """
+    return await _guarded_json_request(
+        url,
+        form=form,
+        basic_auth=basic_auth,
+        allow_private_hosts=allow_private_hosts,
+        max_bytes=max_bytes,
+        timeout_seconds=timeout_seconds,
+        resolver=resolver,
+        transport=transport,
+    )
