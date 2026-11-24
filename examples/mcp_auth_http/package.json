@@ -17,6 +17,7 @@
     "@asap-protocol/mcp-auth": "workspace:*",
     "@modelcontextprotocol/node": "2.1.2",
     "@modelcontextprotocol/server": "2.4.0",
+    "jose": "^6.0.10",
     "zod": "^4.2.0"
   },
   "devDependencies": {

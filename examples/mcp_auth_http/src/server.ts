@@ -2,6 +2,7 @@
  * Streamable HTTP MCP server on `@modelcontextprotocol/server` 2.x, protected
  * by `@asap-protocol/mcp-auth`: one public tool and one protected tool.
  * Run: `pnpm --filter example-mcp-auth-http start` (PORT, default 8787).
+ * `-- --compliance` turns on the test-only compliance mode (see compliance.ts).
  */
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -19,7 +20,9 @@ import {
 } from "@modelcontextprotocol/server";
 import * as z from "zod";
 
+import { COMPLIANCE_PROBE_PATH, mintComplianceProbeTokens } from "./compliance.js";
 import { createDemoIdentity, type DemoIdentity } from "./demo-identity.js";
+import { createTestIssuer, type TestIssuer } from "./test-issuer.js";
 
 export const PUBLIC_TOOL = "echo";
 export const PROTECTED_TOOL = "secure_action";
@@ -44,14 +47,22 @@ export function buildExampleMcpServer(auth: McpAuthMiddleware): McpServer {
   return server;
 }
 
+export interface ExampleServerOptions {
+  readonly port?: number;
+  readonly host?: string;
+  /** Test only: serve fresh probe tokens at `POST /compliance/probe-tokens`. Default: off. */
+  readonly compliance?: boolean;
+}
+
 export interface RunningExampleServer {
   url: URL;
   demo: DemoIdentity;
+  testIssuer: TestIssuer;
   close(): Promise<void>;
 }
 
-export async function startExampleServer(port = 0, host = "127.0.0.1"): Promise<RunningExampleServer> {
-  const demo = await createDemoIdentity();
+export async function startExampleServer({ port = 0, host = "127.0.0.1", compliance = false }: ExampleServerOptions = {}): Promise<RunningExampleServer> {
+  const [demo, testIssuer] = await Promise.all([createDemoIdentity(), createTestIssuer()]);
   // The audience is the endpoint URL, which is known only once the port is bound.
   let app: { fetch(request: Request): Promise<Response> } | undefined;
   const httpServer = createServer(toNodeHandler({ fetch: (request: Request) => (app as NonNullable<typeof app>).fetch(request) }));
@@ -61,21 +72,26 @@ export async function startExampleServer(port = 0, host = "127.0.0.1"): Promise<
   const auth = createMcpAuthMiddleware({
     agentJwt: { audience: url.href, resolveAgent: demo.resolveAgent },
     agentGrants: demo.agentGrants,
+    externalTokens: { issuers: [testIssuer.configFor(url.href)] },
     publicTools: [PUBLIC_TOOL],
   });
   // legacy: "reject" serves only 2026-07-28. A 2025-era request skips the SDK's check of
   // Mcp-Method and Mcp-Name against the body, which the token layer relies on.
   const mcpHandler = createMcpHandler(() => buildExampleMcpServer(auth), { legacy: "reject" });
   const protectedMcp = auth.protect(mcpHandler);
+  const isProbeRequest = (request: Request) => compliance && request.method === "POST" && new URL(request.url).pathname === COMPLIANCE_PROBE_PATH;
   app = {
     fetch: async (request) =>
       hostHeaderValidationResponse(request, localhostAllowedHostnames()) ??
       originValidationResponse(request, localhostAllowedOrigins()) ??
-      protectedMcp.fetch(request),
+      (isProbeRequest(request)
+        ? Response.json(await mintComplianceProbeTokens(url, PROTECTED_TOOL, demo, testIssuer))
+        : protectedMcp.fetch(request)),
   };
   return {
     url,
     demo,
+    testIssuer,
     close: async () => {
       await mcpHandler.close();
       await new Promise<void>((resolve, reject) => httpServer.close((error) => (error ? reject(error) : resolve())));
@@ -84,6 +100,10 @@ export async function startExampleServer(port = 0, host = "127.0.0.1"): Promise<
 }
 
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const running = await startExampleServer(Number(process.env.PORT ?? 8787));
+  const compliance = process.argv.includes("--compliance");
+  const running = await startExampleServer({ port: Number(process.env.PORT ?? 8787), compliance });
   console.log(`MCP endpoint: ${running.url.href}`);
+  if (compliance) {
+    console.error(`COMPLIANCE MODE (test only): POST ${new URL(COMPLIANCE_PROBE_PATH, running.url).href} returns valid tokens. Never expose this server.`);
+  }
 }
