@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { InMemoryJtiReplayCache } from "../src/index.js";
+import { InMemoryJtiReplayCache, JtiReplayCacheFullError } from "../src/index.js";
 
 /** A clock the test moves by hand, in seconds since the epoch. */
 function manualClock(start: number): { now: () => number; advance: (seconds: number) => void } {
@@ -70,17 +70,65 @@ describe("InMemoryJtiReplayCache", () => {
     expect(cache.checkAndRecord("agent-1", "  ")).toBe(false);
   });
 
-  it("evicts the oldest entries first when it is full", () => {
+  // Evicting live records would let one agent push out another agent's jti and replay it.
+  it("never evicts a live jti: with maxSize 2 it refuses a third one, and the first is still a replay", () => {
     const clock = manualClock(1_700_000_000);
     const cache = new InMemoryJtiReplayCache({ maxSize: 2, nowSeconds: clock.now });
 
-    cache.checkAndRecord("agent-1", "jwt_a");
+    cache.checkAndRecord("victim", "jwt_a");
     clock.advance(1);
-    cache.checkAndRecord("agent-1", "jwt_b");
-    clock.advance(1);
-    cache.checkAndRecord("agent-1", "jwt_c");
+    cache.checkAndRecord("attacker", "jwt_b");
 
-    expect(cache.checkAndRecord("agent-1", "jwt_c")).toBe(false);
-    expect(cache.checkAndRecord("agent-1", "jwt_a")).toBe(true);
+    expect(() => cache.checkAndRecord("attacker", "jwt_c")).toThrow(JtiReplayCacheFullError);
+    expect(cache.checkAndRecord("victim", "jwt_a")).toBe(false);
+  });
+
+  it("tells how long until the first live record expires", () => {
+    const clock = manualClock(1_700_000_000);
+    const cache = new InMemoryJtiReplayCache({ maxSize: 1, ttlSeconds: 90, nowSeconds: clock.now });
+    cache.checkAndRecord("agent-1", "jwt_a");
+    clock.advance(30.5);
+
+    const error = captureFullError(() => cache.checkAndRecord("agent-2", "jwt_b"));
+
+    expect(error.retryAfterSeconds).toBe(60);
+    expect(error.message).not.toContain("jwt_");
+  });
+
+  it("lets expired records make room", () => {
+    const clock = manualClock(1_700_000_000);
+    const cache = new InMemoryJtiReplayCache({ maxSize: 2, ttlSeconds: 90, nowSeconds: clock.now });
+    cache.checkAndRecord("agent-1", "jwt_a");
+    cache.checkAndRecord("agent-1", "jwt_b");
+    clock.advance(90);
+
+    expect(cache.checkAndRecord("agent-1", "jwt_c")).toBe(true);
+    expect(cache.checkAndRecord("agent-1", "jwt_d")).toBe(true);
+  });
+
+  it("caps the live records of one partition, so one agent cannot fill the cache", () => {
+    const cache = new InMemoryJtiReplayCache({ maxSize: 10, maxPerPartition: 2 });
+    cache.checkAndRecord("agent-1", "jwt_a");
+    cache.checkAndRecord("agent-1", "jwt_b");
+
+    expect(() => cache.checkAndRecord("agent-1", "jwt_c")).toThrow(JtiReplayCacheFullError);
+    expect(cache.checkAndRecord("agent-2", "jwt_c")).toBe(true);
+  });
+
+  it.each([
+    ["maxSize", { maxSize: 0 }],
+    ["maxPerPartition", { maxPerPartition: 1.5 }],
+  ])("refuses a %s that is not a positive integer", (name, options) => {
+    expect(() => new InMemoryJtiReplayCache(options)).toThrow(name);
   });
 });
+
+function captureFullError(record: () => void): JtiReplayCacheFullError {
+  try {
+    record();
+  } catch (error) {
+    expect(error).toBeInstanceOf(JtiReplayCacheFullError);
+    return error as JtiReplayCacheFullError;
+  }
+  return expect.unreachable("the cache accepted the record");
+}
