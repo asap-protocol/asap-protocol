@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING, cast
 
 import httpx
@@ -18,6 +19,26 @@ if TYPE_CHECKING:
 pytest_plugins = ["asap_compliance.pytest_plugin"]
 
 TEST_RATE_LIMIT = "999999/minute"
+
+# Live tests need examples/mcp_auth_http started with --compliance. They are skipped
+# unless this variable holds its MCP URL; the live-flows CI job sets it.
+LIVE_MCP_HTTP_URL_ENV = "ASAP_COMPLIANCE_MCP_HTTP_URL"
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line(
+        "markers",
+        f"mcp_http_live: needs a live HTTP MCP server; runs when {LIVE_MCP_HTTP_URL_ENV} is set",
+    )
+
+
+@pytest.fixture
+def live_mcp_http_url() -> str:
+    """MCP URL of a live ``examples/mcp_auth_http`` server, or skip the test."""
+    url = os.environ.get(LIVE_MCP_HTTP_URL_ENV, "")
+    if not url:
+        pytest.skip(f"set {LIVE_MCP_HTTP_URL_ENV} (example: http://127.0.0.1:8787/mcp)")
+    return url
 
 
 @pytest.fixture
