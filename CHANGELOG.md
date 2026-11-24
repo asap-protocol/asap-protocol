@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-**Interop** — ASAP's identity and capability grants work with A2A v1.0 and MCP authorization (OAuth 2.1): a signed A2A Agent Card built from the manifest, OAuth 2.1 access tokens mapped to grants, and `@asap-protocol/mcp-auth` for HTTP MCP servers. Removes the six import paths deprecated in 2.5.1. The ASAP envelope, the JSON-RPC methods, and the manifest schema do not change. Read the [interoperability guide](docs/guides/interoperability.md) and the [migration guide](docs/migration.md#upgrading-from-v25x-to-v260).
+**Interop** — ASAP's identity and capability grants work with A2A v1.0 and MCP authorization (OAuth 2.1): a signed A2A Agent Card built from the manifest, OAuth 2.1 access tokens mapped to grants, `@asap-protocol/mcp-auth` for HTTP MCP servers, and an `asap-compliance` profile for each flow. Removes the six import paths deprecated in 2.5.1. The ASAP envelope, the JSON-RPC methods, and the manifest schema do not change. Read the [interoperability guide](docs/guides/interoperability.md) and the [migration guide](docs/migration.md#upgrading-from-v25x-to-v260).
 
 ### Added
 
@@ -43,10 +43,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **Compliance (COMPAT-007)**
 
 - **`mcp-auth-http` profile** (`asap-compliance`) — checks an HTTP MCP server protected by `@asap-protocol/mcp-auth` over plain HTTP: the public tool, the missing and invalid tokens, Agent JWT replay, access-token reuse, grant and constraint errors in their layers, an undeclared tool, the `WWW-Authenticate` challenges, and that no answer echoes a token. It gets a fresh token per request from the server's test-only probe endpoint. Entry points: `validate_mcp_auth_http_async` and `McpAuthHttpComplianceConfig`.
+- **`a2a-bridge` profile** (`asap-compliance`) — checks an A2A v1.0 agent served by an ASAP gateway over plain HTTP. The Agent Card must be at the well-known path, parse as A2A v1.0, verify under the keys that the config pins for the expected agent URN (the profile never takes a key or a URN from the target), name that URN, list the gateway's JSON-RPC interface, and match the ASAP manifest on the same origin (COMPAT-003). Then one `SendMessage` per case: a valid access token sent twice, no token, a malformed, forged, or wrong-audience token, a token without the grant, arguments that break the grant's constraint, and a skill that the card does not list; plus the `WWW-Authenticate` challenges, and that no answer echoes a token. A loopback or private target needs `allow_private_targets`, which is off by default. Entry points: `validate_a2a_bridge_async`, `validate_a2a_bridge`, and `A2ABridgeComplianceConfig`; the check IDs are `A2A_BRIDGE_CHECK_IDS`.
+- **Wrong-audience probe tokens** — `ProbeTokenKind.EXTERNAL_WRONG_AUDIENCE`: an access token with the grant, for another audience. `ComplianceEndpointTokenProvider` reads it from the optional `external.wrong_audience` of a probe set.
+- **Profiles by name** — `profile_config(name, fields)` builds the config of a profile, and `validate_profile` (or `validate_profile_async`) runs it. `COMPLIANCE_PROFILES` lists `a2a-bridge`, `mcp-auth-bridge`, and `mcp-auth-http`; an unknown name fails with that list. The pytest plugin adds `--asap-profile`, `--asap-profile-config` (a JSON file of config fields), and the `compliance_profile` fixture. The configs, results, and entry points of both HTTP profiles are exported from `asap_compliance`. Guide: [Compliance testing](docs/guides/compliance-testing.md#profiles).
+- **`asap-compliance` 1.4.0** — the package version with these profiles. It needs `asap-protocol` 2.6.0.
 
 **Examples**
 
-- **`examples/a2a_gateway/`** — a reference A2A v1.0 gateway on the A2A Python SDK (Flow A): it serves the signed card, checks the access token and the ASAP grant, and runs one skill. Smoke run: `uv run python -m examples.a2a_gateway.smoke`. It has no support tier.
+- **`examples/a2a_gateway/`** — a reference A2A v1.0 gateway on the A2A Python SDK (Flow A): it serves the signed card, checks the access token and the ASAP grant, and runs one skill. Smoke run: `uv run python -m examples.a2a_gateway.smoke`. `python -m examples.a2a_gateway.serve` serves it over HTTP on a loopback address only, and refuses a request whose `Host` or `Origin` is not local; its test-only compliance mode (`--compliance`, off by default) hands out fresh probe tokens for the `a2a-bridge` profile. It has no support tier.
 - **`examples/mcp_auth_http/`** — an HTTP MCP server protected by `@asap-protocol/mcp-auth` (Flow B), with Agent JWTs, access tokens from a local test issuer, RFC 9728 metadata, and a test-only compliance mode.
 
 ### Changed
@@ -74,7 +78,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
-- **Interoperability guide** — [docs/guides/interoperability.md](docs/guides/interoperability.md): where ASAP sits beside A2A v1.0 and MCP authorization (OAuth 2.1), the pinned spec versions, both end-to-end flows with runnable commands, the Agent Card ↔ manifest field table, signed cards, external access tokens, where each path puts the four `asap:*` codes, and what is not supported.
+- **Interoperability guide** — [docs/guides/interoperability.md](docs/guides/interoperability.md): where ASAP sits beside A2A v1.0 and MCP authorization (OAuth 2.1), the pinned spec versions, both end-to-end flows with runnable commands, the Agent Card ↔ manifest field table, signed cards, external access tokens, where each path puts the four `asap:*` codes, the compliance profile of each flow, and what is not supported.
+- **Compliance testing** — [docs/guides/compliance-testing.md](docs/guides/compliance-testing.md) documents the `mcp-auth-http` and `a2a-bridge` profiles: how to run them from Python and from pytest, every config field and check ID, where the probe tokens come from, the private-target switch, and what the profiles do not check.
 - **MCP Auth Bridge** — [docs/adapters/mcp-auth-bridge.md](docs/adapters/mcp-auth-bridge.md) gains the section "HTTP MCP servers in TypeScript": servers with Agent JWTs and with access tokens, clients, deny by default, and every answer of `@asap-protocol/mcp-auth`. It names only `asap.mcp.auth`.
 - **TypeScript client** — [docs/sdks/typescript.md](docs/sdks/typescript.md) documents `verifyAgentJwt` and the replay cache.
 - **Support tiers** — `@asap-protocol/mcp-auth` and `asap.adapters.a2a` are Tier 1; the reference examples have no tier. The MCP Auth Bridge row names only `asap.mcp.auth`. See [docs/integrations/support-tiers.md](docs/integrations/support-tiers.md).
