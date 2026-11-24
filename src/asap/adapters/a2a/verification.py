@@ -15,6 +15,23 @@ Rules (``docs/guides/interoperability.md``, "Signed Agent Cards"):
   form drops or rounds fails: the params become manifest data, and a stripped
   ``enum: []`` would map as a looser schema. Other uncovered values are
   reported in ``uncovered``; the mapping carries none of them.
+
+What ``verified=True`` means: at least one signature
+over the card's canonical form verified with a key that the resolver trusts
+for its ``kid``, no present signature failed, and the ASAP extension params
+are fully covered. It does **not** say whose card it is: a key proves who
+signed, so bind the card to an agent with
+:meth:`CardVerification.require_signer_for` or
+:func:`verify_agent_card_for_agent` (ingest does it for you). It also does not
+mean:
+
+- that the card belongs to the URL it came from: the URL is not signed, so a
+  card can be served from any URL;
+- that the card is fresh: a signed card has no expiry and no nonce, so it can
+  be replayed, from any URL, for as long as its key stays trusted;
+- more than its weakest key: a card for an agent is as strong as the weakest
+  trusted key that may sign for that agent (any source in scope for it, an
+  ``ANY_AGENT`` source included).
 """
 
 from __future__ import annotations
@@ -130,7 +147,10 @@ async def verify_agent_card(
 
     An error raised by *key_resolver* propagates, so the card fails. Under
     ``allow_unsigned``, a card with signatures is still checked in full: a
-    present, invalid signature never makes it "unsigned".
+    present, invalid signature never makes it "unsigned". The result does not
+    bind the card to an agent (this function has no manifest): see the module
+    docstring for what ``verified`` means, and use
+    :func:`verify_agent_card_for_agent` when you know the agent you expect.
 
     Raises:
         A2AUnsignedCardError: No signature, and *policy* requires one.
@@ -197,6 +217,33 @@ def _require_covered_asap_params(card: AgentCard, uncovered: Sequence[str]) -> N
     ]
     if inside:
         raise A2AUncoveredExtensionError(card.name, inside)
+
+
+async def verify_agent_card_for_agent(
+    card: AgentCard,
+    agent_urn: str,
+    key_resolver: CardKeyResolver,
+    *,
+    algorithms: Collection[str] = CARD_VERIFY_ALGORITHMS,
+    policy: SignaturePolicy = "require_signature",
+) -> CardVerification:
+    """Verify *card*, then require a signer that may sign for *agent_urn*.
+
+    For a caller that does not use :class:`asap.adapters.a2a.AgentCardIngestor`
+    and knows which agent it expects: :func:`verify_agent_card` followed by
+    :meth:`CardVerification.require_signer_for`.
+
+    Raises:
+        A2ASignerScopeError: The card verified, but no signer may sign for *agent_urn*.
+        A2ACardVerificationError: Any error of :func:`verify_agent_card`.
+
+    Example:
+        >>> await verify_agent_card_for_agent(card, "urn:asap:agent:bank-a",
+        ...                                   A2AKeyResolver(trust))  # doctest: +SKIP
+    """
+    verification = await verify_agent_card(card, key_resolver, algorithms=algorithms, policy=policy)
+    verification.require_signer_for(agent_urn)
+    return verification
 
 
 def _checked_algorithms(algorithms: Collection[str]) -> frozenset[str]:

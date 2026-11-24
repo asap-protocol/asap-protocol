@@ -108,6 +108,7 @@ from asap.adapters.a2a.verification import (
     TrustedCardKey,
     VerifiedCardSigner,
     verify_agent_card,
+    verify_agent_card_for_agent,
 )
 
 __all__ = [
@@ -192,4 +193,5 @@ __all__ = [
     "scope_allows",
     "sign_agent_card",
     "verify_agent_card",
+    "verify_agent_card_for_agent",
 ]

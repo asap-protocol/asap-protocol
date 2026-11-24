@@ -5,7 +5,7 @@ banks A and B both trusted, a card that claims bank B, points at bank A's
 server, and is signed with bank A's key must not ingest as bank B. Ingest
 binds the manifest's agent URN to the scope of a signer that verified, for a
 card with the ASAP extension and for a card without it (``agent_id`` from the
-caller).
+caller); ``verify_agent_card_for_agent`` does the same without a manifest.
 """
 
 from __future__ import annotations
@@ -19,6 +19,7 @@ from joserfc.jwk import OKPKey
 
 from asap.adapters.a2a import (
     ANY_AGENT,
+    A2AKeyResolver,
     A2ASignerScopeError,
     A2ATrustConfig,
     AgentCard,
@@ -27,6 +28,7 @@ from asap.adapters.a2a import (
     PinnedCardKey,
     manifest_to_agent_card,
     sign_agent_card,
+    verify_agent_card_for_agent,
 )
 from asap.models.entities import Endpoint
 from tests.adapters.a2a.helpers import research_card_inputs, research_manifest
@@ -152,3 +154,14 @@ async def test_a_card_without_the_extension_binds_the_callers_agent_id(
         return
     result = await ingestor.ingest(_CARD_URL, agent_id=agent_id, endpoints=_ON_A)
     assert result.manifest.id == agent_id
+
+
+async def test_verify_agent_card_for_agent_binds_without_a_manifest() -> None:
+    resolver = A2AKeyResolver(_PINNED_A_AND_B)
+    card = _card(_BANK_B, _KEY_A, "a1")
+
+    with pytest.raises(A2ASignerScopeError):
+        await verify_agent_card_for_agent(card, _BANK_B, resolver)
+    result = await verify_agent_card_for_agent(card, _BANK_A, resolver)
+
+    assert result.verified is True
