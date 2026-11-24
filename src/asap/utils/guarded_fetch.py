@@ -155,7 +155,9 @@ async def resolve_public_addresses(
     else:
         try:
             addresses = await (resolver or _resolve_with_getaddrinfo)(host)
-        except OSError as exc:
+        # getaddrinfo IDNA-encodes the name first: an empty label or one over
+        # 63 bytes raises UnicodeError, which httpx.URL does not catch.
+        except (OSError, UnicodeError) as exc:
             raise GuardedFetchError(str(url), "dns_failed", f"{host!r}: {exc}") from exc
     if not addresses:
         raise GuardedFetchError(str(url), "dns_failed", f"{host!r} has no address")
@@ -269,6 +271,9 @@ async def _guarded_json_request(
         document = json.loads(body, parse_constant=_refuse_json_constant)
     except ValueError as exc:
         raise GuardedFetchError(url, "invalid_json", str(exc)) from exc
+    except RecursionError:
+        # json.loads raises RecursionError, not ValueError, past about 10,000 levels.
+        raise GuardedFetchError(url, "invalid_json", "the JSON is nested too deeply") from None
     if not isinstance(document, dict):
         raise GuardedFetchError(url, "invalid_json", f"top level is {type(document).__name__}")
     return document

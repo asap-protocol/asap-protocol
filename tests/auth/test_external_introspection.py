@@ -48,9 +48,12 @@ class _FakeIntrospectionEndpoint:
             "client_id": "mcp-client",
             "exp": int(time.time()) + 600,
         }
+        self.raw_answer: bytes | None = None
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
+        if self.raw_answer is not None:
+            return httpx.Response(self.status, content=self.raw_answer)
         return httpx.Response(self.status, json=self.answer)
 
     def verifier(self, *extra_issuers: LocalIssuer) -> ExternalTokenVerifier:
@@ -122,6 +125,13 @@ async def test_endpoint_failure_is_key_source_unavailable(
     endpoint: _FakeIntrospectionEndpoint,
 ) -> None:
     endpoint.status = 500
+    await _refused(endpoint.verifier(), _TOKEN, Reason.KEY_SOURCE_UNAVAILABLE)
+
+
+async def test_too_deeply_nested_answer_is_unavailable_not_a_crash(
+    endpoint: _FakeIntrospectionEndpoint,
+) -> None:
+    endpoint.raw_answer = b'{"active": ' + b"[" * 100_000 + b"]" * 100_000 + b"}"
     await _refused(endpoint.verifier(), _TOKEN, Reason.KEY_SOURCE_UNAVAILABLE)
 
 

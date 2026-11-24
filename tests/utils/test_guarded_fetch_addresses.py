@@ -161,6 +161,16 @@ async def test_switch_allows_a_hostname_that_resolves_to_loopback() -> None:
     assert addresses == ["127.0.0.1"]
 
 
+@pytest.mark.parametrize("host", ["a" * 64 + ".example", "a..b.example"])
+async def test_host_the_resolver_cannot_encode_is_a_dns_failure(host: str) -> None:
+    # The default resolver: socket.getaddrinfo IDNA-encodes the name and raises
+    # UnicodeError for a label over 63 bytes or an empty one, before any query.
+    url = validate_guarded_url(f"https://{host}/keys")
+    with pytest.raises(GuardedFetchError) as caught:
+        await resolve_public_addresses(url)
+    assert caught.value.code == "dns_failed"
+
+
 @pytest.mark.parametrize("resolver", [_failing_resolver, _FakeResolver([])])
 async def test_dns_failure_or_empty_answer_is_refused(resolver: AddressResolver) -> None:
     with pytest.raises(GuardedFetchError) as caught:

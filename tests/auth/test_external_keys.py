@@ -175,6 +175,17 @@ async def test_jwks_without_an_asymmetric_key_is_unavailable(idp: _FakeIdp) -> N
     await _unavailable(idp.source(), "hmac")
 
 
+async def test_too_deeply_nested_jwks_is_unavailable_not_a_crash(idp: _FakeIdp) -> None:
+    deep = b'{"keys": ' + b"[" * 100_000 + b"]" * 100_000 + b"}"
+    entry = idp.issuer.config_entry("https://api.example/asap", key_source=_JWKS_SOURCE)
+    source = IssuerKeySource(
+        ExternalIssuerConfig.model_validate(entry),
+        resolver=_public_resolver,
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, content=deep)),
+    )
+    await _unavailable(source, idp.issuer.kid)
+
+
 async def test_oidc_discovery_finds_the_jwks_uri(idp: _FakeIdp) -> None:
     keys = await idp.source({"kind": "oidc_discovery"}).keys_for(idp.issuer.kid)
     assert [key.kid for key in keys.keys] == [idp.issuer.kid]
