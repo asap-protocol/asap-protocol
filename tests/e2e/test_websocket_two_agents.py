@@ -23,10 +23,14 @@ from __future__ import annotations
 
 import asyncio
 import json
-import threading
+import socket
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Any
 
 import pytest
+import uvicorn
+from fastapi import FastAPI
 from websockets.asyncio.client import connect as ws_connect
 
 from asap.models.entities import AuthScheme, Capability, Endpoint, Manifest, Skill
@@ -49,13 +53,27 @@ E2E_WS_SERVER_ID = "urn:asap:agent:e2e-ws-server"
 E2E_WS_ECHO_INPUT = {"msg": "e2e-ws-correlation"}
 
 
-def _free_port() -> int:
-    """Return an unused TCP port on 127.0.0.1 for the ephemeral uvicorn server."""
-    import socket
-
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.bind(("127.0.0.1", 0))
-        return int(sock.getsockname()[1])
+@asynccontextmanager
+async def _serve_websocket(app: FastAPI) -> AsyncIterator[str]:
+    """Wait for Uvicorn to start listening and stop it when the test exits."""
+    config = uvicorn.Config(app, log_level="warning")
+    server = uvicorn.Server(config)
+    # Reserve the port until Uvicorn starts on this socket.
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+        listener.bind(("127.0.0.1", 0))
+        port = listener.getsockname()[1]
+        serving = asyncio.create_task(server.serve(sockets=[listener]))
+        try:
+            async with asyncio.timeout(10):
+                while not server.started:
+                    if serving.done():
+                        serving.result()
+                        raise RuntimeError("WebSocket server exited before listening")
+                    await asyncio.sleep(0.01)
+            yield f"ws://127.0.0.1:{port}/asap/ws"
+        finally:
+            server.should_exit = True
+            await asyncio.wait_for(serving, timeout=10)
 
 
 def _auth_manifest() -> Manifest:
@@ -103,12 +121,13 @@ class TestE2EWebSocketRoundTrip(NoRateLimitTestBase):
     async def test_task_request_round_trips_over_websocket_with_auth(
         self,
         disable_rate_limiting: Any,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """A Bearer-authenticated WS client sends ``task.request`` and receives a correlated ``task.response``.
 
         Steps:
         1. Build an auth-gated echo app (``manifest.auth`` bearer + ``token_validator``).
-        2. Start a real uvicorn server on a free port in a daemon thread.
+        2. Wait for the local Uvicorn server to listen.
         3. Open the WS handshake with ``Authorization: Bearer <token>`` so the
            fake-request auth path validates the token via ``token_validator``.
         4. Send a JSON-RPC ``task.request`` frame for the ``echo`` skill.
@@ -118,12 +137,11 @@ class TestE2EWebSocketRoundTrip(NoRateLimitTestBase):
            - echoed payload: ``result["echoed"]`` contains the request input
            - the connection closes cleanly after.
         """
-        import uvicorn
         from asap.transport import middleware as middleware_module
 
         # Isolate rate limiting: replace the module-level limiter AND the
         # app.state limiter so neither HTTP nor WS token-bucket paths can 429.
-        middleware_module.limiter = disable_rate_limiting
+        monkeypatch.setattr(middleware_module, "limiter", disable_rate_limiting)
 
         app_instance = create_app(
             _auth_manifest(),
@@ -133,30 +151,6 @@ class TestE2EWebSocketRoundTrip(NoRateLimitTestBase):
         )
         app_instance.state.limiter = disable_rate_limiting
 
-        port = _free_port()
-        server_started = threading.Event()
-        thread_err: list[Exception] = []
-
-        def run() -> None:
-            try:
-                config = uvicorn.Config(
-                    app_instance,
-                    host="127.0.0.1",
-                    port=port,
-                    log_level="warning",
-                )
-                server_started.set()
-                asyncio.run(uvicorn.Server(config).serve())
-            except Exception as exc:  # pragma: no cover - surfaced via thread_err
-                thread_err.append(exc)
-
-        thread = threading.Thread(target=run, daemon=True)
-        thread.start()
-        assert server_started.wait(timeout=5.0)
-        # Let the socket settle before the client connects.
-        await asyncio.sleep(0.2)
-
-        ws_url = f"ws://127.0.0.1:{port}/asap/ws"
         request_envelope = Envelope(
             asap_version="0.1",
             sender=E2E_WS_CLIENT_ID,
@@ -173,20 +167,17 @@ class TestE2EWebSocketRoundTrip(NoRateLimitTestBase):
         # ``correlation_id`` matching the request envelope ``id``.
         request_frame = _task_request_frame(request_envelope, request_id="e2e-ws-req-1")
 
-        try:
-            async with ws_connect(
+        async with (
+            _serve_websocket(app_instance) as ws_url,
+            ws_connect(
                 ws_url,
                 additional_headers={"Authorization": f"Bearer {E2E_WS_TOKEN}"},
                 open_timeout=10.0,
                 close_timeout=5.0,
-            ) as websocket:
-                await websocket.send(request_frame)
-                response_text = await asyncio.wait_for(websocket.recv(), timeout=10.0)
-                # Clean close initiated by the client after the round-trip.
-                await websocket.close()
-
-            if thread_err:
-                raise thread_err[0]
+            ) as websocket,
+        ):
+            await websocket.send(request_frame)
+            response_text = await asyncio.wait_for(websocket.recv(), timeout=10.0)
 
             assert isinstance(response_text, str)
             data = decode_frame_to_json(response_text)
@@ -208,7 +199,3 @@ class TestE2EWebSocketRoundTrip(NoRateLimitTestBase):
             assert echoed == E2E_WS_ECHO_INPUT, (
                 f"echoed payload mismatch: expected {E2E_WS_ECHO_INPUT!r}, got {echoed!r}"
             )
-        except Exception as e:
-            if thread_err:
-                raise thread_err[0] from e
-            raise
