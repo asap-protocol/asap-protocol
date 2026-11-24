@@ -18,7 +18,6 @@ Example::
 
 from __future__ import annotations
 
-import asyncio
 import itertools
 import json
 from collections.abc import Mapping
@@ -28,6 +27,7 @@ from typing import Any
 import httpx
 
 from asap_compliance.validators.http_answers import quoted_code
+from asap_compliance.validators.http_exchange import HttpExchangeError, bounded_http_exchange
 
 MCP_HTTP_PROTOCOL_VERSION = "2026-07-28"
 # A tools/call answer is small; the cap stops a server that never ends its body.
@@ -36,7 +36,7 @@ MAX_RESPONSE_BYTES = 1_048_576
 _ACCEPT = "application/json, text/event-stream"
 
 
-class McpHttpTransportError(RuntimeError):
+class McpHttpTransportError(HttpExchangeError):
     """A ``tools/call`` POST got no complete HTTP answer (network error, timeout, or size)."""
 
 
@@ -103,34 +103,20 @@ class McpHttpTransport:
         request_id = next(self._request_ids)
         headers = _tools_call_headers(tool_name, bearer_token)
         body = _tools_call_body(request_id, tool_name, arguments)
-        where = f"tools/call {tool_name!r} to {self._mcp_url}"
-        try:
-            async with asyncio.timeout(self._timeout_seconds):
-                status_code, response_headers, raw = await self._post(headers, body)
-        except TimeoutError as exc:
-            raise McpHttpTransportError(
-                f"{where} got no full answer within {self._timeout_seconds}s"
-            ) from exc
-        except httpx.HTTPError as exc:
-            # Type only, and no chained cause: an httpx error text can quote a request
-            # header, and the Authorization header holds a probe token.
-            raise McpHttpTransportError(f"{where} failed: {type(exc).__name__}") from None
-        text = raw.decode("utf-8", errors="replace")
-        json_body = _parse_body(response_headers, text, request_id)
-        return McpHttpResponse(request_id, status_code, response_headers, text, json_body)
-
-    async def _post(
-        self, headers: dict[str, str], body: dict[str, Any]
-    ) -> tuple[int, httpx.Headers, bytes]:
-        async with (
-            httpx.AsyncClient(
-                transport=self._http_transport,
-                timeout=self._timeout_seconds,
-                follow_redirects=False,
-            ) as client,
-            client.stream("POST", self._mcp_url, headers=headers, json=body) as response,
-        ):
-            return response.status_code, response.headers, await _read_capped(response)
+        answer = await bounded_http_exchange(
+            "POST",
+            self._mcp_url,
+            headers=headers,
+            json_body=body,
+            timeout_seconds=self._timeout_seconds,
+            max_bytes=MAX_RESPONSE_BYTES,
+            http_transport=self._http_transport,
+            where=f"tools/call {tool_name!r} to {self._mcp_url}",
+            error_type=McpHttpTransportError,
+        )
+        text = answer.body.decode("utf-8", errors="replace")
+        json_body = _parse_body(answer.headers, text, request_id)
+        return McpHttpResponse(request_id, answer.status_code, answer.headers, text, json_body)
 
 
 def _tools_call_headers(tool_name: str, bearer_token: str | None) -> dict[str, str]:
@@ -156,15 +142,6 @@ def _tools_call_body(
     }
     params = {"name": tool_name, "arguments": dict(arguments), "_meta": meta}
     return {"jsonrpc": "2.0", "id": request_id, "method": "tools/call", "params": params}
-
-
-async def _read_capped(response: httpx.Response) -> bytes:
-    received = bytearray()
-    async for chunk in response.aiter_bytes():
-        received.extend(chunk)
-        if len(received) > MAX_RESPONSE_BYTES:
-            raise McpHttpTransportError(f"response body is over {MAX_RESPONSE_BYTES} bytes")
-    return bytes(received)
 
 
 def _parse_body(headers: httpx.Headers, text: str, request_id: int) -> dict[str, Any] | None:
