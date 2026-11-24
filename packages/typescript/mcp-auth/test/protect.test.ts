@@ -34,6 +34,7 @@ function buildServer(): McpServer {
 function protectedHandler() {
   const auth = createMcpAuthMiddleware({
     publicTools: [PUBLIC_TOOL],
+    toolCapabilities: { [PROTECTED_TOOL]: PROTECTED_TOOL },
     agentJwt: {
       audience: MCP_ENDPOINT,
       resolveAgent: async ({ agentId }) => (agentId === agent.agentId ? { publicKey: agent.publicJwk, usable: true } : undefined),

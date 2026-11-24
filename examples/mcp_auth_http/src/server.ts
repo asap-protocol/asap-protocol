@@ -21,7 +21,7 @@ import {
 import * as z from "zod";
 
 import { COMPLIANCE_PROBE_PATH, mintComplianceProbeTokens } from "./compliance.js";
-import { createDemoIdentity, type DemoIdentity } from "./demo-identity.js";
+import { createDemoIdentity, PROTECTED_CAPABILITY, type DemoIdentity } from "./demo-identity.js";
 import { protectedResourceMetadata } from "./resource-metadata.js";
 import { createTestIssuer, type TestIssuer } from "./test-issuer.js";
 
@@ -80,6 +80,8 @@ export async function startExampleServer(options: ExampleServerOptions = {}): Pr
     agentGrants: demo.agentGrants,
     externalTokens: issuers.length === 0 ? undefined : { issuers },
     publicTools: [PUBLIC_TOOL],
+    // Every protected tool, with its ASAP capability.
+    toolCapabilities: { [PROTECTED_TOOL]: PROTECTED_CAPABILITY },
     resourceMetadataUrl: metadata?.url,
   });
   // legacy: "reject" serves only 2026-07-28. A 2025-era request skips the SDK's check of

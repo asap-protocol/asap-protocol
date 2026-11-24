@@ -35,6 +35,7 @@ function middleware(overrides: Partial<McpAuthConfig> = {}) {
       }, { issuer: "https://no-rules.example", audience: MCP_ENDPOINT, jwks: issuer.jwks }],
     },
     publicTools: [PUBLIC_TOOL],
+    toolCapabilities: { [PROTECTED_TOOL]: PROTECTED_TOOL },
     resourceMetadataUrl: METADATA_URL,
     ...overrides,
   });

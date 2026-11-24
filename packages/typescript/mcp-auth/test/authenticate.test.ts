@@ -46,6 +46,7 @@ function mint(aud = MCP_ENDPOINT): Promise<string> {
 function middleware(overrides: Partial<McpAuthConfig> = {}, agentJwt: Partial<AgentJwtVerifierConfig> = {}) {
   return createMcpAuthMiddleware({
     publicTools: [PUBLIC_TOOL],
+    toolCapabilities: { [PROTECTED_TOOL]: "web_search" },
     resourceMetadataUrl: METADATA_URL,
     agentJwt: { audience: MCP_ENDPOINT, resolveAgent: resolveTestAgent, ...agentJwt },
     ...overrides,

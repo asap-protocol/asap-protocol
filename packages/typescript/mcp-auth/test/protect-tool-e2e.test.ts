@@ -31,6 +31,7 @@ function middleware(): McpAuthMiddleware {
       audience: MCP_ENDPOINT,
       resolveAgent: async ({ agentId }) => (agentId === agent.agentId ? { publicKey: agent.publicJwk, usable: true } : undefined),
     },
+    toolCapabilities: { [PROTECTED_TOOL]: CAPABILITY },
     agentGrants: staticAgentGrants({ [agent.agentId]: [{ capability: CAPABILITY, constraints: { action: { not_in: [FORBIDDEN_ACTION] } } }] }),
   });
 }
