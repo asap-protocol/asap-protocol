@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from asap.adapters.a2a.canonical import (
     MAX_CARD_NESTING_DEPTH,
+    MAX_REPORTED_PATH_LENGTH,
     CanonicalCardForm,
     canonical_card_form,
     canonicalize_agent_card,
@@ -48,6 +49,7 @@ from asap.adapters.a2a.mapping import (
     manifest_to_agent_card,
 )
 from asap.adapters.a2a.models import (
+    MAX_CARD_SKILLS,
     AgentCapabilities,
     AgentCard,
     AgentCardSignature,
@@ -146,6 +148,8 @@ __all__ = [
     "JWKS_MAX_BYTES",
     "MAX_CARD_NESTING_DEPTH",
     "MAX_CARD_SIGNATURES",
+    "MAX_CARD_SKILLS",
+    "MAX_REPORTED_PATH_LENGTH",
     "ManifestMapping",
     "MutualTlsSecurityScheme",
     "OAuth2SecurityScheme",

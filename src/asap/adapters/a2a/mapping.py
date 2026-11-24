@@ -8,6 +8,7 @@ returns its result together with the source fields it dropped, as data (see
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Annotated, Any
@@ -375,7 +376,8 @@ def _require_known_skill_ids(
 
 
 def _require_unique_skill_ids(skill_ids: list[str], source: str) -> None:
-    duplicates = sorted({skill_id for skill_id in skill_ids if skill_ids.count(skill_id) > 1})
+    # One counting pass: list.count per id was quadratic.
+    duplicates = sorted(skill_id for skill_id, seen in Counter(skill_ids).items() if seen > 1)
     if duplicates:
         raise A2AMappingError(
             f"{source} has duplicate skill ids {describe_paths(duplicates)}: tags, names, and schemas "

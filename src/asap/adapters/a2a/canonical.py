@@ -29,6 +29,15 @@ MAX_CARD_NESTING_DEPTH = 128
 The ``a2a-sdk`` limit (``a2a.utils._jcs.MAX_DEPTH``): a deeper card has no form there either.
 """
 
+MAX_REPORTED_PATH_LENGTH = 256
+"""Longest path that ``uncovered`` reports; a longer path is cut and ends with ``…``.
+
+Without the cut, a chain of long keys makes every path below it nearly as long
+as the card, and the work grows with the square of the card size. Every path
+starts with its fixed head (for example
+``capabilities.extensions[0].params``), so a prefix check still holds.
+"""
+
 _MAX_EXACT_INTEGER = 2**53 - 1
 _MAX_REPORTED_PATH_LENGTH = 120
 _REMOVED = object()
@@ -119,7 +128,9 @@ def _strip_container(
         kept_container = [
             kept
             for index, item in enumerate(value)
-            if (kept := _strip_empty_values(item, f"{path}[{index}]", depth + 1, inner))
+            if (
+                kept := _strip_empty_values(item, _child_path(path, f"[{index}]"), depth + 1, inner)
+            )
             is not _REMOVED
         ]
     if not kept_container:
@@ -130,4 +141,14 @@ def _strip_container(
 
 
 def _member_path(path: str, key: str) -> str:
-    return f"{path}.{key}" if path else key
+    return _child_path(path, f".{key}") if path else _child_path("", key)
+
+
+def _child_path(path: str, part: str) -> str:
+    """Append *part* to *path*, cut to :data:`MAX_REPORTED_PATH_LENGTH` plus ``…``."""
+    if len(path) > MAX_REPORTED_PATH_LENGTH:
+        return path  # already cut: every path below it reports as this one
+    child = f"{path}{part}"
+    return (
+        child if len(child) <= MAX_REPORTED_PATH_LENGTH else child[:MAX_REPORTED_PATH_LENGTH] + "…"
+    )
