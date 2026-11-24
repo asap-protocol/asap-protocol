@@ -193,6 +193,18 @@ class A2AInvalidSignatureError(A2ACardVerificationError):
         self.reason: InvalidSignatureReason = reason
 
 
+class A2AAgentMismatchError(A2ACardVerificationError):
+    """The verified card declares a different agent URN than the caller expects."""
+
+    def __init__(self, card_name: str, declared_agent_urn: str, expected_agent_urn: str) -> None:
+        super().__init__(
+            "asap:adapters/a2a/agent_mismatch",
+            f"{describe_card(card_name)} declares agent {quoted_prefix(declared_agent_urn)}. "
+            f"Expected {quoted_prefix(expected_agent_urn)}.",
+            {"expected_agent_urn": expected_agent_urn},
+        )
+
+
 class A2ASignerScopeError(A2ACardVerificationError):
     """Every signature that verified is from a source that may not sign for the card's agent.
 

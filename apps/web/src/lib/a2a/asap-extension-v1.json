@@ -6,7 +6,8 @@
     { "name": "events_endpoint", "type": "string", "required": false },
     { "name": "asap_version", "type": "string", "required": true },
     { "name": "state_persistence", "type": "boolean", "required": false, "default": false },
-    { "name": "skill_schemas", "type": "object", "required": false }
+    { "name": "skill_schemas", "type": "object", "required": false },
+    { "name": "asap_streaming", "type": "boolean", "required": false }
   ],
   "skillSchemaFields": [
     { "name": "input_schema", "type": "object", "required": false },
@@ -33,7 +34,8 @@
             "properties": { "summary": { "type": "string" } }
           }
         }
-      }
+      },
+      "asap_streaming": true
     }
   }
 }

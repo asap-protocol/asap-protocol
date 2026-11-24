@@ -74,4 +74,4 @@ In this mode, each `POST /compliance/probe-tokens` returns a fresh set of probe 
 
 ## SDK clients
 
-An SDK client must opt in to this revision with `versionNegotiation: { mode: { pin: "2026-07-28" } }` or `{ mode: "auto" }`. Its default mode sends the 2025 `initialize` handshake, which this server refuses with `-32022`. To send a fresh Agent JWT on every request, give the transport a mint hook: `new StreamableHTTPClientTransport(url, { authProvider: { token: () => mintAgentJwt() } })`.
+An SDK client must opt in to this revision with `versionNegotiation: { mode: { pin: "2026-07-28" } }` or `{ mode: "auto" }`. Its default mode sends the 2025 `initialize` handshake. The middleware refuses it with HTTP 401 when there is no token, or with HTTP 403 when the token verifies. To send a fresh Agent JWT on every request, give the transport a mint hook: `new StreamableHTTPClientTransport(url, { authProvider: { token: () => mintAgentJwt() } })`.

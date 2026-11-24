@@ -8,7 +8,7 @@ Middleware that protects an HTTP MCP server with ASAP identity and capability gr
 
 - **SDK:** `@modelcontextprotocol/server` `^2.4` (peer dependency). MCP protocol revision `2026-07-28`.
 - **Transport:** Streamable HTTP only. For stdio, use the Python bridge.
-- **Runtime:** Node.js 20 or later. The core takes a web-standard `Request` and returns a `Response`, so it does not depend on a web framework.
+- **Runtime:** Node.js 20.19 or later on the 20.x line, or Node.js 22.12 or later. The CommonJS entry needs a Node.js version that can load the ESM dependency `jose` through `require()`. The core takes a web-standard `Request` and returns a `Response`, so it does not depend on a web framework.
 
 ## Two token types
 
@@ -69,6 +69,7 @@ createServer(toNodeHandler(app)).listen(Number(process.env.PORT ?? 8787));
 - **Requests with no token.** A request without an `Authorization` header passes with no auth info only when it sends `MCP-Protocol-Version: 2026-07-28` and either calls a public tool (`Mcp-Method: tools/call`, `Mcp-Name: <tool>`) or is `tools/list` or `server/discover`. Any other request with no token gets HTTP 401. The rule reads headers only, before the SDK parses the body.
 - **Notifications.** A JSON-RPC notification (no `id`) has the same headers as a request, so `protect` reads the body. It refuses a notification unless the token verifies and `allowMethods` lists its method (401 with no token, 403 with one); the client must also send that method in `Mcp-Method`. The MCP SDK client 2.4 sends none on its own in revision `2026-07-28`, except `notifications/cancelled` when it closes a `subscriptions/listen` subscription, and it sends that one with no `Mcp-Method` header. Refusing it loses nothing: closing the subscription's stream ends it.
 - **2025-era requests.** The header rule holds because the SDK checks `Mcp-Method` and `Mcp-Name` against the body on a `2026-07-28` request. So `protect` also runs the SDK's `isLegacyRequest` (on a copy of the body) and refuses any request that the SDK would serve as 2025-era: 401 with no token, 403 with one. Mount the handler with `legacy: "reject"` as well.
+- **POST body checks.** After the token and header checks, `protect` answers 415 for an unsupported `Content-Type`. It answers 413 for a body over 4 MiB before it calls the handler.
 - **Requests with a token.** The token is always verified, also for a public tool. Then the same header rule applies, deny by default: the request must send `MCP-Protocol-Version: 2026-07-28`, and it may call only a tool in `publicTools` or `toolCapabilities`, `tools/list`, `server/discover`, or a method in `allowMethods` (for example `"resources/read"`). Anything else gets HTTP 403 before any handler runs. A method in `allowMethods` runs with no grant check, and every tool in `toolCapabilities` must be wrapped with `protectTool`.
 - **Lifetime.** `signAgentJwt` (and Python `create_agent_jwt`) mint an Agent JWT that lives 60 seconds. The verifier refuses, with `token lifetime too long`, a token whose `exp` is more than 120 seconds (the 60-second lifetime plus 60 seconds of clock skew) after now or after `iat`.
 - **Single use.** Each Agent JWT is accepted once, so a client mints one per request. With the SDK client: `new StreamableHTTPClientTransport(url, { authProvider: { token: () => agent.signAgentJwt({ aud }) } })`.
