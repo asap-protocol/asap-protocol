@@ -31,6 +31,7 @@ from asap.adapters.a2a import (
     manifest_to_agent_card,
     sign_agent_card,
 )
+from asap.adapters.a2a.trust_scope import PinnedCardKey
 from asap.models.entities import Endpoint
 from tests.adapters.a2a.helpers import load_card_fixture, research_card_inputs, research_manifest
 from tests.adapters.a2a.signing_helpers import sign_with_joserfc
@@ -38,7 +39,12 @@ from tests.adapters.a2a.signing_helpers import sign_with_joserfc
 _CARD_URL = "https://agent.example.com/.well-known/agent-card.json"
 _KEY = ed25519.Ed25519PrivateKey.generate()
 _TRUST = A2ATrustConfig(
-    pinned_keys={"k1": {**OKPKey.import_key(_KEY.public_key()).as_dict(), "kid": "k1"}}
+    pinned_keys={
+        "k1": PinnedCardKey(
+            jwk={**OKPKey.import_key(_KEY.public_key()).as_dict(), "kid": "k1"},
+            agents=["urn:asap:agent:research"],
+        )
+    }
 )
 
 

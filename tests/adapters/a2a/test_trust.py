@@ -22,9 +22,11 @@ from asap.adapters.a2a import (
     sign_agent_card,
     verify_agent_card,
 )
+from asap.adapters.a2a.trust_scope import AllowedJku, PinnedCardKey
 from tests.adapters.a2a.helpers import research_card_inputs, research_manifest
 
 _JKU = "https://keys.example.com/.well-known/jwks.json"
+_SCOPE = AllowedJku(agents=["urn:asap:agent:research"])
 _PUBLIC_ADDRESS = "93.184.216.34"
 _SIGNING_KEY = ed25519.Ed25519PrivateKey.generate()
 _PINNED_KEY = ec.generate_private_key(ec.SECP256R1())
@@ -54,7 +56,7 @@ async def _public_dns(hostname: str) -> list[str]:
 
 
 def _resolver(server: _JwksServer, **config: Any) -> A2AKeyResolver:
-    settings: dict[str, Any] = {"jku_allowlist": [_JKU], **config}
+    settings: dict[str, Any] = {"jku_allowlist": {_JKU: _SCOPE}, **config}
     return A2AKeyResolver(
         A2ATrustConfig(**settings), dns_resolver=_public_dns, transport=server.transport
     )
@@ -66,7 +68,8 @@ def _jwks(*kids: str) -> dict[str, Any]:
 
 async def test_a_pinned_key_wins_over_a_jku_and_causes_no_request() -> None:
     server = _JwksServer(_jwks("pinned"))
-    resolver = _resolver(server, pinned_keys={"pinned": _public_jwk(_PINNED_KEY, "pinned")})
+    pinned = PinnedCardKey(jwk=_public_jwk(_PINNED_KEY, "pinned"), agents=_SCOPE.agents)
+    resolver = _resolver(server, pinned_keys={"pinned": pinned})
 
     key = await resolver("pinned", _JKU)
 
@@ -154,7 +157,7 @@ async def test_a_jku_host_with_a_private_address_is_refused_before_any_request()
         return ["10.0.0.7"]
 
     server = _JwksServer(_jwks("k1"))
-    config = A2ATrustConfig(jku_allowlist=[_JKU])
+    config = A2ATrustConfig(jku_allowlist={_JKU: _SCOPE})
     resolver = A2AKeyResolver(config, dns_resolver=private_dns, transport=server.transport)
 
     with pytest.raises(A2AKeyResolutionError) as raised:

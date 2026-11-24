@@ -28,13 +28,19 @@ from asap.adapters.a2a import (
     sign_agent_card,
     verify_agent_card,
 )
+from asap.adapters.a2a.trust_scope import PinnedCardKey
 from asap.discovery.wellknown import WELLKNOWN_AGENT_CARD_PATH, WELLKNOWN_MANIFEST_PATH
 from asap.transport.server import create_app
 from tests.adapters.a2a.helpers import research_card_inputs, research_manifest
 
 _KEY = ed25519.Ed25519PrivateKey.generate()
 _TRUST = A2ATrustConfig(
-    pinned_keys={"card-1": {**OKPKey.import_key(_KEY.public_key()).as_dict(), "kid": "card-1"}}
+    pinned_keys={
+        "card-1": PinnedCardKey(
+            jwk={**OKPKey.import_key(_KEY.public_key()).as_dict(), "kid": "card-1"},
+            agents=["urn:asap:agent:research"],
+        )
+    }
 )
 
 

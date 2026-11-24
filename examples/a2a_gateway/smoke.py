@@ -49,8 +49,9 @@ async def run_smoke() -> list[str]:
     tokens = ExternalTokenConfig.model_validate(
         {"issuers": [issuer.config_entry(audience, grant_rules=DEMO_GRANT_RULES)]}
     )
+    manifest = demo_manifest(ORIGIN)
     app = create_gateway_app(
-        demo_manifest(ORIGIN),
+        manifest,
         demo_card_inputs(ORIGIN),
         signers=[CardSigner(key=card_key, kid=CARD_KID)],
         external_tokens=tokens,
@@ -58,8 +59,12 @@ async def run_smoke() -> list[str]:
     )
     verify_card = pinned_card_verifier(CARD_KID, card_key.public_key())
     public_jwk = {**OKPKey.import_key(card_key.public_key()).as_dict(), "kid": CARD_KID}
+    # The card key may sign for this agent only.
+    trust = A2ATrustConfig.model_validate(
+        {"pinned_keys": {CARD_KID: {"jwk": public_jwk, "agents": [manifest.id]}}}
+    )
     ingestor = AgentCardIngestor(
-        A2ATrustConfig(pinned_keys={CARD_KID: public_jwk}),
+        trust,
         dns_resolver=_documentation_dns,
         transport=httpx.ASGITransport(app=app),
     )

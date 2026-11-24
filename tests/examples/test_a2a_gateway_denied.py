@@ -176,8 +176,11 @@ async def test_a_tampered_card_fails_both_verifiers_and_no_call_is_made(
                 skill_id="echo",
                 arguments={"text": "hi"},
             )
+    trust = A2ATrustConfig.model_validate(
+        {"pinned_keys": {CARD_KID: {"jwk": _CARD_JWK, "agents": [demo_manifest(ORIGIN).id]}}}
+    )
     ingestor = AgentCardIngestor(
-        A2ATrustConfig(pinned_keys={CARD_KID: _CARD_JWK}),
+        trust,
         dns_resolver=_public_dns,
         transport=transport,
     )

@@ -100,8 +100,11 @@ async def test_asap_ingest_verifies_the_served_card_and_maps_it_to_the_manifest(
     gateway: FastAPI,
 ) -> None:
     public_jwk = {**OKPKey.import_key(CARD_KEY.public_key()).as_dict(), "kid": CARD_KID}
+    trust = A2ATrustConfig.model_validate(
+        {"pinned_keys": {CARD_KID: {"jwk": public_jwk, "agents": [demo_manifest(ORIGIN).id]}}}
+    )
     ingestor = AgentCardIngestor(
-        A2ATrustConfig(pinned_keys={CARD_KID: public_jwk}),
+        trust,
         dns_resolver=_public_dns,
         transport=httpx.ASGITransport(app=gateway),
     )

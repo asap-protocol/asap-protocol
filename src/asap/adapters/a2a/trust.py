@@ -8,8 +8,12 @@ only, a size limit, and a timeout. A ``jku`` off the allowlist causes no request
 A fetched key set is cached per ``jku`` for a bounded lifetime, and a ``kid``
 that is not in it does not refetch it: random ``kid`` values cost no request.
 
+Every pinned key and every allowed ``jku`` names the agents it may sign for
+(:mod:`asap.adapters.a2a.trust_scope`); there is no implicit "any agent".
+
 Example:
-    >>> config = A2ATrustConfig(pinned_keys={"agent-key-1": agent_public_jwk})  # doctest: +SKIP
+    >>> config = A2ATrustConfig(pinned_keys={"agent-key-1": {
+    ...     "jwk": agent_public_jwk, "agents": ["urn:asap:agent:research"]}})  # doctest: +SKIP
     >>> resolver = A2AKeyResolver(config)  # doctest: +SKIP
     >>> await verify_agent_card(card, resolver, algorithms=config.algorithms,
     ...                         policy=config.policy)  # doctest: +SKIP
@@ -35,6 +39,7 @@ from asap.adapters.a2a.signature_keys import (
     CardKey,
     is_small_order_ed25519,
 )
+from asap.adapters.a2a.trust_scope import ANY_AGENT, AllowedJku, PinnedCardKey
 from asap.adapters.a2a.verification import SignaturePolicy
 from asap.models.base import ASAPBaseModel
 from asap.utils.guarded_fetch import (
@@ -51,8 +56,11 @@ JWKS_MAX_BYTES = 64 * 1024
 class A2ATrustConfig(ASAPBaseModel):
     """Which keys may sign the Agent Cards that ASAP ingests, and how cards are checked.
 
-    ``pinned_keys`` maps a ``kid`` to a public JWK (OKP, EC, or RSA). A ``jku``
-    is fetched only when it is in ``jku_allowlist`` exactly. ``allow_private_hosts``
+    ``pinned_keys`` maps a ``kid`` to a :class:`PinnedCardKey`: a public JWK
+    (OKP, EC, or RSA) and the agent URNs it may sign for. ``jku_allowlist``
+    maps each allowed ``jku`` URL to an :class:`AllowedJku`: the agent URNs
+    that the keys of that JWKS may sign for. A ``jku`` is fetched only when it
+    is a key of ``jku_allowlist`` exactly. ``allow_private_hosts``
     lets allowlist entries and ``jku`` fetches reach private or loopback hosts,
     for local development and tests only. A fetched JWKS is kept for
     ``jwks_cache_ttl_seconds`` (at most a day), in a cache of at most
@@ -62,19 +70,41 @@ class A2ATrustConfig(ASAPBaseModel):
     # A validation error must not echo a pinned JWK back: it may hold private members.
     model_config = ConfigDict(hide_input_in_errors=True)
 
-    pinned_keys: dict[str, dict[str, Any]] = Field(default_factory=dict)
-    jku_allowlist: frozenset[str] = frozenset()
+    pinned_keys: dict[str, PinnedCardKey] = Field(default_factory=dict)
+    jku_allowlist: dict[str, AllowedJku] = Field(default_factory=dict)
     algorithms: tuple[str, ...] = CARD_VERIFY_ALGORITHMS
     policy: SignaturePolicy = "require_signature"
     allow_private_hosts: bool = False
     jwks_cache_ttl_seconds: float = Field(default=300.0, gt=0, le=86400)
     jwks_cache_max_entries: int = Field(default=32, ge=1, le=1024)
 
+    @field_validator("pinned_keys", mode="before")
+    @classmethod
+    def _read_unscoped_pinned_keys(cls, keys: Any) -> Any:
+        # Transitional: a bare JWK
+        # still reads as signing for any agent until every caller is scoped.
+        if not isinstance(keys, dict):
+            return keys
+        return {
+            kid: {"jwk": entry, "agents": ANY_AGENT}
+            if isinstance(entry, dict) and "kty" in entry
+            else entry
+            for kid, entry in keys.items()
+        }
+
+    @field_validator("jku_allowlist", mode="before")
+    @classmethod
+    def _read_unscoped_jku_allowlist(cls, urls: Any) -> Any:
+        # Transitional, like _read_unscoped_pinned_keys: removed later.
+        if isinstance(urls, list | tuple | set | frozenset):
+            return {url: {"agents": ANY_AGENT} for url in urls}
+        return urls
+
     @field_validator("pinned_keys")
     @classmethod
-    def _check_pinned_keys(cls, keys: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
-        for kid, member in keys.items():
-            import_pinned_key(kid, member)
+    def _check_pinned_keys(cls, keys: dict[str, PinnedCardKey]) -> dict[str, PinnedCardKey]:
+        for kid, entry in keys.items():
+            import_pinned_key(kid, entry.jwk)
         return keys
 
     @field_validator("algorithms")
@@ -136,7 +166,7 @@ class A2AKeyResolver:
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self.config = config
-        self._pinned = {kid: import_pinned_key(kid, m) for kid, m in config.pinned_keys.items()}
+        self._pinned = {kid: import_pinned_key(kid, e.jwk) for kid, e in config.pinned_keys.items()}
         self._dns_resolver = dns_resolver
         self._transport = transport
         self._jwks_cache: BoundedTTLCache[dict[str, CardKey]] = BoundedTTLCache(
