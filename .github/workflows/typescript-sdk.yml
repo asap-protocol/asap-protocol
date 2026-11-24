@@ -130,7 +130,8 @@ jobs:
       - name: Load the packed package from ESM and CommonJS
         run: pnpm --filter @asap-protocol/mcp-auth run check:package
 
-      - name: Example examples/mcp_auth_http (typecheck, protocol probe tests)
+      - name: Example examples/mcp_auth_http (typecheck, protected end-to-end tests)
         run: |
+          pnpm --filter @asap-protocol/mcp-auth run build
           pnpm --filter example-mcp-auth-http run typecheck
           pnpm --filter example-mcp-auth-http test

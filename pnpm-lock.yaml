@@ -182,12 +182,21 @@ importers:
 
   examples/mcp_auth_http:
     dependencies:
+      '@asap-protocol/client':
+        specifier: workspace:*
+        version: link:../../packages/typescript/client
+      '@asap-protocol/mcp-auth':
+        specifier: workspace:*
+        version: link:../../packages/typescript/mcp-auth
       '@modelcontextprotocol/node':
         specifier: 2.1.2
         version: 2.1.2(@modelcontextprotocol/server@2.4.0)
       '@modelcontextprotocol/server':
         specifier: 2.4.0
         version: 2.4.0
+      jose:
+        specifier: ^6.0.10
+        version: 6.2.3
       zod:
         specifier: ^4.2.0
         version: 4.4.2
@@ -306,6 +315,10 @@ importers:
         version: 3.25.76
 
   packages/typescript/mcp-auth:
+    dependencies:
+      jose:
+        specifier: ^6.0.10
+        version: 6.2.3
     devDependencies:
       '@asap-protocol/client':
         specifier: workspace:*
@@ -340,6 +353,9 @@ importers:
       vitest:
         specifier: ^4.1.1
         version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@20.19.39)(@vitest/coverage-v8@4.1.5)(msw@2.14.6(@types/node@20.19.39)(typescript@5.9.3))(vite@8.0.10(@types/node@20.19.39)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.1))
+      zod:
+        specifier: ^4.2.0
+        version: 4.4.2
 
   packages/typescript/openai-agents:
     devDependencies:

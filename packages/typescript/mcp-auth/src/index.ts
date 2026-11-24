@@ -16,8 +16,28 @@ export type { McpAuthConfig, McpAuthMiddleware, McpFetchHandler, McpProtectedHan
 export { McpAuthErrorCode, toolErrorResult } from "./errors.js";
 export { createAgentJwtVerifier } from "./agent-jwt-verifier.js";
 export type { AgentJwtPrincipal, AgentJwtVerifierConfig } from "./agent-jwt-verifier.js";
+export { validateConstraints } from "./constraints.js";
+export type { ConstraintSet } from "./constraints.js";
+export { assertValidGrantRules, mapExternalGrants } from "./capability-grants.js";
+export type { CapabilityGrant, ExternalGrantRule } from "./capability-grants.js";
+export type { ExternalIssuerConfig, ExternalTokenConfig } from "./external-issuers.js";
+export { JwksUnavailableError } from "./remote-jwks.js";
+export type { RemoteJwksOptions } from "./remote-jwks.js";
+export { createExternalTokenVerifier } from "./external-token-verifier.js";
+export type { ExternalPrincipal } from "./external-token-verifier.js";
+export { staticAgentGrants } from "./grant-layer.js";
+export type { AgentGrantResolver, McpAuthPrincipal, ProtectTool, ToolCallbackWithArgs } from "./grant-layer.js";
 
 // MCP-TS-003: SDK types that appear in this package's public signatures.
-export type { AuthInfo, CallToolResult, McpHandlerRequestOptions, OAuthTokenVerifier } from "@modelcontextprotocol/server";
-// The same for the @asap-protocol/client types in the verifier config.
-export type { AgentKeyLookup, AgentKeyResolver, JtiReplayCache, ResolvedAgentKey } from "@asap-protocol/client";
+export type {
+  AuthInfo,
+  CallToolResult,
+  McpHandlerRequestOptions,
+  OAuthTokenVerifier,
+  ScopeChallenge,
+  ScopeChallengeHandler,
+  ServerContext,
+  ToolCallback,
+} from "@modelcontextprotocol/server";
+// The same for the @asap-protocol/client types in the verifier config and the constraint check.
+export type { AgentKeyLookup, AgentKeyResolver, ConstraintViolation, JtiReplayCache, ResolvedAgentKey } from "@asap-protocol/client";
