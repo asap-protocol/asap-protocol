@@ -175,3 +175,14 @@ async def test_token_never_picks_its_own_key(idp_a: LocalIssuer, header_name: st
     named = attacker.jwks["keys"][0] if header_name == "jwk" else "https://evil.example/jwks"
     token = attacker.mint(attacker.claims(_AUDIENCE), header={header_name: named})
     await _refused(_verifier(idp_a), token, Reason.INVALID_SIGNATURE)
+
+
+async def test_required_claims_bind_the_jwt_path(idp_a: LocalIssuer) -> None:
+    claim, agent = "https://github.com/adriannoes/asap-protocol/agent_id", "urn:asap:agent:y"
+    entry = idp_a.config_entry(_AUDIENCE, required_claims={claim: agent})
+    verifier = ExternalTokenVerifier(ExternalTokenConfig.model_validate({"issuers": [entry]}))
+
+    bound = idp_a.mint(idp_a.claims(_AUDIENCE, **{claim: agent}))
+    assert (await verifier.verify(bound)).subject == "user-1"
+    other = idp_a.mint(idp_a.claims(_AUDIENCE, **{claim: "urn:asap:agent:x"}))
+    await _refused(verifier, other, Reason.CLAIM_MISMATCH)

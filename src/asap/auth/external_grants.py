@@ -101,12 +101,26 @@ class ExternalGrantRule(ASAPBaseModel):
         """Return True if this rule applies to the claims (``scopes`` already split)."""
         if self.scope is not None:
             return self.scope in scopes
-        actual = claims.get(self.claim or "")
-        if isinstance(actual, str):
-            return actual == self.value
-        if isinstance(actual, list):
-            return any(isinstance(item, str) and item == self.value for item in actual)
-        return False
+        if self.claim is None or self.value is None:
+            return False
+        return claim_holds_value(claims, self.claim, self.value)
+
+
+def claim_holds_value(claims: Mapping[str, Any], name: str, value: str) -> bool:
+    """Return True if top-level claim ``name`` is exactly ``value``, or a list holding it.
+
+    Shared by claim grant rules and an issuer's ``required_claims``.
+
+    Example:
+        >>> claim_holds_value({"groups": ["ops", "dev"]}, "groups", "dev")
+        True
+    """
+    actual = claims.get(name)
+    if isinstance(actual, str):
+        return actual == value
+    if isinstance(actual, list):
+        return any(isinstance(item, str) and item == value for item in actual)
+    return False
 
 
 def scope_tokens(claims: Mapping[str, Any]) -> frozenset[str]:

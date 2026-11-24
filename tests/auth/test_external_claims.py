@@ -92,3 +92,43 @@ def test_small_clock_skew_is_tolerated(idp: LocalIssuer) -> None:
 def test_unmapped_scope_grants_nothing(idp: LocalIssuer) -> None:
     claims = idp.claims(_AUDIENCE, scope="files:write admin")
     assert principal_from_claims(_issuer(idp), claims).grants == ()
+
+
+# ``required_claims`` binds an issuer's tokens to this server, for example the
+# ADR-17 agent id claim of the ``oauth2_config`` IdP.
+_AGENT_CLAIM = "https://github.com/adriannoes/asap-protocol/agent_id"
+_THIS_AGENT = "urn:asap:agent:this"
+
+
+def _bound_issuer(idp: LocalIssuer) -> ExternalIssuerConfig:
+    entry = idp.config_entry(_AUDIENCE, required_claims={_AGENT_CLAIM: _THIS_AGENT})
+    return ExternalIssuerConfig.model_validate(entry)
+
+
+@pytest.mark.parametrize("value", [_THIS_AGENT, ["urn:asap:agent:other", _THIS_AGENT]])
+def test_required_claim_with_the_value_or_a_list_holding_it_passes(
+    idp: LocalIssuer, value: str | list[str]
+) -> None:
+    claims = idp.claims(_AUDIENCE, **{_AGENT_CLAIM: value})
+    assert principal_from_claims(_bound_issuer(idp), claims).subject == "user-1"
+
+
+@pytest.mark.parametrize(
+    ("value", "reason"),
+    [
+        (None, Reason.MISSING_CLAIM),
+        ("urn:asap:agent:other", Reason.CLAIM_MISMATCH),
+        (f" {_THIS_AGENT}", Reason.CLAIM_MISMATCH),
+        (["urn:asap:agent:other"], Reason.CLAIM_MISMATCH),
+        ([[_THIS_AGENT]], Reason.CLAIM_MISMATCH),
+        ({"id": _THIS_AGENT}, Reason.CLAIM_MISMATCH),
+        (1, Reason.CLAIM_MISMATCH),
+    ],
+)
+def test_required_claim_missing_or_other_value_is_refused(
+    idp: LocalIssuer, value: Any, reason: Reason
+) -> None:
+    claims = idp.claims(_AUDIENCE, **{_AGENT_CLAIM: value})
+    with pytest.raises(ExternalTokenError) as caught:
+        principal_from_claims(_bound_issuer(idp), claims)
+    assert caught.value.reason is reason

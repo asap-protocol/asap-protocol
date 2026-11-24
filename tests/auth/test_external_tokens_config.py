@@ -136,6 +136,13 @@ def test_introspection_cache_ttl_defaults_to_60_and_is_bounded() -> None:
             ExternalIssuerConfig.model_validate(_issuer(key_source=None, introspection=unbounded))
 
 
+def test_required_claims_default_to_none_and_refuse_blank_names_or_values() -> None:
+    assert ExternalIssuerConfig.model_validate(_issuer()).required_claims == {}
+    for required in ({"": "urn:asap:agent:a"}, {"agent_id": ""}):
+        with pytest.raises(ValidationError, match="required_claims"):
+            ExternalIssuerConfig.model_validate(_issuer(required_claims=required))
+
+
 def test_client_secret_is_not_in_the_repr() -> None:
     endpoint = {"url": f"{_ISSUER}/introspect", "client_id": "rs", "client_secret": "s3cret"}
     entry = ExternalIssuerConfig.model_validate(_issuer(key_source=None, introspection=endpoint))

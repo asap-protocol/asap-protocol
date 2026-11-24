@@ -114,6 +114,11 @@ class ExternalIssuerConfig(ASAPBaseModel):
     ``audience`` is this resource's identifier (RFC 8707); a token for another
     audience is refused, never forwarded. ``grant_rules`` is the only source of
     grants for this issuer's tokens; no rule means no grant.
+
+    ``required_claims`` binds the issuer's tokens to this server: each named
+    top-level claim must be exactly the given string, or a list that holds it
+    (``missing_claim`` or ``claim_mismatch`` otherwise). For the ``oauth2_config``
+    IdP, ``{custom_claim: manifest.id}`` gives the ADR-17 identity binding back.
     """
 
     issuer: str
@@ -121,7 +126,16 @@ class ExternalIssuerConfig(ASAPBaseModel):
     key_source: ExternalKeySource | None = None
     introspection: IntrospectionEndpoint | None = None
     grant_rules: tuple[ExternalGrantRule, ...] = ()
+    required_claims: dict[str, str] = Field(default_factory=dict)
     allow_private_hosts: bool = False
+
+    @field_validator("required_claims")
+    @classmethod
+    def _named_claims_and_values(cls, required: dict[str, str]) -> dict[str, str]:
+        blank = [(name, value) for name, value in required.items() if not name or not value]
+        if blank:
+            raise ValueError(f"required_claims needs non-empty names and values, got {blank}")
+        return required
 
     @field_validator("grant_rules")
     @classmethod
@@ -215,6 +229,7 @@ class ExternalTokenErrorReason(StrEnum):
     TOKEN_EXPIRED = "token_expired"
     TOKEN_NOT_YET_VALID = "token_not_yet_valid"
     MISSING_CLAIM = "missing_claim"
+    CLAIM_MISMATCH = "claim_mismatch"
     TOKEN_INACTIVE = "token_inactive"
     KEY_SOURCE_UNAVAILABLE = "key_source_unavailable"
 

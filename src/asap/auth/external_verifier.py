@@ -4,7 +4,8 @@ Implements COMPAT-001. :class:`ExternalTokenVerifier` keeps a fixed
 order: the token type and the algorithm are checked from the header first;
 then the unverified ``iss`` is looked up in the allowlist; then the signature
 is verified with **that issuer's** keys only; then :func:`principal_from_claims`
-checks ``aud``, ``exp``, ``nbf``, and ``sub`` and maps the grants. So
+checks ``aud``, ``exp``, ``nbf``, ``sub``, and the issuer's ``required_claims``
+and maps the grants. So
 ``alg: none``, HMAC, an ASAP Agent JWT or Host JWT, and an unknown issuer are
 refused before any key is looked up or fetched. There is no replay check: an
 OAuth access token is sent on every request until it expires.
@@ -40,7 +41,7 @@ from joserfc import jwt as jose_jwt
 from joserfc.errors import JoseError
 from joserfc.jws import extract_compact
 
-from asap.auth.external_grants import map_external_grants, scope_tokens
+from asap.auth.external_grants import claim_holds_value, map_external_grants, scope_tokens
 from asap.auth.external_keys import IssuerKeySource
 from asap.auth.external_tokens import (
     ExternalIssuerConfig,
@@ -146,10 +147,22 @@ def _check_lifetime(claims: dict[str, Any]) -> datetime:
         raise ExternalTokenError(Reason.MALFORMED_TOKEN, "exp is out of range") from None
 
 
+def _check_required_claims(issuer: ExternalIssuerConfig, claims: dict[str, Any]) -> None:
+    """Refuse a token without the claim values that bind it to this server (ADR-17)."""
+    for name, expected in issuer.required_claims.items():
+        # The message names the claim and the expected value, never the token's value.
+        if claims.get(name) is None:
+            raise ExternalTokenError(Reason.MISSING_CLAIM, f"required claim {name!r} is missing")
+        if not claim_holds_value(claims, name, expected):
+            raise ExternalTokenError(
+                Reason.CLAIM_MISMATCH, f"required claim {name!r} does not hold {expected!r}"
+            )
+
+
 def principal_from_claims(
     issuer: ExternalIssuerConfig, claims: dict[str, Any]
 ) -> ExternalPrincipal:
-    """Check ``aud``, ``exp``, ``nbf``, and ``sub`` of trusted claims and map the grants.
+    """Check ``aud``, ``exp``, ``nbf``, ``sub``, and the issuer's ``required_claims``; map grants.
 
     Example:
         >>> principal = principal_from_claims(issuer_entry, verified_claims)
@@ -163,6 +176,7 @@ def principal_from_claims(
     subject = claims.get("sub")
     if not isinstance(subject, str) or not subject.strip():
         raise ExternalTokenError(Reason.MISSING_CLAIM, "sub must be a non-empty string")
+    _check_required_claims(issuer, claims)
     client_id = next(
         (claims[name] for name in ("client_id", "azp") if isinstance(claims.get(name), str)),
         None,

@@ -49,6 +49,7 @@ class _FakeIntrospectionEndpoint:
             "exp": int(time.time()) + 600,
         }
         self.raw_answer: bytes | None = None
+        self.required_claims: dict[str, str] = {}
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
@@ -63,7 +64,7 @@ class _FakeIntrospectionEndpoint:
         endpoint.update(endpoint_overrides)
         rules = [{"scope": "files:read", "capability": "file.read"}]
         entry = {"issuer": _ISSUER, "audience": _AUDIENCE, "introspection": endpoint}
-        issuers = [{**entry, "grant_rules": rules}]
+        issuers = [{**entry, "grant_rules": rules, "required_claims": self.required_claims}]
         issuers += [issuer.config_entry(_AUDIENCE) for issuer in extra_issuers]
         config = ExternalTokenConfig.model_validate({"issuers": issuers})
         transport = httpx.MockTransport(self)
@@ -167,6 +168,17 @@ async def test_too_deeply_nested_answer_is_unavailable_not_a_crash(
 ) -> None:
     endpoint.raw_answer = b'{"active": ' + b"[" * 100_000 + b"]" * 100_000 + b"}"
     await _refused(endpoint.verifier(), _TOKEN, Reason.KEY_SOURCE_UNAVAILABLE)
+
+
+async def test_required_claims_bind_the_introspection_path(
+    endpoint: _FakeIntrospectionEndpoint,
+) -> None:
+    endpoint.required_claims = {"agent_id": "urn:asap:agent:y"}
+    await _refused(endpoint.verifier(), _TOKEN, Reason.MISSING_CLAIM)
+    endpoint.answer["agent_id"] = "urn:asap:agent:x"
+    await _refused(endpoint.verifier(), _TOKEN, Reason.CLAIM_MISMATCH)
+    endpoint.answer["agent_id"] = "urn:asap:agent:y"
+    assert (await endpoint.verifier().verify(_TOKEN)).subject == "user-9"
 
 
 async def test_jwt_of_the_introspection_issuer_is_introspected(
