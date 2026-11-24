@@ -73,7 +73,9 @@ def test_client_id_falls_back_to_azp(idp: LocalIssuer) -> None:
         ({"exp": True}, Reason.MALFORMED_TOKEN),
         ({"exp": "2030-01-01"}, Reason.MALFORMED_TOKEN),
         ({"exp": 10**20}, Reason.MALFORMED_TOKEN),
+        ({"exp": 10**400}, Reason.MALFORMED_TOKEN),
         ({"nbf": float("inf")}, Reason.MALFORMED_TOKEN),
+        ({"nbf": -(10**400)}, Reason.MALFORMED_TOKEN),
     ],
 )
 def test_refused_claims_raise_a_typed_error(
