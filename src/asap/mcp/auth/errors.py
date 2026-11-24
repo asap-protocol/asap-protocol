@@ -27,6 +27,9 @@ def tool_error_result(code: str, detail: str | None = None) -> dict[str, Any]:
         True
     """
     text = code if detail is None else f"{code}: {detail}"
-    result = CallToolResult(content=[TextContent(text=text).model_dump(by_alias=True)])
+    # exclude_none here: the outer dump does not reach into plain content dicts,
+    # and MCP TS SDK 2.x rejects ``"annotations": null``.
+    content = TextContent(text=text).model_dump(by_alias=True, exclude_none=True)
+    result = CallToolResult(content=[content])
     result.is_error = True
     return result.model_dump(by_alias=True, exclude_none=True)

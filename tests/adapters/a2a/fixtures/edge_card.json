@@ -1,0 +1,51 @@
+{
+  "name": "Edge Agent",
+  "description": "Holds every canonical-form edge case",
+  "supportedInterfaces": [
+    {
+      "url": "https://edge.example.com/a2a",
+      "protocolBinding": "JSONRPC",
+      "protocolVersion": "1.0",
+      "tenant": ""
+    }
+  ],
+  "version": "1.0.0",
+  "documentationUrl": "",
+  "capabilities": {
+    "streaming": false,
+    "extensions": [
+      {
+        "uri": "https://example.com/a2a/extensions/edge/v1",
+        "description": "",
+        "required": false,
+        "params": {
+          "kept": "value",
+          "zero": 0,
+          "no": false,
+          "emptyString": "",
+          "emptyList": [],
+          "emptyObject": {},
+          "nothing": null,
+          "nested": {"inner": {"empty": {}, "list": [[], ""]}, "keep": [1, "", {"a": null}]},
+          "naïve": "café",
+          "日本語": "キー",
+          "😀": "astral key",
+          "Ａ": "fullwidth key",
+          "numbers": [1.0, 1e21, 1e-7, -0.0, 0.1, 9007199254740991]
+        }
+      }
+    ]
+  },
+  "defaultInputModes": ["text/plain"],
+  "defaultOutputModes": ["application/json"],
+  "skills": [
+    {
+      "id": "edge",
+      "name": "Edge",
+      "description": "Edge skill",
+      "tags": ["edge"],
+      "examples": [],
+      "inputModes": [""]
+    }
+  ]
+}

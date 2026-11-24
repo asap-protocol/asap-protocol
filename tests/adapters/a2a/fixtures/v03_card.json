@@ -1,0 +1,21 @@
+{
+  "protocolVersion": "0.3.0",
+  "name": "Research Agent",
+  "description": "Performs web research and summarization",
+  "url": "https://agent.example.com/a2a",
+  "preferredTransport": "JSONRPC",
+  "version": "1.0.0",
+  "capabilities": {"streaming": true},
+  "defaultInputModes": ["text/plain"],
+  "defaultOutputModes": ["application/json"],
+  "skills": [
+    {
+      "id": "web_research",
+      "name": "Web research",
+      "description": "Search the web and summarize the results",
+      "tags": ["research"]
+    }
+  ],
+  "securitySchemes": {"bearer": {"type": "http", "scheme": "bearer"}},
+  "security": [{"bearer": []}]
+}

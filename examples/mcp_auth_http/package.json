@@ -1,0 +1,30 @@
+{
+  "name": "example-mcp-auth-http",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Streamable HTTP MCP server (MCP 2026-07-28) protected by @asap-protocol/mcp-auth: one public tool and one protected tool",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "tsx src/server.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@asap-protocol/client": "workspace:*",
+    "@asap-protocol/mcp-auth": "workspace:*",
+    "@modelcontextprotocol/node": "2.1.2",
+    "@modelcontextprotocol/server": "2.4.0",
+    "jose": "^6.0.10",
+    "zod": "^4.2.0"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "2.4.0",
+    "@types/node": "^20.19.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.1"
+  }
+}

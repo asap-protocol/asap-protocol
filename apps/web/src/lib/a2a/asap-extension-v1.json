@@ -1,0 +1,41 @@
+{
+  "uri": "https://asap-protocol.com/a2a/extensions/manifest/v1",
+  "params": [
+    { "name": "agent_urn", "type": "string", "required": true },
+    { "name": "asap_endpoint", "type": "string", "required": true },
+    { "name": "events_endpoint", "type": "string", "required": false },
+    { "name": "asap_version", "type": "string", "required": true },
+    { "name": "state_persistence", "type": "boolean", "required": false, "default": false },
+    { "name": "skill_schemas", "type": "object", "required": false },
+    { "name": "asap_streaming", "type": "boolean", "required": false }
+  ],
+  "skillSchemaFields": [
+    { "name": "input_schema", "type": "object", "required": false },
+    { "name": "output_schema", "type": "object", "required": false }
+  ],
+  "example": {
+    "uri": "https://asap-protocol.com/a2a/extensions/manifest/v1",
+    "description": "ASAP manifest data: agent URN, ASAP endpoint, and skill schemas",
+    "params": {
+      "agent_urn": "urn:asap:agent:research",
+      "asap_endpoint": "https://agent.example.com/asap",
+      "events_endpoint": "wss://agent.example.com/asap/events",
+      "asap_version": "0.1",
+      "state_persistence": false,
+      "skill_schemas": {
+        "web_research": {
+          "input_schema": {
+            "type": "object",
+            "properties": { "query": { "type": "string" } },
+            "required": ["query"]
+          },
+          "output_schema": {
+            "type": "object",
+            "properties": { "summary": { "type": "string" } }
+          }
+        }
+      },
+      "asap_streaming": true
+    }
+  }
+}

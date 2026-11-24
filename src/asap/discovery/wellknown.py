@@ -1,21 +1,30 @@
 """Well-known URI handler for ASAP agent discovery (RFC 8615).
 
-Serves GET /.well-known/asap/manifest.json with optional HTTP caching
-(Cache-Control, ETag, If-None-Match) for discovery by other agents.
+Serves GET /.well-known/asap/manifest.json and, when the server has a signed
+A2A v1.0 Agent Card, GET /.well-known/agent-card.json (COMPAT-003), both with
+HTTP caching (Cache-Control, ETag, If-None-Match) for discovery by other agents.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any
 
 from fastapi import Request
 from fastapi.responses import JSONResponse, Response
 
 from asap.models.entities import Manifest
 
+if TYPE_CHECKING:
+    from asap.adapters.a2a import AgentCard
+
 WELLKNOWN_MANIFEST_PATH = "/.well-known/asap/manifest.json"
 """Standard path for the ASAP agent manifest (RFC 8615)."""
+
+WELLKNOWN_AGENT_CARD_PATH = "/.well-known/agent-card.json"
+"""A2A v1.0 Agent Card path (A2A §8.2; IANA lists ``agent-card.json``)."""
 
 CONTENT_TYPE_JSON = "application/json"
 """Content-Type for manifest JSON response."""
@@ -54,7 +63,11 @@ def compute_manifest_etag(manifest: Manifest) -> str:
     Returns:
         ETag value without quotes (caller adds quotes in header if needed).
     """
-    payload = json.dumps(get_manifest_json(manifest), sort_keys=True)
+    return _document_etag(get_manifest_json(manifest))
+
+
+def _document_etag(document: Mapping[str, Any]) -> str:
+    payload = json.dumps(document, sort_keys=True)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
@@ -78,8 +91,25 @@ async def get_manifest_response(manifest: Manifest, request: Request) -> Respons
         JSONResponse (200) with body and caching headers, or Response (304) when
         client sent matching If-None-Match.
     """
-    etag = compute_manifest_etag(manifest)
-    etag_header = _etag_header_value(etag)
+    return _cached_json_response(get_manifest_json(manifest), request)
+
+
+async def get_agent_card_response(card: AgentCard, request: Request) -> Response:
+    """Return the response for GET /.well-known/agent-card.json.
+
+    The same caching as :func:`get_manifest_response`: ``Content-Type:
+    application/json`` (A2A v1.0 defines no media type for the card),
+    ``Cache-Control: public, max-age=300``, and an ``ETag`` over the whole card,
+    signatures included; a matching ``If-None-Match`` gets 304.
+
+    Example:
+        >>> await get_agent_card_response(signed_card, request)  # doctest: +SKIP
+    """
+    return _cached_json_response(card.model_dump(mode="json"), request)
+
+
+def _cached_json_response(document: dict[str, Any], request: Request) -> Response:
+    etag_header = _etag_header_value(_document_etag(document))
     if_none_match = request.headers.get(HEADER_IF_NONE_MATCH)
 
     # RFC 7232: If-None-Match can be a single value or comma-separated list
@@ -96,7 +126,7 @@ async def get_manifest_response(manifest: Manifest, request: Request) -> Respons
         )
 
     return JSONResponse(
-        content=get_manifest_json(manifest),
+        content=document,
         media_type=CONTENT_TYPE_JSON,
         headers={
             HEADER_ETAG: etag_header,

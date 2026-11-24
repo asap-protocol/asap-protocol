@@ -8,7 +8,7 @@ import pytest
 from asap.models.envelope import Envelope
 from asap.models.payloads import MessageAck, TaskRequest, TaskUpdate
 from asap.transport.jsonrpc import ASAP_METHOD
-from asap.transport.websocket import (
+from asap.transport.ws import (
     ASAP_ACK_METHOD,
     PAYLOAD_TYPES_REQUIRING_ACK,
     _build_ack_notification_frame,

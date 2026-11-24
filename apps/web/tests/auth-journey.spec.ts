@@ -116,7 +116,7 @@ test.describe('Landing Page Animations', () => {
     await expect(heading).toBeVisible({ timeout: 5000 });
     await expect(heading).toContainText(/The next users of software are agents/i);
 
-    // Scope to the hero: a looser /Build for agents/i match hits the badge aria-label first.
+    // Scope to the hero because the ribbon also links to the guide.
     const hero = page.locator('section').first();
     await expect(hero.getByRole('link', { name: /^Build for agents/i })).toHaveAttribute(
       'href',
@@ -127,4 +127,28 @@ test.describe('Landing Page Animations', () => {
       /examples\/starters/
     );
   });
+});
+
+test('the Interop announcement links to release docs and the A2A extension', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('link', { name: 'Read the v2.6.0 Interop announcement' }).click();
+  await expect(page).toHaveURL(/#interop$/);
+
+  const announcement = page.getByRole('complementary', { name: 'v2.6.0 Interop' });
+  await expect(announcement.getByRole('link', { name: /^Interop guide/ })).toHaveAttribute(
+    'href',
+    /\/docs\/guides\/interoperability\.md$/
+  );
+  await expect(announcement.getByRole('link', { name: /^Changelog/ })).toHaveAttribute(
+    'href',
+    /\/CHANGELOG\.md#260$/
+  );
+  await expect(announcement.getByRole('link', { name: /^Migration/ })).toHaveAttribute(
+    'href',
+    /\/docs\/migration\.md#upgrading-from-v25x-to-v260$/
+  );
+
+  await announcement.getByRole('link', { name: 'A2A extension', exact: true }).click();
+  await expect(page).toHaveURL(/\/a2a\/extensions\/manifest\/v1$/);
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('ASAP manifest extension');
 });

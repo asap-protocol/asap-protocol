@@ -8,9 +8,6 @@ and server:
 - :func:`_build_ack_notification_frame` — server-side ``asap.ack`` push (ADR-16).
 - :func:`_is_heartbeat_pong` — application-level heartbeat discrimination.
 - The frame, heartbeat, close, SLA, and ack constants used across the WS package.
-
-The compatibility shim re-exports selected names for existing imports and test
-patching through ``asap.transport.websocket``.
 """
 
 from __future__ import annotations

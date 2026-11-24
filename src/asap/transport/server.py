@@ -72,6 +72,8 @@ from asap.observability.tracing import configure_tracing
 from asap.auth import JWKSValidator, OAuth2Config, OAuth2Middleware
 from asap.auth.middleware import OPERATOR_API_PATH_PREFIXES
 from asap.auth.agent_jwt import JtiReplayCache
+from asap.auth.external_tokens import ExternalTokenConfig
+from asap.auth.external_verifier import ExternalTokenVerifier
 from asap.auth.jti_replay_cache import JtiReplayCacheProtocol
 from asap.auth.approval import A2HApprovalChannel, ApprovalStore, InMemoryApprovalStore
 from asap.auth.self_auth import (
@@ -108,8 +110,9 @@ from asap.economics.audit import AuditStore
 from asap.economics.sla_storage import SLAStorage
 from asap.economics.storage import MeteringStorage
 from asap.state.metering import MeteringStorageBridge
+from asap.transport._external_auth import warn_if_oauth2_idp_unbound
 from asap.transport.agent_routes import create_agent_identity_router
-from asap.transport.capability_routes import create_capability_router
+from asap.transport.capability_routes import CAPABILITY_EXECUTE_PATH, create_capability_router
 from asap.transport.escalation_routes import create_escalation_router
 from asap.transport.delegation_api import create_delegation_router
 from asap.transport.sla_api import create_sla_router
@@ -120,12 +123,17 @@ from asap.transport.routes import (
     create_jsonrpc_router,
     create_websocket_router,
 )
+from asap.transport.routes.agent_card import (
+    create_agent_card_router,
+    validate_served_agent_card,
+)
 from asap.state.stores import create_snapshot_store
 from asap.transport.validators import InMemoryNonceStore, NonceStore
-from asap.transport.websocket import WS_CLOSE_GOING_AWAY, WS_CLOSE_REASON_SHUTDOWN
+from asap.transport.ws import WS_CLOSE_GOING_AWAY, WS_CLOSE_REASON_SHUTDOWN
 from asap.transport.mtls import MTLSConfig
 
 if TYPE_CHECKING:
+    from asap.adapters.a2a import AgentCard
     from asap.registry.auto_registration import AutoRegistrationConfig
 
 # Module logger
@@ -668,6 +676,10 @@ def _wire_middleware(
             middleware_kwargs["extra_path_prefixes"] = OPERATOR_API_PATH_PREFIXES
         if oauth2_config.jwks_fetcher is not None:
             middleware_kwargs["jwks_fetcher"] = oauth2_config.jwks_fetcher
+        # Execute always requires and verifies its own bearer (Agent JWT, or an external
+        # token when configured), like /asap/agent/*. Behind the middleware it could never
+        # succeed: an Agent JWT failed the IdP JWKS check.
+        middleware_kwargs["exempt_paths"] = frozenset({CAPABILITY_EXECUTE_PATH})
         # ONE canonical JWKSValidator shared by both transports so the HTTP
         # middleware stack instance and the WS ``app.state`` instance do not
         # keep divergent JWKS caches (S0 #237). Both middleware instances are
@@ -800,6 +812,8 @@ def create_app(
         "/asap/agent",
     ),
     require_operator_auth: bool = False,
+    external_token_config: ExternalTokenConfig | None = None,
+    agent_card: AgentCard | None = None,
 ) -> FastAPI:
     """Create and configure a FastAPI application for ASAP protocol.
 
@@ -807,6 +821,7 @@ def create_app(
     - POST /asap endpoint for handling ASAP messages via JSON-RPC
     - WebSocket /asap/ws for real-time JSON-RPC (same protocol as POST /asap)
     - GET /.well-known/asap/manifest.json for agent discovery
+    - GET /.well-known/agent-card.json, when ``agent_card`` is set (A2A v1.0 discovery)
     - GET /asap/metrics for Prometheus-compatible metrics
     - Authentication middleware (if manifest.auth is configured)
     - Error handling middleware
@@ -821,8 +836,10 @@ def create_app(
             Required if manifest.auth is configured. Should return agent ID
             if token is valid, None otherwise.
         oauth2_config: When set, OAuth2Middleware validates IdP JWTs for ``path_prefix``
-            routes; ``/asap/agent/*`` uses Host JWT instead. Without it, ``/asap`` is open
-            unless ``manifest.auth`` and ``token_validator`` are configured.
+            routes; ``/asap/agent/*`` uses Host JWT instead, and ``POST
+            /asap/capability/execute`` verifies its own Agent JWT (or external token).
+            Without it, ``/asap`` is open unless ``manifest.auth`` and ``token_validator``
+            are configured.
         rate_limit: Optional rate limit string (e.g., "10/second;100/minute").
             Rate limiting is IP-based (per client IP address) to prevent DoS attacks.
             Uses token bucket pattern: burst limit + sustained limit.
@@ -900,13 +917,38 @@ def create_app(
             ``asap:admin`` on ``/usage``, ``/sla``, and ``/audit``. Requires
             ``oauth2_config``. Default False preserves local/operator open access
             (startup warnings remain when those APIs are enabled without auth).
+        external_token_config: Allowlist of external OAuth issuers (COMPAT-001). When set,
+            ``POST /asap/capability/execute`` also accepts their access tokens instead of an
+            Agent JWT; each principal gets only the grants of its issuer's rules. Default None
+            keeps that route on Agent JWT only. To accept the ``oauth2_config`` IdP's tokens
+            on that route, list it here. ``OAuth2Middleware`` skips that route, so for those
+            tokens these ``oauth2_config`` checks stop applying there: ``required_scope``
+            (the entry's grant rules decide instead), the identity binding (the custom claim
+            or the ``ASAP_AUTH_SUBJECT_MAP`` allowlist), and ``expected_issuer`` and
+            ``expected_audience`` (the entry's ``issuer`` and ``audience`` are checked
+            instead). Give that entry ``required_claims={custom_claim: manifest.id}``, where
+            ``custom_claim`` is the middleware's claim (``oauth2_config.custom_claim``, else
+            ``ASAP_AUTH_CUSTOM_CLAIM``, else ``DEFAULT_CUSTOM_CLAIM``), to restore the
+            custom-claim binding; the subject allowlist has no equivalent. Without it, a
+            token the IdP minted for another agent with the same audience executes here,
+            and ``create_app`` logs ``asap.server.external_issuer_unbound``.
+        agent_card: A signed A2A v1.0 Agent Card for this agent, from
+            :func:`asap.adapters.a2a.build_signed_agent_card` (COMPAT-003). When set,
+            ``GET /.well-known/agent-card.json`` serves it beside the manifest, with the
+            same caching headers. It must carry a signature and name this agent: the same
+            name and version, and the URN of its ASAP extension equal to ``manifest.id``.
+            ``create_app`` does not verify the signature, so build the card with
+            ``build_signed_agent_card``, which signs it. Default None: the route does not
+            exist.
 
     Returns:
         Configured FastAPI application ready to run
 
     Raises:
         ValueError: If manifest requires authentication but no token_validator provided,
-            or if ``require_operator_auth`` is True without ``oauth2_config``.
+            if ``require_operator_auth`` is True without ``oauth2_config``, or if
+            ``agent_card`` has no signature, has no ASAP extension, or describes another
+            agent.
 
     Example:
         >>> from asap.models.entities import Manifest, Capability, Endpoint, Skill, AuthScheme, SLADefinition
@@ -949,6 +991,8 @@ def create_app(
             "require_operator_auth=True requires oauth2_config so /usage, /sla, and "
             "/audit can validate Bearer JWTs with scope asap:admin"
         )
+    if agent_card is not None:
+        validate_served_agent_card(agent_card, manifest)
 
     components = _build_server_components(
         manifest=manifest,
@@ -989,6 +1033,9 @@ def create_app(
         identity_webauthn_verifier=identity_webauthn_verifier,
         identity_rate_limit=identity_rate_limit,
     )
+    if external_token_config is not None:
+        app.state.external_token_verifier = ExternalTokenVerifier(external_token_config)
+        warn_if_oauth2_idp_unbound(external_token_config, oauth2_config, manifest_id=manifest.id)
     if audit_store is not None:
         _warn_if_operator_api_unauthenticated(
             "asap.server.audit_api_unauthenticated",
@@ -1030,6 +1077,9 @@ def create_app(
         rate_limit=rate_limit,
         require_operator_auth=require_operator_auth,
     )
+    if agent_card is not None:
+        app.state.agent_card = agent_card
+        app.include_router(create_agent_card_router())
     _configure_rate_limiting(app, rate_limit=rate_limit, manifest=manifest)
     # OpenTelemetry tracing (zero-config via OTEL_* env vars)
     configure_tracing(service_name=manifest.id, app=app)

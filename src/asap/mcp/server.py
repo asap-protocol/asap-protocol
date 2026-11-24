@@ -191,9 +191,13 @@ class MCPServer:
             raise ValueError(f"Invalid params: {e}") from e
 
         if parsed.name not in self._tools:
+            # Each content dict is dumped with exclude_none: the outer dump does not
+            # reach into it, and MCP TS SDK 2.x rejects ``"annotations": null``.
             return CallToolResult(
                 content=[
-                    TextContent(text=f"Unknown tool: {parsed.name}").model_dump(by_alias=True)
+                    TextContent(text=f"Unknown tool: {parsed.name}").model_dump(
+                        by_alias=True, exclude_none=True
+                    )
                 ],
                 isError=True,
             ).model_dump(by_alias=True, exclude_none=True)
@@ -218,7 +222,7 @@ class MCPServer:
             logger.exception("mcp.tool.error", tool=parsed.name, error=str(e))
             message = str(e) if is_debug_mode() else _INTERNAL_TOOL_ERROR_MESSAGE
             return CallToolResult(
-                content=[TextContent(text=message).model_dump(by_alias=True)],
+                content=[TextContent(text=message).model_dump(by_alias=True, exclude_none=True)],
                 isError=True,
             ).model_dump(by_alias=True, exclude_none=True)
 
@@ -229,7 +233,7 @@ class MCPServer:
         else:
             text = str(out)
         return CallToolResult(
-            content=[TextContent(text=text).model_dump(by_alias=True)],
+            content=[TextContent(text=text).model_dump(by_alias=True, exclude_none=True)],
             isError=False,
         ).model_dump(by_alias=True, exclude_none=True)
 

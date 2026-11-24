@@ -7,9 +7,7 @@ from asap.errors import (
     MalformedEnvelopeError,
     RPC_REMOTE_GENERIC,
     RecoverableError,
-    RemoteFatalRPCError,
     RemoteRPCError,
-    RemoteRecoverableRPCError,
     TaskNotFoundError,
     TaskAlreadyCompletedError,
     ThreadPoolExhaustedError,
@@ -403,13 +401,13 @@ class TestJsonRpcErrorInterop:
         )
         assert str(err) == "Verify service availability before retrying."
 
-    def test_deprecated_remote_aliases_remain_isinstance_compatible(self) -> None:
-        """Deprecated twin aliases stay constructible and isinstance-compatible."""
-        fatal = RemoteFatalRPCError(-32603, "fatal", {"foo": "bar"})
-        recoverable = RemoteRecoverableRPCError(-32033, "retryable", {"retry_after_ms": 250})
+    def test_remote_rpc_error_constructor_sets_is_recoverable(self) -> None:
+        """One class covers both tiers; ``is_recoverable`` defaults to False."""
+        fatal = RemoteRPCError(-32603, "fatal", {"foo": "bar"})
+        recoverable = RemoteRPCError(
+            -32033, "retryable", {"retry_after_ms": 250}, is_recoverable=True
+        )
 
-        assert isinstance(fatal, RemoteRPCError)
-        assert isinstance(recoverable, RemoteRPCError)
         assert fatal.is_recoverable is False
         assert recoverable.is_recoverable is True
         assert fatal.json_rpc_code == -32603

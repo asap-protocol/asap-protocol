@@ -114,6 +114,81 @@ def test_build_npm_summary_filters_invalid_rows() -> None:
     assert aggregate_mod.build_npm_summary({"packages": "no"}) == {}
 
 
+NOT_PUBLISHED = "@asap-protocol/not-published-yet"
+NO_DATA_ROW: dict[str, Any] = {
+    "package": NOT_PUBLISHED,
+    "period": "last-week",
+    "downloads": None,
+    "not_on_registry": True,
+}
+
+
+def test_npm_package_unknown_to_npm_is_left_out_not_zero() -> None:
+    report: dict[str, Any] = {
+        "packages": {"@asap-protocol/client": {"downloads": 7}, NOT_PUBLISHED: NO_DATA_ROW}
+    }
+
+    assert aggregate_mod.build_npm_summary(report) == {"@asap-protocol/client": 7}
+    assert aggregate_mod.npm_packages_not_on_registry(report) == [NOT_PUBLISHED]
+    assert aggregate_mod.npm_packages_not_on_registry({"packages": "no"}) == []
+
+
+def test_main_records_npm_package_unknown_to_npm_and_finishes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("TELEMETRY_GITHUB_TOKEN", "tok")
+    monkeypatch.setattr(
+        aggregate_mod,
+        "collect_npm_weekly",
+        lambda *_a, **_k: {
+            "packages": {"@asap-protocol/client": {"downloads": 5}, NOT_PUBLISHED: NO_DATA_ROW}
+        },
+    )
+    monkeypatch.setattr(
+        aggregate_mod, "collect_pypi_recent", lambda *_a, **_k: {"packages": {}, "source": "stub"}
+    )
+    monkeypatch.setattr(
+        aggregate_mod,
+        "collect_github_signals",
+        lambda *_a, **_k: {
+            "source": "github_rest_api",
+            "adapter_requests": {"by_framework": {}, "open_count": 0},
+        },
+    )
+    monkeypatch.setattr(aggregate_mod, "fetch_registry_json", lambda _url: {"agents": []})
+    monkeypatch.setattr(aggregate_mod, "update_latest_symlink", lambda *_a, **_k: None)
+
+    rc = aggregate_mod.main(["--output-dir", str(tmp_path), "--date", "2026-11-23"])
+
+    assert rc == 0
+    snap = json.loads((tmp_path / "snapshot-2026-11-23.json").read_text(encoding="utf-8"))
+    assert snap["npm"] == {"@asap-protocol/client": 5}
+    assert snap["npm_not_on_registry"] == [NOT_PUBLISHED]
+    warnings = (
+        (tmp_path / "dashboard.md")
+        .read_text(encoding="utf-8")
+        .split("## Data quality warnings", 1)[1]
+    )
+    assert f"`{NOT_PUBLISHED}`" in warnings
+
+
+def test_validate_snapshot_rejects_non_string_npm_not_on_registry() -> None:
+    sample: dict[str, Any] = {
+        "snapshot_version": 1,
+        "collected_at": "2026-11-23T12:00:00+00:00",
+        "npm": {},
+        "npm_not_on_registry": [1],
+        "pypi": {"packages": {}},
+        "github": {"adapter_requests": {"by_framework": {}}},
+        "registry": {"agent_count": 0},
+        "site": {"ctr_per_cta": {}},
+        "adapter_requests": {},
+    }
+    with pytest.raises(ValidationError):
+        aggregate_mod.validate_snapshot(sample)
+
+
 def test_list_snapshot_files_skips_latest_and_unmatched_names(tmp_path: Path) -> None:
     (tmp_path / "snapshot-2026-05-01.json").write_text("{}", encoding="utf-8")
     (tmp_path / "snapshot-latest.json").write_text("{}", encoding="utf-8")

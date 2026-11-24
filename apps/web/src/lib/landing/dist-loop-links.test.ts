@@ -5,11 +5,7 @@ import {
   CHANGELOG_2510_URL,
   CHANGELOG_2511_URL,
   CHANGELOG_254_URL,
-  CURRENT_CHANGELOG_URL,
-  CURRENT_MIGRATION_URL,
-  CURRENT_RELEASE_DETAIL,
   CURRENT_RELEASE_TAGLINE,
-  CURRENT_RELEASE_URL,
   CURRENT_RELEASE_VERSION,
   DOCS_MIGRATION_2510_URL,
   DOCS_MIGRATION_2511_URL,
@@ -22,6 +18,7 @@ import {
   STARTERS_URL,
   githubBlobMain,
   githubTreeMain,
+  interopReleaseLinks,
 } from '@/lib/landing/dist-loop-links';
 
 const ORG_REPO = 'asap-protocol/asap-protocol';
@@ -42,9 +39,7 @@ describe('dist-loop-links org cutover contract', () => {
     DOCS_MIGRATION_2511_URL,
     CHANGELOG_2511_URL,
     RELEASE_2511_URL,
-    CURRENT_RELEASE_URL,
-    CURRENT_MIGRATION_URL,
-    CURRENT_CHANGELOG_URL,
+    ...Object.values(interopReleaseLinks({})),
   ];
 
   it('keeps blob/tree/release bases on the asap-protocol org', () => {
@@ -88,21 +83,37 @@ describe('dist-loop-links org cutover contract', () => {
     expect(CHANGELOG_2510_URL).toBe(`${CANONICAL_PREFIX}/blob/main/CHANGELOG.md#2510---2026-10-23`);
   });
 
-  it('pins homepage release CTAs to the shipped v2.5.11 tag', () => {
-    const versionSlug = CURRENT_RELEASE_VERSION.replaceAll('.', '');
-    expect(CURRENT_RELEASE_VERSION).toBe('2.5.11');
-    expect(CURRENT_RELEASE_TAGLINE).toBe('Security floors');
-    expect(CURRENT_RELEASE_DETAIL).toBe('Authlib 1.9');
+  it('keeps the v2.5.11 release URLs for historical dashboards', () => {
     expect(RELEASE_2511_URL).toBe(`${CANONICAL_PREFIX}/releases/tag/v2.5.11`);
-    expect(CURRENT_RELEASE_URL).toBe(RELEASE_2511_URL);
-    expect(CURRENT_RELEASE_URL).toContain(`v${CURRENT_RELEASE_VERSION}`);
     expect(DOCS_MIGRATION_2511_URL).toBe(
       `${CANONICAL_PREFIX}/blob/main/docs/migration.md#upgrading-from-v2510-to-v2511`
     );
-    expect(CURRENT_MIGRATION_URL).toBe(DOCS_MIGRATION_2511_URL);
-    expect(CURRENT_MIGRATION_URL).toContain(versionSlug);
     expect(CHANGELOG_2511_URL).toBe(`${CANONICAL_PREFIX}/blob/main/CHANGELOG.md#2511---2026-11-09`);
-    expect(CURRENT_CHANGELOG_URL).toBe(CHANGELOG_2511_URL);
-    expect(CURRENT_CHANGELOG_URL).toContain(versionSlug);
+  });
+
+  it('links the Interop announcement to the release docs on main in production', () => {
+    expect(CURRENT_RELEASE_VERSION).toBe('2.6.0');
+    expect(CURRENT_RELEASE_TAGLINE).toBe('Interop');
+    expect(interopReleaseLinks({ VERCEL_ENV: 'production' })).toEqual({
+      guide: `${CANONICAL_PREFIX}/blob/main/docs/guides/interoperability.md`,
+      migration: `${CANONICAL_PREFIX}/blob/main/docs/migration.md#upgrading-from-v25x-to-v260`,
+      changelog: `${CANONICAL_PREFIX}/blob/main/CHANGELOG.md#260`,
+    });
+  });
+
+  it('links a preview to the docs in the deployed commit', () => {
+    const commit = 'a'.repeat(40);
+    expect(interopReleaseLinks({ VERCEL_ENV: 'preview', VERCEL_GIT_COMMIT_SHA: commit })).toEqual({
+      guide: `${CANONICAL_PREFIX}/blob/${commit}/docs/guides/interoperability.md`,
+      migration: `${CANONICAL_PREFIX}/blob/${commit}/docs/migration.md#upgrading-from-v25x-to-v260`,
+      changelog: `${CANONICAL_PREFIX}/blob/${commit}/CHANGELOG.md#260`,
+    });
+  });
+
+  it('uses main when preview commit metadata is missing or malformed', () => {
+    expect(interopReleaseLinks({ VERCEL_ENV: 'preview' })).toEqual(interopReleaseLinks({}));
+    expect(
+      interopReleaseLinks({ VERCEL_ENV: 'preview', VERCEL_GIT_COMMIT_SHA: '../other' })
+    ).toEqual(interopReleaseLinks({}));
   });
 });

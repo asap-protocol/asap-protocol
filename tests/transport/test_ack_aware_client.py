@@ -6,7 +6,7 @@ import pytest
 from asap.models.envelope import Envelope
 from asap.models.payloads import TaskRequest
 from asap.transport.circuit_breaker import CircuitState, get_registry
-from asap.transport.websocket import (
+from asap.transport.ws import (
     ACK_CHECK_INTERVAL,
     DEFAULT_ACK_TIMEOUT,
     DEFAULT_MAX_ACK_RETRIES,

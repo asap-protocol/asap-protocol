@@ -40,7 +40,7 @@ from asap.testing import assert_response_correlates
 from asap.transport.handlers import create_default_registry
 from asap.transport.jsonrpc import ASAP_METHOD, JsonRpcRequest
 from asap.transport.server import create_app
-from asap.transport.websocket import decode_frame_to_json
+from asap.transport.ws import decode_frame_to_json
 
 from tests.transport.conftest import TEST_RATE_LIMIT_DEFAULT, NoRateLimitTestBase
 

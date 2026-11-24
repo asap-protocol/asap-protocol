@@ -5,12 +5,8 @@ import { DistLoopPrimaryCtas } from '@/components/landing/DistLoopPrimaryCtas';
 import { HeroTerminal } from '@/components/landing/HeroTerminal';
 import Link from 'next/link';
 import { HOMEPAGE_HERO_CTA_IDS } from '@/lib/telemetry/homepage-cta-ids';
-import {
-  CURRENT_RELEASE_TAGLINE,
-  CURRENT_RELEASE_URL,
-  CURRENT_RELEASE_VERSION,
-} from '@/lib/landing/dist-loop-links';
-import { EXTERNAL_LINK_FOCUS_CLASS, OpensInNewTabHint } from '@/components/links/opens-in-new-tab';
+import { CURRENT_RELEASE_TAGLINE, CURRENT_RELEASE_VERSION } from '@/lib/landing/dist-loop-links';
+import { EXTERNAL_LINK_FOCUS_CLASS } from '@/components/links/opens-in-new-tab';
 import { cn } from '@/lib/utils';
 
 export function HeroSection() {
@@ -24,17 +20,14 @@ export function HeroSection() {
           <div className="animate-in fade-in slide-in-from-bottom-5 flex flex-col justify-center space-y-8 text-center duration-700 ease-out lg:text-left">
             <div className="space-y-4">
               <Link
-                href={CURRENT_RELEASE_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                data-cta={HOMEPAGE_HERO_CTA_IDS.releaseBadge2511}
-                aria-label={`View ASAP Protocol v${CURRENT_RELEASE_VERSION} release on GitHub`}
+                href="#interop"
+                data-cta={HOMEPAGE_HERO_CTA_IDS.releaseBadge260}
+                aria-label={`Read the v${CURRENT_RELEASE_VERSION} ${CURRENT_RELEASE_TAGLINE} announcement`}
                 className={cn('inline-flex', EXTERNAL_LINK_FOCUS_CLASS)}
               >
                 <div className="inline-flex items-center rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-sm font-medium text-indigo-300 backdrop-blur-sm transition-colors hover:border-indigo-500/60 hover:bg-indigo-500/15">
                   <span className="mr-2 flex h-2 w-2 animate-pulse rounded-full bg-indigo-500"></span>
-                  v{CURRENT_RELEASE_VERSION} — {CURRENT_RELEASE_TAGLINE}
-                  <OpensInNewTabHint />
+                  v{CURRENT_RELEASE_VERSION} {CURRENT_RELEASE_TAGLINE}
                 </div>
               </Link>
               <AnimatedText

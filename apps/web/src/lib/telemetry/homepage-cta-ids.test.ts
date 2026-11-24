@@ -57,7 +57,7 @@ describe('homepage-cta-ids Dist Loop extensions', () => {
     expect(shell.has('release-changelog-github')).toBe(true);
   });
 
-  it('keeps earlier homepage_cta_ids indexes and appends the v2.5.11 ids', () => {
+  it('keeps earlier homepage_cta_ids indexes and appends the Interop ids', () => {
     expect([...HOMEPAGE_CTA_IDS]).toEqual([
       'hero-release-badge',
       'hero-dist-loop-badge',
@@ -101,6 +101,11 @@ describe('homepage-cta-ids Dist Loop extensions', () => {
       'docs-migration-2511',
       'release-changelog-2511',
       'hero-release-2511',
+      'docs-interop-260',
+      'docs-a2a-extension-260',
+      'docs-migration-260',
+      'release-changelog-260',
+      'hero-release-260',
     ]);
   });
 });

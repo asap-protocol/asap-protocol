@@ -1,10 +1,11 @@
 """Tests for :class:`MeteringStorageBridge` (v2.5.1 S1).
 
-The bridge moved from ``economics.storage.metering_storage_adapter`` to the
-state foundation layer (``asap.state.metering.MeteringStorageBridge``) so the
-cross-layer adapter lives in the lower layer and economics no longer owns it.
-These tests cover the bridge directly (the old adapter tests in
-``tests/economics/test_storage.py`` cover the compat shim's delegation).
+The bridge lives in the state foundation layer
+(``asap.state.metering.MeteringStorageBridge``) so the cross-layer adapter
+lives in the lower layer and economics does not own it. v2.6.0 removed the
+economics-layer wrapper function. These tests cover the bridge over the
+in-memory backend; ``tests/economics/test_storage.py`` also runs it over
+SQLite.
 
 Contract under test:
 - ``record`` flattens a ``UsageEvent`` into a ``UsageMetrics`` row and stores it;

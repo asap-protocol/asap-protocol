@@ -67,6 +67,35 @@ const agent = await createAgent(host, { mode: "delegated" });
 
 Always import `@asap-protocol/client/storage-node` **only in Node/desktop** builds so bundlers do not pull `node:fs` or native addons into browser chunks.
 
+## Agent JWT verification (server side)
+
+A server that accepts ASAP Agent JWTs checks them with `verifyAgentJwt` (added in 2.5.0). It runs the token checks of the Python `verify_agent_jwt`: `typ: agent+jwt`, `alg` `EdDSA` or its RFC 9864 name `Ed25519`, an Ed25519 signature, `exp` (required), a lifetime of at most 120 seconds (the 60-second TTL plus the 60-second clock skew, counted from now and from `iat`), `iat` (at most 60 seconds ahead), `jti`, and `aud`.
+
+```ts
+import { InMemoryJtiReplayCache, verifyAgentJwt } from "@asap-protocol/client";
+
+const replayCache = new InMemoryJtiReplayCache();
+const result = await verifyAgentJwt(token, {
+  audience: "https://mcp.example.com/mcp", // required
+  resolveAgent: async ({ agentId, hostThumbprint }) => lookUpAgent(agentId, hostThumbprint),
+  replayCache, // an Agent JWT is single-use
+});
+if (!result.ok) {
+  // result.reason is a fixed AgentJwtFailureReason string, safe to return to the caller
+} else {
+  await recordAgentUse(result.agentId); // state changes go here, after every check passed
+}
+```
+
+- **`resolveAgent`** gets the token's `sub` (`agentId`) and `iss` (`hostThumbprint`). It returns `undefined` for an unknown agent, or `{ publicKey, usable }`: the agent's Ed25519 public JWK (type `PublicJwk`, which needs no DOM lib; a DOM `JsonWebKey` is assignable to it), and `usable: false` when the agent is revoked, expired, or pending, when its host is revoked, or when the agent does not belong to that host. The Python function reads these facts from its host and agent stores; here your resolver supplies them. The resolver runs **before** the signature, audience, and expiry checks, because the key is needed to check the signature. So `agentId` and `hostThumbprint` are not verified yet, and a forged token that names a known agent reaches the resolver too. Keep it a read-only lookup. Write state, such as a last-used time for an idle timeout, only after `verifyAgentJwt` returns `ok: true`, as the example does; the result carries the verified `agentId` and `hostThumbprint`.
+- **`replayCache`** records each `jti` under the agent id, with the token's `exp` as the third argument of `checkAndRecord`; a cache must keep the record at least until then. `InMemoryJtiReplayCache` keeps it for the later of its window (default 90 seconds) and `exp`. It never evicts a live record: when it is full (`maxSize`, default 10 000, or `maxPerPartition` for one agent, default 1 000), it throws `JtiReplayCacheFullError`, which `verifyAgentJwt` passes on. Treat that as a temporary failure (for example HTTP 503 with `Retry-After: retryAfterSeconds`), not as a bad token. `InMemoryJtiReplayCache` serves one process; implement `JtiReplayCache` on a shared store when several instances serve the same audience. Without a cache, a replayed token is not detected.
+- **`nowSeconds`** replaces the clock (seconds since the epoch), for tests.
+- A bad token never throws. A throw from `resolveAgent` or `replayCache` propagates, so a store failure is not reported as a bad token.
+
+The package README lists every difference from the Python verifier.
+
+To protect an HTTP MCP server, you do not call `verifyAgentJwt` yourself: `@asap-protocol/mcp-auth` calls it on each request. There, the verified agent reaches your code after every check, as `ctx.http.authInfo.extra.principal` in a tool and as `options.authInfo` in the handler that you pass to `protect`; record use there, not in the resolver. See [HTTP MCP servers in TypeScript](../adapters/mcp-auth-bridge.md#http-mcp-servers-in-typescript).
+
 ## Discovery and capabilities
 
 ```ts

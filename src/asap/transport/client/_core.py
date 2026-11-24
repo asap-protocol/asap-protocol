@@ -47,7 +47,7 @@ from asap.transport.compression import COMPRESSION_THRESHOLD
 from asap.transport.errors import ProtocolCorrelationError, assert_correlation_binds
 from asap.transport.jsonrpc import ASAP_METHOD
 from asap.transport.mtls import MTLSConfig, create_ssl_context
-from asap.transport.websocket import (
+from asap.transport.ws import (
     DEFAULT_ACK_TIMEOUT,
     DEFAULT_MAX_ACK_RETRIES,
     OnMessageCallback,

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-__version__ = "2.5.12"
+__version__ = "2.6.0"
 
 __all__ = ["__version__", "create_from_openapi"]
 

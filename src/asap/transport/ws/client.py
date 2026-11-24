@@ -2,9 +2,9 @@
 
 :class:`WebSocketTransport` manages connection lifecycle, reconnect behavior,
 send/receive helpers, ADR-16 acknowledgement tracking, and inbound frame routing.
-Tests can patch ``asap.transport.websocket.websockets.connect`` and
-``asap.transport.websocket.encode_envelope_frame`` because this module reads
-those attributes through the compatibility shim at call time.
+Tests can patch ``asap.transport.ws.client.websockets.connect`` and
+``asap.transport.ws.codecs.encode_envelope_frame`` because this module reads
+those attributes at call time.
 """
 
 from __future__ import annotations
@@ -16,6 +16,8 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import suppress
 from typing import TYPE_CHECKING, Any, Union, cast
 
+import websockets
+
 from asap.models.envelope import Envelope
 from asap.observability import get_logger
 from asap.transport.circuit_breaker import CircuitBreaker
@@ -23,6 +25,10 @@ from asap.transport.errors import assert_stream_correlation_binds
 from asap.transport.ws._ack import PendingAck, _AckRetransmit
 from asap.transport.ws._errors import WebSocketRemoteError
 from asap.transport.ws._recv import _RecvDispatch
+
+# Module alias: names read through ``_ws_codecs`` at call time stay patchable
+# on ``asap.transport.ws.codecs``.
+from asap.transport.ws import codecs as _ws_codecs
 from asap.transport.ws.codecs import (
     DEFAULT_WS_RECEIVE_TIMEOUT,
     RECONNECT_INITIAL_BACKOFF,
@@ -34,10 +40,6 @@ from asap.transport.ws.codecs import (
 
 if TYPE_CHECKING:
     from websockets.legacy.client import WebSocketClientProtocol
-
-# Shim alias used for test patching. The compatibility module binds the names
-# read through ``_shim`` before importing ``asap.transport.ws``.
-from asap.transport import websocket as _shim
 
 logger = get_logger(__name__)
 
@@ -124,8 +126,8 @@ class WebSocketTransport(_RecvDispatch, _AckRetransmit):
         await self._cancel_ack_check_task()
         self._connect_error = None
         logger.info("asap.websocket.client_connecting", url=url)
-        # Read ``websockets`` off the shim so tests patching
-        # ``asap.transport.websocket.websockets.connect`` stay effective.
+        # ``websockets.connect`` is looked up at call time so tests patching
+        # ``asap.transport.ws.client.websockets.connect`` stay effective.
         connect_kwargs: dict[str, Any] = {
             "open_timeout": 10.0,
             "close_timeout": 5.0,
@@ -136,7 +138,7 @@ class WebSocketTransport(_RecvDispatch, _AckRetransmit):
             connect_kwargs["ssl"] = self._ssl_context
         if self._extra_headers:
             connect_kwargs["extra_headers"] = self._extra_headers
-        self._ws = cast(Any, await _shim.websockets.connect(url, **connect_kwargs))
+        self._ws = cast(Any, await websockets.connect(url, **connect_kwargs))
         if self._closed:
             await self._close_ws()
             return
@@ -263,7 +265,7 @@ class WebSocketTransport(_RecvDispatch, _AckRetransmit):
         dump = envelope.model_dump(mode="json")
         if (
             not dump.get("requires_ack")
-            and dump.get("payload_type") in _shim.PAYLOAD_TYPES_REQUIRING_ACK
+            and dump.get("payload_type") in _ws_codecs.PAYLOAD_TYPES_REQUIRING_ACK
         ):
             dump = {**dump, "requires_ack": True}
         return dump
@@ -272,13 +274,14 @@ class WebSocketTransport(_RecvDispatch, _AckRetransmit):
         """Encode *envelope* and send one JSON-RPC text frame; return the request id.
 
         Shared by ``send``, ``send_and_receive``, ``send_and_receive_stream``,
-        and the retransmit path. Reads ``encode_envelope_frame`` off the shim so
-        tests can patch ``asap.transport.websocket.encode_envelope_frame``.
+        and the retransmit path. Reads ``encode_envelope_frame`` off the codecs
+        module at call time so tests can patch
+        ``asap.transport.ws.codecs.encode_envelope_frame``.
         """
         if self._ws is None:
             raise RuntimeError("WebSocket not connected; call connect(url) first")
         request_id = self._next_request_id()
-        frame = _shim.encode_envelope_frame(
+        frame = _ws_codecs.encode_envelope_frame(
             self._envelope_dict_for_send(envelope), request_id=request_id
         )
         if not isinstance(frame, str):

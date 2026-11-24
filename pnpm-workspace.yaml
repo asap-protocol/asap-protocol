@@ -4,5 +4,6 @@ packages:
   - "apps/example-nextjs"
   - "apps/example-mastra"
   - "apps/example-openai-agents"
+  - "examples/mcp_auth_http"
   # Dist Loop thin starter — workspace member so smoke uses pnpm only (no nested npm).
   - "examples/starters/typescript-consumer"

@@ -3,11 +3,11 @@
 **Architecture:** Two metering layers exist:
 - **Economics layer** (this module): ``MeteringStorage`` protocol with full CRUD,
   aggregation, summary, stats, purge. Used by the Usage REST API and as the
-  backend for the adapter.
+  backend for the bridge.
 - **State layer** (``asap.state.metering``): ``MeteringStore`` protocol with
   minimal record/query/aggregate. Used by handlers for task completion recording.
-  The ``metering_storage_adapter`` bridges economics -> state so a single
-  MeteringStorage can serve both the API and handlers.
+  ``asap.state.metering.MeteringStorageBridge`` bridges economics -> state so a
+  single MeteringStorage can serve both the API and handlers.
 """
 
 from __future__ import annotations
@@ -17,12 +17,7 @@ import json
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Protocol, Union, cast, runtime_checkable
-
-if TYPE_CHECKING:
-    # ``MeteringStore`` is referenced only as a string return annotation on the
-    # ``metering_storage_adapter`` compat shim (resolved by mypy via TYPE_CHECKING).
-    from asap.state.metering import MeteringStore
+from typing import Any, Protocol, Union, cast, runtime_checkable
 
 from pydantic import Field
 
@@ -338,16 +333,6 @@ class InMemoryMeteringStorage(MeteringStorageBase):
             before = len(self._events)
             self._events = [e for e in self._events if e.timestamp >= cutoff]
             return before - len(self._events)
-
-
-# Compat shim: the MeteringStorage -> MeteringStore bridge now lives in the
-# state foundation layer (``asap.state.metering.MeteringStorageBridge``); this
-# wrapper preserves the public name for existing importers.
-def metering_storage_adapter(storage: MeteringStorage) -> "MeteringStore":
-    """Create a ``MeteringStore`` view over ``storage`` (delegates to the state bridge)."""
-    from asap.state.metering import MeteringStorageBridge
-
-    return MeteringStorageBridge(storage)
 
 
 # Compat shim: delegates to ``asap.state.metering._period_to_metering_query``.

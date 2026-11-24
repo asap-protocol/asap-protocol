@@ -2,7 +2,7 @@
 
 Index of PRDs. **Shipped** releases have retrospective PRDs. **Planned** work is indexed in [prd-roadmap.md](./prd-roadmap.md). New PRDs are named by track, not by version; the target version is in each PRD header.
 
-**Next train:** Interop (v2.6.0) · [Latest published library release](https://github.com/asap-protocol/asap-protocol/releases/latest) · [Release history](../../CHANGELOG.md)
+The current source version is **v2.6.0 Interop**. **v2.7.0 Spec profile** is next. See [GitHub Releases](https://github.com/asap-protocol/asap-protocol/releases/latest) for the latest published library release and the [changelog](../../CHANGELOG.md) for release history.
 
 > **Deprecated redirect:** [prd-v2.4-adoption.md](./prd-v2.4-adoption.md) — do not use for new tasks.
 
@@ -13,8 +13,8 @@ Index of PRDs. **Shipped** releases have retrospective PRDs. **Planned** work is
 | Track | File | Status |
 |-------|------|--------|
 | **Roadmap** (train index) | [prd-roadmap.md](./prd-roadmap.md) | Index — living |
-| **Interop** — v2.6.0 | [prd-interop.md](./prd-interop.md) | **Next** — PLANNED |
-| **Spec profile** — v2.7.0 | [prd-spec-profile.md](./prd-spec-profile.md) | PLANNED (after Interop) |
+| **v2.6.0 Interop** | [prd-interop.md](./prd-interop.md) | **Current source version** |
+| **v2.7.0 Spec profile** | [prd-spec-profile.md](./prd-spec-profile.md) | **Next** |
 | **Economy** — product track | [prd-v3.0-economy.md](./prd-v3.0-economy.md) | Vision draft (trigger-gated; not library v3.0.0) |
 
 ---

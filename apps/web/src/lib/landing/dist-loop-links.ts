@@ -5,11 +5,13 @@
  * at repository files and directories.
  */
 
-/** GitHub `blob/main` base for docs links. */
-export const GITHUB_BLOB_MAIN = 'https://github.com/asap-protocol/asap-protocol/blob/main';
+const GITHUB_REPOSITORY = 'https://github.com/asap-protocol/asap-protocol';
 
-/** GitHub `tree/main` base — reuse for directory links (starters, examples). */
-export const GITHUB_TREE_MAIN = 'https://github.com/asap-protocol/asap-protocol/tree/main';
+/** GitHub `blob/main` base for docs links. */
+export const GITHUB_BLOB_MAIN = `${GITHUB_REPOSITORY}/blob/main`;
+
+/** GitHub `tree/main` base for directory links. */
+export const GITHUB_TREE_MAIN = `${GITHUB_REPOSITORY}/tree/main`;
 
 /**
  * Build a canonical `blob/main` URL for a repo-relative path.
@@ -48,17 +50,25 @@ export const CHANGELOG_254_URL = githubBlobMain('CHANGELOG.md#254---2026-07-18')
 /** GitHub Release for v2.5.4. Kept for the Dist Loop link contract. */
 export const RELEASE_254_URL = 'https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.4';
 
-/**
- * Latest shipped library release shown on the homepage.
- * Bump with the PyPI tag. Anchors match `docs/index.md`.
- */
-export const CURRENT_RELEASE_VERSION = '2.5.11';
+export const CURRENT_RELEASE_VERSION = '2.6.0';
+export const CURRENT_RELEASE_TAGLINE = 'Interop';
 
-/** Short label for {@link CURRENT_RELEASE_VERSION}. This patch is not Formal Spec. */
-export const CURRENT_RELEASE_TAGLINE = 'Security floors';
+/** Git previews use the docs from the commit that Vercel deploys. */
+export function interopReleaseLinks(
+  env: Readonly<Record<string, string | undefined>> = process.env
+) {
+  const { VERCEL_ENV: deployment, VERCEL_GIT_COMMIT_SHA: commit } = env;
+  const docsBase =
+    deployment === 'preview' && commit && /^[a-f0-9]{40}$/i.test(commit)
+      ? `${GITHUB_REPOSITORY}/blob/${commit}`
+      : GITHUB_BLOB_MAIN;
 
-/** Ribbon detail for the published behavior in {@link CURRENT_RELEASE_VERSION}. */
-export const CURRENT_RELEASE_DETAIL = 'Authlib 1.9';
+  return {
+    guide: `${docsBase}/docs/guides/interoperability.md`,
+    migration: `${docsBase}/docs/migration.md#upgrading-from-v25x-to-v260`,
+    changelog: `${docsBase}/CHANGELOG.md#260`,
+  };
+}
 
 /** v2.5.10 migration note. Kept for historical CTR dashboards. */
 export const DOCS_MIGRATION_2510_URL = githubBlobMain(
@@ -83,12 +93,3 @@ export const CHANGELOG_2511_URL = githubBlobMain('CHANGELOG.md#2511---2026-11-09
 /** GitHub Release for v2.5.11. */
 export const RELEASE_2511_URL =
   'https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.11';
-
-/** Homepage release link. Alias of the shipped tag so the label and href stay one bump. */
-export const CURRENT_RELEASE_URL = RELEASE_2511_URL;
-
-/** Homepage migration link for {@link CURRENT_RELEASE_VERSION}. */
-export const CURRENT_MIGRATION_URL = DOCS_MIGRATION_2511_URL;
-
-/** Homepage changelog link for {@link CURRENT_RELEASE_VERSION}. */
-export const CURRENT_CHANGELOG_URL = CHANGELOG_2511_URL;

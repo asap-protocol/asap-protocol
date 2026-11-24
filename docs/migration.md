@@ -1,23 +1,19 @@
 # Migration Guide
 
-> Migrating from A2A (Agent-to-Agent) and MCP (Model Context Protocol) to ASAP.
+> Building an agent on ASAP's own formats, and upgrading between ASAP versions.
 
 ---
 
 ## Overview
 
-ASAP (Agent State and Action Protocol) builds upon concepts from both A2A and MCP, providing a unified protocol for agent-to-agent communication. This guide helps developers migrate existing agents to ASAP.
+ASAP (Async Simple Agent Protocol) is a protocol for agent-to-agent communication, with typed messages, a task state machine, discovery, and authorization. It layers on A2A v1.0 and MCP authorization (OAuth 2.1); it does not replace them.
 
-### Protocol Comparison
+This page has two parts:
 
-| Feature | A2A | MCP | ASAP |
-|---------|-----|-----|------|
-| **Focus** | Agent communication | Tool/resource access | Unified agent protocol |
-| **State Management** | Limited | None | First-class snapshots |
-| **Message Format** | JSON | JSON-RPC | JSON-RPC + Envelope |
-| **Discovery** | Agent Card | Server info | Manifest |
-| **Task Lifecycle** | Basic | N/A | Full state machine |
-| **Streaming** | SSE + WebSocket (`/asap/stream`, `/asap/ws`) | Stdio/SSE | SSE + WebSocket |
+- **The ASAP formats** (the sections up to [Common Migration Patterns](#common-migration-patterns)): how messages, tool calls, and agent descriptions look in ASAP, for an agent that uses ASAP's own wire format.
+- **[Upgrading ASAP Protocol Versions](#upgrading-asap-protocol-versions)**: what changes between releases, and what to do.
+
+To keep A2A or MCP and add ASAP's identity and capability grants to them, you do not need to move anything. Read [Interoperability: A2A, MCP, and ASAP](guides/interoperability.md).
 
 ---
 
@@ -25,22 +21,11 @@ ASAP (Agent State and Action Protocol) builds upon concepts from both A2A and MC
 
 ### A2A to ASAP
 
-#### A2A Message Structure
-
-```json
-{
-  "type": "task",
-  "id": "task-123",
-  "from": "agent-a",
-  "to": "agent-b",
-  "content": {
-    "action": "research",
-    "input": {"query": "AI trends"}
-  }
-}
-```
+ASAP does not convert A2A messages into ASAP envelopes. An A2A v1.0 client keeps sending A2A messages. An ASAP agent can serve an A2A interface beside its ASAP endpoint, with an ASAP grant check in front of it: see [Flow A of the interoperability guide](guides/interoperability.md#flow-a-an-a2a-client-calls-an-asap-agent).
 
 #### ASAP Envelope Structure
+
+Every ASAP message travels in an envelope:
 
 ```json
 {
@@ -59,21 +44,20 @@ ASAP (Agent State and Action Protocol) builds upon concepts from both A2A and MC
 }
 ```
 
-#### Key Differences
-
-| A2A Field | ASAP Field | Notes |
-|-----------|------------|-------|
-| `type` | `payload_type` | More specific typing |
-| `id` | `id` | ULID format in ASAP |
-| `from` | `sender` | URN format required |
-| `to` | `recipient` | URN format required |
-| `content` | `payload` | Structured per payload type |
-| *(none)* | `asap_version` | Protocol versioning |
-| *(none)* | `timestamp` | Auto-generated |
-| *(none)* | `trace_id` | Distributed tracing |
-| *(none)* | `correlation_id` | Request/response pairing |
+| Envelope field | Notes |
+|----------------|-------|
+| `id` | ULID format |
+| `sender`, `recipient` | Agent URNs (`urn:asap:agent:<name>`) |
+| `payload_type` | Names the payload, such as `task.request` |
+| `payload` | Structured per payload type |
+| `asap_version` | Envelope schema version |
+| `timestamp` | Set when the envelope is created |
+| `trace_id` | Distributed tracing |
+| `correlation_id` | Pairs a response with its request |
 
 ### MCP to ASAP
+
+To protect MCP tools and keep the MCP wire format, use the [MCP Auth Bridge](adapters/mcp-auth-bridge.md) (Mode A). This section shows the other way (Mode B): an MCP tool call carried inside an ASAP envelope.
 
 #### MCP Tool Call
 
@@ -127,19 +111,7 @@ ASAP (Agent State and Action Protocol) builds upon concepts from both A2A and MC
 
 ## Agent Card to Manifest
 
-### A2A Agent Card
-
-```json
-{
-  "name": "Research Agent",
-  "description": "Performs web research",
-  "url": "https://agent.example.com",
-  "capabilities": ["research", "summarize"],
-  "authentication": {
-    "type": "bearer"
-  }
-}
-```
+`asap.adapters.a2a` maps an ASAP manifest to an A2A v1.0 Agent Card, and a card back to a manifest. The [interoperability guide](guides/interoperability.md#agent-card-and-manifest-fields) has the full field table, with each field that one format cannot carry and the reason.
 
 ### ASAP Manifest
 
@@ -180,18 +152,62 @@ ASAP (Agent State and Action Protocol) builds upon concepts from both A2A and MC
 }
 ```
 
+### A2A v1.0 Agent Card
+
+`manifest_to_agent_card(manifest, inputs)` gives this card for the manifest above. A card needs data that a manifest does not hold, so `inputs` (an `AgentCardInputs`) gives the A2A interface, the media types, and the skill names and tags. ASAP data that a card has no field for rides in the ASAP extension, `https://asap-protocol.com/a2a/extensions/manifest/v1`.
+
+```json
+{
+  "name": "Research Agent",
+  "description": "Performs web research",
+  "supportedInterfaces": [
+    {"url": "https://agent.example.com/a2a", "protocolBinding": "JSONRPC", "protocolVersion": "1.0"}
+  ],
+  "version": "1.0.0",
+  "capabilities": {
+    "streaming": false,
+    "extensions": [
+      {
+        "uri": "https://asap-protocol.com/a2a/extensions/manifest/v1",
+        "description": "ASAP manifest data: agent URN, ASAP endpoint, and skill schemas",
+        "params": {
+          "agent_urn": "urn:asap:agent:research-v1",
+          "asap_endpoint": "https://agent.example.com/asap",
+          "asap_version": "0.1",
+          "state_persistence": true,
+          "skill_schemas": {
+            "research": {"input_schema": {"type": "object"}, "output_schema": {"type": "object"}},
+            "summarize": {"input_schema": {"type": "object"}, "output_schema": {"type": "object"}}
+          }
+        }
+      }
+    ]
+  },
+  "defaultInputModes": ["application/json"],
+  "defaultOutputModes": ["application/json"],
+  "skills": [
+    {"id": "research", "name": "Research", "description": "Search and analyze information", "tags": ["research"]},
+    {"id": "summarize", "name": "Summarize", "description": "Summarize content", "tags": ["text"]}
+  ]
+}
+```
+
+- The manifest's `auth` is not in the card. It configures the ASAP endpoint, while a card's security schemes describe its A2A interfaces. The mapping reports it in `dropped`.
+- `agent_card_to_manifest(card)` gives the manifest back, without `auth`.
+- A card that you serve is signed: `build_signed_agent_card` maps and signs in one call, and adds `signatures`. Verify a card that you fetch before you map it. See [Signed Agent Cards](guides/interoperability.md#signed-agent-cards).
+
 ---
 
 ## Payload Type Mapping
 
 ### Task Operations
 
-| A2A Action | MCP Method | ASAP Payload Type |
-|------------|------------|-------------------|
-| `task.create` | N/A | `task.request` |
-| `task.status` | N/A | `task.response` |
-| `task.update` | N/A | `task.update` |
-| `task.cancel` | N/A | `task.cancel` |
+| Operation | ASAP Payload Type |
+|-----------|-------------------|
+| Start a task | `task.request` |
+| Return the result of a task | `task.response` |
+| Report progress | `task.update` |
+| Cancel a task | `task.cancel` |
 
 ### MCP Operations
 
@@ -273,7 +289,7 @@ ASAP (Agent State and Action Protocol) builds upon concepts from both A2A and MC
 
 - [ ] **Update message sending**
   ```python
-  # Before (A2A style)
+  # Before (your own JSON message format)
   message = {"type": "task", "from": "agent-a", ...}
   response = requests.post(url, json=message)
   
@@ -391,27 +407,9 @@ ASAP (Agent State and Action Protocol) builds upon concepts from both A2A and MC
 
 ## Common Migration Patterns
 
-### Pattern 1: Dual-Protocol Support
+### Pattern 1: A2A and ASAP on one origin
 
-Run both A2A/MCP and ASAP during transition:
-
-```python
-from fastapi import FastAPI
-
-app = FastAPI()
-
-# Legacy A2A endpoint
-@app.post("/a2a")
-async def handle_a2a(request: dict):
-    # Convert to ASAP internally
-    envelope = convert_a2a_to_asap(request)
-    return await process_envelope(envelope)
-
-# New ASAP endpoint
-@app.post("/asap")
-async def handle_asap(request: dict):
-    return await process_envelope(request)
-```
+An agent can serve an A2A v1.0 interface and its ASAP endpoint side by side, and keep both. ASAP does not turn A2A messages into envelopes: each interface keeps its own wire format. `create_app(manifest, agent_card=card)` serves the signed Agent Card at `/.well-known/agent-card.json`, beside the manifest. The reference gateway in `examples/a2a_gateway/` adds the A2A interface with the A2A Python SDK, and checks the token and the ASAP grant before a skill runs. See [Flow A of the interoperability guide](guides/interoperability.md#flow-a-an-a2a-client-calls-an-asap-agent).
 
 ### Pattern 2: MCP Tool Wrapper
 
@@ -1108,6 +1106,111 @@ Scope: [prd-v2.5.4-distribution-loop.md](../product/prd/prd-v2.5.4-distribution-
 
 ---
 
+### Upgrading from v2.5.x to v2.6.0
+
+**v2.6.0 (Interop)** makes ASAP's identity and capability grants work with
+A2A v1.0 and MCP authorization (OAuth 2.1). It also removes the six import
+paths that v2.5.1 deprecated, and it changes a few behaviors of existing code,
+mostly so that a check fails closed. The ASAP envelope, the JSON-RPC methods,
+and the manifest schema do not change.
+
+What to read, in order:
+
+1. [Removed import paths](#removed-import-paths): change these imports before you upgrade.
+2. [Behavior changes](#behavior-changes): check whether one of them affects you.
+3. [What is new](#what-is-new-in-v260): the new, opt-in features.
+4. [Upgrade steps](#upgrade-steps-v260) and [Backward compatibility](#backward-compatibility-v260).
+
+#### Removed import paths
+
+v2.5.1 deprecated six import paths and said that v2.6.0 removes them (see
+`CHANGELOG.md` `[2.5.1]`, "Deprecated"). In v2.6.0, an import of a removed
+path fails with `ModuleNotFoundError` or `ImportError`. Change each import to
+its replacement before you upgrade. These removals do not change the wire
+protocol.
+
+| Removed path | Before (v2.5.x) | After (v2.6.0) |
+|--------------|-----------------|----------------|
+| `asap.cli._compat` ([#275](https://github.com/asap-protocol/asap-protocol/issues/275)) | `from asap.cli._compat import DEFAULT_SCHEMAS_DIR, export_all_schemas, _repl_namespace` | `from asap.cli.schemas import DEFAULT_SCHEMAS_DIR`; `from asap.schemas import export_all_schemas`; `from asap.cli.repl import _repl_namespace` |
+| `asap.transport.websocket` | `from asap.transport.websocket import WebSocketTransport` | `from asap.transport.ws import WebSocketTransport`. For the third-party module formerly exported by the shim, use `import websockets`. Test patch targets: `asap.transport.ws.client.websockets.connect`; `asap.transport.ws.codecs.encode_envelope_frame`, `.PAYLOAD_TYPES_REQUIRING_ACK`, `.HEARTBEAT_PING_INTERVAL` |
+| `FRAME_ENCODING_BINARY` | `from asap.transport.websocket import FRAME_ENCODING_BINARY` | No replacement. v2.5.1 removed binary framing; frames are JSON text only (`FRAME_ENCODING_JSON`). Delete the reference |
+| `asap.adapters.mcp` | `from asap.adapters.mcp import protect_server, MCPAuthConfig` (or `from asap.adapters.mcp.<submodule> import ...`) | `from asap.mcp.auth import protect_server, MCPAuthConfig` (same names). Submodules keep their names: `asap.adapters.mcp.config` becomes `asap.mcp.auth.config`, and the same for `auth_middleware`, `capability_map`, `errors`, `jwt_extractor`, and `protected_server` |
+| `RemoteFatalRPCError`, `RemoteRecoverableRPCError` (Python) | `from asap.errors import RemoteRecoverableRPCError`, then `except RemoteRecoverableRPCError:` | `from asap.errors import RemoteRPCError`, then `except RemoteRPCError as exc:` and branch on `exc.is_recoverable`. The TypeScript classes of the same names in `@asap-protocol/client` are not affected |
+| `metering_storage_adapter` | `from asap.economics.storage import metering_storage_adapter`, then `metering_storage_adapter(storage)` | `from asap.state.metering import MeteringStorageBridge`, then `MeteringStorageBridge(storage)`. It returns the same `MeteringStore` view |
+
+#### Behavior changes
+
+Each change below can affect code that worked with v2.5.x.
+
+| Change | Who is affected | What to do |
+|--------|-----------------|------------|
+| **`POST /asap/capability/execute` with `oauth2_config`.** `OAuth2Middleware` no longer validates this exact path, because the route verifies its own bearer. Before, when `oauth2_config` covered `/asap`, the middleware refused every Agent JWT there, so the route could not succeed. Now a valid Agent JWT succeeds, and a token from the `oauth2_config` provider gets the route's 401 unless you list that provider in `external_token_config`. `required_scope` and the identity binding of `oauth2_config` no longer apply on this route. `GET /asap/capability/list`, `describe`, `/asap`, and any other spelling of the path stay behind the middleware | Apps that set `oauth2_config` and call capability execute | Call it with an Agent JWT. To accept the provider's tokens there, list the provider as an external issuer, with `required_claims` for the identity binding ([guide](guides/interoperability.md#with-oauth2_config)) |
+| **MCP stdio messages without `null` fields.** `tools/call` results from `MCPServer`, and the `asap:*` error results of the MCP Auth Bridge (`tool_error_result`), leave the optional `annotations` field out of each content item instead of sending `null`. `MCPClient.call_tool` without `meta` leaves `_meta` out of the params instead of sending `null` | Code that reads the `annotations` key of a content item, or the `_meta` key of the params, and expects it to be present | Treat an absent key as "not set". The text and `isError` do not change |
+| **npm release tags.** Each `@asap-protocol/*` npm package now publishes from its own tag (`client-v<version>`, `mcp-auth-v<version>`), with the version from its `package.json`. `v2.3.*` and `v2.4.*` tags no longer publish to npm, and the `hotfix-release.yml` workflow and its `hotfix` dist-tag track are gone | Maintainers, and forks that publish the packages | Follow [npm publishing](maintainers/npm-publishing.md). Versions already on npm stay as they are |
+
+The new `create_app` arguments (`agent_card`, `external_token_config`) are
+opt-in. Without them, `create_app` behaves as in v2.5.x, apart from the
+`oauth2_config` changes above.
+
+#### What is new in v2.6.0
+
+Every item is opt-in. The [interoperability guide](guides/interoperability.md)
+walks through each one.
+
+- **A2A v1.0 Agent Card bridge** (`asap.adapters.a2a`): models of the A2A v1.0
+  Agent Card, the mapping between a card and a manifest, card signing
+  (`EdDSA` by default, `ES256` as an option), and card verification against
+  a trust store whose keys name the agents they may sign for. A2A v0.3 cards
+  are refused. See [Agent Card and manifest fields](guides/interoperability.md#agent-card-and-manifest-fields)
+  and [Signed Agent Cards](guides/interoperability.md#signed-agent-cards).
+- **Signed Agent Card beside the manifest**: `create_app(agent_card=...)`
+  serves `/.well-known/agent-card.json`. See
+  [Flow A](guides/interoperability.md#flow-a-an-a2a-client-calls-an-asap-agent).
+- **External access tokens**: `create_app(external_token_config=...)` lets
+  `POST /asap/capability/execute` accept OAuth 2.1 access tokens from issuers
+  that you list, with grants from your rules only. See
+  [External access tokens](guides/interoperability.md#external-access-tokens-on-an-asap-server-python).
+- **`@asap-protocol/mcp-auth` 0.1.0** (npm): Agent JWTs and OAuth 2.1 access
+  tokens, checked against grants, on HTTP MCP servers in TypeScript. See
+  [Flow B](guides/interoperability.md#flow-b-an-mcp-client-calls-an-http-mcp-server).
+- **`@asap-protocol/client` 2.5.0** (npm): `verifyAgentJwt`, a `jti` replay
+  cache, and the `PublicJwk` type. See the [TypeScript client](sdks/typescript.md).
+- **`asap-compliance` 1.4.0**: the `mcp-auth-http` and `a2a-bridge`
+  profiles, which check a running HTTP MCP server and a running A2A gateway,
+  and selection of a profile by name (`profile_config` and `validate_profile`,
+  or `pytest --asap-profile`). See
+  [Compliance testing](guides/compliance-testing.md#profiles).
+- **Reference examples**: `examples/a2a_gateway/` (A2A) and
+  `examples/mcp_auth_http/` (HTTP MCP). They have no support tier.
+
+#### Upgrade steps (v2.6.0)
+
+1. Change each [removed import](#removed-import-paths) to its replacement.
+2. When [PyPI](https://pypi.org/project/asap-protocol/#history) lists 2.6.0, install it with
+   `pip install 'asap-protocol==2.6.0'` or `uv add 'asap-protocol==2.6.0'`.
+3. If you set `oauth2_config`, read the capability execute row in
+   [Behavior changes](#behavior-changes).
+4. TypeScript: code that reads a private-key member other than `d` (for
+   example `dp`) from `publicJwk` no longer type-checks with
+   `@asap-protocol/client` 2.5.0; read only public members. Add
+   `@asap-protocol/mcp-auth` only to protect an HTTP MCP server.
+
+#### Backward compatibility (v2.6.0)
+
+- **Wire protocol**: unchanged. The ASAP envelope, the JSON-RPC methods, and
+  the manifest schema are the same as in v2.5.x.
+- **Breaking changes**: the six removed import paths. For the 2.5.12 maintenance changes
+  that also apply to 2.6.0, see
+  [Upgrading from v2.5.11 to v2.5.12](#upgrading-from-v2511-to-v2512).
+- **TypeScript**: `HostContext.publicJwk`, `AgentContext.publicJwk`, and the
+  `agentPublicKey` option of `signHostJwt` are typed `PublicJwk` instead of
+  the DOM `JsonWebKey`. Each type can be assigned to the other; code that
+  reads a private-key member other than `d` (`p`, `q`, `dp`, `dq`, `qi`,
+  `oth`, `k`) from `publicJwk` no longer type-checks. The classes `RemoteFatalRPCError` and
+  `RemoteRecoverableRPCError` of `@asap-protocol/client` stay.
+
+---
+
 ### Upgrading from v2.5.11 to v2.5.12
 
 **v2.5.12** is a maintenance patch for authentication, authorization, and
@@ -1785,6 +1888,7 @@ asap show-schema Envelope
 
 ## Related Documentation
 
+- [Interoperability: A2A, MCP, and ASAP](guides/interoperability.md) - ASAP grants in front of A2A v1.0 agents and HTTP MCP servers
 - [Transport](transport.md) - HTTP/JSON-RPC details
 - [Security](security.md) - Authentication setup
 - [State Management](state-management.md) - Snapshots and lifecycle

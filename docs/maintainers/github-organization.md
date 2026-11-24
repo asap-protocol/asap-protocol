@@ -37,7 +37,7 @@ For `@asap-protocol/client`, `@asap-protocol/mastra`, `@asap-protocol/openai-age
 
 1. Package → Settings → Trusted Publisher
 2. Repository: `asap-protocol/asap-protocol`
-3. Workflows: `publish-typescript.yml`, `hotfix-release.yml` (see [npm-publishing.md](./npm-publishing.md))
+3. Workflow: `publish-typescript.yml` (see [npm-publishing.md](./npm-publishing.md)); `hotfix-release.yml` was retired in v2.6.0
 
 ### 3. Repository / org Actions secrets
 

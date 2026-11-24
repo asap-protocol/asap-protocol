@@ -17,7 +17,7 @@ import websockets
 
 from asap.models.envelope import Envelope
 from asap.transport.circuit_breaker import CircuitBreaker, CircuitState
-from asap.transport.websocket import (
+from asap.transport.ws import (
     WebSocketTransport,
     _reconnect_delay,
 )

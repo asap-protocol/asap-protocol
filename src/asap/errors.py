@@ -458,11 +458,10 @@ def _pop_remote_meta(
 class RemoteRPCError(ASAPError):
     """JSON-RPC error returned by a remote ASAP peer (client-side).
 
-    Unified replacement for the former ``RemoteFatalRPCError`` /
-    ``RemoteRecoverableRPCError`` twin classes (v2.5.1 S3 collapse).
-    Recoverability is now a runtime property (``is_recoverable``) rather
-    than a distinct type, so callers branch on the property instead of
-    ``isinstance`` against one of two near-identical classes.
+    One class for fatal and recoverable remote failures (v2.5.1 S3 collapse;
+    v2.6.0 removed the fatal and recoverable subclasses). Recoverability is
+    a runtime property (``is_recoverable``), not a distinct type, so callers
+    branch on the property instead of ``isinstance``.
 
     Attributes:
         json_rpc_code: The wire JSON-RPC code as received from the peer
@@ -529,68 +528,6 @@ class RemoteRPCError(ASAPError):
             details,
             is_recoverable=raw.get("recoverable") is True,
             taxonomy_code=taxonomy,
-            retry_after_ms=retry_after_ms,
-            alternative_agents=alternative_agents,
-            fallback_action=fallback_action,
-        )
-
-
-class RemoteFatalRPCError(RemoteRPCError, FatalError):
-    """Deprecated alias for a fatal ``RemoteRPCError`` (``is_recoverable=False``).
-
-    Retained for the v2.5.1 deprecation window so existing ``isinstance`` checks
-    and exception tuples keep working; new code should use ``RemoteRPCError``
-    and branch on ``is_recoverable``.
-    """
-
-    def __init__(
-        self,
-        wire_jsonrpc_code: int,
-        message: str,
-        details: dict[str, Any] | None = None,
-        *,
-        taxonomy_code: str = "asap:rpc/remote_error",
-        retry_after_ms: int | None = None,
-        alternative_agents: list[str] | None = None,
-        fallback_action: str | None = None,
-    ) -> None:
-        super().__init__(
-            wire_jsonrpc_code,
-            message,
-            details,
-            is_recoverable=False,
-            taxonomy_code=taxonomy_code,
-            retry_after_ms=retry_after_ms,
-            alternative_agents=alternative_agents,
-            fallback_action=fallback_action,
-        )
-
-
-class RemoteRecoverableRPCError(RemoteRPCError, RecoverableError):
-    """Deprecated alias for a recoverable ``RemoteRPCError`` (``is_recoverable=True``).
-
-    Retained for the v2.5.1 deprecation window so existing ``isinstance`` checks
-    and exception tuples keep working; new code should use ``RemoteRPCError``
-    and branch on ``is_recoverable``.
-    """
-
-    def __init__(
-        self,
-        wire_jsonrpc_code: int,
-        message: str,
-        details: dict[str, Any] | None = None,
-        *,
-        taxonomy_code: str = "asap:rpc/remote_recoverable_error",
-        retry_after_ms: int | None = None,
-        alternative_agents: list[str] | None = None,
-        fallback_action: str | None = None,
-    ) -> None:
-        super().__init__(
-            wire_jsonrpc_code,
-            message,
-            details,
-            is_recoverable=True,
-            taxonomy_code=taxonomy_code,
             retry_after_ms=retry_after_ms,
             alternative_agents=alternative_agents,
             fallback_action=fallback_action,

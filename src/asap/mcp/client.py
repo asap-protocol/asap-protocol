@@ -211,7 +211,9 @@ class MCPClient:
                 "jsonrpc": "2.0",
                 "id": req_id,
                 "method": "tools/call",
-                "params": params.model_dump(by_alias=True),
+                # exclude_none drops only an unset ``_meta`` (it does not reach into the
+                # argument dicts); MCP TS SDK 2.x rejects ``"_meta": null``.
+                "params": params.model_dump(by_alias=True, exclude_none=True),
             }
         )
         raw = await self._receive()

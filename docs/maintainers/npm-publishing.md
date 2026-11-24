@@ -6,16 +6,25 @@ Maintainer guide for scoped package bootstrap, Trusted Publishing (OIDC), and re
 
 - **GitHub org cutover**: [github-organization.md](./github-organization.md) — Trusted Publisher owner/repo, secrets, Pages, GHCR after transfer to `asap-protocol`.
 - **Release checklist (npm gate)**: [engineering/tasks/v2.3.0/release-checklist.md](../../engineering/tasks/v2.3.0/release-checklist.md) — §**4.3** (verify install after publish).
-- **Hotfix runbook**: [hotfix.md](./hotfix.md) — adapter-only `2.3.1-hotfix.N` vs protocol patch `2.3.2`, branching, cherry-pick, emergency publish.
+- **Hotfix runbook**: [hotfix.md](./hotfix.md) — a patch of one package from its own tag, branching, cherry-pick, emergency publish.
 - **Sprint notes (historical)**: [engineering/tasks/private/v2.3.1/sprint-S0-unblock-npm.md](../../engineering/tasks/private/v2.3.1/sprint-S0-unblock-npm.md) — first-publish / OIDC troubleshooting narrative.
 
 ## Normal path (after bootstrap)
 
-- **Tags**: `v2.3.*` and `v2.4.*` trigger [.github/workflows/publish-typescript.yml](../../.github/workflows/publish-typescript.yml).
+- **Tags (one per package)**: since v2.6.0, each package publishes from its own tag. [.github/workflows/publish-typescript.yml](../../.github/workflows/publish-typescript.yml) runs `scripts/npm_publish_target.py`, which maps the tag to its package, and publishes only that package. The version comes from the package's `package.json`; the workflow never rewrites it. If the tag version differs from `package.json`, the job fails before it builds.
+
+  | Tag | Publishes |
+  |-----|-----------|
+  | `client-v<version>`, for example `client-v2.5.0` | `@asap-protocol/client` |
+  | `mcp-auth-v<version>`, for example `mcp-auth-v0.1.0` | `@asap-protocol/mcp-auth` |
+
+  The Python tag `v<version>` runs `release.yml` (PyPI and Docker) and publishes no npm package; its `v*` pattern does not match the npm tags. The `v2.3.*` and `v2.4.*` triggers are retired: they set one version on every package. `mastra` and `openai-agents` have no tag in v2.6.0 because they are not republished. To add a package, add an entry to `PACKAGES_BY_TAG_PREFIX` in the script, add its tag pattern to the workflow, and register the Trusted Publisher for it.
+- **Order**: bump `package.json` in a commit, merge it, then tag that commit and push the tag. Publish `client-v2.5.0` before `mcp-auth-v0.1.0`, because `mcp-auth` has the peer dependency `@asap-protocol/client` `^2.5.0`.
+- **Published dependency ranges**: `dependencies`, `peerDependencies`, and `optionalDependencies` must not hold a `workspace:` range, because `npm publish` does not rewrite it. The script refuses such a tag.
 - **Toolchain (GitHub-hosted)**: Trusted Publishing needs **npm CLI ≥ 11.5.1** and **Node.js ≥ 22.14** (see [npm: Trusted publishers](https://docs.npmjs.com/trusted-publishers/)). The workflow pins Node **22** and runs `npm install -g npm@11.5.1` before publish.
 - **Auth**: The `publish` job uses `permissions: id-token: write` and `npm publish --provenance`. **Do not** set `actions/setup-node` `registry-url` for the publish job unless you also supply a valid npm token only where needed — the default `NODE_AUTH_TOKEN` is `GITHUB_TOKEN`, which is **not** a valid npm credential and causes misleading **404** errors during publish.
-- **PRs**: Same workflow runs `npm publish --dry-run` only (no `id-token` required for that job path).
-- **Prereleases**: Versions with a semver prerelease segment (e.g. `2.3.1-rc.0`) must publish with an explicit dist-tag (workflow uses **`--tag rc`**) so `latest` is not moved to a prerelease.
+- **PRs**: Same workflow runs `npm publish --dry-run` only, for all four packages, and checks `client` and `mcp-auth` against their tag rule (no `id-token` required for that job path).
+- **Prereleases**: A version with a semver prerelease segment (for example `mcp-auth-v0.1.0-rc.1`) publishes under the **`rc`** dist-tag, so `latest` never moves to a prerelease. A stable version publishes under `latest`.
 
 ## § Bootstrap (one-time)
 
@@ -45,7 +54,7 @@ npm view @asap-protocol/client version
 
 ### 3. Trusted Publishing (GitHub Actions)
 
-1. Open [Package access — @asap-protocol/client](https://www.npmjs.com/package/@asap-protocol/client/access).
+1. Open [Package access — @asap-protocol/client](https://www.npmjs.com/package/@asap-protocol/client/access). Repeat these steps for every package that publishes from a tag, such as `@asap-protocol/mcp-auth`.
 2. Under **Trusted Publishers** → **GitHub Actions**, register:
    - **Repository**: `asap-protocol/asap-protocol`
    - **Workflow file**: `.github/workflows/publish-typescript.yml`
@@ -89,6 +98,6 @@ When Trusted Publishing or GitHub OIDC fails but you must ship a fix:
 
 ## References
 
-- [hotfix.md](./hotfix.md) — post-release hotfix decision tree, tags, and `.github/workflows/hotfix-release.yml`
+- [hotfix.md](./hotfix.md) — post-release hotfix decision tree and tags
 - [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers)
 - [GitHub: npm provenance](https://docs.github.com/en/actions/publishing-packages/publishing-nodejs-packages#publishing-packages-to-the-npmjs-registry)

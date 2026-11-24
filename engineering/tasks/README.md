@@ -6,9 +6,10 @@ Sprint roadmaps and release checklists per protocol version. Pair each folder wi
 
 ## Active / next
 
-| Folder | PRD | Status |
-|--------|-----|--------|
-| _(none)_ — create `v2.6.0/` at v2.6.0 Interop kickoff | [prd-interop.md](../../product/prd/prd-interop.md) | **NEXT** (now: Phase 0 reset, no active feature sprint) |
+| Work | PRD | Status |
+|------|-----|--------|
+| [v2.6.0 Interop](../../docs/guides/interoperability.md) | [prd-interop.md](../../product/prd/prd-interop.md) | **Current source version** |
+| v2.7.0 Spec profile | [prd-spec-profile.md](../../product/prd/prd-spec-profile.md) | **Next** |
 
 The **v2.5.x train is closed** at library **2.5.11**. The maintenance patches have no task folders. See [`CHANGELOG.md`](../../CHANGELOG.md). Planned scope ships only in minor releases ([release policy](../../docs/maintainers/release-policy.md)). Train index: [prd-roadmap.md](../../product/prd/prd-roadmap.md).
 
@@ -45,11 +46,10 @@ The **v2.5.x train is closed** at library **2.5.11**. The maintenance patches ha
 
 | Version | PRD | Blocked by |
 |---------|-----|------------|
-| v2.6.0 — Interop | [prd-interop.md](../../product/prd/prd-interop.md) | Phase 0 reset exit (telemetry baseline; release policy + support tiers published) |
 | v2.7.0 — Spec profile | [prd-spec-profile.md](../../product/prd/prd-spec-profile.md) | v2.6.0 Interop (the spec describes how ASAP layers on A2A / MCP) |
 | Economy (product track) | [prd-v3.0-economy.md](../../product/prd/prd-v3.0-economy.md) | Launch triggers; not tied to library v3.0.0 |
 
-Create `engineering/tasks/v{X}/` at each minor-release kickoff (next: `v2.6.0/`). Dist handoff checklist (inputs for the spec work): [v2.5.4/release-checklist.md §5.1](./v2.5.4/release-checklist.md#51-handoff-inputs-for-v255-confirm-at-s5).
+Create `engineering/tasks/v{X}/` at each minor release kickoff. The [Distribution Loop handoff checklist](./v2.5.4/release-checklist.md#51-handoff-inputs-for-v255-confirm-at-s5) lists the inputs for the Spec profile.
 
 ---
 

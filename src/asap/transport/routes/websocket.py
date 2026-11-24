@@ -10,7 +10,7 @@ from __future__ import annotations
 from fastapi import APIRouter, WebSocket
 
 from asap.auth import OAuth2Middleware
-from asap.transport.websocket import (
+from asap.transport.ws import (
     WS_CLOSE_GOING_AWAY,
     WS_CLOSE_REASON_SHUTDOWN,
     handle_websocket_connection,

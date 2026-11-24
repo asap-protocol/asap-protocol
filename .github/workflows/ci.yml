@@ -1,7 +1,10 @@
 # CI: path filter, quality (lint+typecheck), transport surface lint (D4),
-# test, coverage, and security.
+# test, coverage, security, and the live compliance flows (COMPAT-007).
 # Branch protection on main requires quality (python), quality (web),
 # test (python), test (web), coverage, security, and security (web).
+# Branch protection on release/2.6.0 should also require compliance (live
+# flows). It runs when the diff touches a path of the compliance_live filter,
+# and when path detection fails.
 # security (web) runs the npm audits when the diff touches apps/web/** or
 # .github/**, and when path detection fails. A python-only change skips it.
 # A skipped required check still passes. A real advisory fails the check and
@@ -23,6 +26,8 @@ on:
       - 'docs/**'
       - 'apps/web/**'
       - 'apps/example-agent/**'
+      - 'packages/typescript/**'
+      - 'pnpm-lock.yaml'
       - 'pyproject.toml'
       - 'uv.lock'
       - 'mkdocs.yml'
@@ -40,6 +45,8 @@ on:
       - 'docs/**'
       - 'apps/web/**'
       - 'apps/example-agent/**'
+      - 'packages/typescript/**'
+      - 'pnpm-lock.yaml'
       - 'pyproject.toml'
       - 'uv.lock'
       - 'mkdocs.yml'
@@ -62,7 +69,9 @@ jobs:
       contents: read
     outputs:
       python: ${{ steps.filter.outputs.python }}
+      optional_wheels: ${{ steps.filter.outputs.optional_wheels }}
       web: ${{ steps.filter.outputs.web }}
+      compliance_live: ${{ steps.filter.outputs.compliance_live }}
       # Prettier diffs this same SHA. One base for both consumers.
       base_sha: ${{ steps.diffbase.outputs.sha }}
     steps:
@@ -105,6 +114,8 @@ jobs:
           token: ""
           base: ${{ steps.diffbase.outputs.sha }}
           # docs/ is python: mkdocs build and tests/test_docs_links.py read it.
+          # apps/web/src/lib/a2a/ is python too: tests/adapters/a2a/test_extension_page.py
+          # checks its extension page data against the params model.
           # .github/ runs both stacks, because this workflow is what changed.
           filters: |
             python:
@@ -114,13 +125,34 @@ jobs:
               - 'asap-compliance/**'
               - 'examples/**'
               - 'apps/example-agent/**'
+              - 'apps/web/src/lib/a2a/**'
               - 'docs/**'
               - 'mkdocs.yml'
               - 'pyproject.toml'
               - 'uv.lock'
               - '.github/**'
+            optional_wheels:
+              - 'src/asap/integrations/**'
+              - 'scripts/check_optional_wheel.py'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - '.github/workflows/ci.yml'
             web:
               - 'apps/web/**'
+              - '.github/**'
+            # The live flows: both example servers, the harness, and what they import
+            # (the gateway's serve mode imports tests/auth/local_issuer.py).
+            compliance_live:
+              - 'src/asap/**'
+              - 'asap-compliance/**'
+              - 'examples/a2a_gateway/**'
+              - 'examples/mcp_auth_http/**'
+              - 'packages/typescript/**'
+              - 'tests/auth/local_issuer.py'
+              - 'scripts/compliance_live_flows.py'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - 'pnpm-lock.yaml'
               - '.github/**'
 
   lint-transport-growth:
@@ -159,6 +191,13 @@ jobs:
             mypy-${{ runner.os }}-${{ hashFiles('uv.lock', 'pyproject.toml') }}-
       - name: Type check with mypy
         run: uv run mypy src/ scripts/ tests/
+      # The root run excludes asap-compliance (pyproject.toml): its tests/ and the
+      # root tests/ are both the module "tests", which one mypy run refuses. So the
+      # package is checked from its own folder, with the root config (strict, and
+      # the relaxed tests.* profile for its tests).
+      - name: Type check asap-compliance with mypy
+        working-directory: asap-compliance
+        run: uv run --project .. mypy --config-file ../pyproject.toml asap_compliance tests
       - name: Build docs
         run: uv run mkdocs build
 
@@ -285,6 +324,33 @@ jobs:
           uv sync --frozen --group dev
           uv run pytest tests/ -q --tb=short
 
+  test-optional-wheels:
+    name: test (optional wheel extras)
+    runs-on: ubuntu-latest
+    needs: [changes]
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.optional_wheels == 'true') }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          enable-cache: true
+      - name: Install and test each extra from the wheel
+        env:
+          OTEL_SDK_DISABLED: 'true'
+        run: |
+          temp_dir=$(mktemp -d)
+          export CREWAI_STORAGE_DIR="$temp_dir/crew-storage"
+          uv build --python 3.13 --wheel --out-dir "$temp_dir"
+          wheels=("$temp_dir"/asap_protocol-*.whl)
+          for extra in crewai llamaindex; do
+            uv venv --python 3.13 --seed "$temp_dir/$extra"
+            python="$temp_dir/$extra/bin/python"
+            "$python" -I -m pip install "${wheels[0]}[$extra]"
+            "$python" -I -m pip check
+            "$python" -I "$GITHUB_WORKSPACE/scripts/check_optional_wheel.py" "$extra"
+          done
+
   test-web:
     name: test (web)
     runs-on: ubuntu-latest
@@ -307,6 +373,41 @@ jobs:
       - name: Vitest coverage
         run: npm run test:coverage
         working-directory: apps/web
+
+  # COMPAT-007 live flows: both compliance profiles against the two
+  # example servers, each started in its test-only compliance mode on 127.0.0.1
+  # (both bind loopback and check Host). Each live profile test runs its profile
+  # twice in a row against one server start, and the second run passes only with
+  # fresh tokens. The script fails the job unless both of those
+  # tests pass (a skip fails too), shows the log of a server that exits or does
+  # not answer within 60 s, and always stops both servers.
+  compliance-live:
+    name: compliance (live flows)
+    runs-on: ubuntu-latest
+    needs: [changes]
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.compliance_live == 'true') }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Setup Python
+        uses: ./.github/actions/setup-python
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413  # v6.1.0
+        with:
+          version: 9.15.4
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install the MCP example and its packages
+        run: pnpm install --frozen-lockfile --filter "@asap-protocol/mcp-auth..." --filter example-mcp-auth-http
+      - name: Build @asap-protocol/client and @asap-protocol/mcp-auth
+        run: |
+          pnpm --filter @asap-protocol/client run build
+          pnpm --filter @asap-protocol/mcp-auth run build
+      - name: Run both profiles against both examples
+        run: uv run python scripts/compliance_live_flows.py
 
   coverage:
     name: coverage
@@ -344,14 +445,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Setup Python
         uses: ./.github/actions/setup-python
-        with:
-          # Omit extras whose transitive deps have no OSV fix on PyPI (diskcache, nltk).
-          sync-flags: --no-extra crewai --no-extra llamaindex
       # CVE-2026-4539: pygments advisory with no patched PyPI release yet (override pins >=2.20 when available).
       # CVE-2026-4963 / CVE-2026-2654: smolagents optional extra; OSV lists no fix version on PyPI as of 2026-05 (see SECURITY.md).
       # PYSEC-2026-89 / PYSEC-2025-183 / PYSEC-2024-271: optional/transitive; see SECURITY.md.
       - name: Scan for vulnerabilities (pip-audit)
-        run: uv run pip-audit --ignore-vuln CVE-2026-4539 --ignore-vuln CVE-2026-4963 --ignore-vuln CVE-2026-2654 --ignore-vuln PYSEC-2024-271 --ignore-vuln PYSEC-2026-89 --ignore-vuln PYSEC-2025-183
+        run: uv run --no-sync pip-audit --ignore-vuln CVE-2026-4539 --ignore-vuln CVE-2026-4963 --ignore-vuln CVE-2026-2654 --ignore-vuln PYSEC-2024-271 --ignore-vuln PYSEC-2026-89 --ignore-vuln PYSEC-2025-183
       - name: Scan for security issues (bandit)
         run: uv run bandit -r src/ -ll
 

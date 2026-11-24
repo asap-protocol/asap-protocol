@@ -10,7 +10,23 @@ export {
   resumeAgent,
   resumeHost,
 } from "./identity.js";
-export type { AgentContext, AgentMode, HostContext } from "./identity.js";
+export type { AgentContext, AgentMode, HostContext, PublicJwk } from "./identity.js";
+
+export { InMemoryJtiReplayCache, JtiReplayCacheFullError } from "./jti-replay-cache.js";
+export type { InMemoryJtiReplayCacheOptions, JtiReplayCache } from "./jti-replay-cache.js";
+
+export { AgentJwtFailureReason } from "./agent-jwt-claims.js";
+export type { AgentJwtClaims } from "./agent-jwt-claims.js";
+export { verifyAgentJwt } from "./agent-jwt-verify.js";
+export type {
+  AgentJwtVerifyResult,
+  AgentKeyLookup,
+  AgentKeyResolver,
+  RejectedAgentJwt,
+  ResolvedAgentKey,
+  VerifiedAgentJwt,
+  VerifyAgentJwtOptions,
+} from "./agent-jwt-verify.js";
 
 export {
   DEFAULT_REGISTRY_URL,
