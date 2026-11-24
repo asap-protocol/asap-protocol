@@ -85,6 +85,23 @@ async def test_an_unsigned_card_fails_under_the_default_policy(
     assert raised.value.code == "asap:adapters/a2a/unsigned_card"
 
 
+async def test_an_unsigned_card_passes_under_allow_unsigned_marked_unverified() -> None:
+    card = _signed_card().model_copy(update={"signatures": None})
+    resolver = _trusting_k1()
+
+    result = await verify_agent_card(card, resolver, policy="allow_unsigned")
+
+    assert (result.verified, result.signer_kids, result.card) == (False, (), card)
+    assert resolver.calls == []
+
+
+async def test_a_present_invalid_signature_fails_even_under_allow_unsigned() -> None:
+    tampered = _signed_card().model_copy(update={"description": "Tampered"})
+
+    with pytest.raises(A2AInvalidSignatureError):
+        await verify_agent_card(tampered, _trusting_k1(), policy="allow_unsigned")
+
+
 @pytest.mark.parametrize("alg", ["none", "HS256"])
 async def test_none_and_hmac_fail_the_card_before_any_key_lookup(alg: str) -> None:
     card = _add(_signed_card(), forged_signature({"alg": alg, "kid": "k1"}))
@@ -134,8 +151,9 @@ async def test_a_malformed_entry_fails_the_card_before_any_key_lookup() -> None:
         {"algorithms": ["none"]},
         {"algorithms": ["PS256"]},
         {"algorithms": []},
+        {"policy": "allow-unsigned"},
     ],
 )
 async def test_a_misconfigured_verifier_raises_value_error(options: dict[str, Any]) -> None:
-    with pytest.raises(ValueError, match="algorithms"):
+    with pytest.raises(ValueError, match="algorithms|policy"):
         await verify_agent_card(_signed_card(), _trusting_k1(), **options)

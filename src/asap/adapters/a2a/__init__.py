@@ -83,6 +83,7 @@ from asap.adapters.a2a.unmapped import (
 from asap.adapters.a2a.verification import (
     CardKeyResolver,
     CardVerification,
+    SignaturePolicy,
     verify_agent_card,
 )
 
@@ -133,6 +134,7 @@ __all__ = [
     "PasswordOAuthFlow",
     "SecurityRequirement",
     "SecurityScheme",
+    "SignaturePolicy",
     "SkillSchemas",
     "StringList",
     "UNMAPPED_CARD_FIELDS",

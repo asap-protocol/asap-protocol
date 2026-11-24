@@ -18,6 +18,7 @@ from __future__ import annotations
 import base64
 from collections.abc import Awaitable, Callable, Collection
 from dataclasses import dataclass
+from typing import Literal
 
 from asap.adapters.a2a.canonical import canonical_card_form
 from asap.adapters.a2a.errors import A2ANoTrustedSignatureError, A2AUnsignedCardError
@@ -28,10 +29,20 @@ from asap.adapters.a2a.signature_keys import CARD_VERIFY_ALGORITHMS, CardKey, ch
 CardKeyResolver = Callable[[str, str | None], Awaitable[CardKey | None]]
 """``(kid, jku) -> key``: a trusted public key for *kid*, or ``None`` if it is not trusted."""
 
+SignaturePolicy = Literal["require_signature", "allow_unsigned"]
+"""A signature is required by default; ``allow_unsigned`` is an explicit opt-in."""
+
+_POLICIES: tuple[SignaturePolicy, ...] = ("require_signature", "allow_unsigned")
+
 
 @dataclass(frozen=True, slots=True)
 class CardVerification:
-    """Result of :func:`verify_agent_card`: ``signer_kids`` lists the keys whose signature verified."""
+    """Result of :func:`verify_agent_card`.
+
+    ``verified`` is false only for an unsigned card accepted under
+    ``allow_unsigned``: such a card is unverified data. ``signer_kids`` lists
+    the keys whose signature verified.
+    """
 
     card: AgentCard
     verified: bool
@@ -43,17 +54,21 @@ async def verify_agent_card(
     key_resolver: CardKeyResolver,
     *,
     algorithms: Collection[str] = CARD_VERIFY_ALGORITHMS,
+    policy: SignaturePolicy = "require_signature",
 ) -> CardVerification:
     """Check the signatures of *card*; return the result or raise a typed error.
 
-    An error raised by *key_resolver* propagates, so the card fails.
+    An error raised by *key_resolver* propagates, so the card fails. Under
+    ``allow_unsigned``, a card with signatures is still checked in full: a
+    present, invalid signature never makes it "unsigned".
 
     Raises:
-        A2AUnsignedCardError: The card has no signature.
+        A2AUnsignedCardError: No signature, and *policy* requires one.
         A2AInvalidSignatureError: A signature fails the card.
         A2ANoTrustedSignatureError: Every signature was skipped.
         A2ACanonicalFormError: The card has no canonical form.
-        ValueError: *algorithms* is not a non-empty subset of the default.
+        ValueError: *algorithms* is not a non-empty subset of the default, or
+            *policy* is not a :data:`SignaturePolicy`.
 
     Example:
         >>> result = await verify_agent_card(card, resolver)  # doctest: +SKIP
@@ -61,7 +76,11 @@ async def verify_agent_card(
         ('agent-key-1',)
     """
     allowed = _checked_algorithms(algorithms)
+    if policy not in _POLICIES:
+        raise ValueError(f"policy must be one of {list(_POLICIES)}, got {policy!r}")
     if not card.signatures:
+        if policy == "allow_unsigned":
+            return CardVerification(card=card, verified=False, signer_kids=())
         raise A2AUnsignedCardError(card.name)
     entries = read_card_signatures(card.signatures)
     form = canonical_card_form(card)
