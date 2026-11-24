@@ -391,7 +391,7 @@ This adapter protects **native stdio `MCPServer`** (Mode A). MCP invoked inside 
 
 ### Install
 
-The package needs Node.js 20 or later, and it serves MCP protocol revision `2026-07-28` only. It has two peer dependencies: `@modelcontextprotocol/server` 2.4.0 or a later 2.x release, and `@asap-protocol/client` 2.5.0 or a later 2.x release (it verifies Agent JWTs).
+On Node.js 20.x, the package requires version 20.19.0 or later. It also supports Node.js 22.12.0 and later. It serves only MCP revision `2026-07-28`. It has two peer dependencies: `@modelcontextprotocol/server` 2.4.0 or a later 2.x release, and `@asap-protocol/client` 2.5.0 or a later 2.x release (it verifies Agent JWTs).
 
 ```bash
 npm install @asap-protocol/mcp-auth @asap-protocol/client @modelcontextprotocol/server @modelcontextprotocol/node zod
