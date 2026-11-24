@@ -334,7 +334,7 @@ ASAP_COMPLIANCE_A2A_GATEWAY_URL=http://127.0.0.1:8788 \
 uv run pytest asap-compliance/tests/ -m "mcp_http_live or a2a_gateway_live"
 ```
 
-The `a2a-bridge` live test copies the card key from the probe set, as the demo step above does.
+The `a2a-bridge` live test copies the card key from the probe set, as the demo step above does. In CI, the job `compliance (live flows)` starts both examples and runs these tests with `scripts/compliance_live_flows.py`; it fails when either profile test did not pass, a skip included.
 
 ## See Also
 

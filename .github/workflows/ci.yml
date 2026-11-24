@@ -1,5 +1,5 @@
 # CI: path filter, quality (lint+typecheck), transport surface lint (D4),
-# test, coverage, and security.
+# test, coverage, security, and the live compliance flows (COMPAT-007).
 # Branch protection on main requires quality (python), quality (web),
 # test (python), test (web), coverage, security, and security (web).
 # security (web) runs the npm audits when the diff touches apps/web/** or
@@ -23,6 +23,8 @@ on:
       - 'docs/**'
       - 'apps/web/**'
       - 'apps/example-agent/**'
+      - 'packages/typescript/**'
+      - 'pnpm-lock.yaml'
       - 'pyproject.toml'
       - 'uv.lock'
       - 'mkdocs.yml'
@@ -39,6 +41,8 @@ on:
       - 'docs/**'
       - 'apps/web/**'
       - 'apps/example-agent/**'
+      - 'packages/typescript/**'
+      - 'pnpm-lock.yaml'
       - 'pyproject.toml'
       - 'uv.lock'
       - 'mkdocs.yml'
@@ -62,6 +66,7 @@ jobs:
     outputs:
       python: ${{ steps.filter.outputs.python }}
       web: ${{ steps.filter.outputs.web }}
+      compliance_live: ${{ steps.filter.outputs.compliance_live }}
       # Prettier diffs this same SHA. One base for both consumers.
       base_sha: ${{ steps.diffbase.outputs.sha }}
     steps:
@@ -123,6 +128,20 @@ jobs:
               - '.github/**'
             web:
               - 'apps/web/**'
+              - '.github/**'
+            # The live flows: both example servers, the harness, and what they import
+            # (the gateway's serve mode imports tests/auth/local_issuer.py).
+            compliance_live:
+              - 'src/asap/**'
+              - 'asap-compliance/**'
+              - 'examples/a2a_gateway/**'
+              - 'examples/mcp_auth_http/**'
+              - 'packages/typescript/**'
+              - 'tests/auth/local_issuer.py'
+              - 'scripts/compliance_live_flows.py'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - 'pnpm-lock.yaml'
               - '.github/**'
 
   lint-transport-growth:
@@ -316,6 +335,41 @@ jobs:
       - name: Vitest coverage
         run: npm run test:coverage
         working-directory: apps/web
+
+  # COMPAT-007 live flows: both compliance profiles against the two
+  # example servers, each started in its test-only compliance mode on 127.0.0.1
+  # (both bind loopback and check Host). Each live profile test runs its profile
+  # twice in a row against one server start, and the second run passes only with
+  # fresh tokens. The script fails the job unless both of those
+  # tests pass (a skip fails too), shows the log of a server that exits or does
+  # not answer within 60 s, and always stops both servers.
+  compliance-live:
+    name: compliance (live flows)
+    runs-on: ubuntu-latest
+    needs: [changes]
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.compliance_live == 'true') }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Setup Python
+        uses: ./.github/actions/setup-python
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413  # v6.1.0
+        with:
+          version: 9.15.4
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install the MCP example and its packages
+        run: pnpm install --frozen-lockfile --filter "@asap-protocol/mcp-auth..." --filter example-mcp-auth-http
+      - name: Build @asap-protocol/client and @asap-protocol/mcp-auth
+        run: |
+          pnpm --filter @asap-protocol/client run build
+          pnpm --filter @asap-protocol/mcp-auth run build
+      - name: Run both profiles against both examples
+        run: uv run python scripts/compliance_live_flows.py
 
   coverage:
     name: coverage

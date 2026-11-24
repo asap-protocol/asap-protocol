@@ -12,10 +12,14 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+import yaml  # type: ignore[import-untyped]  # PyYAML ships with the docs toolchain; no stubs installed
 
 from scripts.compliance_live_flows import (
+    REQUIRED_LIVE_TESTS,
+    REPO_ROOT,
     LiveFlowError,
     ensure_port_free,
+    live_tests_not_passed,
     start_server,
     stop_server,
     wait_until_ready,
@@ -103,3 +107,40 @@ def test_a_port_in_use_is_refused_before_a_server_starts() -> None:
 
         with pytest.raises(LiveFlowError, match=f"127.0.0.1:{port} is in use"):
             ensure_port_free(port)
+
+
+def _junit(tmp_path: Path, *cases: tuple[str, str]) -> Path:
+    rows = [(*test_id.split("::"), outcome) for test_id, outcome in cases]
+    xml = "".join(f'<testcase classname="{c}" name="{n}">{o}</testcase>' for c, n, o in rows)
+    path = tmp_path / "live.xml"
+    path.write_text(f"<testsuites><testsuite>{xml}</testsuite></testsuites>")
+    return path
+
+
+def test_the_run_passes_only_when_both_profile_tests_passed(tmp_path: Path) -> None:
+    a2a, mcp = REQUIRED_LIVE_TESTS
+
+    assert live_tests_not_passed(_junit(tmp_path, (a2a, ""), (mcp, ""))) == []
+    # A skip (no URL in the environment) or a missing test proves nothing.
+    assert live_tests_not_passed(_junit(tmp_path, (a2a, "<skipped/>"))) == [a2a, mcp]
+    assert live_tests_not_passed(_junit(tmp_path, (a2a, ""), (mcp, "<failure/>"))) == [mcp]
+
+
+def test_the_ci_job_runs_the_script_when_either_flow_can_change() -> None:
+    workflow = yaml.safe_load((REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8"))
+    filters = yaml.safe_load(workflow["jobs"]["changes"]["steps"][-1]["with"]["filters"])
+    watched = {
+        "packages/typescript/**",
+        "examples/mcp_auth_http/**",
+        "examples/a2a_gateway/**",
+        "asap-compliance/**",
+        "src/asap/**",
+        "tests/auth/local_issuer.py",
+    }
+
+    assert watched <= set(filters["compliance_live"])
+    triggers = workflow.get("on", workflow.get(True))  # YAML 1.1 reads a bare `on` key as True
+    for event in ("push", "pull_request"):
+        assert "packages/typescript/**" in triggers[event]["paths"]
+    steps = workflow["jobs"]["compliance-live"]["steps"]
+    assert any("scripts/compliance_live_flows.py" in step.get("run", "") for step in steps)
