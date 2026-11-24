@@ -35,6 +35,7 @@ function middleware(overrides: Partial<McpAuthConfig> = {}) {
       issuers: [{ issuer: ISSUER, audience: MCP_ENDPOINT, jwksUri: JWKS_URI }],
       jwksFetch: { fetch: fakeFetch, nowMs: () => clockMs, refreshCooldownMs: 30_000, maxBytes: 1024, timeoutMs: 20 },
     },
+    toolCapabilities: { [PROTECTED_TOOL]: PROTECTED_TOOL },
     ...overrides,
   });
 }

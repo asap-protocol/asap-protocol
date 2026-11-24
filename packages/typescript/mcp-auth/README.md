@@ -33,6 +33,7 @@ const auth = createMcpAuthMiddleware({
     resolveAgent: async ({ agentId, hostThumbprint }) => lookUpAgent(agentId, hostThumbprint),
   },
   publicTools: ["echo"],
+  toolCapabilities: { secure_action: "secure_action" }, // every protected tool (deny by default)
   resourceMetadataUrl: "https://mcp.example.com/.well-known/oauth-protected-resource/mcp",
   onInternalError: (error) => logger.error(error), // the package itself never logs
 });
@@ -45,13 +46,14 @@ createServer(toNodeHandler(app)).listen(8787);
 `resolveAgent` returns the agent's Ed25519 public JWK and whether the agent is usable (see `verifyAgentJwt` in `@asap-protocol/client`). A tool reads the verified agent as `ctx.http?.authInfo?.extra?.principal`.
 
 - **Requests with no token.** A request without an `Authorization` header passes with no auth info only when it sends `MCP-Protocol-Version: 2026-07-28` and either calls a public tool (`Mcp-Method: tools/call`, `Mcp-Name: <tool>`) or is `tools/list` or `server/discover`. Any other request with no token gets HTTP 401. The rule reads headers only, before the SDK parses the body.
-- **Requests with a token.** The token is always verified, also for a public tool.
+- **Requests with a token.** The token is always verified, also for a public tool. Then the same header rule applies, deny by default: the request must send `MCP-Protocol-Version: 2026-07-28`, and it may call only a tool in `publicTools` or `toolCapabilities`, `tools/list`, `server/discover`, or a method in `allowMethods` (for example `"resources/read"`). Anything else gets HTTP 403 before any handler runs. A method in `allowMethods` runs with no grant check, and every tool in `toolCapabilities` must be wrapped with `protectTool`.
 - **Single use.** An Agent JWT lives 60 seconds and is single-use, so a client mints one per request. With the SDK client: `new StreamableHTTPClientTransport(url, { authProvider: { token: () => agent.signAgentJwt({ aud }) } })`. The default replay cache is in memory; several server instances behind one audience need a shared `JtiReplayCache`.
 
 | Case | HTTP answer |
 |------|-------------|
 | No token | 401, `WWW-Authenticate: Bearer resource_metadata="<url>"` (or `Bearer`), body `{"error":"invalid_token","error_description":"asap:auth_required"}` |
 | Bad, expired, wrong-audience, or replayed token | 401, `WWW-Authenticate: Bearer error="invalid_token", error_description="asap:invalid_token: <reason>", resource_metadata="<url>"`, the same text in the body |
+| A verified token for a tool or method that the config does not declare | 403, `WWW-Authenticate: Bearer error="insufficient_scope", error_description="asap:capability_denied", resource_metadata="<url>"`, body `{"error":"insufficient_scope","error_description":"asap:capability_denied"}`. No `scope` parameter: no scope grants an undeclared method |
 | The resolver or the replay cache throws | 500, body `{"error":"server_error","error_description":"Internal Server Error"}`; the error goes to `onInternalError` |
 
 `<reason>` is a fixed string, such as `audience mismatch` or `jti replay detected`. No answer holds the token or any claim value.
@@ -65,7 +67,7 @@ import { createMcpAuthMiddleware, staticAgentGrants } from "@asap-protocol/mcp-a
 
 const auth = createMcpAuthMiddleware({
   agentJwt: { audience, resolveAgent },
-  toolCapabilities: { secure_action: "secure_action" }, // tool name → capability; default: the tool name
+  toolCapabilities: { secure_action: "secure_action" }, // tool name → capability, for every protected tool
   agentGrants: staticAgentGrants({
     [agentId]: [{ capability: "secure_action", constraints: { action: { not_in: ["drop-tables"] } } }],
   }),
@@ -108,6 +110,7 @@ const auth = createMcpAuthMiddleware({
       ],
     }],
   },
+  toolCapabilities: { secure_action: "secure_action" },
   resourceMetadataUrl: getOAuthProtectedResourceMetadataUrl(resource),
 });
 
@@ -146,7 +149,7 @@ What this does **not** give: in a JavaScript runtime, `fetch` resolves the host 
 |------|--------|
 | No token | HTTP 401, `asap:auth_required` |
 | Invalid, expired, or wrong-audience token | HTTP 401, `asap:invalid_token` |
-| Capability not granted | Tool result with `isError: true`, `asap:capability_denied`. On the external-token path, HTTP 403 `insufficient_scope` when a scope rule can give the grant |
+| Capability not granted | Tool result with `isError: true`, `asap:capability_denied`. On the external-token path, HTTP 403 `insufficient_scope` when a scope rule can give the grant. On both paths, HTTP 403 for a tool or method that the config does not declare |
 | Constraint violated | Tool result with `isError: true`, `asap:constraint_violation` |
 
 ## Links

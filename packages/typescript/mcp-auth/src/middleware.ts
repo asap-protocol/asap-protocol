@@ -15,7 +15,7 @@ import { McpAuthErrorCode } from "./errors.js";
 import type { ExternalTokenConfig } from "./external-issuers.js";
 import { createExternalTokenVerifier } from "./external-token-verifier.js";
 import { createGrantLayer, type AgentGrantResolver, type ProtectTool } from "./grant-layer.js";
-import { isPublicMcpRequest } from "./public-request.js";
+import { isAllowedMcpRequest, isPublicMcpRequest } from "./public-request.js";
 import { JwksUnavailableError } from "./remote-jwks.js";
 
 /** Set `agentJwt`, `externalTokens`, or both. */
@@ -30,10 +30,23 @@ export interface McpAuthConfig {
    * the server is the resource server of MCP authorization (OAuth 2.1).
    */
   readonly externalTokens?: ExternalTokenConfig;
-  /** Tools that a request with no token may call, under the header rule. */
+  /** Tools that a request with no token may call, under the header rule. A request with a token may call them too. */
   readonly publicTools?: readonly string[];
-  /** Tool name → ASAP capability for `protectTool`. A tool that is not listed uses its own name. */
+  /**
+   * The protected tools: tool name → ASAP capability. Deny by default: a
+   * request with a token may call only the tools listed here and in
+   * `publicTools`; any other `tools/call` gets HTTP 403. Wrap each listed tool
+   * with `protectTool`, which checks the grant.
+   */
   readonly toolCapabilities?: Readonly<Record<string, string>>;
+  /**
+   * Methods, besides `tools/call`, `tools/list`, and `server/discover`, that a
+   * request with a verified token may call, such as `"resources/read"` or
+   * `"prompts/get"`. Default: none, so every other method gets HTTP 403
+   * before any handler runs. A listed method runs with no grant check. It
+   * cannot list `"tools/call"`, and it opens nothing to a request with no token.
+   */
+  readonly allowMethods?: readonly string[];
   /** The grants of a verified Agent JWT principal, for example `staticAgentGrants(...)`. Default: none (deny). */
   readonly agentGrants?: AgentGrantResolver;
   /** RFC 9728 metadata URL: `resource_metadata` in every 401 challenge, and in `AuthInfo` for the SDK's 403 challenge. */
@@ -60,8 +73,9 @@ export interface McpProtectedHandler {
 export interface McpAuthMiddleware {
   /**
    * The token layer: `AuthInfo` for a verified token, `undefined` for a public
-   * request with no token, or the `Response` to return (401; 503 when an
-   * issuer's keys cannot be fetched; 500 with no detail). It never throws.
+   * request with no token, or the `Response` to return (401; 403 for a
+   * verified token on a tool or method that the config does not declare; 503
+   * when an issuer's keys cannot be fetched; 500 with no detail). It never throws.
    */
   authenticate(request: Request): Promise<AuthInfo | Response | undefined>;
   /**
@@ -95,6 +109,8 @@ export interface McpAuthMiddleware {
 const BEARER_AUTHORIZATION_PATTERN = /^Bearer +([A-Za-z0-9\-._~+/]+=*)$/i;
 const MALFORMED_AUTHORIZATION_REASON = "malformed Authorization header";
 const KEY_SOURCE_UNAVAILABLE_TEXT = "Authentication service unavailable";
+// The SDK decodes this form of Mcp-Name before it compares it with the body.
+const BASE64_SENTINEL_PREFIX = "=?base64?";
 
 /** No token: per RFC 6750 §3.1 the challenge has no `error` parameter; the body still names the ASAP code. */
 function authRequiredResponse(resourceMetadataUrl: string | undefined): Response {
@@ -111,6 +127,27 @@ function authRequiredResponse(resourceMetadataUrl: string | undefined): Response
 function keySourceUnavailableResponse(error: JwksUnavailableError): Response {
   const body = new OAuthError(OAuthErrorCode.TemporarilyUnavailable, KEY_SOURCE_UNAVAILABLE_TEXT).toResponseObject();
   return Response.json(body, { status: 503, headers: { "Retry-After": String(error.retryAfterSeconds) } });
+}
+
+/**
+ * A verified token for a tool or method that the config does not declare
+ * (deny by default). The same shape as the external-token scope challenge,
+ * with no `scope` parameter, because no scope grants an undeclared method.
+ */
+function capabilityDeniedResponse(resourceMetadataUrl: string | undefined): Response {
+  const error = new OAuthError(OAuthErrorCode.InsufficientScope, McpAuthErrorCode.CapabilityDenied);
+  return bearerAuthChallengeResponse(error, { resourceMetadataUrl });
+}
+
+/** What a verified token may reach (deny by default). A config that would weaken the header rule is a `TypeError`. */
+function tokenSurface(config: McpAuthConfig): { callableTools: ReadonlySet<string>; allowMethods: ReadonlySet<string> } {
+  const callableTools = new Set([...(config.publicTools ?? []), ...Object.keys(config.toolCapabilities ?? {})]);
+  // The header rule compares the raw Mcp-Name; a name in the encoded form would match a different decoded tool.
+  const encoded = [...callableTools].find((tool) => tool.startsWith(BASE64_SENTINEL_PREFIX));
+  if (encoded !== undefined) throw new TypeError(`tool name ${JSON.stringify(encoded)} has the base64 form of an Mcp-Name value; choose another name`);
+  const allowMethods = new Set(config.allowMethods);
+  if (allowMethods.has("tools/call")) throw new TypeError('allowMethods cannot list "tools/call": publicTools and toolCapabilities name the tools a token may call');
+  return { callableTools, allowMethods };
 }
 
 function invalidTokenResponse(reason: string, resourceMetadataUrl: string | undefined): Response {
@@ -142,8 +179,10 @@ function tokenVerifierRouter(agent?: OAuthTokenVerifier, external?: OAuthTokenVe
  * Create the ASAP auth middleware for an HTTP MCP server on
  * `@modelcontextprotocol/server` 2.x (MCP-TS-001). The token layer runs on the
  * headers, before the SDK parses the body. A request that carries a token is
- * always verified, even for a public tool. It throws a `TypeError` for a
- * config with no token type or an invalid issuer config.
+ * always verified, even for a public tool, and then reaches only the tools and
+ * methods that the config declares (deny by default). It throws a `TypeError`
+ * for a config with no token type, an invalid issuer config, or `tools/call`
+ * in `allowMethods`.
  *
  * @example
  * ```ts
@@ -161,6 +200,7 @@ export function createMcpAuthMiddleware(config: McpAuthConfig): McpAuthMiddlewar
     config.externalTokens && createExternalTokenVerifier(config.externalTokens),
   );
   const publicTools: ReadonlySet<string> = new Set(config.publicTools);
+  const { callableTools, allowMethods } = tokenSurface(config);
   // URL#href percent-encodes quotes, backslashes, and spaces, so it is safe inside a quoted-string.
   const resourceMetadataUrl = config.resourceMetadataUrl === undefined ? undefined : new URL(config.resourceMetadataUrl).href;
 
@@ -181,9 +221,9 @@ export function createMcpAuthMiddleware(config: McpAuthConfig): McpAuthMiddlewar
     if (token === undefined) {
       return invalidTokenResponse(MALFORMED_AUTHORIZATION_REASON, resourceMetadataUrl);
     }
+    let authInfo: AuthInfo;
     try {
-      const authInfo = await verifierFor(token).verifyAccessToken(token);
-      return resourceMetadataUrl === undefined ? authInfo : { ...authInfo, resourceMetadataUrl };
+      authInfo = await verifierFor(token).verifyAccessToken(token);
     } catch (error) {
       // The verifier throws OAuthError only with fixed text; a key source that cannot be
       // reached is a 503; anything else is a 500 with no detail.
@@ -195,6 +235,10 @@ export function createMcpAuthMiddleware(config: McpAuthConfig): McpAuthMiddlewar
       }
       return bearerAuthChallengeResponse(error, { resourceMetadataUrl });
     }
+    if (!isAllowedMcpRequest(request.headers, callableTools, allowMethods)) {
+      return capabilityDeniedResponse(resourceMetadataUrl);
+    }
+    return resourceMetadataUrl === undefined ? authInfo : { ...authInfo, resourceMetadataUrl };
   }
 
   function protect(handler: McpFetchHandler): McpProtectedHandler {
