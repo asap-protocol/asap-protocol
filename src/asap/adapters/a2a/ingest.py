@@ -2,9 +2,9 @@
 
 The steps run in this order (COMPAT-005, COMPAT-006): fetch
 the card through :func:`asap.utils.guarded_fetch.guarded_fetch_json`; parse it;
-verify its signatures under the :class:`A2ATrustConfig`; refuse a signed card
-whose ASAP extension params hold values that no signature covers; map the
-parsed card (:func:`asap.adapters.a2a.agent_card_to_manifest`). A card that fails a step
+verify its signatures under the :class:`A2ATrustConfig` (which also refuses a
+signed card whose ASAP extension params hold values that no signature covers);
+map the parsed card (:func:`asap.adapters.a2a.agent_card_to_manifest`). A card that fails a step
 is never mapped and never cached, and every failure is an
 :class:`asap.adapters.a2a.A2AAdapterError`.
 
@@ -30,10 +30,8 @@ from asap.adapters.a2a.canonical import canonical_card_form
 from asap.adapters.a2a.errors import (
     A2ACardFetchError,
     A2AMappingError,
-    A2AUncoveredExtensionError,
     describe_url,
 )
-from asap.adapters.a2a.extension import ASAP_EXTENSION_URI
 from asap.adapters.a2a.mapping import agent_card_to_manifest
 from asap.adapters.a2a.models import AgentCard
 from asap.adapters.a2a.trust import A2AKeyResolver, A2ATrustConfig
@@ -141,21 +139,7 @@ class AgentCardIngestor:
             # anyway: a card that has none (nested too deep) must fail typed here,
             # not inside the mapping.
             canonical_card_form(card)
-        _require_covered_asap_params(verification)
         return verification
-
-
-def _require_covered_asap_params(verification: CardVerification) -> None:
-    """Refuse a signed card whose ASAP extension params hold a value no signature covers."""
-    extensions = verification.card.capabilities.extensions or []
-    prefixes = tuple(
-        f"capabilities.extensions[{index}].params"
-        for index, extension in enumerate(extensions)
-        if extension.uri == ASAP_EXTENSION_URI
-    )
-    uncovered = [path for path in verification.uncovered if prefixes and path.startswith(prefixes)]
-    if uncovered:
-        raise A2AUncoveredExtensionError(verification.card.name, uncovered)
 
 
 def _parse_card(url: str, document: dict[str, Any]) -> AgentCard:

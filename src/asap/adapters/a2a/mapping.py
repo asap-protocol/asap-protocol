@@ -149,9 +149,17 @@ def agent_card_to_manifest(
     The URN, the endpoints, the ASAP version, state persistence, and the skill
     schemas come from the card's ASAP extension. A card without it needs
     ``agent_id`` and ``endpoints`` from the caller. When the card has it, a
-    value that the caller also passes must equal the card's. Map only a card
-    whose signature was verified; the manifest is built from the
-    parsed model, so a field outside the A2A v1.0 schema never reaches it.
+    value that the caller also passes must equal the card's. The manifest is
+    built from the parsed model, so a field outside the A2A v1.0 schema never
+    reaches it, and no value that :func:`asap.adapters.a2a.canonical_card_form`
+    reports as uncovered outside the ASAP extension params is mapped.
+
+    This function checks no signature. Map the ``card`` of a
+    :class:`asap.adapters.a2a.CardVerification` whose ``verified`` is true:
+    :func:`asap.adapters.a2a.verify_agent_card` refuses a card whose ASAP
+    extension params hold a value that no signature covers, so then every
+    mapped value is covered. :class:`asap.adapters.a2a.AgentCardIngestor`
+    does both steps.
     ``dropped`` lists each card value of :data:`UNMAPPED_CARD_FIELDS` that the
     manifest does not carry.
 

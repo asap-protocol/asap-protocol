@@ -11,21 +11,28 @@ Rules (``docs/guides/interoperability.md``, "Signed Agent Cards"):
   ``a2a-sdk`` 1.3.1 is laxer: it stops at the first valid signature.
 - The bytes checked are the canonical form of the parsed card, so a field
   outside the A2A v1.0 schema is never covered and never in the result.
+- A signed card whose ASAP extension params hold a value that the canonical
+  form drops or rounds fails: the params become manifest data, and a stripped
+  ``enum: []`` would map as a looser schema. Other uncovered values are
+  reported in ``uncovered``; the mapping carries none of them.
 """
 
 from __future__ import annotations
 
 import base64
-from collections.abc import Awaitable, Callable, Collection
+import re
+from collections.abc import Awaitable, Callable, Collection, Sequence
 from dataclasses import dataclass
 from typing import Literal
 
 from asap.adapters.a2a.canonical import canonical_card_form
 from asap.adapters.a2a.errors import (
     A2ANoTrustedSignatureError,
+    A2AUncoveredExtensionError,
     A2AUnsignedCardError,
     quoted_prefix,
 )
+from asap.adapters.a2a.extension import ASAP_EXTENSION_URI
 from asap.adapters.a2a.models import AgentCard
 from asap.adapters.a2a.signature_header import read_card_signatures
 from asap.adapters.a2a.signature_keys import CARD_VERIFY_ALGORITHMS, CardKey, check_card_signature
@@ -37,6 +44,7 @@ SignaturePolicy = Literal["require_signature", "allow_unsigned"]
 """A signature is required by default; ``allow_unsigned`` is an explicit opt-in."""
 
 _POLICIES: tuple[SignaturePolicy, ...] = ("require_signature", "allow_unsigned")
+_EXTENSION_PARAMS_PATH = re.compile(r"capabilities\.extensions\[(\d+)\]\.params")
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,8 +55,9 @@ class CardVerification:
     ``allow_unsigned``: such a card is unverified data. ``signer_kids`` lists
     the keys whose signature verified. ``uncovered`` lists the values of a
     verified card that no signature covers, by path (see
-    :func:`asap.adapters.a2a.canonical_card_form`); it is empty when
-    ``verified`` is false, because then nothing is covered.
+    :func:`asap.adapters.a2a.canonical_card_form`); none of them is inside
+    the ASAP extension params, and it is empty when ``verified`` is false,
+    because then nothing is covered.
     """
 
     card: AgentCard
@@ -74,6 +83,8 @@ async def verify_agent_card(
         A2AUnsignedCardError: No signature, and *policy* requires one.
         A2AInvalidSignatureError: A signature fails the card.
         A2ANoTrustedSignatureError: Every signature was skipped.
+        A2AUncoveredExtensionError: The card verified, and its ASAP extension
+            params hold a value that no signature covers.
         A2ACanonicalFormError: The card has no canonical form.
         ValueError: *algorithms* is not a non-empty subset of the default, or
             *policy* is not a :data:`SignaturePolicy`.
@@ -112,9 +123,27 @@ async def verify_agent_card(
         signer_kids.append(entry.kid)
     if not signer_kids:
         raise A2ANoTrustedSignatureError(card.name, skipped)
+    _require_covered_asap_params(card, form.uncovered)
     return CardVerification(
         card=card, verified=True, signer_kids=tuple(signer_kids), uncovered=form.uncovered
     )
+
+
+def _require_covered_asap_params(card: AgentCard, uncovered: Sequence[str]) -> None:
+    """Refuse a signed card whose ASAP extension params hold a value no signature covers.
+
+    One pass over the paths, with a set of ASAP extension indexes: a card that
+    lists the extension many times must not cost paths times entries.
+    """
+    extensions = card.capabilities.extensions or []
+    asap = {index for index, ext in enumerate(extensions) if ext.uri == ASAP_EXTENSION_URI}
+    inside = [
+        path
+        for path in uncovered
+        if (match := _EXTENSION_PARAMS_PATH.match(path)) and int(match.group(1)) in asap
+    ]
+    if inside:
+        raise A2AUncoveredExtensionError(card.name, inside)
 
 
 def _checked_algorithms(algorithms: Collection[str]) -> frozenset[str]:
