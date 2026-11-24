@@ -15,6 +15,8 @@ Example::
 
 from __future__ import annotations
 
+from typing import Any
+
 from asap_compliance.validators.http_answers import (
     AUTH_REQUIRED_401,
     CAPABILITY_DENIED_403,
