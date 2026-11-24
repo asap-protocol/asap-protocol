@@ -105,6 +105,8 @@ jobs:
           token: ""
           base: ${{ steps.diffbase.outputs.sha }}
           # docs/ is python: mkdocs build and tests/test_docs_links.py read it.
+          # apps/web/src/lib/a2a/ is python too: tests/adapters/a2a/test_extension_page.py
+          # checks its extension page data against the params model.
           # .github/ runs both stacks, because this workflow is what changed.
           filters: |
             python:
@@ -114,6 +116,7 @@ jobs:
               - 'asap-compliance/**'
               - 'examples/**'
               - 'apps/example-agent/**'
+              - 'apps/web/src/lib/a2a/**'
               - 'docs/**'
               - 'mkdocs.yml'
               - 'pyproject.toml'

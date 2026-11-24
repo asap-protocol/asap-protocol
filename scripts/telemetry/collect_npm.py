@@ -24,6 +24,7 @@ DEFAULT_PERIOD = "last-week"
 DEFAULT_PACKAGES: tuple[str, ...] = (
     "@asap-protocol/client",
     "@asap-protocol/mastra",
+    "@asap-protocol/mcp-auth",
     "@asap-protocol/openai-agents",
 )
 REQUEST_TIMEOUT_SECONDS = 30.0
@@ -118,9 +119,7 @@ def main(argv: list[str] | None = None) -> int:
         dest="packages",
         metavar="NAME",
         help=(
-            "npm package name (repeatable). Defaults to "
-            "@asap-protocol/client, @asap-protocol/mastra, and "
-            "@asap-protocol/openai-agents when omitted."
+            f"npm package name (repeatable). Defaults to {', '.join(DEFAULT_PACKAGES)} when omitted."
         ),
     )
     parser.add_argument(

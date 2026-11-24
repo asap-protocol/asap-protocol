@@ -13,6 +13,7 @@ from scripts.telemetry.collect_npm import (
     _downloads_url,
     collect_npm_weekly,
     fetch_last_week_downloads,
+    main,
     sum_downloads_from_range_payload,
 )
 
@@ -20,6 +21,7 @@ REQUIRED_DEFAULT_NPM_PACKAGES: frozenset[str] = frozenset(
     {
         "@asap-protocol/client",
         "@asap-protocol/mastra",
+        "@asap-protocol/mcp-auth",
         "@asap-protocol/openai-agents",
     }
 )
@@ -27,8 +29,17 @@ REQUIRED_DEFAULT_NPM_PACKAGES: frozenset[str] = frozenset(
 
 class TestDefaultPackages:
     def test_defaults_cover_scoped_adoption_packages(self) -> None:
-        assert len(DEFAULT_PACKAGES) >= 3
+        assert len(DEFAULT_PACKAGES) >= 4
         assert REQUIRED_DEFAULT_NPM_PACKAGES.issubset(DEFAULT_PACKAGES)
+
+    def test_help_names_every_default_package(self, capsys: pytest.CaptureFixture[str]) -> None:
+        with pytest.raises(SystemExit) as exc_info:
+            main(["--help"])
+        assert exc_info.value.code == 0
+        # argparse wraps long lines, also after a hyphen inside a package name.
+        help_text = "".join(capsys.readouterr().out.split())
+        for package in DEFAULT_PACKAGES:
+            assert package in help_text
 
 
 class TestDownloadsUrl:

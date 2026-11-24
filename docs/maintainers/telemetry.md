@@ -50,12 +50,14 @@ When package flags are omitted, collectors/aggregate use:
 
 | Source | Defaults |
 |--------|----------|
-| npm | `@asap-protocol/client`, `@asap-protocol/mastra`, `@asap-protocol/openai-agents` |
+| npm | `@asap-protocol/client`, `@asap-protocol/mastra`, `@asap-protocol/mcp-auth`, `@asap-protocol/openai-agents` |
 | PyPI | `asap-protocol`, `asap-compliance` |
+
+The npm API answers HTTP 404 for a package that is not on npm, and the npm collector then fails the whole run. So a new package must be on npm before its default reaches the weekly job on `main`.
 
 ## Running collectors individually
 
-**npm** (public API; three scoped packages by default):
+**npm** (public API; four scoped packages by default):
 
 ```bash
 uv run python scripts/telemetry/collect_npm.py --period last-week -o /tmp/npm.json
