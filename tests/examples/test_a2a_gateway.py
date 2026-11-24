@@ -111,7 +111,8 @@ async def test_asap_ingest_verifies_the_served_card_and_maps_it_to_the_manifest(
 
     result = await ingestor.ingest(f"{ORIGIN}/.well-known/agent-card.json")
 
-    assert (result.verified, result.signer_kids, result.uncovered) == (True, (CARD_KID,), ())
+    assert (result.verified, result.uncovered) == (True, ())
+    assert [(s.source, s.kid) for s in result.signers] == [("pinned", CARD_KID)]
     assert result.manifest == demo_manifest(ORIGIN)
 
 

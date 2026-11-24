@@ -28,6 +28,7 @@ from typing import Final, Literal
 from asap.adapters.a2a.canonical import canonical_card_form
 from asap.adapters.a2a.errors import (
     A2ANoTrustedSignatureError,
+    A2ASignerScopeError,
     A2AUncoveredExtensionError,
     A2AUnsignedCardError,
     quoted_prefix,
@@ -100,6 +101,22 @@ class CardVerification:
     verified: bool
     signers: tuple[VerifiedCardSigner, ...]
     uncovered: tuple[str, ...] = ()
+
+    def require_signer_for(self, agent_urn: str) -> None:
+        """Raise unless a signer that verified may sign a card for *agent_urn*.
+
+        A verified result does not bind the card to an agent: call this with
+        the agent you are about to trust (ingest calls it with the manifest
+        ``id``). An unverified result (``allow_unsigned``) has no signer and
+        binds nothing, so this returns: such a card stays unverified data.
+
+        Raises:
+            A2ASignerScopeError: No signer that verified may sign for *agent_urn*.
+        """
+        if not self.verified:
+            return
+        if not any(signer.may_sign_for(agent_urn) for signer in self.signers):
+            raise A2ASignerScopeError(self.card.name, agent_urn, self.signers)
 
 
 async def verify_agent_card(

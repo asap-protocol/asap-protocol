@@ -4,12 +4,18 @@ The steps run in this order (COMPAT-005, COMPAT-006): fetch
 the card through :func:`asap.utils.guarded_fetch.guarded_fetch_json`; parse it;
 verify its signatures under the :class:`A2ATrustConfig` (which also refuses a
 signed card whose ASAP extension params hold values that no signature covers);
-map the parsed card (:func:`asap.adapters.a2a.agent_card_to_manifest`). A card that fails a step
-is never mapped and never cached, and every failure is an
-:class:`asap.adapters.a2a.A2AAdapterError`.
+map the parsed card (:func:`asap.adapters.a2a.agent_card_to_manifest`); refuse
+endpoints on a private host; require that a signer that verified may sign for
+the manifest's agent (:meth:`CardVerification.require_signer_for`). A card that
+fails a step is never cached. A failure of the card, its
+fetch, or its keys is an :class:`asap.adapters.a2a.A2AAdapterError`; an
+exception raised by an injected ``key_resolver`` or ``transport`` propagates
+as it is.
 
 Example:
-    >>> ingestor = AgentCardIngestor(A2ATrustConfig(pinned_keys=keys))  # doctest: +SKIP
+    >>> ingestor = AgentCardIngestor(A2ATrustConfig(pinned_keys={
+    ...     "research-card-1": PinnedCardKey(jwk=research_public_jwk,
+    ...                                      agents=["urn:asap:agent:research"])}))  # doctest: +SKIP
     >>> result = await ingestor.ingest("https://agent.example.com/.well-known/agent-card.json")
     >>> result.manifest.id, result.verified  # doctest: +SKIP
     ('urn:asap:agent:research', True)
@@ -37,7 +43,12 @@ from asap.adapters.a2a.mapping import agent_card_to_manifest
 from asap.adapters.a2a.models import AgentCard
 from asap.adapters.a2a.trust import A2AKeyResolver, A2ATrustConfig
 from asap.adapters.a2a.unmapped import DroppedField
-from asap.adapters.a2a.verification import CardKeyResolver, CardVerification, verify_agent_card
+from asap.adapters.a2a.verification import (
+    CardKeyResolver,
+    CardVerification,
+    VerifiedCardSigner,
+    verify_agent_card,
+)
 from asap.models.entities import Endpoint, Manifest
 from asap.utils.guarded_fetch import AddressResolver, GuardedFetchError, guarded_fetch_json
 
@@ -46,15 +57,24 @@ from asap.utils.guarded_fetch import AddressResolver, GuardedFetchError, guarded
 class CardIngestResult:
     """Result of :meth:`AgentCardIngestor.ingest`.
 
-    ``verified`` is false only for an unsigned card accepted under
-    ``allow_unsigned``: then the whole manifest is unverified data.
-    ``dropped`` lists the card fields the manifest does not carry;
-    ``uncovered`` lists the values of a verified card that no signature covers.
+    ``verified`` true means: a signature over the card verified with a trusted
+    key, no present signature failed, the ASAP extension params are covered,
+    and a signer that verified may sign for ``manifest.id``. It does not bind
+    the card to the URL it came from, it says nothing about freshness (a
+    signed card can be replayed from any URL while its key is trusted), and
+    the card is only as strong as the weakest trusted key that may sign for
+    that agent; see :mod:`asap.adapters.a2a.verification`. ``verified`` is
+    false only for an unsigned card accepted under ``allow_unsigned``: the
+    mark is on this result, not on the :class:`Manifest`, and then the whole
+    manifest is unverified data. ``signers`` lists each signer that verified
+    (source, ``kid``, scope). ``dropped`` lists the card fields the manifest
+    does not carry; ``uncovered`` lists the values of a verified card that no
+    signature covers, none of them in the manifest.
     """
 
     manifest: Manifest
     verified: bool
-    signer_kids: tuple[str, ...]
+    signers: tuple[VerifiedCardSigner, ...]
     dropped: tuple[DroppedField, ...]
     uncovered: tuple[str, ...]
 
@@ -105,6 +125,8 @@ class AgentCardIngestor:
             A2ACardFetchError: The guarded fetch refused or failed.
             A2AUnsupportedVersionError: The document is a v0.3 card.
             A2ACardVerificationError: The signatures fail the trust config.
+            A2ASignerScopeError: No signer that verified may sign for the
+                manifest's agent (the card's URN, or *agent_id*).
             A2AMappingError, A2AMappingInputError: The card does not parse or map,
                 or names an endpoint that is refused.
         """
@@ -115,6 +137,7 @@ class AgentCardIngestor:
             require_public_endpoint_hosts(
                 mapping.manifest.endpoints, allow_private_hosts=self._trust.allow_private_hosts
             )
+        verification.require_signer_for(mapping.manifest.id)
         # Cached only once verified and mapped, and never re-put on a hit, so a
         # card is fetched again at least once per cache lifetime.
         if cached is None:
@@ -122,7 +145,7 @@ class AgentCardIngestor:
         return CardIngestResult(
             manifest=mapping.manifest,
             verified=verification.verified,
-            signer_kids=tuple(signer.kid for signer in verification.signers),
+            signers=verification.signers,
             dropped=mapping.dropped,
             uncovered=verification.uncovered,
         )

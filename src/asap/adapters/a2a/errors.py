@@ -19,6 +19,8 @@ from asap.errors import FatalError
 if TYPE_CHECKING:
     from pydantic import ValidationError
 
+    from asap.adapters.a2a.verification import VerifiedCardSigner
+
 MAX_QUOTED_LENGTH = 64
 """Most characters of an untrusted value that an error message shows."""
 
@@ -189,6 +191,38 @@ class A2AInvalidSignatureError(A2ACardVerificationError):
         )
         self.index = index
         self.reason: InvalidSignatureReason = reason
+
+
+class A2ASignerScopeError(A2ACardVerificationError):
+    """Every signature that verified is from a source that may not sign for the card's agent.
+
+    A signature proves who signed a card, not whose card it is, so each trust
+    source names the agents it may sign for.
+    ``agent_urn`` is the agent of the card: its ASAP extension's URN, or the
+    caller's ``agent_id`` for a card without it. ``signers`` lists the signers
+    that verified, each with its source (``"pinned"`` or the ``jku``) and ``kid``.
+    """
+
+    def __init__(
+        self, card_name: str, agent_urn: str, signers: Sequence[VerifiedCardSigner]
+    ) -> None:
+        shown = [
+            f"kid {quoted_prefix(s.kid)} from {quoted_prefix(s.source, _MAX_QUOTED_URL_LENGTH)}"
+            for s in signers
+        ]
+        super().__init__(
+            "asap:adapters/a2a/signer_scope",
+            f"{describe_card(card_name)} is for agent {quoted_prefix(agent_urn)}, and no "
+            f"signature that verified is from a key allowed to sign for it: {'; '.join(shown)}",
+            {
+                "agent_urn": agent_urn[:_MAX_LISTED_PATH_LENGTH],
+                "signers": [
+                    {"source": s.source, "kid": s.kid[:MAX_QUOTED_LENGTH]} for s in signers
+                ],
+            },
+        )
+        self.agent_urn = agent_urn
+        self.signers = tuple(signers)
 
 
 class A2AKeyResolutionError(A2ACardVerificationError):
