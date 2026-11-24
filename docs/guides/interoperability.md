@@ -17,6 +17,7 @@ The guide describes `asap-protocol` 2.6.0 and `@asap-protocol/mcp-auth` 0.1.0.
 | An ASAP agent | To be found and called by A2A clients | [Flow A](#flow-a-an-a2a-client-calls-an-asap-agent), then [Signed Agent Cards](#signed-agent-cards) |
 | An Agent Card from another party | To verify it and read it as an ASAP manifest | [Verify a card that you fetch](#step-3-verify-a-card-that-you-fetch) |
 | An OAuth 2.1 authorization server | ASAP grants for its access tokens on a Python ASAP server | [External access tokens](#external-access-tokens-on-an-asap-server-python) |
+| An HTTP MCP server in TypeScript | Agent JWTs or access tokens checked against grants | [Flow B](#flow-b-an-mcp-client-calls-an-http-mcp-server) |
 | A Python MCP server on stdio | Agent JWTs checked against grants | [MCP Auth Bridge](../adapters/mcp-auth-bridge.md) |
 
 ## Terms
@@ -568,10 +569,160 @@ opaque_token_issuer = {
 - The answer must say `active: true`. Its claims then get the same checks as a JWT: `aud`, `exp`, `sub`, `required_claims`, and the grant rules.
 - `cache_ttl_seconds` (default 60, at most 3600) bounds how long an answer is reused. A token revoked at the issuer stops working within that time. `0` asks the endpoint on every request.
 
+## Flow B: an MCP client calls an HTTP MCP server
+
+`@asap-protocol/mcp-auth` protects an MCP server in TypeScript that serves Streamable HTTP on `@modelcontextprotocol/server` 2.x, MCP revision `2026-07-28` only. It accepts two kinds of token, and they differ in how they relate to MCP:
+
+| Token | Sent by | Relation to MCP authorization (OAuth 2.1) |
+|-------|---------|-------------------------------------------|
+| OAuth 2.1 access token (a JWT) | A standard MCP client, after it signs in at your authorization server | Your server is the resource-server side of MCP authorization |
+| ASAP Agent JWT | An ASAP agent, a new token for each request | None. It is a custom auth strategy, which MCP allows. It is not MCP authorization |
+
+### Who trusts whom
+
+```text
+MCP client                                   HTTP MCP server with @asap-protocol/mcp-auth
+    │                                                    │
+    │ POST /mcp  tools/call                              │
+    │ Authorization: Bearer <access token or Agent JWT>  │
+    │ ─────────────────────────────────────────────────► │ token layer: verify the token
+    │                                                    │   no token or a bad token: HTTP 401
+    │                                                    │   a tool or method you did not declare: HTTP 403
+    │                                                    │ grant layer: grant and constraints for this tool
+    │ ◄───────────────────────────────────── tool result │   refused: an error tool result (or HTTP 403)
+```
+
+- **Access token:** the server trusts the issuers that you list, and only tokens whose audience is the MCP URL. It never passes the token on. It links its RFC 9728 protected-resource metadata from every challenge, so a client can find the authorization server. You serve that document; the package does not.
+- **Agent JWT:** the server trusts the agents that your resolver returns, with their Ed25519 keys and their host. Each Agent JWT works once and lives 60 seconds.
+- Grants come from your config: a map for agents, or grant rules for access tokens, deny by default.
+
+### Run the example
+
+[`examples/mcp_auth_http/`](https://github.com/asap-protocol/asap-protocol/tree/main/examples/mcp_auth_http) is a server with one public tool, `echo`, and one protected tool, `secure_action`. It creates a demo agent and a local test issuer at each start. From the repository root:
+
+```bash
+pnpm install
+pnpm --filter @asap-protocol/client run build && pnpm --filter @asap-protocol/mcp-auth run build
+pnpm --filter example-mcp-auth-http test
+```
+
+The tests start the server on a free local port and run the five cases of the flow with the MCP SDK client: a granted call, no token, a bad token, a call with no grant, and a broken constraint. They also call with an access token twice, and with an access token that lacks the scope.
+
+To run the server and call the public tool with plain HTTP:
+
+```bash
+pnpm --filter example-mcp-auth-http start   # MCP endpoint: http://127.0.0.1:8787/mcp
+```
+
+```bash
+curl -s http://127.0.0.1:8787/mcp \
+  -H 'Content-Type: application/json' \
+  -H 'MCP-Protocol-Version: 2026-07-28' \
+  -H 'Mcp-Method: tools/call' \
+  -H 'Mcp-Name: echo' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"echo","arguments":{"message":"hi"},"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{}}}}'
+```
+
+The answer:
+
+```json
+{"result":{"content":[{"type":"text","text":"hi"}],"resultType":"complete","_meta":{"io.modelcontextprotocol/serverInfo":{"name":"mcp-auth-http-example","version":"0.1.0"}}},"jsonrpc":"2.0","id":1}
+```
+
+- Revision `2026-07-28` has no `initialize` handshake and no session: one POST calls one tool.
+- The headers must agree with the body. Both `_meta` keys are required.
+- A request with no token passes only with `MCP-Protocol-Version: 2026-07-28`, and only for a public tool, `tools/list`, or `server/discover`. A call to `secure_action` needs `Authorization: Bearer <token>`.
+
+### Write your own server
+
+[MCP Auth Bridge: HTTP MCP servers in TypeScript](../adapters/mcp-auth-bridge.md#http-mcp-servers-in-typescript) has the code for a server with Agent JWTs, a server with access tokens, a client for each, and every answer of the package. The parts that matter for interoperability:
+
+- `createMcpAuthMiddleware({ externalTokens: { issuers: [...] }, resourceMetadataUrl, ... })` takes the same kind of issuer entry as the Python config: `issuer`, a required `audience`, keys from `jwksUri` or a static `jwks`, and `grantRules` with `scope` or `claim` rules. The rules and the constraint checks give the same answers as Python: both run the shared test vectors in `tests/fixtures/interop/`.
+- With `externalTokens`, `resourceMetadataUrl` is required, and you serve the metadata document at that URL.
+- `toolCapabilities` must list every protected tool, and every one must be wrapped with `protectTool`. A tool or a method that the config does not declare gets HTTP 403 for a verified token.
+- `scopeChallenge` on a protected tool turns a missing grant for an access token into HTTP 403 `insufficient_scope`, with the scope that gives the grant.
+- With Agent JWTs, `verifyAgentJwt` from `@asap-protocol/client` 2.5.0 checks each token. Your `resolveAgent` callback returns the agent's key and whether the agent is usable.
+
+## The four `asap:*` codes over HTTP
+
+ASAP reports a refusal with one of four codes: `asap:auth_required`, `asap:invalid_token`, `asap:capability_denied`, and `asap:constraint_violation`. The Python stdio bridge returns every one of them in a tool result, because stdio has no HTTP layer. Over HTTP, each path puts them where its protocol expects them:
+
+| Case | Flow A gateway (A2A) | Python `POST /asap/capability/execute`, access token | `@asap-protocol/mcp-auth`, access token | `@asap-protocol/mcp-auth`, Agent JWT |
+|------|----------------------|------------------------------------------------------|-----------------------------------------|--------------------------------------|
+| No token | HTTP 401, `asap:auth_required` | HTTP 401, `Authentication required` | HTTP 401, `asap:auth_required` | HTTP 401, `asap:auth_required` |
+| Token refused | HTTP 401, `asap:invalid_token` | HTTP 401, `invalid_token` | HTTP 401, `asap:invalid_token: <reason>` | HTTP 401, `asap:invalid_token: <reason>` |
+| The issuer's keys cannot be fetched | HTTP 503 | HTTP 503 | HTTP 503, with `Retry-After` | Does not apply |
+| No grant for the skill, tool, or capability | HTTP 403 `insufficient_scope`, `asap:capability_denied` | HTTP 403 `insufficient_scope`, `capability_not_granted` | HTTP 403 `insufficient_scope`, `asap:capability_denied`, when a scope rule gives the grant and the tool has `scopeChallenge`; else a tool result | Tool result, `asap:capability_denied` |
+| A constraint is broken | HTTP 403, `asap:constraint_violation`, no challenge | HTTP 403, `constraint_violated`, no challenge | Tool result, `asap:constraint_violation` | Tool result, `asap:constraint_violation` |
+
+Why the paths differ:
+
+- **Token errors are HTTP 401 everywhere.** MCP authorization requires a 401 for a missing or invalid token, and a tool result cannot carry an HTTP status.
+- **A missing grant on an access-token path is HTTP 403 `insufficient_scope`.** A standard OAuth client reads this challenge and can ask for more scope. On the Agent JWT path of `mcp-auth`, a missing grant stays a tool result, as in the Python bridge.
+- **A broken constraint is a tool result in MCP and HTTP 403 elsewhere.** It depends on the arguments, and more scope does not help, so its 403 has no challenge. MCP has a tool result to carry it; A2A and the Python route do not.
+- The Python execute route answers with its own error bodies, not the `asap:*` strings. The status codes and the challenges follow the same rules.
+
+## Compliance checks
+
+The `mcp-auth-http` profile of `asap-compliance` checks Flow B against a running server over plain HTTP. It needs no MCP SDK. It gets a fresh token for each request from the server's test-only probe endpoint, so a second run passes too. It checks each answer for both the code and the layer:
+
+| Check | Expected answer |
+|-------|-----------------|
+| `public_tool` | No token, public tool: a tool result |
+| `auth_required` | No token, protected tool: HTTP 401, `asap:auth_required` |
+| `invalid_token`, `bad_signature` | A malformed token, and an Agent JWT with a bad signature: HTTP 401, `asap:invalid_token` |
+| `valid_jwt` | An Agent JWT with the grant: a tool result |
+| `replayed_jwt` | The same Agent JWT twice: the second gets HTTP 401 |
+| `wrong_capability`, `constraint_violation` | Agent JWT: a tool result with `asap:capability_denied`, then `asap:constraint_violation` |
+| `external_valid_token` | The same access token twice: both work |
+| `external_wrong_capability` | An access token with no grant: HTTP 403, `asap:capability_denied` |
+| `external_constraint_violation` | An access token, arguments that break the constraint: a tool result with `asap:constraint_violation` |
+| `undeclared_tool` | An Agent JWT for a tool that the server does not declare: HTTP 403 |
+| `www_authenticate_on_401` | Every 401 has a `Bearer` challenge |
+| `token_not_echoed` | No answer holds a token that the run sent |
+
+[Compliance testing](compliance-testing.md) shows how to install and run the profiles. The probe endpoint hands out valid tokens to anyone who can reach the server: turn it on only for a local or CI run (`pnpm --filter example-mcp-auth-http start -- --compliance`).
+
+## Security notes
+
+- **No token passthrough.** A server never sends on the token that it received. Every path checks the audience, so a token for another resource is refused. The gateway also removes `Authorization` and `Cookie` before the A2A SDK and the skills see the request.
+- **An audience on every token.** The audience is required config on every path. No mode skips it, and no mode accepts any issuer.
+- **No replay check on access tokens.** An OAuth client sends the same access token on every request until it expires, and MCP requires the token on every request. Refusing a second use would break every standard client. An access token works until its `exp`. For an opaque token, a revocation at the issuer takes effect within the introspection cache time.
+- **Agent JWTs work once.** A replay cache keeps the `jti` of each accepted Agent JWT and refuses it a second time. A token whose `exp` is more than 120 seconds after the current time, or after its `iat`, is refused, so a token cannot outlive its replay record. The default replay cache of `@asap-protocol/mcp-auth` is in memory, in one process: several server instances with one audience need a shared cache.
+- **Token types are kept apart.** The header `typ` picks the check: `agent+jwt` for an Agent JWT, any other token for the access-token check. A token that one check refuses is never tried with the other, and the access-token check refuses an ASAP Agent JWT or Host JWT.
+- **Fetches are guarded.** In Python, every fetch of a card, a key set, OpenID discovery, or introspection takes HTTPS only, resolves the host once and refuses private, loopback, and link-local addresses, follows no redirect, and stops at a size and time limit. In Node.js, `@asap-protocol/mcp-auth` cannot check the address behind a host name; see [Key fetch and SSRF](../adapters/mcp-auth-bridge.md#key-fetch-and-ssrf).
+- **No token in answers or logs.** Refusals carry a code and a fixed reason. The logs hold the issuer, the subject, and the reason, never the token.
+
+## What is not supported
+
+- **Replacing A2A or MCP.** ASAP layers on them.
+- **An A2A server or client in `asap-protocol`.** Use the A2A SDK. The gateway in `examples/a2a_gateway/` is an example.
+- **The ASAP envelope in these flows.** Both flows use A2A and MCP on their own wire formats.
+- **Outbound A2A calls.** `asap-protocol` fetches, verifies, and maps a card. It does not call an A2A agent.
+- **A2A v0.3 Agent Cards.** They are refused with `A2AUnsupportedVersionError`.
+- **HTTP MCP servers in Python.** The Python bridge covers stdio only.
+- **Opaque access tokens in `@asap-protocol/mcp-auth`.** It accepts JWT access tokens only. The Python path accepts opaque tokens through introspection.
+- **MCP TypeScript SDK 1.x (`@modelcontextprotocol/sdk`), the HTTP+SSE transport, and MCP revisions before `2026-07-28`** in `@asap-protocol/mcp-auth`.
+- **Access tokens on other ASAP routes.** Only `POST /asap/capability/execute` accepts them.
+- **RFC 9728 metadata from the Python ASAP server.** An A2A client finds the issuer in the card's security scheme.
+- **Approval flows as a source of grants for access tokens.** Grants come only from static rules.
+- **Hiding tools from `tools/list`.** Every caller sees every tool.
+
+## IETF drafts that the project tracks
+
+This section is for information. No behavior in this release depends on these drafts.
+
+- `draft-ietf-oauth-v2-1`: OAuth 2.1, which MCP authorization refers to
+- `draft-ietf-wimse-aims`, from the IETF WIMSE working group
+- `draft-ietf-oauth-identity-assertion-authz-grant`
+- `draft-ietf-oauth-client-id-metadata-document`
+
 ## Related documentation
 
 - [MCP Auth Bridge](../adapters/mcp-auth-bridge.md): the Python stdio bridge and `@asap-protocol/mcp-auth` for HTTP servers
+- [TypeScript client](../sdks/typescript.md): Agent JWT minting and `verifyAgentJwt`
+- [Compliance testing](compliance-testing.md)
 - [Support tiers](../integrations/support-tiers.md)
 - [Migration: upgrading from v2.5.x to v2.6.0](../migration.md#upgrading-from-v25x-to-v260)
 - [ASAP extension for A2A](https://asap-protocol.com/a2a/extensions/manifest/v1): the params of the extension
-- [A2A gateway example](https://github.com/asap-protocol/asap-protocol/tree/main/examples/a2a_gateway)
+- [A2A gateway example](https://github.com/asap-protocol/asap-protocol/tree/main/examples/a2a_gateway) and [HTTP MCP example](https://github.com/asap-protocol/asap-protocol/tree/main/examples/mcp_auth_http)
