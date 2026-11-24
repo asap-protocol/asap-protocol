@@ -391,7 +391,7 @@ This adapter protects **native stdio `MCPServer`** (Mode A). MCP invoked inside 
 
 ### Install
 
-The package needs Node.js 20 or later, and it serves MCP protocol revision `2026-07-28` only. It has two peer dependencies: `@modelcontextprotocol/server` 2.4.0 or a later 2.x release, and `@asap-protocol/client` 2.5.0 or a later 2.x release (it verifies Agent JWTs).
+On Node.js 20.x, the package requires version 20.19.0 or later. It also supports Node.js 22.12.0 and later. It serves only MCP revision `2026-07-28`. It has two peer dependencies: `@modelcontextprotocol/server` 2.4.0 or a later 2.x release, and `@asap-protocol/client` 2.5.0 or a later 2.x release (it verifies Agent JWTs).
 
 ```bash
 npm install @asap-protocol/mcp-auth @asap-protocol/client @modelcontextprotocol/server @modelcontextprotocol/node zod
@@ -729,7 +729,7 @@ The token layer answers with HTTP. The grant layer answers with a tool result.
 
 The two kinds of token differ in one case. With an Agent JWT, a missing grant is always a tool result, as in the Python bridge. With an access token, it is HTTP 403 when a scope can give the grant, so that a standard MCP client can ask for that scope; otherwise it is a tool result. A constraint violation is a tool result on both paths, because it depends on the arguments.
 
-Some answers come from the MCP SDK, not from this package: HTTP 400 when the headers disagree with the body (`-32020`) or a `_meta` key is missing (`-32602`), and HTTP 415 for a wrong `Content-Type`.
+After the token and header checks, `protect` answers HTTP 415 for an unsupported `Content-Type` and HTTP 413 for a body over 4 MiB. The MCP SDK answers HTTP 400 when the headers disagree with the body (`-32020`) or a `_meta` key is missing (`-32602`).
 
 ### Limits
 

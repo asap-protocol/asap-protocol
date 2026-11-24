@@ -7,9 +7,9 @@
 
 > A production-ready protocol for agent-to-agent communication, and the capability, approval, and compliance layer that works alongside A2A and MCP.
 
-**Quick Info**: [`v2.5.12`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.12) · PyPI [`asap-protocol`](https://pypi.org/project/asap-protocol/) | `Apache 2.0` | `Python 3.13+` | [Documentation](docs/index.md) | [Changelog](CHANGELOG.md)
+**Quick Info**: [Latest release](https://github.com/asap-protocol/asap-protocol/releases/latest) · PyPI [`asap-protocol`](https://pypi.org/project/asap-protocol/) | `Apache 2.0` | `Python 3.13+` | [Documentation](docs/index.md) | [Changelog](CHANGELOG.md)
 
-> 📦 **Install** — [`asap-protocol` **2.5.12** on PyPI](https://pypi.org/project/asap-protocol/) (Python) · [`@asap-protocol/client` on npm](https://www.npmjs.com/package/@asap-protocol/client) (TypeScript)
+> 📦 **Install** — [`asap-protocol` on PyPI](https://pypi.org/project/asap-protocol/) (Python) · [`@asap-protocol/client` on npm](https://www.npmjs.com/package/@asap-protocol/client) (TypeScript)
 
 🚀 **Live now** our [**agentic marketplace**](https://asap-protocol.com/) — browse agents, register yours, request verification.
 
@@ -64,13 +64,13 @@ ASAP meets agents where they run — optional Python extras, npm tool bridges, a
 We recommend using [uv](https://github.com/astral-sh/uv) for dependency management:
 
 ```bash
-uv add asap-protocol  # latest on PyPI (currently 2.5.12)
+uv add asap-protocol
 ```
 
 Or with pip:
 
 ```bash
-pip install asap-protocol==2.5.12
+pip install asap-protocol
 ```
 
 **TypeScript** (npm, **`2.4.1`** — unchanged for v2.5.12; `@asap-protocol/mcp-auth` for HTTP MCP servers is planned for v2.6.0 Interop):
@@ -85,7 +85,7 @@ npm install @asap-protocol/mastra@2.4.1 @asap-protocol/client @mastra/core zod
 npm install @asap-protocol/openai-agents@2.4.1 @asap-protocol/client @openai/agents zod
 ```
 
-**Python v2.5.12** (security & correctness patch) is **shipped** — see [Migration (v2.5.11 → v2.5.12)](docs/migration.md#upgrading-from-v2511-to-v2512). Dist Loop starters remain: [Build for agents](docs/guides/build-for-agents.md) · [starters](examples/starters/README.md).
+**Python v2.5.12** is a maintenance patch. See [Migration (v2.5.11 → v2.5.12)](docs/migration.md#upgrading-from-v2511-to-v2512). Dist Loop starters remain: [Build for agents](docs/guides/build-for-agents.md) · [starters](examples/starters/README.md).
 
 ## Quick Start
 
@@ -166,7 +166,7 @@ High-level only — see **[Changelog](https://github.com/asap-protocol/asap-prot
 
 | Version | What shipped |
 | :-- | :-- |
-| **v2.5.5 – v2.5.12** | **Maintenance patches** — security fixes, dependency floors, and regression tests; no planned scope and no breaking wire-protocol changes. Latest: **[GitHub Release `v2.5.12`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.12)** (2026-11-24). npm `@asap-protocol/*` remain **2.4.1**. The v2.5.x train closed at 2.5.11. See [CHANGELOG](CHANGELOG.md) for each patch and [Migration](docs/migration.md#upgrading-from-v2511-to-v2512) for upgrade steps |
+| **v2.5.5 and later v2.5.x patches** | Security fixes, dependency floors, and regression tests. The wire protocol stays compatible. The v2.5.x feature train closed at 2.5.11. See the [latest published release](https://github.com/asap-protocol/asap-protocol/releases/latest), [changelog](CHANGELOG.md), and [v2.5.12 upgrade steps](docs/migration.md#upgrading-from-v2511-to-v2512). |
 | **v2.5.4** | **Distribution Loop** — **[GitHub Release `v2.5.4`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.4)** · thin starters (`examples/starters/`), [Build for agents](docs/guides/build-for-agents.md), homepage agent-first CTAs, telemetry ops (no public metrics UI). See [CHANGELOG](CHANGELOG.md#254---2026-07-18), [PRD](product/prd/prd-v2.5.4-distribution-loop.md), and [Migration (v2.5.3 → v2.5.4)](docs/migration.md#upgrading-from-v253-to-v254) |
 | **v2.5.3** | **Adapter Lab II** — **[GitHub Release `v2.5.3`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.3)** · workflow OpenAPI connectors + security guide, experimental MAF / NeMo guides, JSON-safe `-32602`, MCP example client DX. See [CHANGELOG](CHANGELOG.md#253---2026-07-14), [PRD](product/prd/prd-v2.5.3-adapter-lab-ii.md), and [Migration (v2.5.2 → v2.5.3)](docs/migration.md#upgrading-from-v252-to-v253) |
 | **v2.5.2** | **Security & correctness follow-up** — opt-in operator API auth, `extra="forbid"` ingress, Redis JTI replay, web distributed rate limits, v2.5.1 CR follow-ups (#245–#249), registry signed-manifest/400 fixes. See [CHANGELOG](CHANGELOG.md#252---2026-07-08), [PRD](product/prd/prd-v2.5.2-security-follow-up.md), and [Migration (v2.5.1 → v2.5.2)](docs/migration.md#upgrading-from-v251) |

@@ -77,7 +77,11 @@ The gateway serves two documents from one origin:
 - `GET /.well-known/asap/manifest.json`: the ASAP manifest.
 - `GET /.well-known/agent-card.json`: the A2A v1.0 Agent Card, signed. Its ASAP extension (`https://asap-protocol.com/a2a/extensions/manifest/v1`) holds the manifest `id` as `agent_urn`.
 
-Both answers have `Cache-Control: public, max-age=300` and an `ETag`. The card states what the gateway enforces. Each token issuer is one OpenID Connect scheme, and each scope that grants a skill is one requirement on that skill:
+The card advertises `streaming: false` because the gateway serves `SendMessage` only. If the ASAP manifest advertises streaming, the extension preserves that value as `asap_streaming: true`.
+
+Both answers have `Cache-Control: public, max-age=300` and an `ETag`. The card lists one security scheme per issuer. It lists an OpenID Connect scheme when the issuer config uses `oidc_discovery`. For other issuers, it lists HTTP Bearer and the client obtains the token separately. Each scope that grants a skill adds one requirement to that skill.
+
+The issuer in the example uses `oidc_discovery`.
 
 ```json
 "securitySchemes": {
@@ -90,7 +94,7 @@ Both answers have `Cache-Control: public, max-age=300` and an `ETag`. The card s
 }
 ```
 
-The skill `greet` lists `{"schemes": {"https://issuer.example": {"list": ["demo:greet"]}}}`. The card-level list holds every such requirement.
+The skill `greet` lists `{"schemes": {"https://issuer.example": {"list": ["demo:greet"]}}}`. The card-level list holds every such requirement. The gateway also evaluates claim rules that you configure. The card lists only scope rules.
 
 ### 3. Verify the card
 
@@ -113,6 +117,8 @@ result = await AgentCardIngestor(trust).ingest("https://gateway.example/.well-kn
 ```
 
 `agents` is a tuple of agent URNs in code (a list in a JSON or YAML config read with `A2ATrustConfig.model_validate`). The same card, checked with a key pinned for another agent, fails with `A2ASignerScopeError`. A key that may sign for every agent needs the explicit value `agents=ANY_AGENT`. A `verified` card is still not bound to the URL it came from, and it has no expiry: it can be served again from any URL while its key is trusted.
+
+If you already have a card and an expected agent URN, call `verify_agent_card_for_agent`. For a signed card, it checks the signer scope and compares the URN in the ASAP extension with the expected URN. A card without the extension uses the expected URN for the signer scope check.
 
 ### 4. Call a skill
 

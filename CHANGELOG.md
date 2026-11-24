@@ -55,10 +55,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`@asap-protocol/client` key types** — `HostContext.publicJwk`, `AgentContext.publicJwk`, and the `agentPublicKey` option of `signHostJwt` are typed `PublicJwk` instead of the DOM `JsonWebKey`. Each type can be assigned to the other, so existing code compiles.
 - **npm telemetry (maintainer tooling)** — the npm collector also counts `@asap-protocol/mcp-auth`. A package that npm does not know yet gets a row with no downloads and the run goes on, instead of failing the weekly job.
 
+### Fixed
+
+- **MCP stdio bridge** results from `MCPServer` and `tool_error_result` omit the optional `annotations` field when it has no value. MCP TypeScript SDK 2.x clients can now read these `tools/call` results. The text and `isError` stay the same.
+- **MCP client** omits `_meta` from `MCPClient.call_tool` parameters when the caller supplies no `meta`. MCP TypeScript SDK 2.x servers can now read these `tools/call` requests. The client still sends any `meta` the caller supplies.
+
 ### Removed
 
 - **`asap.cli._compat`** ([#275](https://github.com/asap-protocol/asap-protocol/issues/275)) — the CLI compat shim deprecated in 2.5.1 is gone. Import `DEFAULT_SCHEMAS_DIR` from `asap.cli.schemas`, `export_all_schemas` from `asap.schemas`, and `_repl_namespace` from `asap.cli.repl`. See the [migration guide](docs/migration.md#upgrading-from-v25x-to-v260).
-- **`asap.transport.websocket`** — the WebSocket re-export shim deprecated in 2.5.1 is gone. Import the same names from `asap.transport.ws`. Tests that patched names on the shim now patch `asap.transport.ws.client.websockets.connect`, or `encode_envelope_frame`, `PAYLOAD_TYPES_REQUIRING_ACK`, and `HEARTBEAT_PING_INTERVAL` on `asap.transport.ws.codecs`. See the [migration guide](docs/migration.md#upgrading-from-v25x-to-v260).
+- **`asap.transport.websocket`** — the WebSocket re-export shim deprecated in 2.5.1 is gone. Import the transport classes from `asap.transport.ws`. If you used the shim to import the third-party `websockets` package, use `import websockets`. Tests that patched names on the shim now patch `asap.transport.ws.client.websockets.connect`, or `encode_envelope_frame`, `PAYLOAD_TYPES_REQUIRING_ACK`, and `HEARTBEAT_PING_INTERVAL` on `asap.transport.ws.codecs`. See the [migration guide](docs/migration.md#upgrading-from-v25x-to-v260).
 - **`FRAME_ENCODING_BINARY`** — the literal kept on the `asap.transport.websocket` shim is gone with it. Binary WebSocket framing was already removed in 2.5.1; frames are JSON text only (`FRAME_ENCODING_JSON`). There is no replacement. See the [migration guide](docs/migration.md#upgrading-from-v25x-to-v260).
 - **`asap.adapters.mcp`** — the MCP Auth Bridge re-export shim deprecated in 2.5.1 is gone, with its six submodules. Import `protect_server`, `MCPAuthConfig`, `ProtectedMCPServer`, and `resolve_jwt_extractor` from `asap.mcp.auth`, and import from `asap.mcp.auth.<submodule>` where you imported from `asap.adapters.mcp.<submodule>`. See the [migration guide](docs/migration.md#upgrading-from-v25x-to-v260).
 - **`RemoteFatalRPCError` and `RemoteRecoverableRPCError` (Python)** — the two `asap.errors` subclasses deprecated in 2.5.1 are gone. Catch `RemoteRPCError` and branch on `is_recoverable`. The TypeScript classes of the same names in `@asap-protocol/client` stay. See the [migration guide](docs/migration.md#upgrading-from-v25x-to-v260).
@@ -96,8 +101,8 @@ validation fixes in the Python reference implementation, and the
 OpenTelemetry security floor. This is **not** v2.6.0 Interop. npm
 `@asap-protocol/*` packages remain at **2.4.1**. PyPI `asap-compliance`
 remains **1.3.0**.
-Tag [`v2.5.12`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.12)
-· PyPI `asap-protocol==2.5.12`.
+See [GitHub Releases](https://github.com/asap-protocol/asap-protocol/releases/latest) and
+[PyPI](https://pypi.org/project/asap-protocol/#history) for published versions.
 
 ### Security
 
@@ -114,10 +119,6 @@ Tag [`v2.5.12`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5
 - **Capability constraints** — when a constraint and its argument have types the operator cannot compare (for example `in` on a string with a number argument, or a `max` that is not a number), `validate_constraints` now returns a violation with the usual `field` and `operator` instead of raising `TypeError`. `POST /asap/capability/execute` answers 403 `constraint_violated` instead of 500.
 - **Agent URN validation** — `validate_agent_urn` now matches the whole value, so an agent URN with a trailing newline (for example `urn:asap:agent:research\n`) is refused. This applies to `Manifest.id`, `Agent.id`, `Envelope.sender`, `Envelope.recipient`, and `RegistryEntry.id`. Before, the `$` in `AGENT_URN_PATTERN` also matched before a final newline, so such an id passed validation and did not compare equal to the same id without the newline. `AGENT_URN_PATTERN` is unchanged.
 - **Weekly adoption telemetry (maintainer tooling)** — `telemetry-weekly.yml` has its Monday schedule back. The PyPI collector retries PyPI Stats HTTP 429, 5xx, and connection errors with backoff. If PyPI still fails, the snapshot records `pypi.fetch_error` and the job continues. A missing `TELEMETRY_GITHUB_TOKEN` still fails the job, now before any collector runs. Snapshots stay workflow artifacts only. See [docs/maintainers/telemetry.md](docs/maintainers/telemetry.md).
-
-- **MCP stdio bridge: no more `"annotations": null`** — `tools/call` results from `MCPServer` and the auth bridge's `asap:*` error results (`tool_error_result`) now leave the optional `annotations` field out of each content item instead of sending `null`. MCP TypeScript SDK 2.x clients rejected the null and can now read these results; the text and `isError` do not change.
-
-- **MCP client: no more `"_meta": null`** — `MCPClient.call_tool` called without `meta` now leaves `_meta` out of the `tools/call` params instead of sending `null`, which MCP TypeScript SDK 2.x servers rejected. A `meta` you pass is still sent as given.
 
 ### Documentation
 
