@@ -88,6 +88,21 @@ def test_each_scope_rule_for_a_skill_is_one_alternative_on_that_skill() -> None:
     ]
 
 
+def test_a_scope_that_grants_two_skills_is_listed_once_at_card_level() -> None:
+    idp = LocalIssuer()
+    rules = _rules(("all", "web_research"), ("all", "summarize"))
+    config = _config(idp.config_entry(_AUDIENCE, grant_rules=rules))
+
+    security = external_token_card_security(config, _SKILLS)
+
+    one = [_requirement(idp.issuer, "all")]
+    assert {
+        skill: [r.model_dump(mode="json") for r in requirements]
+        for skill, requirements in security.skill_security_requirements.items()
+    } == {"web_research": one, "summarize": one}
+    assert [r.model_dump(mode="json") for r in security.security_requirements] == one
+
+
 def test_claim_rules_and_rules_for_other_capabilities_are_not_advertised() -> None:
     idp = LocalIssuer()
     rules = [
