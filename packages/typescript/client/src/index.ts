@@ -17,6 +17,16 @@ export type { InMemoryJtiReplayCacheOptions, JtiReplayCache } from "./jti-replay
 
 export { AgentJwtFailureReason } from "./agent-jwt-claims.js";
 export type { AgentJwtClaims } from "./agent-jwt-claims.js";
+export { verifyAgentJwt } from "./agent-jwt-verify.js";
+export type {
+  AgentJwtVerifyResult,
+  AgentKeyLookup,
+  AgentKeyResolver,
+  RejectedAgentJwt,
+  ResolvedAgentKey,
+  VerifiedAgentJwt,
+  VerifyAgentJwtOptions,
+} from "./agent-jwt-verify.js";
 
 export {
   DEFAULT_REGISTRY_URL,
