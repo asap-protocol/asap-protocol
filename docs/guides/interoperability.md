@@ -256,7 +256,7 @@ The gateway checks the token first, then the skill selection, then the grant. A 
 | `endpoints.events` | Extension `events_endpoint` | Card to manifest: must be a `wss` URL |
 | `capabilities.asap_version` | Extension `asap_version` | |
 | `capabilities.state_persistence` | Extension `state_persistence` | Without the extension: `false` |
-| `capabilities.streaming` | `capabilities.streaming` | The mapper copies this value. The reference gateway advertises `false` because it serves only `SendMessage`. An absent value reads as `false` |
+| `capabilities.streaming` | `capabilities.streaming` | By default the mapper copies this value. The reference gateway advertises `false` because it serves only `SendMessage`. If the ASAP endpoint supports streaming, the gateway preserves that value in the extension |
 | `capabilities.skills[].id` | `skills[].id` | Skill ids must be unique |
 | `capabilities.skills[].description` | `skills[].description` | |
 | `capabilities.skills[].input_schema`, `output_schema` | Extension `skill_schemas.<skill id>` | |
@@ -315,6 +315,7 @@ ASAP data that a card has no field for rides in one A2A extension, in `capabilit
 | `events_endpoint` | string | No |
 | `asap_version` | string | Yes |
 | `state_persistence` | boolean | No (default `false`) |
+| `asap_streaming` | boolean | No. Present when the ASAP and A2A endpoints differ. When absent, the reader uses the A2A streaming flag, which defaults to `false` |
 | `skill_schemas` | object: skill `id` → `{input_schema, output_schema}`, only for skills that have a schema | No |
 
 ### Mapping rules
