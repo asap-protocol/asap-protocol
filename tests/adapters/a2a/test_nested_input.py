@@ -142,7 +142,7 @@ async def test_a_deep_unprotected_header_on_a_valid_signature_is_a_typed_ingest_
     card_json["signatures"][0]["header"] = _deep_object(2000)
     public_jwk = {**OKPKey.import_key(_KEY.public_key()).as_dict(), "kid": "k1"}
     ingestor = AgentCardIngestor(
-        A2ATrustConfig(pinned_keys={"k1": public_jwk}),
+        A2ATrustConfig.model_validate({"pinned_keys": {"k1": public_jwk}}),
         dns_resolver=_public_dns,
         transport=_serving(json.dumps(card_json)),
     )

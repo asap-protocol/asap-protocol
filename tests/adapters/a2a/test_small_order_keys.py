@@ -65,7 +65,7 @@ def test_a_small_order_key_does_not_fit_and_the_universal_forgery_fails(raw: byt
 @pytest.mark.parametrize("name", ["identity", "order 8"])
 def test_a_small_order_pinned_key_is_refused_when_the_config_is_built(name: str) -> None:
     with pytest.raises(ValidationError, match="small-order"):
-        A2ATrustConfig(pinned_keys={"k1": _jwk(_SMALL_ORDER[name])})
+        A2ATrustConfig.model_validate({"pinned_keys": {"k1": _jwk(_SMALL_ORDER[name])}})
 
 
 async def test_a_small_order_key_from_a_jwks_fails_the_card_as_a_key_mismatch() -> None:
