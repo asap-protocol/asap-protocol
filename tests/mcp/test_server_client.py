@@ -11,6 +11,7 @@ import pytest
 
 from asap.mcp.client import MCPClient
 from asap.mcp.server import MCPServer
+from tests.mcp.test_server_runner import ANSWER_TIMEOUT, PROCESS_TIMEOUT, started_server_runner
 
 if TYPE_CHECKING:
     from _pytest.monkeypatch import MonkeyPatch
@@ -228,32 +229,24 @@ async def test_mcp_server_dispatch_method_not_found_returns_32601() -> None:
 @pytest.mark.asyncio
 async def test_mcp_server_subprocess_returns_internal_error_when_dispatch_raises() -> None:
     """When server process receives a request that causes dispatch to raise, it returns -32603."""
-    proc = await asyncio.create_subprocess_exec(
-        sys.executable,
-        "-m",
-        "asap.mcp.server_runner",
-        stdin=asyncio.subprocess.PIPE,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    assert proc.stdin is not None and proc.stdout is not None
-    # Send request that causes _handle_tools_call to get invalid params and raise (e.g. params list)
-    proc.stdin.write(b'{"jsonrpc":"2.0","id":1,"method":"tools/call","params":[]}\n')
-    await proc.stdin.drain()
-    # Close stdin so producer stops and consumer processes the queued message
-    proc.stdin.close()
-    await asyncio.sleep(0.1)
-    # Server may log to stdout first; read until we get a JSON-RPC response line
     data = None
-    for _ in range(20):
-        line = await asyncio.wait_for(proc.stdout.readline(), timeout=2.0)
-        if not line:
-            break
-        s = line.decode("utf-8").strip()
-        if s.startswith("{"):
-            data = json.loads(s)
-            break
-    await proc.wait()
+    async with started_server_runner() as proc:
+        assert proc.stdin is not None and proc.stdout is not None
+        # Send request that causes _handle_tools_call to get invalid params and raise (params list)
+        proc.stdin.write(b'{"jsonrpc":"2.0","id":1,"method":"tools/call","params":[]}\n')
+        await proc.stdin.drain()
+        # Close stdin so producer stops and consumer processes the queued message
+        proc.stdin.close()
+        # Server may log to stdout first; read until we get a JSON-RPC response line
+        for _ in range(20):
+            line = await asyncio.wait_for(proc.stdout.readline(), timeout=ANSWER_TIMEOUT)
+            if not line:
+                break
+            s = line.decode("utf-8").strip()
+            if s.startswith("{"):
+                data = json.loads(s)
+                break
+        await asyncio.wait_for(proc.wait(), timeout=PROCESS_TIMEOUT)
     assert data is not None, "Expected one JSON-RPC response line on stdout"
     assert "error" in data
     assert data["error"]["code"] == -32603
