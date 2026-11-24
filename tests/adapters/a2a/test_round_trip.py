@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from asap.adapters.a2a import (
     AgentCard,
     AgentCardInputs,
@@ -75,6 +77,20 @@ def test_manifest_to_card_to_manifest_returns_the_same_manifest() -> None:
 
     card = manifest_to_agent_card(manifest, research_card_inputs()).card
 
+    assert agent_card_to_manifest(card).manifest == manifest
+
+
+@pytest.mark.parametrize("asap_streaming", [False, True])
+def test_streaming_override_preserves_asap_streaming(asap_streaming: bool) -> None:
+    capabilities = Capability(
+        skills=research_manifest().capabilities.skills, streaming=asap_streaming
+    )
+    manifest = research_manifest(capabilities=capabilities)
+    inputs = research_card_inputs(a2a_streaming=not asap_streaming)
+
+    card = manifest_to_agent_card(manifest, inputs).card
+
+    assert card.capabilities.streaming == (not asap_streaming)
     assert agent_card_to_manifest(card).manifest == manifest
 
 

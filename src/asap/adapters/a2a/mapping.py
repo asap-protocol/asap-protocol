@@ -12,7 +12,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Annotated, Any
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, StrictBool, ValidationError
 
 from asap.adapters.a2a._base import NonEmptyStr
 from asap.adapters.a2a.card_security import (
@@ -56,6 +56,8 @@ class AgentCardInputs(ASAPBaseModel):
     endpoint; ``skill_security_requirements`` (skill ``id`` → requirements)
     holds a skill's own requirements under the same rules; see
     :mod:`asap.adapters.a2a.card_security`.
+    Set ``a2a_streaming`` if the A2A interfaces differ from the ASAP endpoint.
+    By default, the card uses the manifest's streaming value.
 
     Example:
         >>> AgentCardInputs(interfaces=[interface], default_input_modes=["application/json"],
@@ -73,6 +75,7 @@ class AgentCardInputs(ASAPBaseModel):
     security_schemes: dict[str, SecurityScheme] | None = None
     security_requirements: list[SecurityRequirement] | None = None
     skill_security_requirements: dict[str, list[SecurityRequirement]] = Field(default_factory=dict)
+    a2a_streaming: StrictBool | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,14 +115,19 @@ def manifest_to_agent_card(manifest: Manifest, inputs: AgentCardInputs) -> CardM
         "skill_security_requirements", inputs.skill_security_requirements, skill_ids
     )
     skills = [_card_skill(skill, inputs) for skill in manifest.capabilities.skills]
+    a2a_streaming = inputs.a2a_streaming
+    if a2a_streaming is None:
+        a2a_streaming = manifest.capabilities.streaming
     try:
-        extension = _asap_extension_for(manifest)
+        extension = _asap_extension_for(manifest, a2a_streaming=a2a_streaming)
     except ValidationError as exc:
         raise A2AMappingError.from_validation_error(
             source, "set of ASAP extension params", exc
         ) from exc
     try:
-        card = AgentCard.model_validate(_card_fields(manifest, inputs, skills, extension))
+        card = AgentCard.model_validate(
+            _card_fields(manifest, inputs, skills, extension, a2a_streaming=a2a_streaming)
+        )
     except ValidationError as exc:
         raise A2AMappingError.from_validation_error(source, "A2A v1.0 Agent Card", exc) from exc
     return CardMapping(card=card, dropped=_dropped_manifest_fields(manifest))
@@ -139,7 +147,9 @@ def agent_card_to_manifest(
     """Build an ASAP manifest from an A2A v1.0 Agent Card.
 
     The URN, the endpoints, the ASAP version, state persistence, and the skill
-    schemas come from the card's ASAP extension. A card without it needs
+    schemas come from the card's ASAP extension. If the extension has no
+    ``asap_streaming`` value, the manifest uses the card's streaming value.
+    A card without the extension needs
     ``agent_id`` and ``endpoints`` from the caller. When the card has it, a
     value that the caller also passes must equal the card's. Map only a card
     whose signature was verified; the manifest is built from the
@@ -253,6 +263,8 @@ def _manifest_capabilities(card: AgentCard, params: AsapExtensionParams | None) 
     if params is not None:
         capabilities["asap_version"] = params.asap_version
         capabilities["state_persistence"] = params.state_persistence
+        if params.asap_streaming is not None:
+            capabilities["streaming"] = params.asap_streaming
     return capabilities
 
 
@@ -270,6 +282,8 @@ def _card_fields(
     inputs: AgentCardInputs,
     skills: list[dict[str, Any]],
     extension: AgentExtension,
+    *,
+    a2a_streaming: bool,
 ) -> dict[str, Any]:
     """The card as one by-name dict, so a validation error names its full path."""
     return {
@@ -279,7 +293,7 @@ def _card_fields(
         "provider": inputs.provider,
         "version": manifest.version,
         "documentation_url": inputs.documentation_url,
-        "capabilities": {"streaming": manifest.capabilities.streaming, "extensions": [extension]},
+        "capabilities": {"streaming": a2a_streaming, "extensions": [extension]},
         "security_schemes": prepare_card_security_schemes(inputs.security_schemes),
         "security_requirements": check_card_security_requirements(
             inputs.security_requirements, inputs.security_schemes
@@ -302,12 +316,13 @@ def _dropped_manifest_fields(manifest: Manifest) -> tuple[DroppedField, ...]:
     return tuple(dropped)
 
 
-def _asap_extension_for(manifest: Manifest) -> AgentExtension:
+def _asap_extension_for(manifest: Manifest, *, a2a_streaming: bool) -> AgentExtension:
     schemas = {
         skill.id: SkillSchemas(input_schema=skill.input_schema, output_schema=skill.output_schema)
         for skill in manifest.capabilities.skills
         if skill.input_schema is not None or skill.output_schema is not None
     }
+    asap_streaming = manifest.capabilities.streaming
     params = AsapExtensionParams(
         agent_urn=manifest.id,
         asap_endpoint=manifest.endpoints.asap,
@@ -315,6 +330,7 @@ def _asap_extension_for(manifest: Manifest) -> AgentExtension:
         asap_version=manifest.capabilities.asap_version,
         state_persistence=manifest.capabilities.state_persistence,
         skill_schemas=schemas or None,
+        asap_streaming=asap_streaming if asap_streaming != a2a_streaming else None,
     )
     return build_asap_extension(params)
 

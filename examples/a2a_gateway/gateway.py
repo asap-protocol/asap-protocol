@@ -91,7 +91,10 @@ def create_gateway_app(
             f"skills {sorted(skills)} must match the manifest skills {sorted(skill_ids)}"
         )
     card = build_signed_agent_card(
-        manifest, card_inputs, signers=signers, external_tokens=external_tokens
+        manifest,
+        card_inputs.model_copy(update={"a2a_streaming": False}),
+        signers=signers,
+        external_tokens=external_tokens,
     ).card
     # An empty registry: create_app would otherwise install its default echo
     # handler on POST /asap, with no auth. A skill runs only through the gate.
