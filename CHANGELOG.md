@@ -79,6 +79,11 @@ This version removes six Python import paths deprecated in 2.5.1. The envelope, 
 
 - **Capability execute under `oauth2_config`** — when `oauth2_config` covered `/asap`, `OAuth2Middleware` refused every Agent JWT on `POST /asap/capability/execute`, so the route could not succeed. The middleware now skips that exact path, and the route verifies its own bearer: a valid Agent JWT succeeds, and a token from the `oauth2_config` provider gets the route's 401 unless that provider is listed in `external_token_config`. `required_scope` and the identity binding of `oauth2_config` no longer apply on this route. List, describe, `/asap`, and every other spelling of the path stay behind the middleware. See the [migration guide](docs/migration.md#behavior-changes).
 
+### Security
+
+- The `[crewai]` extra now requires CrewAI 1.15.45 or later. Its default installation no longer includes ChromaDB or DiskCache. Use Python 3.13 for this extra.
+- The `[llamaindex]` extra now requires LlamaIndex Core 0.13.0 or later and sets security floors for Banks, NLTK, and TinyTag.
+
 ### Documentation
 
 - **Interoperability guide** — [docs/guides/interoperability.md](docs/guides/interoperability.md): where ASAP sits beside A2A v1.0 and MCP authorization (OAuth 2.1), the pinned spec versions, both end-to-end flows with runnable commands, the Agent Card ↔ manifest field table, signed cards, external access tokens, where each path puts the four `asap:*` codes, the compliance profile of each flow, and what is not supported.
