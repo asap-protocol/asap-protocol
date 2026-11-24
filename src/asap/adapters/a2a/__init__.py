@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from asap.adapters.a2a.errors import (
     A2AAdapterError,
+    A2AMappingError,
     A2AMappingInputError,
     A2AUnsupportedVersionError,
 )
@@ -46,6 +47,7 @@ from asap.adapters.a2a.security import (
 
 __all__ = [
     "A2AAdapterError",
+    "A2AMappingError",
     "A2AMappingInputError",
     "A2AUnsupportedVersionError",
     "APIKeySecurityScheme",

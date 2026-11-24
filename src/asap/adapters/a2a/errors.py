@@ -6,6 +6,8 @@ JSON-RPC code of :class:`asap.errors.ASAPError`; no new code is reserved.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from asap.errors import FatalError
 
 A2A_SUPPORTED_VERSION = "1.0"
@@ -46,3 +48,14 @@ class A2AMappingInputError(A2AAdapterError):
     def __init__(self, input_name: str, message: str) -> None:
         super().__init__("asap:adapters/a2a/mapping_input", message, {"input": input_name})
         self.input_name = input_name
+
+
+class A2AMappingError(A2AAdapterError):
+    """The source cannot map to a valid target, for example a card with an empty field.
+
+    ``fields`` lists the target or source paths at fault, for example ``["description"]``.
+    """
+
+    def __init__(self, message: str, *, fields: Sequence[str]) -> None:
+        super().__init__("asap:adapters/a2a/mapping", message, {"fields": list(fields)})
+        self.fields = tuple(fields)

@@ -7,22 +7,16 @@ table, with a reason for every unmapped field, is in
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Annotated
+from typing import Annotated, Any
 
-from pydantic import Field
+from pydantic import Field, ValidationError
 
 from asap.adapters.a2a._base import NonEmptyStr
-from asap.adapters.a2a.errors import A2AMappingInputError
+from asap.adapters.a2a.errors import A2AMappingError, A2AMappingInputError
 from asap.adapters.a2a.extension import AsapExtensionParams, SkillSchemas, build_asap_extension
-from asap.adapters.a2a.models import (
-    AgentCapabilities,
-    AgentCard,
-    AgentExtension,
-    AgentInterface,
-    AgentProvider,
-    AgentSkill,
-)
+from asap.adapters.a2a.models import AgentCard, AgentExtension, AgentInterface, AgentProvider
 from asap.models.base import ASAPBaseModel
 from asap.models.entities import Manifest, Skill
 
@@ -66,35 +60,52 @@ def manifest_to_agent_card(manifest: Manifest, inputs: AgentCardInputs) -> CardM
     is always written, so a card signature covers it.
 
     Raises:
-        A2AMappingInputError: A skill has no tags.
-        pydantic.ValidationError: The card would not be valid, for example
-            because a required field would be empty.
+        A2AMappingInputError: A skill has no tags, or an input names a skill
+            that the manifest does not have.
+        A2AMappingError: The card would not be valid, for example because a
+            required field would be empty or the manifest has no skill.
 
     Example:
         >>> card = manifest_to_agent_card(manifest, inputs).card  # doctest: +SKIP
         >>> card.model_dump(mode="json")  # proto JSON form  # doctest: +SKIP
     """
+    source = f"manifest {manifest.id!r}"
     skill_ids = [skill.id for skill in manifest.capabilities.skills]
-    tags = {skill_id: _tags_for(skill_id, inputs) for skill_id in skill_ids}
-    card = AgentCard(
-        name=manifest.name,
-        description=manifest.description,
-        supported_interfaces=inputs.interfaces,
-        provider=inputs.provider,
-        version=manifest.version,
-        documentation_url=inputs.documentation_url,
-        capabilities=AgentCapabilities(
-            streaming=manifest.capabilities.streaming,
-            extensions=[_asap_extension_for(manifest)],
-        ),
-        default_input_modes=inputs.default_input_modes,
-        default_output_modes=inputs.default_output_modes,
-        skills=[
-            _card_skill(skill, tags[skill.id], inputs) for skill in manifest.capabilities.skills
-        ],
-        icon_url=inputs.icon_url,
-    )
+    _require_unique_skill_ids(skill_ids, source)
+    _require_known_skill_ids("skill_tags", inputs.skill_tags, skill_ids)
+    _require_known_skill_ids("skill_names", inputs.skill_names, skill_ids)
+    skills = [_card_skill(skill, inputs) for skill in manifest.capabilities.skills]
+    try:
+        extension = _asap_extension_for(manifest)
+    except ValidationError as exc:
+        raise _invalid_target_error(source, "set of ASAP extension params", exc) from exc
+    try:
+        card = AgentCard.model_validate(_card_fields(manifest, inputs, skills, extension))
+    except ValidationError as exc:
+        raise _invalid_target_error(source, "A2A v1.0 Agent Card", exc) from exc
     return CardMapping(card=card)
+
+
+def _card_fields(
+    manifest: Manifest,
+    inputs: AgentCardInputs,
+    skills: list[dict[str, Any]],
+    extension: AgentExtension,
+) -> dict[str, Any]:
+    """The card as one by-name dict, so a validation error names its full path."""
+    return {
+        "name": manifest.name,
+        "description": manifest.description,
+        "supported_interfaces": inputs.interfaces,
+        "provider": inputs.provider,
+        "version": manifest.version,
+        "documentation_url": inputs.documentation_url,
+        "capabilities": {"streaming": manifest.capabilities.streaming, "extensions": [extension]},
+        "default_input_modes": inputs.default_input_modes,
+        "default_output_modes": inputs.default_output_modes,
+        "skills": skills,
+        "icon_url": inputs.icon_url,
+    }
 
 
 def _asap_extension_for(manifest: Manifest) -> AgentExtension:
@@ -114,13 +125,13 @@ def _asap_extension_for(manifest: Manifest) -> AgentExtension:
     return build_asap_extension(params)
 
 
-def _card_skill(skill: Skill, tags: list[str], inputs: AgentCardInputs) -> AgentSkill:
-    return AgentSkill(
-        id=skill.id,
-        name=inputs.skill_names.get(skill.id, skill.id),
-        description=skill.description,
-        tags=tags,
-    )
+def _card_skill(skill: Skill, inputs: AgentCardInputs) -> dict[str, Any]:
+    return {
+        "id": skill.id,
+        "name": inputs.skill_names.get(skill.id, skill.id),
+        "description": skill.description,
+        "tags": _tags_for(skill.id, inputs),
+    }
 
 
 def _tags_for(skill_id: str, inputs: AgentCardInputs) -> list[str]:
@@ -132,3 +143,35 @@ def _tags_for(skill_id: str, inputs: AgentCardInputs) -> list[str]:
             "one tag, and the mapping does not invent one",
         )
     return tags
+
+
+def _require_known_skill_ids(
+    input_name: str, values: Mapping[str, object], skill_ids: list[str]
+) -> None:
+    unknown = sorted(set(values) - set(skill_ids))
+    if unknown:
+        raise A2AMappingInputError(
+            input_name,
+            f"{input_name} names skills that the source does not have: {unknown}; "
+            f"expected only ids from {sorted(skill_ids)}",
+        )
+
+
+def _require_unique_skill_ids(skill_ids: list[str], source: str) -> None:
+    duplicates = sorted({skill_id for skill_id in skill_ids if skill_ids.count(skill_id) > 1})
+    if duplicates:
+        raise A2AMappingError(
+            f"{source} has duplicate skill ids {duplicates}: tags, names, and schemas "
+            "are keyed by skill id, so each id must be unique",
+            fields=["skills"],
+        )
+
+
+def _invalid_target_error(source: str, target: str, exc: ValidationError) -> A2AMappingError:
+    """Describe which target fields failed, without echoing input values."""
+    problems = exc.errors(include_input=False, include_url=False)
+    fields = [".".join(str(part) for part in problem["loc"]) for problem in problems]
+    details = "; ".join(f"{field}: {p['msg']}" for field, p in zip(fields, problems, strict=True))
+    return A2AMappingError(
+        f"{source} cannot map to a valid {target}: {details}", fields=fields or [target]
+    )
