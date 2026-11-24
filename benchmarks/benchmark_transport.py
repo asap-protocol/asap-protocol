@@ -26,6 +26,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+from asap.errors import RemoteRPCError
 from asap.models.envelope import Envelope
 from asap.transport.client import ASAPClient
 from asap.transport.jsonrpc import JsonRpcRequest, JsonRpcResponse
@@ -182,7 +183,7 @@ class TestPayloadSizes:
             sender="urn:asap:agent:client",
             recipient="urn:asap:agent:server",
             payload_type="task.request",
-            payload={"id": "small"},
+            payload={"conversation_id": "small", "skill_id": "echo", "input": {}},
         )
         request = {
             "jsonrpc": "2.0",
@@ -381,7 +382,7 @@ class TestBatchOperations:
                 sender="urn:asap:agent:server",
                 recipient=envelope_data["sender"],
                 payload_type="task.response",
-                payload={"status": "completed"},
+                payload={"task_id": envelope_data["id"], "status": "completed"},
                 correlation_id=envelope_data["id"],
             )
             return httpx.Response(
@@ -461,12 +462,21 @@ class TestBatchOperations:
         def mock_handler(request: httpx.Request) -> httpx.Response:
             body = json.loads(request.content)
             envelope_data = body["params"]["envelope"]
+            if envelope_data["payload"]["input"]["index"] == 5:
+                return httpx.Response(
+                    200,
+                    json={
+                        "jsonrpc": "2.0",
+                        "error": {"code": -32602, "message": "Invalid task input"},
+                        "id": body["id"],
+                    },
+                )
             response_envelope = Envelope(
                 asap_version="0.1",
                 sender="urn:asap:agent:server",
                 recipient=envelope_data["sender"],
                 payload_type="task.response",
-                payload={"status": "completed"},
+                payload={"task_id": envelope_data["id"], "status": "completed"},
                 correlation_id=envelope_data["id"],
             )
             return httpx.Response(
@@ -503,8 +513,9 @@ class TestBatchOperations:
             results = await client.send_batch(envelopes, return_exceptions=True)
 
         assert len(results) == 10
-        success_count = sum(1 for r in results if isinstance(r, Envelope))
-        assert success_count == 10, f"Expected 10 successes, got {success_count}"
+        assert isinstance(results[5], RemoteRPCError)
+        assert results[5].json_rpc_code == -32602
+        assert sum(isinstance(result, Envelope) for result in results) == 9
 
 
 class TestCompression:

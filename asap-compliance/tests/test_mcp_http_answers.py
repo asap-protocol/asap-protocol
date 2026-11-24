@@ -93,6 +93,35 @@ class TestToolResults:
         answer = _answer(200, {"jsonrpc": "2.0", "id": 1, "result": result})
         assert tool_success_problem(answer) is not None
 
+    @pytest.mark.parametrize(
+        ("block", "valid"),
+        [
+            ({"type": "text", "text": ""}, True),
+            ({"type": "audio", "data": "", "mimeType": "audio/wav"}, True),
+            ({"type": "image", "data": "", "mimeType": "image/png"}, True),
+            ({"type": "resource_link", "uri": "file:///a", "name": "a"}, True),
+            ({"type": "resource", "resource": {"uri": "file:///a", "text": ""}}, True),
+            ({"type": "resource", "resource": {"uri": "file:///a", "blob": ""}}, True),
+            (None, False),
+            ({"type": "text", "text": 1}, False),
+            ({"type": "image", "data": ""}, False),
+            ({"type": "resource_link", "name": "a"}, False),
+            ({"type": "resource", "resource": {"uri": "file:///a"}}, False),
+        ],
+    )
+    def test_required_content_fields(self, block: object, valid: bool) -> None:
+        result = {"resultType": "complete", "content": [block]}
+        answer = _answer(200, {"jsonrpc": "2.0", "id": 1, "result": result})
+        assert (tool_success_problem(answer) is None) == valid
+
+    @pytest.mark.parametrize(
+        "fields", [{"id": True}, {"error": {"code": -32602, "message": "Invalid params"}}]
+    )
+    def test_invalid_response_envelope(self, fields: dict[str, Any]) -> None:
+        result = {"resultType": "complete", "content": []}
+        answer = _answer(200, {"jsonrpc": "2.0", "id": 1, "result": result, **fields})
+        assert answer.tool_result is None
+
     def test_empty_content_can_complete_a_tool_call(self) -> None:
         result = {"resultType": "complete", "content": [], "isError": False}
         assert (
