@@ -122,7 +122,7 @@ class AgentCardIngestor:
         return CardIngestResult(
             manifest=mapping.manifest,
             verified=verification.verified,
-            signer_kids=verification.signer_kids,
+            signer_kids=tuple(signer.kid for signer in verification.signers),
             dropped=mapping.dropped,
             uncovered=verification.uncovered,
         )

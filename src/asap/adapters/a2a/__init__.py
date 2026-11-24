@@ -100,9 +100,12 @@ from asap.adapters.a2a.unmapped import (
     DroppedField,
 )
 from asap.adapters.a2a.verification import (
+    PINNED_KEY_SOURCE,
     CardKeyResolver,
     CardVerification,
     SignaturePolicy,
+    TrustedCardKey,
+    VerifiedCardSigner,
     verify_agent_card,
 )
 
@@ -160,6 +163,7 @@ __all__ = [
     "MAX_CARD_SIGNATURES",
     "MAX_CARD_SKILLS",
     "MAX_REPORTED_PATH_LENGTH",
+    "PINNED_KEY_SOURCE",
     "ManifestMapping",
     "MutualTlsSecurityScheme",
     "OAuth2SecurityScheme",
@@ -172,8 +176,10 @@ __all__ = [
     "SignaturePolicy",
     "SkillSchemas",
     "StringList",
+    "TrustedCardKey",
     "UNMAPPED_CARD_FIELDS",
     "UNMAPPED_MANIFEST_FIELDS",
+    "VerifiedCardSigner",
     "agent_card_to_manifest",
     "build_signed_agent_card",
     "canonical_card_form",

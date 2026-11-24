@@ -22,8 +22,8 @@ from __future__ import annotations
 import base64
 import re
 from collections.abc import Awaitable, Callable, Collection, Sequence
-from dataclasses import dataclass
-from typing import Literal
+from dataclasses import dataclass, field
+from typing import Final, Literal
 
 from asap.adapters.a2a.canonical import canonical_card_form
 from asap.adapters.a2a.errors import (
@@ -36,9 +36,45 @@ from asap.adapters.a2a.extension import ASAP_EXTENSION_URI
 from asap.adapters.a2a.models import AgentCard
 from asap.adapters.a2a.signature_header import read_card_signatures
 from asap.adapters.a2a.signature_keys import CARD_VERIFY_ALGORITHMS, CardKey, check_card_signature
+from asap.adapters.a2a.trust_scope import AgentScope, scope_allows
 
-CardKeyResolver = Callable[[str, str | None], Awaitable[CardKey | None]]
-"""``(kid, jku) -> key``: a trusted public key for *kid*, or ``None`` if it is not trusted."""
+PINNED_KEY_SOURCE: Final = "pinned"
+"""The ``source`` of a key from the pinned trust store; any other source is a ``jku`` URL."""
+
+
+@dataclass(frozen=True, slots=True)
+class TrustedCardKey:
+    """A key that a resolver trusts for a ``kid``, with where it came from and whom it may sign for.
+
+    ``source`` is :data:`PINNED_KEY_SOURCE` or the ``jku`` URL of the JWKS that
+    holds the key; ``agents`` is that source's scope. The key is left out of ``repr``.
+    """
+
+    key: CardKey = field(repr=False)
+    source: str
+    agents: AgentScope
+
+
+CardKeyResolver = Callable[[str, str | None], Awaitable[TrustedCardKey | None]]
+"""``(kid, jku) -> trusted key``: the key for *kid* with its source and scope, or ``None``."""
+
+
+@dataclass(frozen=True, slots=True)
+class VerifiedCardSigner:
+    """One signature that verified: its key's ``source``, its ``kid``, and the source's scope.
+
+    ``source`` is :data:`PINNED_KEY_SOURCE` or a ``jku`` URL, so two JWKS that
+    both hold ``kid: "k1"`` give two different signers.
+    """
+
+    source: str
+    kid: str
+    agents: AgentScope
+
+    def may_sign_for(self, agent_urn: str) -> bool:
+        """Return True if this signer's source may sign a card for *agent_urn*."""
+        return scope_allows(self.agents, agent_urn)
+
 
 SignaturePolicy = Literal["require_signature", "allow_unsigned"]
 """A signature is required by default; ``allow_unsigned`` is an explicit opt-in."""
@@ -52,8 +88,8 @@ class CardVerification:
     """Result of :func:`verify_agent_card`.
 
     ``verified`` is false only for an unsigned card accepted under
-    ``allow_unsigned``: such a card is unverified data. ``signer_kids`` lists
-    the keys whose signature verified. ``uncovered`` lists the values of a
+    ``allow_unsigned``: such a card is unverified data. ``signers`` lists each
+    signature that verified, in card order. ``uncovered`` lists the values of a
     verified card that no signature covers, by path (see
     :func:`asap.adapters.a2a.canonical_card_form`); none of them is inside
     the ASAP extension params, and it is empty when ``verified`` is false,
@@ -62,7 +98,7 @@ class CardVerification:
 
     card: AgentCard
     verified: bool
-    signer_kids: tuple[str, ...]
+    signers: tuple[VerifiedCardSigner, ...]
     uncovered: tuple[str, ...] = ()
 
 
@@ -91,20 +127,20 @@ async def verify_agent_card(
 
     Example:
         >>> result = await verify_agent_card(card, resolver)  # doctest: +SKIP
-        >>> result.signer_kids  # doctest: +SKIP
-        ('agent-key-1',)
+        >>> result.signers  # doctest: +SKIP
+        (VerifiedCardSigner(source='pinned', kid='agent-key-1', agents=('urn:asap:agent:x',)),)
     """
     allowed = _checked_algorithms(algorithms)
     if policy not in _POLICIES:
         raise ValueError(f"policy must be one of {list(_POLICIES)}, got {policy!r}")
     if not card.signatures:
         if policy == "allow_unsigned":
-            return CardVerification(card=card, verified=False, signer_kids=())
+            return CardVerification(card=card, verified=False, signers=())
         raise A2AUnsignedCardError(card.name)
     entries = read_card_signatures(card.signatures)
     form = canonical_card_form(card)
     payload = base64.urlsafe_b64encode(form.payload).rstrip(b"=").decode("ascii")
-    signer_kids: list[str] = []
+    signers: list[VerifiedCardSigner] = []
     skipped: list[str] = []
     for entry in entries:
         if entry.alg not in allowed:
@@ -112,20 +148,20 @@ async def verify_agent_card(
                 f"signature {entry.index}: alg {quoted_prefix(entry.alg)} is not allowed"
             )
             continue
-        key = await key_resolver(entry.kid, entry.jku)
-        if key is None:
+        trusted = await key_resolver(entry.kid, entry.jku)
+        if trusted is None:
             skipped.append(
                 f"signature {entry.index}: kid {quoted_prefix(entry.kid)} is not trusted"
             )
             continue
         signing_input = f"{entry.protected}.{payload}".encode("ascii")
-        check_card_signature(entry.index, entry.alg, key, signing_input, entry.signature)
-        signer_kids.append(entry.kid)
-    if not signer_kids:
+        check_card_signature(entry.index, entry.alg, trusted.key, signing_input, entry.signature)
+        signers.append(VerifiedCardSigner(trusted.source, entry.kid, trusted.agents))
+    if not signers:
         raise A2ANoTrustedSignatureError(card.name, skipped)
     _require_covered_asap_params(card, form.uncovered)
     return CardVerification(
-        card=card, verified=True, signer_kids=tuple(signer_kids), uncovered=form.uncovered
+        card=card, verified=True, signers=tuple(signers), uncovered=form.uncovered
     )
 
 

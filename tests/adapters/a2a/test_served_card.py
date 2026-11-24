@@ -79,7 +79,8 @@ async def test_the_default_card_has_one_eddsa_signature_that_both_verifiers_acce
     )
 
     result = await verify_agent_card(mapping.card, A2AKeyResolver(_TRUST))
-    assert (result.verified, result.signer_kids, result.uncovered) == (True, ("card-ed",), ())
+    assert (result.verified, result.uncovered) == (True, ())
+    assert [signer.kid for signer in result.signers] == ["card-ed"]
     _sdk_verify(mapping.card, ["EdDSA"])
     with pytest.raises(InvalidSignaturesError):
         _sdk_verify(mapping.card, ["ES256", "RS256"])
@@ -92,7 +93,10 @@ async def test_an_es256_signer_is_an_opt_in_for_es256_only_verifiers() -> None:
     )
 
     result = await verify_agent_card(mapping.card, A2AKeyResolver(_TRUST))
-    assert result.signer_kids == ("card-ed", "card-ec")
+    assert [(signer.source, signer.kid) for signer in result.signers] == [
+        ("pinned", "card-ed"),
+        ("pinned", "card-ec"),
+    ]
     _sdk_verify(mapping.card, ["ES256", "RS256"])
 
 

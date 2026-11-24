@@ -40,7 +40,7 @@ from asap.adapters.a2a.signature_keys import (
     is_small_order_ed25519,
 )
 from asap.adapters.a2a.trust_scope import AllowedJku, PinnedCardKey
-from asap.adapters.a2a.verification import SignaturePolicy
+from asap.adapters.a2a.verification import PINNED_KEY_SOURCE, SignaturePolicy, TrustedCardKey
 from asap.models.base import ASAPBaseModel
 from asap.utils.guarded_fetch import (
     AddressResolver,
@@ -144,7 +144,12 @@ class A2AKeyResolver:
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self.config = config
-        self._pinned = {kid: import_pinned_key(kid, e.jwk) for kid, e in config.pinned_keys.items()}
+        # Snapshots: a dict inside the frozen config can still be changed in place.
+        self._pinned = {
+            kid: TrustedCardKey(import_pinned_key(kid, entry.jwk), PINNED_KEY_SOURCE, entry.agents)
+            for kid, entry in config.pinned_keys.items()
+        }
+        self._jku_scopes = {url: entry.agents for url, entry in config.jku_allowlist.items()}
         self._dns_resolver = dns_resolver
         self._transport = transport
         self._jwks_cache: BoundedTTLCache[dict[str, CardKey]] = BoundedTTLCache(
@@ -155,8 +160,11 @@ class A2AKeyResolver:
         # One lock per allowlisted jku, so concurrent lookups make one request.
         self._fetch_locks: dict[str, asyncio.Lock] = {}
 
-    async def __call__(self, kid: str, jku: str | None) -> CardKey | None:
+    async def __call__(self, kid: str, jku: str | None) -> TrustedCardKey | None:
         """Return the trusted key for *kid*: pinned first, then an allowlisted *jku*.
+
+        The result names its source (``"pinned"`` or the *jku*) and the agents
+        that source may sign for.
 
         Raises:
             A2AKeyResolutionError: The allowlisted *jku* could not be fetched or
@@ -165,9 +173,10 @@ class A2AKeyResolver:
         pinned = self._pinned.get(kid)
         if pinned is not None:
             return pinned
-        if jku is None or jku not in self.config.jku_allowlist:
+        if jku is None or jku not in self._jku_scopes:
             return None
-        return (await self._cached_jwks(jku)).get(kid)
+        key = (await self._cached_jwks(jku)).get(kid)
+        return None if key is None else TrustedCardKey(key, jku, self._jku_scopes[jku])
 
     async def _cached_jwks(self, jku: str) -> dict[str, CardKey]:
         async with self._fetch_locks.setdefault(jku, asyncio.Lock()):

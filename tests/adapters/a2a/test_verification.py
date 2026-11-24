@@ -19,6 +19,7 @@ from asap.adapters.a2a import (
     A2AUnsignedCardError,
     AgentCard,
     AgentCardSignature,
+    VerifiedCardSigner,
     manifest_to_agent_card,
     sign_agent_card,
     verify_agent_card,
@@ -48,7 +49,8 @@ async def test_a_valid_signature_passes() -> None:
 
     result = await verify_agent_card(_signed_card(), resolver)
 
-    assert (result.verified, result.signer_kids) == (True, ("k1",))
+    assert result.verified is True
+    assert result.signers == (VerifiedCardSigner(source="pinned", kid="k1", agents="any_agent"),)
     assert resolver.calls == [("k1", None)]
 
 
@@ -92,7 +94,7 @@ async def test_an_unsigned_card_passes_under_allow_unsigned_marked_unverified() 
 
     result = await verify_agent_card(card, resolver, policy="allow_unsigned")
 
-    assert (result.verified, result.signer_kids, result.card) == (False, (), card)
+    assert (result.verified, result.signers, result.card) == (False, (), card)
     assert resolver.calls == []
 
 

@@ -23,7 +23,15 @@ from joserfc import jws
 from joserfc.errors import SecurityWarning
 from joserfc.jwk import Key
 
-from asap.adapters.a2a import AgentCard, AgentCardSignature, canonicalize_agent_card
+from asap.adapters.a2a import (
+    ANY_AGENT,
+    PINNED_KEY_SOURCE,
+    AgentCard,
+    AgentCardSignature,
+    AgentScope,
+    TrustedCardKey,
+    canonicalize_agent_card,
+)
 
 
 def public_pem(private_key: PrivateKeyTypes) -> bytes:
@@ -57,12 +65,18 @@ def forged_signature(header: object, *, signature: str = "c2lnbmF0dXJl") -> Agen
 
 
 class RecordingKeyResolver:
-    """A card key resolver over fixed keys that records every lookup."""
+    """A card key resolver over fixed pinned keys that records every lookup.
 
-    def __init__(self, keys: Mapping[str, Key]) -> None:
+    Each key is trusted for *agents* (any agent by default: these tests check
+    signatures, not the binding of a card to its agent).
+    """
+
+    def __init__(self, keys: Mapping[str, Key], agents: AgentScope = ANY_AGENT) -> None:
         self.keys = dict(keys)
+        self.agents = agents
         self.calls: list[tuple[str, str | None]] = []
 
-    async def __call__(self, kid: str, jku: str | None) -> Key | None:
+    async def __call__(self, kid: str, jku: str | None) -> TrustedCardKey | None:
         self.calls.append((kid, jku))
-        return self.keys.get(kid)
+        key = self.keys.get(kid)
+        return None if key is None else TrustedCardKey(key, PINNED_KEY_SOURCE, self.agents)

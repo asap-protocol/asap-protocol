@@ -65,7 +65,7 @@ async def test_card_and_manifest_from_one_origin_describe_the_same_agent(
     extension = read_asap_extension(card)
     assert extension is not None and extension.agent_urn == manifest_json["id"]
     verification = await verify_agent_card(card, A2AKeyResolver(_TRUST))
-    assert verification.signer_kids == ("card-1",)
+    assert [signer.kid for signer in verification.signers] == ["card-1"]
 
 
 def test_the_card_route_sets_json_and_caching_headers(client: TestClient) -> None:

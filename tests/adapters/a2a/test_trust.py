@@ -2,6 +2,10 @@
 
 No test touches the network: DNS and the HTTP transport are fakes, and the
 handler records every request, so "no request" is checked, not assumed.
+
+A resolved key names its source (``"pinned"`` or the ``jku``) and the agents
+that source may sign for, and so does each signer of a verified card: a bare
+``kid`` is ambiguous when two allowlisted JWKS hold ``kid: "k1"``.
 """
 
 from __future__ import annotations
@@ -14,15 +18,18 @@ from cryptography.hazmat.primitives.asymmetric import ec, ed25519
 from joserfc.jwk import ECKey, OKPKey
 
 from asap.adapters.a2a import (
+    PINNED_KEY_SOURCE,
     A2AKeyResolutionError,
     A2AKeyResolver,
     A2ANoTrustedSignatureError,
     A2ATrustConfig,
+    AllowedJku,
+    PinnedCardKey,
+    VerifiedCardSigner,
     manifest_to_agent_card,
     sign_agent_card,
     verify_agent_card,
 )
-from asap.adapters.a2a.trust_scope import AllowedJku, PinnedCardKey
 from tests.adapters.a2a.helpers import research_card_inputs, research_manifest
 
 _JKU = "https://keys.example.com/.well-known/jwks.json"
@@ -73,7 +80,8 @@ async def test_a_pinned_key_wins_over_a_jku_and_causes_no_request() -> None:
 
     key = await resolver("pinned", _JKU)
 
-    assert key is not None and key.as_dict(private=False)["x"] == _public_jwk(_PINNED_KEY, "p")["x"]
+    assert key is not None and key.source == "pinned"
+    assert key.key.as_dict(private=False)["x"] == _public_jwk(_PINNED_KEY, "p")["x"]
     assert server.requests == []
 
 
@@ -100,7 +108,7 @@ async def test_an_allowlisted_jku_is_fetched_through_the_guarded_fetch() -> None
 
     key = await _resolver(server)("k2", _JKU)
 
-    assert key is not None and key.kid == "k2"
+    assert key is not None and (key.key.kid, key.source) == ("k2", _JKU)
     [request] = server.requests
     assert (request.url.host, request.headers["Host"]) == (_PUBLIC_ADDRESS, "keys.example.com")
     assert request.headers["Accept-Encoding"] == "identity"
@@ -116,7 +124,7 @@ async def test_a_key_without_a_kid_in_a_fetched_jwks_is_ignored() -> None:
 
     key = await _resolver(_JwksServer(jwks))("k1", _JKU)
 
-    assert key is not None and key.kid == "k1"
+    assert key is not None and key.key.kid == "k1"
 
 
 async def test_a_card_whose_jku_is_off_the_allowlist_fails_with_no_request() -> None:
@@ -138,7 +146,7 @@ async def test_a_card_verifies_with_a_key_from_an_allowlisted_jku() -> None:
 
     result = await verify_agent_card(signed, _resolver(server))
 
-    assert result.signer_kids == ("k1",)
+    assert [(signer.source, signer.kid) for signer in result.signers] == [(_JKU, "k1")]
     assert len(server.requests) == 1
 
 
@@ -185,3 +193,62 @@ async def test_a_document_that_is_not_a_usable_key_set_fails_as_invalid_jwks(
         await _resolver(_JwksServer(document))("k1", _JKU)
 
     assert raised.value.refusal == "invalid_jwks"
+
+
+_BANK_A, _BANK_B = "urn:asap:agent:bank-a", "urn:asap:agent:bank-b"
+_JKU_A = "https://keys.bank-a.example/jwks.json"
+_JKU_B = "https://keys.bank-b.example/jwks.json"
+_KEY_A = ed25519.Ed25519PrivateKey.generate()
+_KEY_B = ed25519.Ed25519PrivateKey.generate()
+
+
+def _jwks_by_host(request: httpx.Request) -> httpx.Response:
+    key = _KEY_A if request.headers["Host"] == "keys.bank-a.example" else _KEY_B
+    return httpx.Response(200, json={"keys": [_public_jwk(key, "k1")]})
+
+
+def _signed(key: ed25519.Ed25519PrivateKey, jku: str | None = None) -> Any:
+    card = manifest_to_agent_card(research_manifest(), research_card_inputs()).card
+    return sign_agent_card(card, key, kid="k1", jku=jku)
+
+
+async def test_two_jwks_sharing_kid_k1_are_told_apart_by_the_jku() -> None:
+    trust = A2ATrustConfig(
+        jku_allowlist={_JKU_A: AllowedJku(agents=[_BANK_A]), _JKU_B: AllowedJku(agents=[_BANK_B])}
+    )
+    resolver = A2AKeyResolver(
+        trust, dns_resolver=_public_dns, transport=httpx.MockTransport(_jwks_by_host)
+    )
+
+    from_a = await verify_agent_card(_signed(_KEY_A, _JKU_A), resolver)
+    from_b = await verify_agent_card(_signed(_KEY_B, _JKU_B), resolver)
+
+    assert from_a.signers == (VerifiedCardSigner(source=_JKU_A, kid="k1", agents=(_BANK_A,)),)
+    assert from_b.signers == (VerifiedCardSigner(source=_JKU_B, kid="k1", agents=(_BANK_B,)),)
+    assert from_a.signers[0].may_sign_for(_BANK_A)
+    assert not from_a.signers[0].may_sign_for(_BANK_B)
+
+
+async def test_a_pinned_signer_names_the_pinned_source_and_its_scope() -> None:
+    trust = A2ATrustConfig(
+        pinned_keys={"k1": PinnedCardKey(jwk=_public_jwk(_KEY_A, "k1"), agents=[_BANK_A])}
+    )
+
+    result = await verify_agent_card(_signed(_KEY_A), A2AKeyResolver(trust))
+
+    assert result.signers == (
+        VerifiedCardSigner(source=PINNED_KEY_SOURCE, kid="k1", agents=(_BANK_A,)),
+    )
+    assert PINNED_KEY_SOURCE == "pinned"
+
+
+async def test_the_resolver_returns_the_key_with_its_source_and_hides_it_in_repr() -> None:
+    trust = A2ATrustConfig(
+        pinned_keys={"k1": PinnedCardKey(jwk=_public_jwk(_KEY_A, "k1"), agents="any_agent")}
+    )
+
+    trusted = await A2AKeyResolver(trust)("k1", None)
+
+    assert trusted is not None
+    assert (trusted.source, trusted.agents) == ("pinned", "any_agent")
+    assert _public_jwk(_KEY_A, "k1")["x"] not in repr(trusted)
