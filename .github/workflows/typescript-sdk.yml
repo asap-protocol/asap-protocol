@@ -126,6 +126,9 @@ jobs:
       - name: Test with coverage (reads tests/fixtures/interop)
         run: pnpm --filter @asap-protocol/mcp-auth test
 
+      - name: Tree-shake check (agadoo)
+        run: pnpm --filter @asap-protocol/mcp-auth run check:treeshake
+
       - name: Example examples/mcp_auth_http (typecheck, protected end-to-end tests)
         run: |
           pnpm --filter @asap-protocol/mcp-auth run build
