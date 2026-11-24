@@ -103,6 +103,13 @@ describe("protect(handler) in front of the SDK's createMcpHandler", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
+  it("leaves a body over the SDK's 4 MiB limit to the SDK, which answers 413 and runs no tool", async () => {
+    const request = post(toolsCallHeaders(PUBLIC_TOOL), toolsCallBody(PUBLIC_TOOL, { padding: "x".repeat(4 * 1024 * 1024) }));
+
+    expect((await protectedHandler().fetch(request)).status).toBe(413);
+    expect(toolRuns).toEqual([]);
+  });
+
   it("refuses a request with a token for another audience before the tool runs", async () => {
     const token = await agent.signAgentJwt({ aud: "https://other.example/mcp" });
     const request = post([...toolsCallHeaders(PROTECTED_TOOL), ["authorization", `Bearer ${token}`]], toolsCallBody(PROTECTED_TOOL));

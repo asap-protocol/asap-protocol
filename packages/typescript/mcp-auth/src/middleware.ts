@@ -1,9 +1,11 @@
 import { AGENT_JWT_TYP, JtiReplayCacheFullError } from "@asap-protocol/client";
 import {
   bearerAuthChallengeResponse,
+  isJSONRPCNotification,
   isLegacyRequest,
   OAuthError,
   OAuthErrorCode,
+  readRequestBody,
   type AuthInfo,
   type McpHandlerRequestOptions,
   type OAuthTokenVerifier,
@@ -46,6 +48,7 @@ export interface McpAuthConfig {
    * `"prompts/get"`. Default: none, so every other method gets HTTP 403
    * before any handler runs. A listed method runs with no grant check. It
    * cannot list `"tools/call"`, and it opens nothing to a request with no token.
+   * A JSON-RPC notification passes only when its method is listed here.
    */
   readonly allowMethods?: readonly string[];
   /** The grants of a verified Agent JWT principal, for example `staticAgentGrants(...)`. Default: none (deny). */
@@ -92,7 +95,8 @@ export interface McpAuthMiddleware {
    * `Response`, and any other request reaches `handler.fetch(request, { authInfo })`.
    * Tools read the result as `ctx.http?.authInfo`. A request that the SDK's
    * `isLegacyRequest` would route to 2025-era serving is refused too (401 with
-   * no token, 403 with one), because that path skips the SDK's `Mcp-Name` check.
+   * no token, 403 with one), because that path skips the SDK's `Mcp-Name` check;
+   * so is a JSON-RPC notification whose method `allowMethods` does not list.
    */
   protect(handler: McpFetchHandler): McpProtectedHandler;
   /**
@@ -162,18 +166,30 @@ function tokenSurface(config: McpAuthConfig): { callableTools: ReadonlySet<strin
   return { callableTools, allowMethods };
 }
 
+interface BodyRoute {
+  readonly legacy: boolean;
+  /** The method of a JSON-RPC notification (a message with no `id`). */
+  readonly notification?: string;
+}
+
 /**
- * The header rule holds only on the SDK's 2026-07-28 path.
- * `isLegacyRequest` runs the SDK's own routing step on a clone of the body
- * (with its default 4 MiB limit). Under SDK 2.4.0 every request that passes
- * the header rule routes there already, so this guards against a later SDK
- * 2.x that routes differently. A body that cannot be read counts as legacy.
+ * The body, read once with the SDK's own 4 MiB limit, as the SDK will route it.
+ * The header rule holds only on the SDK's 2026-07-28 path;
+ * `isLegacyRequest` runs the SDK's routing step. Under SDK 2.4.0 every request
+ * that passes the header rule routes there already, so this guards against a
+ * later SDK 2.x that routes differently. A body that cannot be read or parsed
+ * counts as legacy; a body over the limit goes on to the SDK, which answers 413.
+ * The headers are the same for a request and a notification, so
+ * only the body tells that a message is a notification.
  */
-async function routedAsLegacy(request: Request): Promise<boolean> {
+async function routeOfBody(request: Request): Promise<BodyRoute> {
   try {
-    return await isLegacyRequest(request);
+    const read = await readRequestBody(request.clone());
+    if (read.tooLarge) return { legacy: false };
+    const body: unknown = JSON.parse(read.text);
+    return { legacy: await isLegacyRequest(request, body), notification: isJSONRPCNotification(body) ? body.method : undefined };
   } catch {
-    return true;
+    return { legacy: true };
   }
 }
 
@@ -281,7 +297,10 @@ export function createMcpAuthMiddleware(config: McpAuthConfig): McpAuthMiddlewar
         if (authInfo instanceof Response) {
           return authInfo;
         }
-        if (await routedAsLegacy(request)) {
+        const route = await routeOfBody(request);
+        // A notification passes only when allowMethods lists it and the token verified: by default none reaches a handler.
+        const deniedNotification = route.notification !== undefined && (authInfo === undefined || !allowMethods.has(route.notification));
+        if (route.legacy || deniedNotification) {
           return authInfo === undefined ? authRequiredResponse(resourceMetadataUrl) : capabilityDeniedResponse(resourceMetadataUrl);
         }
         return handler.fetch(request, authInfo === undefined ? undefined : { authInfo });

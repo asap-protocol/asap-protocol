@@ -687,6 +687,18 @@ So `ping`, `resources/*`, `prompts/*`, and every other method need `allowMethods
 
 `protect` also refuses a request that the SDK would serve as a 2025-era request: HTTP 401 with no token, 403 with one.
 
+#### Notifications
+
+A JSON-RPC notification (a message with no `id`) gets the same refusal by default: HTTP 401 with no token, 403 with one, and no handler runs. A notification has the same headers as a request, so `protect` reads the body to tell them apart. A notification passes only when the token verifies, its method is in `allowMethods`, and the client sends that method in the `Mcp-Method` header. Then it reaches only the server's handler for that notification, never a tool.
+
+The MCP SDK client 2.4, in revision `2026-07-28`, sends one notification on its own:
+
+| Notification | When the SDK client sends it | What a refusal does | To let it through |
+|--------------|------------------------------|---------------------|-------------------|
+| `notifications/cancelled` | Only when it closes a `subscriptions/listen` subscription (which itself needs `allowMethods: ["subscriptions/listen"]`) | The client passes the 403 to `client.onerror` and goes on. The server loses nothing: the client also closes the subscription's stream, and that ends the subscription. | The SDK client sends no `Mcp-Method` header with a notification, so no `allowMethods` entry opens it. A client that sends `Mcp-Method: notifications/cancelled` needs `allowMethods: ["notifications/cancelled"]`. |
+
+It sends no notification when it connects, calls, receives progress, or closes. It cancels a call, and ends a call that timed out, by closing that call's HTTP stream: the tool sees `ctx.mcpReq.signal` abort. `createMcpHandler` builds a new server for each POST, so a `notifications/cancelled` in its own POST cannot cancel a call that runs in another one.
+
 Two things stay with you. Wrap every tool in `toolCapabilities` with `protectTool`. And put in `allowMethods` only methods that any verified caller may use.
 
 ### Every response
@@ -698,10 +710,10 @@ The token layer answers with HTTP. The grant layer answers with a tool result.
 
 | Case | Answer | ASAP code | Header |
 |------|--------|-----------|--------|
-| No token, and the request is not a public one | HTTP 401. Body `{"error":"invalid_token","error_description":"asap:auth_required"}` | `asap:auth_required` | `WWW-Authenticate: Bearer resource_metadata="<url>"` |
+| No token, and the request is not a public one (a notification never is) | HTTP 401. Body `{"error":"invalid_token","error_description":"asap:auth_required"}` | `asap:auth_required` | `WWW-Authenticate: Bearer resource_metadata="<url>"` |
 | `Authorization` is not `Bearer <token>` | HTTP 401. Body `{"error":"invalid_token","error_description":"<ASAP code>"}` | `asap:invalid_token: malformed Authorization header` | `WWW-Authenticate: Bearer error="invalid_token", error_description="<ASAP code>", resource_metadata="<url>"` |
 | Bad, expired, wrong-audience, or replayed token | As in the row above | `asap:invalid_token: <reason>` | As in the row above |
-| Verified token, but a tool or method that the config does not declare, no `MCP-Protocol-Version: 2026-07-28`, or a 2025-era request | HTTP 403. Body `{"error":"insufficient_scope","error_description":"asap:capability_denied"}` | `asap:capability_denied` | `WWW-Authenticate: Bearer error="insufficient_scope", error_description="asap:capability_denied", resource_metadata="<url>"`, with no `scope` |
+| Verified token, but a tool or method that the config does not declare, a notification that `allowMethods` does not list, no `MCP-Protocol-Version: 2026-07-28`, or a 2025-era request | HTTP 403. Body `{"error":"insufficient_scope","error_description":"asap:capability_denied"}` | `asap:capability_denied` | `WWW-Authenticate: Bearer error="insufficient_scope", error_description="asap:capability_denied", resource_metadata="<url>"`, with no `scope` |
 | Access token, no grant for the tool, and a `scope` rule gives one (`scopeChallenge` set) | HTTP 403, same body | `asap:capability_denied` | The same, with `scope="<scope>"` before `resource_metadata` |
 | The issuer's keys cannot be fetched | HTTP 503. Body `{"error":"temporarily_unavailable","error_description":"Authentication service unavailable"}` | None | `Retry-After: <seconds>`, no `WWW-Authenticate` |
 | The in-memory replay cache is full of live records | HTTP 503, same body | None | `Retry-After: <seconds>` |
