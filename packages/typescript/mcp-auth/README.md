@@ -64,7 +64,7 @@ createServer(toNodeHandler(app)).listen(8787);
 | The replay cache is full of live records (`JtiReplayCacheFullError`) | 503, body `{"error":"temporarily_unavailable","error_description":"Authentication service unavailable"}`, `Retry-After: <seconds until enough records expire>`, no `WWW-Authenticate`; the error goes to `onInternalError`. The token may be fine |
 | The resolver or the replay cache throws anything else | 500, body `{"error":"server_error","error_description":"Internal Server Error"}`; the error goes to `onInternalError` |
 
-`<reason>` is a fixed string, such as `audience mismatch` or `jti replay detected`. No answer holds the token or any claim value. An unknown agent, an agent that is not usable, a key that is not Ed25519, and a bad signature share one reason, `agent or signature not accepted`, so the answer does not tell whether an agent exists or is revoked. `agentJwt.onTokenRefused` receives the detailed reason (an `AgentJwtFailureReason`) for your logs.
+`<reason>` is a fixed string, such as `malformed token` (a token that cannot be decoded; the same text with either verifier), `audience mismatch`, or `jti replay detected`. No answer holds the token or any claim value. An unknown agent, an agent that is not usable, a key that is not Ed25519, and a bad signature share one reason, `agent or signature not accepted`, so the answer does not tell whether an agent exists or is revoked. `agentJwt.onTokenRefused` receives the detailed reason (an `AgentJwtFailureReason`) for your logs.
 
 ## Grants (tool results)
 

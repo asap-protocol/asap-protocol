@@ -713,7 +713,7 @@ The token layer answers with HTTP. The grant layer answers with a tool result.
 | The `protectTool` callback is registered under another tool's name | Tool result | `asap:capability_denied: the request is not a call to '<name>'` | — |
 | The arguments break a constraint | Tool result | `asap:constraint_violation: <field>: <reason>` | — |
 
-`<url>` is your `resourceMetadataUrl`. Without it, the challenge has no `resource_metadata` parameter, so the no-token challenge is a plain `Bearer`. `<reason>` is a fixed text, such as `token expired`, `audience mismatch`, or `jti replay detected`. No answer holds the token or a claim value. For a 500 or a 503, `onInternalError` gets the cause.
+`<url>` is your `resourceMetadataUrl`. Without it, the challenge has no `resource_metadata` parameter, so the no-token challenge is a plain `Bearer`. `<reason>` is a fixed text, such as `malformed token` (a token that cannot be decoded, with either kind of token and in every config), `token expired`, `audience mismatch`, or `jti replay detected`. No answer holds the token or a claim value. For a 500 or a 503, `onInternalError` gets the cause.
 
 The two kinds of token differ in one case. With an Agent JWT, a missing grant is always a tool result, as in the Python bridge. With an access token, it is HTTP 403 when a scope can give the grant, so that a standard MCP client can ask for that scope; otherwise it is a tool result. A constraint violation is a tool result on both paths, because it depends on the arguments.
 

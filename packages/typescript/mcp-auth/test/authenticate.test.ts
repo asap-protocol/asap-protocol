@@ -111,7 +111,7 @@ describe("authenticate: requests with a token", () => {
   // (b) MCP: an invalid token MUST get a 401, so a token on a public tool is never skipped.
   // (f) code[: fixed reason], never claim values or library messages.
   it.each<[string, () => Promise<string>, Partial<AgentJwtVerifierConfig>, string]>([
-    ["a string that is not a JWT", async () => "not-a-jwt", {}, "invalid JWT structure"],
+    ["a string that is not a JWT", async () => "not-a-jwt", {}, "malformed token"],
     ["a token for another audience", () => mint("https://other.example/mcp"), {}, "audience mismatch"],
     ["an expired token", () => mint(), { nowSeconds: () => Date.now() / 1000 + 120 }, "token expired or missing exp"],
     // One public reason, so the answer does not tell whether the agent exists or is usable.

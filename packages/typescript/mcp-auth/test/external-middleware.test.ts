@@ -85,6 +85,29 @@ describe("createMcpAuthMiddleware with both token types: one verifier per token,
   });
 });
 
+const base64url = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
+
+/** Tokens that no verifier can decode. The last has a readable agent+jwt header, so with both types it goes to the Agent JWT verifier. */
+const GARBAGE_TOKENS: [string, string][] = [
+  ["a string that is not a JWT", "not-a-jwt"],
+  ["three segments that are not base64url JSON", "a.b.c"],
+  ["an agent+jwt header with a payload that is not JSON", `${base64url({ alg: "EdDSA", typ: "agent+jwt" })}.bm90LWpzb24.c2ln`],
+];
+
+describe("a garbage token gets one client-visible reason in every configuration", () => {
+  it.each<[string, Partial<McpAuthConfig>]>([
+    ["Agent JWTs only", { externalTokens: undefined }],
+    ["external tokens only", { agentJwt: undefined }],
+    ["both token types", {}],
+  ])("%s: 401 asap:invalid_token: malformed token", async (_config, overrides) => {
+    for (const [, token] of GARBAGE_TOKENS) {
+      const response = await authenticate(middleware(overrides), token);
+
+      expect(await (response as Response).json()).toEqual({ error: "invalid_token", error_description: "asap:invalid_token: malformed token" });
+    }
+  });
+});
+
 async function externalAuthInfo(scope: string, extra = {}): Promise<AuthInfo> {
   return (await middleware().authenticate(post([...toolsCallHeaders(PROTECTED_TOOL), ["authorization", `Bearer ${await externalToken(scope, extra)}`]]))) as AuthInfo;
 }

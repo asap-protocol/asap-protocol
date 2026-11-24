@@ -2,7 +2,7 @@ import { OAuthError, OAuthErrorCode, type AuthInfo, type OAuthTokenVerifier } fr
 import { decodeJwt, decodeProtectedHeader, errors, jwtVerify, type JWTPayload } from "jose";
 
 import { mapExternalGrants, type CapabilityGrant } from "./capability-grants.js";
-import { McpAuthErrorCode } from "./errors.js";
+import { MALFORMED_TOKEN_REASON, McpAuthErrorCode } from "./errors.js";
 import { issuerKey, trustedIssuers, type ExternalTokenConfig, type TrustedIssuer } from "./external-issuers.js";
 
 /** The ephemeral principal of an external token, keyed by `(issuer, subject)`; `AuthInfo.extra.principal`. */
@@ -42,7 +42,7 @@ function precheck(token: string, issuers: ReadonlyMap<string, TrustedIssuer>): {
     header = decodeProtectedHeader(token);
     claims = decodeJwt(token);
   } catch {
-    throw invalidToken("malformed token");
+    throw invalidToken(MALFORMED_TOKEN_REASON);
   }
   const typ = typeof header.typ === "string" ? header.typ.toLowerCase().replace(/^application\//, "") : undefined;
   if (typ !== undefined && ASAP_TOKEN_TYPES.includes(typ)) throw invalidToken("token type not accepted");
@@ -54,7 +54,7 @@ function precheck(token: string, issuers: ReadonlyMap<string, TrustedIssuer>): {
 
 function reasonFor(error: InstanceType<typeof errors.JOSEError>): string {
   if (error instanceof errors.JWTClaimValidationFailed) return CLAIM_REASONS[error.claim] ?? "missing or invalid claim";
-  return JOSE_REASONS[error.code] ?? "malformed token";
+  return JOSE_REASONS[error.code] ?? MALFORMED_TOKEN_REASON;
 }
 
 function externalAuthInfo(token: string, issuer: TrustedIssuer, payload: JWTPayload): AuthInfo {
