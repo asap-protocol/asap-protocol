@@ -4,7 +4,8 @@ The steps run in this order (COMPAT-005, COMPAT-006): fetch
 the card through :func:`asap.utils.guarded_fetch.guarded_fetch_json`; parse it;
 verify its signatures under the :class:`A2ATrustConfig`; map the parsed card
 (:func:`asap.adapters.a2a.agent_card_to_manifest`). A card that fails a step
-is never mapped, and every failure is an :class:`asap.adapters.a2a.A2AAdapterError`.
+is never mapped and never cached, and every failure is an
+:class:`asap.adapters.a2a.A2AAdapterError`.
 
 Example:
     >>> ingestor = AgentCardIngestor(A2ATrustConfig(pinned_keys=keys))  # doctest: +SKIP
@@ -15,12 +16,15 @@ Example:
 
 from __future__ import annotations
 
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
 import httpx
 from pydantic import ValidationError
 
+from asap.adapters.a2a._ttl_cache import BoundedTTLCache
 from asap.adapters.a2a.errors import A2ACardFetchError, A2AMappingError
 from asap.adapters.a2a.mapping import agent_card_to_manifest
 from asap.adapters.a2a.models import AgentCard
@@ -49,10 +53,12 @@ class CardIngestResult:
 
 
 class AgentCardIngestor:
-    """Fetch, verify, and map Agent Cards under one trust config.
+    """Fetch, verify, and map Agent Cards, caching each verified card by URL.
 
-    ``key_resolver`` defaults to an :class:`A2AKeyResolver` over *trust*.
-    ``dns_resolver`` and ``transport`` are for tests.
+    A cached card is reused for ``cache_ttl_seconds`` and the cache holds at
+    most ``cache_max_entries`` cards. ``key_resolver`` defaults to an
+    :class:`A2AKeyResolver` over *trust*. ``dns_resolver``, ``transport``, and
+    ``clock`` are for tests.
     """
 
     def __init__(
@@ -60,12 +66,18 @@ class AgentCardIngestor:
         trust: A2ATrustConfig,
         *,
         key_resolver: CardKeyResolver | None = None,
+        cache_ttl_seconds: float = 300.0,
+        cache_max_entries: int = 256,
         dns_resolver: AddressResolver | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._trust = trust
         self._key_resolver = key_resolver or A2AKeyResolver(
-            trust, dns_resolver=dns_resolver, transport=transport
+            trust, dns_resolver=dns_resolver, transport=transport, clock=clock
+        )
+        self._cards: BoundedTTLCache[CardVerification] = BoundedTTLCache(
+            ttl_seconds=cache_ttl_seconds, max_entries=cache_max_entries, clock=clock
         )
         self._dns_resolver = dns_resolver
         self._transport = transport
@@ -84,8 +96,13 @@ class AgentCardIngestor:
             A2ACardVerificationError: The signatures fail the trust config.
             A2AMappingError, A2AMappingInputError: The card does not parse or map.
         """
-        verification = await self._fetch_and_verify(url)
+        cached = self._cards.get(url)
+        verification = cached or await self._fetch_and_verify(url)
         mapping = agent_card_to_manifest(verification.card, agent_id=agent_id, endpoints=endpoints)
+        # Cached only once verified and mapped, and never re-put on a hit, so a
+        # card is fetched again at least once per cache lifetime.
+        if cached is None:
+            self._cards.put(url, verification)
         return CardIngestResult(
             manifest=mapping.manifest,
             verified=verification.verified,
