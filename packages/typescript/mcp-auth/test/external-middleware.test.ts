@@ -35,6 +35,7 @@ function middleware(overrides: Partial<McpAuthConfig> = {}) {
       }, { issuer: "https://no-rules.example", audience: MCP_ENDPOINT, jwks: issuer.jwks }],
     },
     publicTools: [PUBLIC_TOOL],
+    toolCapabilities: { [PROTECTED_TOOL]: PROTECTED_TOOL, audit: "audit" },
     resourceMetadataUrl: METADATA_URL,
     ...overrides,
   });
@@ -77,6 +78,11 @@ describe("createMcpAuthMiddleware with both token types: one verifier per token,
   it("refuses a config with no token type", () => {
     expect(() => middleware({ agentJwt: undefined, externalTokens: undefined })).toThrow("agentJwt, externalTokens, or both");
   });
+
+  // MCP authorization: a protected MCP server MUST serve RFC 9728 metadata, and with external tokens this server is the resource server.
+  it("refuses externalTokens with no resourceMetadataUrl", () => {
+    expect(() => middleware({ resourceMetadataUrl: undefined })).toThrow("externalTokens needs resourceMetadataUrl");
+  });
 });
 
 async function externalAuthInfo(scope: string, extra = {}): Promise<AuthInfo> {
@@ -109,7 +115,8 @@ describe("scopeChallenge: HTTP 403 insufficient_scope for a missing grant on the
 describe("protectTool for an external principal", () => {
   async function callTool(authInfo: AuthInfo, action: string) {
     const handler = vi.fn(async (_args: { action: string }, _ctx: ServerContext) => OK);
-    const result = await middleware().protectTool(PROTECTED_TOOL, handler)({ action }, { http: { authInfo } } as unknown as ServerContext);
+    const req = new Request(MCP_ENDPOINT, { headers: { "mcp-name": PROTECTED_TOOL } });
+    const result = await middleware().protectTool(PROTECTED_TOOL, handler)({ action }, { http: { req, authInfo } } as unknown as ServerContext);
     return { result, handler };
   }
 

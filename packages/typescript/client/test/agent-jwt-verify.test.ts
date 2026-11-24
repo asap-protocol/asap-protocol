@@ -95,6 +95,15 @@ describe("verifyAgentJwt with the Python vector", () => {
     expect(result).toEqual({ ok: false, reason: AgentJwtFailureReason.BadSignature });
   });
 
+  it("records the jti with the token's exp, so the record lasts as long as the token", async () => {
+    const calls: unknown[][] = [];
+    const replayCache = { checkAndRecord: (...args: unknown[]) => (calls.push(args), true) };
+
+    await verifyAgentJwt(vector.token, vectorOptions({ replayCache }));
+
+    expect(calls).toEqual([[vector.agent_id, vector.jti, vector.now + AGENT_JWT_TTL_SECONDS]]);
+  });
+
   it("rejects the second use of the same token", async () => {
     const replayCache = new InMemoryJtiReplayCache();
 
@@ -141,6 +150,8 @@ describe("verifyAgentJwt with tokens signed in the test", () => {
     ["no sub", () => sign({ ...validClaims, sub: undefined }), AgentJwtFailureReason.MissingSub],
     ["a blank iss", () => sign({ ...validClaims, iss: " " }), AgentJwtFailureReason.MissingIss],
     ["no jti (claim checks run after the signature)", () => sign({ ...validClaims, jti: undefined }), AgentJwtFailureReason.MissingJti],
+    // A captured long-lived token could be replayed once its jti left the cache.
+    ["a token that lives a year, on its first use", () => sign({ ...validClaims, exp: NOW + 365 * 86_400 }), AgentJwtFailureReason.LifetimeTooLong],
     ["three segments that are not JSON", async () => "not.a.jwt", AgentJwtFailureReason.Malformed],
     ["an empty string", async () => "", AgentJwtFailureReason.Malformed],
   ])("rejects %s", async (_case, makeToken, reason) => {

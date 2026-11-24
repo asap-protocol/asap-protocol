@@ -1,4 +1,12 @@
-import { createAgent, createHost, MemoryStorage, type AgentContext, type AgentKeyResolver } from "@asap-protocol/client";
+import {
+  createAgent,
+  createHost,
+  InMemoryJtiReplayCache,
+  JtiReplayCacheFullError,
+  MemoryStorage,
+  type AgentContext,
+  type AgentKeyResolver,
+} from "@asap-protocol/client";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 
 import { createMcpAuthMiddleware, type AgentJwtVerifierConfig, type McpAuthConfig } from "../src/index.js";
@@ -46,6 +54,7 @@ function mint(aud = MCP_ENDPOINT): Promise<string> {
 function middleware(overrides: Partial<McpAuthConfig> = {}, agentJwt: Partial<AgentJwtVerifierConfig> = {}) {
   return createMcpAuthMiddleware({
     publicTools: [PUBLIC_TOOL],
+    toolCapabilities: { [PROTECTED_TOOL]: "web_search" },
     resourceMetadataUrl: METADATA_URL,
     agentJwt: { audience: MCP_ENDPOINT, resolveAgent: resolveTestAgent, ...agentJwt },
     ...overrides,
@@ -105,8 +114,10 @@ describe("authenticate: requests with a token", () => {
     ["a string that is not a JWT", async () => "not-a-jwt", {}, "invalid JWT structure"],
     ["a token for another audience", () => mint("https://other.example/mcp"), {}, "audience mismatch"],
     ["an expired token", () => mint(), { nowSeconds: () => Date.now() / 1000 + 120 }, "token expired or missing exp"],
-    ["a token from an unknown agent", () => mint(), { resolveAgent: async () => undefined }, "unknown agent"],
-    ["a resolver key that is not Ed25519", () => mint(), { resolveAgent: async () => ({ publicKey: { kty: "RSA" }, usable: true }) }, "agent key is not an Ed25519 public JWK"],
+    // One public reason, so the answer does not tell whether the agent exists or is usable.
+    ["a token from an unknown agent", () => mint(), { resolveAgent: async () => undefined }, "agent or signature not accepted"],
+    ["a token from an agent that is not usable", () => mint(), { resolveAgent: async () => ({ publicKey: agent.publicJwk, usable: false }) }, "agent or signature not accepted"],
+    ["a resolver key that is not Ed25519", () => mint(), { resolveAgent: async () => ({ publicKey: { kty: "RSA" }, usable: true }) }, "agent or signature not accepted"],
   ])("refuses %s with 401 and a fixed reason, even on a public tool", async (_case, makeToken, agentJwt, reason) => {
     const token = await makeToken();
     const response = await middleware({}, agentJwt).authenticate(post(withToken(toolsCallHeaders(PUBLIC_TOOL), token)));
@@ -165,6 +176,24 @@ describe("authenticate: failures that are not about the token", () => {
     expect(await (response as Response).json()).toEqual(SERVER_ERROR_BODY);
     expect(onInternalError).toHaveBeenCalledOnce();
     expect(String(onInternalError.mock.calls[0]![0])).not.toContain(token);
+  });
+
+  // The cache refuses a new record rather than evict a live one; the token may be fine.
+  it("answers 503 with Retry-After when the replay cache is full of live records, and reports the error", async () => {
+    const onInternalError = vi.fn();
+    const clock = { now: 1_800_000_000 };
+    const replayCache = new InMemoryJtiReplayCache({ maxSize: 1, ttlSeconds: 90, nowSeconds: () => clock.now });
+    const auth = middleware({ onInternalError }, { replayCache });
+    await auth.authenticate(post(withToken(toolsCallHeaders(PROTECTED_TOOL), await mint())));
+    clock.now += 30;
+
+    const response = (await auth.authenticate(post(withToken(toolsCallHeaders(PROTECTED_TOOL), await mint())))) as Response;
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("retry-after")).toBe("60");
+    expect(response.headers.get("www-authenticate")).toBeNull();
+    expect(await response.json()).toEqual({ error: "temporarily_unavailable", error_description: "Authentication service unavailable" });
+    expect(onInternalError.mock.calls[0]![0]).toBeInstanceOf(JtiReplayCacheFullError);
   });
 
   it("still answers 500 when onInternalError itself throws", async () => {

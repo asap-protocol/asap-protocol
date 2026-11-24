@@ -69,7 +69,7 @@ Always import `@asap-protocol/client/storage-node` **only in Node/desktop** buil
 
 ## Agent JWT verification (server side)
 
-A server that accepts ASAP Agent JWTs checks them with `verifyAgentJwt` (added in 2.5.0). It runs the token checks of the Python `verify_agent_jwt`: `typ: agent+jwt`, `alg` `EdDSA` or its RFC 9864 name `Ed25519`, an Ed25519 signature, `exp` (required), `iat` (at most 60 seconds ahead), `jti`, and `aud`.
+A server that accepts ASAP Agent JWTs checks them with `verifyAgentJwt` (added in 2.5.0). It runs the token checks of the Python `verify_agent_jwt`: `typ: agent+jwt`, `alg` `EdDSA` or its RFC 9864 name `Ed25519`, an Ed25519 signature, `exp` (required), a lifetime of at most 120 seconds (the 60-second TTL plus the 60-second clock skew, counted from now and from `iat`), `iat` (at most 60 seconds ahead), `jti`, and `aud`.
 
 ```ts
 import { InMemoryJtiReplayCache, verifyAgentJwt } from "@asap-protocol/client";
@@ -86,7 +86,7 @@ if (!result.ok) {
 ```
 
 - **`resolveAgent`** gets the token's `sub` (`agentId`) and `iss` (`hostThumbprint`). It returns `undefined` for an unknown agent, or `{ publicKey, usable }`: the agent's Ed25519 public JWK, and `usable: false` when the agent is revoked, expired, or pending, when its host is revoked, or when the agent does not belong to that host. The Python function reads these facts from its host and agent stores; here your resolver supplies them.
-- **`replayCache`** records each `jti` under the agent id. `InMemoryJtiReplayCache` serves one process; implement `JtiReplayCache` on a shared store when several instances serve the same audience. Without a cache, a replayed token is not detected.
+- **`replayCache`** records each `jti` under the agent id, with the token's `exp` as the third argument of `checkAndRecord`; a cache must keep the record at least until then. `InMemoryJtiReplayCache` keeps it for the later of its window (default 90 seconds) and `exp`. It never evicts a live record: when it is full (`maxSize`, default 10 000, or `maxPerPartition` for one agent, default 1 000), it throws `JtiReplayCacheFullError`, which `verifyAgentJwt` passes on. Treat that as a temporary failure (for example HTTP 503 with `Retry-After: retryAfterSeconds`), not as a bad token. `InMemoryJtiReplayCache` serves one process; implement `JtiReplayCache` on a shared store when several instances serve the same audience. Without a cache, a replayed token is not detected.
 - **`nowSeconds`** replaces the clock (seconds since the epoch), for tests.
 - A bad token never throws. A throw from `resolveAgent` or `replayCache` propagates, so a store failure is not reported as a bad token.
 

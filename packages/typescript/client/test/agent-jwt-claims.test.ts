@@ -17,6 +17,9 @@ describe("standardClaimFailure (port of Python _validate_standard_claims)", () =
     ["an iat 60 s ahead (the allowed skew)", { ...valid, iat: NOW + 60 }],
     ["no iat", { ...valid, iat: undefined }],
     ["an aud list that contains the audience", { ...valid, aud: ["https://a.example", AUDIENCE] }],
+    // The limit is the 60 s TTL plus the 60 s skew, for both checks.
+    ["an exp 120 s ahead from a clock 60 s fast", { ...valid, iat: NOW + 60, exp: NOW + 120 }],
+    ["an exp 120 s after iat", { ...valid, exp: NOW + 120 }],
   ])("accepts %s", (_case, claims) => {
     expect(standardClaimFailure(claims, NOW, AUDIENCE)).toBeUndefined();
   });
@@ -25,6 +28,9 @@ describe("standardClaimFailure (port of Python _validate_standard_claims)", () =
     ["no exp", { ...valid, exp: undefined }, AgentJwtFailureReason.Expired],
     ["exp equal to now (exp is exclusive)", { ...valid, exp: NOW }, AgentJwtFailureReason.Expired],
     ["a numeric-string exp", { ...valid, exp: String(NOW + 60) }, AgentJwtFailureReason.Expired],
+    ["an exp an hour ahead", { ...valid, exp: NOW + 3600 }, AgentJwtFailureReason.LifetimeTooLong],
+    ["an exp 121 s ahead, with no iat", { ...valid, iat: undefined, exp: NOW + 121 }, AgentJwtFailureReason.LifetimeTooLong],
+    ["an exp 121 s after iat, though only 21 s ahead", { ...valid, iat: NOW - 100, exp: NOW + 21 }, AgentJwtFailureReason.LifetimeTooLong],
     ["an iat more than 60 s ahead", { ...valid, iat: NOW + 61 }, AgentJwtFailureReason.IatInFuture],
     ["a non-numeric iat", { ...valid, iat: "yesterday" }, AgentJwtFailureReason.IatInFuture],
     ["no jti", { ...valid, jti: undefined }, AgentJwtFailureReason.MissingJti],

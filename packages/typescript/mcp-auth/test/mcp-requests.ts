@@ -16,10 +16,18 @@ export function post(headers: HeaderList, body: unknown = {}): Request {
   });
 }
 
+const ENVELOPE = { "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION, "io.modelcontextprotocol/clientCapabilities": {} };
+
 /** A 2026-07-28 tools/call body (both _meta keys are required). */
 export function toolsCallBody(tool: string, args: Record<string, unknown> = {}): unknown {
-  const _meta = { "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION, "io.modelcontextprotocol/clientCapabilities": {} };
-  return { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: tool, arguments: args, _meta } };
+  return { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: tool, arguments: args, _meta: ENVELOPE } };
+}
+
+/** A well-formed 2026-07-28 request for any method: the standard headers (`Mcp-Name` when `name` is set) and the `_meta` envelope. */
+export function mcpRequest(method: string, params: Record<string, unknown>, name?: string, extraHeaders: HeaderList = []): Request {
+  const headers: HeaderList = [["mcp-protocol-version", MCP_PROTOCOL_VERSION], ["mcp-method", method], ...extraHeaders];
+  if (name !== undefined) headers.push(["mcp-name", name]);
+  return post(headers, { jsonrpc: "2.0", id: 1, method, params: { ...params, _meta: ENVELOPE } });
 }
 
 export function toolsCallHeaders(tool: string): HeaderList {

@@ -22,7 +22,9 @@ export async function createDemoIdentity(): Promise<DemoIdentity> {
   const agent = await createAgent(await createHost({ storage: new MemoryStorage() }), { mode: "delegated" });
   return {
     agentId: agent.agentId,
-    resolveAgent: async ({ agentId }) => (agentId === agent.agentId ? { publicKey: agent.publicJwk, usable: true } : undefined),
+    // The resolver, not the package, checks that the agent belongs to the host named in the token.
+    resolveAgent: async ({ agentId, hostThumbprint }) =>
+      agentId === agent.agentId ? { publicKey: agent.publicJwk, usable: hostThumbprint === agent.hostThumbprint } : undefined,
     agentGrants: staticAgentGrants({
       [agent.agentId]: [{ capability: PROTECTED_CAPABILITY, constraints: { action: { not_in: [FORBIDDEN_ACTION] } } }],
     }),

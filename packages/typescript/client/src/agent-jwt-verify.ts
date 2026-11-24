@@ -126,9 +126,9 @@ export async function verifyAgentJwt(token: string, options: VerifyAgentJwtOptio
   const failure = standardClaimFailure(claims, nowSeconds, options.audience);
   if (failure !== undefined) return reject(failure);
   const jti = claims.jti as string;
-  if (options.replayCache !== undefined && !(await options.replayCache.checkAndRecord(agentId, jti))) {
+  const expiresAt = claims.exp as number;
+  if (options.replayCache !== undefined && !(await options.replayCache.checkAndRecord(agentId, jti, expiresAt))) {
     return reject(AgentJwtFailureReason.Replay);
   }
-  const expiresAt = claims.exp as number;
   return { ok: true, agentId, hostThumbprint, expiresAt, capabilities: capabilitiesOf(claims), claims };
 }

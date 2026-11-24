@@ -81,7 +81,7 @@ describe("examples/mcp_auth_http (protocol probe, protected)", () => {
     expect((await response.json()).error.code).toBe(-32020);
   });
 
-  // With no token, the token layer refuses it first (401); with a valid token, the SDK refuses it.
+  // The token layer refuses it first: 401 with no token, and 403 with a valid token (deny by default).
   it("refuses a 2025-era request that has no _meta envelope", async () => {
     const legacyCall = (headers: Record<string, string>) =>
       fetch(server.url, {
@@ -92,7 +92,7 @@ describe("examples/mcp_auth_http (protocol probe, protected)", () => {
 
     expect((await legacyCall({})).status).toBe(401);
     const response = await legacyCall({ authorization: `Bearer ${await server.demo.mintAgentJwt(server.url.href)}` });
-    expect(response.status).toBe(400);
-    expect((await response.json()).error.code).toBe(-32022);
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ error: "insufficient_scope", error_description: "asap:capability_denied" });
   });
 });

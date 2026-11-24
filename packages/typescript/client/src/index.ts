@@ -12,7 +12,7 @@ export {
 } from "./identity.js";
 export type { AgentContext, AgentMode, HostContext } from "./identity.js";
 
-export { InMemoryJtiReplayCache } from "./jti-replay-cache.js";
+export { InMemoryJtiReplayCache, JtiReplayCacheFullError } from "./jti-replay-cache.js";
 export type { InMemoryJtiReplayCacheOptions, JtiReplayCache } from "./jti-replay-cache.js";
 
 export { AgentJwtFailureReason } from "./agent-jwt-claims.js";

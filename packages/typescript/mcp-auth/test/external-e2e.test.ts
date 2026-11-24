@@ -52,6 +52,7 @@ function app(): { fetch(request: Request): Promise<Response> } {
     externalTokens: {
       issuers: [{ issuer: ISSUER, audience: MCP_ENDPOINT, jwks: issuer.jwks, grantRules: [{ scope: SCOPE, capability: PROTECTED_TOOL, constraints: { action: { not_in: ["drop"] } } }] }],
     },
+    toolCapabilities: { [PROTECTED_TOOL]: PROTECTED_TOOL },
     resourceMetadataUrl: METADATA_URL,
   });
   const mcp = auth.protect(createMcpHandler(() => buildServer(auth), { legacy: "reject" }));

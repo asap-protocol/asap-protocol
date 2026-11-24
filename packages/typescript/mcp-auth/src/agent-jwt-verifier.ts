@@ -1,5 +1,7 @@
 import {
+  AgentJwtFailureReason,
   InMemoryJtiReplayCache,
+  JtiReplayCacheFullError,
   verifyAgentJwt,
   type AgentJwtVerifyResult,
   type AgentKeyResolver,
@@ -19,6 +21,12 @@ export interface AgentJwtVerifierConfig {
   readonly replayCache?: JtiReplayCache;
   /** Clock in seconds since the epoch, for tests. Default: the system clock. */
   readonly nowSeconds?: () => number;
+  /**
+   * Called with the detailed reason when a token is refused, for your logs.
+   * The caller gets one public reason for an unknown agent, an agent that is
+   * not usable, an unsupported key, and a bad signature. It never receives the token.
+   */
+  readonly onTokenRefused?: (reason: AgentJwtFailureReason) => void;
 }
 
 /** The ASAP principal that `AuthInfo.extra.principal` carries after an Agent JWT verifies. */
@@ -32,6 +40,20 @@ export interface AgentJwtPrincipal {
 
 /** Fixed text, so a store failure never reaches the caller with its own detail. */
 const VERIFIER_FAILURE_MESSAGE = "Agent JWT verification failed: the agent resolver or the replay cache threw";
+const AGENT_OR_SIGNATURE = "agent or signature not accepted";
+
+/** Told apart, these four reasons tell a caller whether an agent exists and whether it is usable. */
+function publicReason(reason: AgentJwtFailureReason): string {
+  switch (reason) {
+    case AgentJwtFailureReason.UnknownAgent:
+    case AgentJwtFailureReason.AgentNotUsable:
+    case AgentJwtFailureReason.UnsupportedKey:
+    case AgentJwtFailureReason.BadSignature:
+      return AGENT_OR_SIGNATURE;
+    default:
+      return reason;
+  }
+}
 
 function agentJwtAuthInfo(token: string, verified: VerifiedAgentJwt): AuthInfo {
   const principal: AgentJwtPrincipal = {
@@ -47,9 +69,12 @@ function agentJwtAuthInfo(token: string, verified: VerifiedAgentJwt): AuthInfo {
 
 /**
  * The ASAP Agent JWT verifier as an MCP SDK `OAuthTokenVerifier`. A bad token
- * throws `OAuthError(invalid_token, "asap:invalid_token: <fixed reason>")`; a
- * throw from the resolver or the replay cache becomes a plain `Error` (with the
- * original as `cause`), which the SDK answers with HTTP 500 and no detail. The
+ * throws `OAuthError(invalid_token, "asap:invalid_token: <fixed reason>")`,
+ * where an unknown agent, an unusable agent, an unsupported key, and a bad
+ * signature share one reason and `onTokenRefused` gets the detail; a
+ * `JtiReplayCacheFullError` passes through unchanged (the middleware answers
+ * 503); any other throw from the resolver or the replay cache becomes a plain
+ * `Error` (with the original as `cause`), which the SDK answers with HTTP 500 and no detail. The
  * replay check is always on: each Agent JWT is single-use.
  *
  * @example
@@ -72,10 +97,17 @@ export function createAgentJwtVerifier(config: AgentJwtVerifierConfig): OAuthTok
       try {
         result = await verifyAgentJwt(token, { ...config, replayCache });
       } catch (cause) {
+        // A full replay cache is a temporary failure, not a bad token: the middleware answers 503.
+        if (cause instanceof JtiReplayCacheFullError) throw cause;
         throw new Error(VERIFIER_FAILURE_MESSAGE, { cause });
       }
       if (!result.ok) {
-        throw new OAuthError(OAuthErrorCode.InvalidToken, `${McpAuthErrorCode.InvalidToken}: ${result.reason}`);
+        try {
+          config.onTokenRefused?.(result.reason);
+        } catch {
+          // A failing log hook must not change the answer.
+        }
+        throw new OAuthError(OAuthErrorCode.InvalidToken, `${McpAuthErrorCode.InvalidToken}: ${publicReason(result.reason)}`);
       }
       return agentJwtAuthInfo(token, result);
     },
