@@ -27,6 +27,7 @@ from pydantic import ValidationError
 
 from asap.adapters.a2a._ttl_cache import BoundedTTLCache
 from asap.adapters.a2a.canonical import canonical_card_form
+from asap.adapters.a2a.endpoint_checks import require_public_endpoint_hosts
 from asap.adapters.a2a.errors import (
     A2ACardFetchError,
     A2AMappingError,
@@ -94,17 +95,26 @@ class AgentCardIngestor:
         """Return the manifest of the card at *url*, with its verification status.
 
         *agent_id* and *endpoints* are passed to the mapping; a card with the
-        ASAP extension needs neither.
+        ASAP extension needs neither. When *endpoints* is not given, the
+        manifest's endpoints come from the card, and a host that is an IP
+        literal that is not public, or ``localhost``, is refused unless the
+        trust config has ``allow_private_hosts``. A hostname that resolves to a
+        private address later is the concern of whatever fetches the endpoint.
 
         Raises:
             A2ACardFetchError: The guarded fetch refused or failed.
             A2AUnsupportedVersionError: The document is a v0.3 card.
             A2ACardVerificationError: The signatures fail the trust config.
-            A2AMappingError, A2AMappingInputError: The card does not parse or map.
+            A2AMappingError, A2AMappingInputError: The card does not parse or map,
+                or names an endpoint that is refused.
         """
         cached = self._cards.get(url)
         verification = cached or await self._fetch_and_verify(url)
         mapping = agent_card_to_manifest(verification.card, agent_id=agent_id, endpoints=endpoints)
+        if endpoints is None:
+            require_public_endpoint_hosts(
+                mapping.manifest.endpoints, allow_private_hosts=self._trust.allow_private_hosts
+            )
         # Cached only once verified and mapped, and never re-put on a hit, so a
         # card is fetched again at least once per cache lifetime.
         if cached is None:

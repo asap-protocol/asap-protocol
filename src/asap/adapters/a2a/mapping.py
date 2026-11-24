@@ -21,6 +21,7 @@ from asap.adapters.a2a.card_security import (
     check_card_security_requirements,
     prepare_card_security_schemes,
 )
+from asap.adapters.a2a.endpoint_checks import require_card_endpoint_shape
 from asap.adapters.a2a.errors import (
     A2AMappingError,
     A2AMappingInputError,
@@ -160,15 +161,20 @@ def agent_card_to_manifest(
     extension params hold a value that no signature covers, so then every
     mapped value is covered. :class:`asap.adapters.a2a.AgentCardIngestor`
     does both steps.
-    ``dropped`` lists each card value of :data:`UNMAPPED_CARD_FIELDS` that the
-    manifest does not carry.
+
+    The card's own endpoints must be ``https`` (``wss`` for events) URLs with
+    a host and no user info; the host itself is not checked here (see
+    :mod:`asap.adapters.a2a.endpoint_checks`). Endpoints that the caller
+    passes are the caller's own and are not checked. ``dropped`` lists each
+    card value of :data:`UNMAPPED_CARD_FIELDS` that the manifest does not carry.
 
     Raises:
         A2AMappingInputError: A caller input is missing or conflicts with the card.
         A2AMappingError: The manifest would not be valid, for example because the
             card version is not one a manifest accepts; or the ASAP extension is
-            broken; or two skills share an id; or a free-form member nests deeper
-            than the model serializer allows.
+            broken or names an endpoint of the wrong shape; or two skills share
+            an id; or a free-form member nests deeper than the model serializer
+            allows.
 
     Example:
         >>> agent_card_to_manifest(card, agent_id="urn:asap:agent:x",
@@ -255,6 +261,9 @@ def _identity_for(
                 f"must pass agent_id and endpoints; {missing} is missing",
             )
         return agent_id, endpoints
+    require_card_endpoint_shape("asap", params.asap_endpoint)
+    if params.events_endpoint is not None:
+        require_card_endpoint_shape("events", params.events_endpoint)
     card_endpoints = Endpoint(asap=params.asap_endpoint, events=params.events_endpoint)
     _require_equal("agent_id", agent_id, params.agent_urn)
     _require_equal("endpoints", endpoints, card_endpoints)
