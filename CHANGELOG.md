@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 - **Capability constraints** — a `max` or `min` constraint now returns a violation when the argument or the bound is `NaN`, `Infinity`, or `-Infinity`. This applies to `CapabilityRegistry.check_grant`, `POST /asap/capability/execute`, and the MCP Auth Bridge.
+- **OAuth2 middleware** — `OAuth2Middleware` now matches `path_prefix`, the operator API prefixes, and the `/asap/agent/` exemption against the routed path (the request path without the ASGI `root_path`). An app served under a prefix (`Mount`, `uvicorn --root-path`, or `FastAPI.root_path`) now requires a valid token on its `/asap` routes, as it does without a prefix.
 - **opentelemetry-api** floor `>=1.45.2` for CVE-2026-126360 (was 1.45.1). SDK and OTLP exporter move to 1.45.2; instrumentation to 0.66b2. Root and satellite locks refreshed.
 - **apps/web**: `next` and `eslint-config-next` 16.4.3 → **16.4.6** for GHSA-mfr8-8qww-v76h and GHSA-vc7v-qv4w-wrv8 (cache information disclosure across root params in `use cache`).
 
