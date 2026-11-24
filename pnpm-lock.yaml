@@ -307,6 +307,9 @@ importers:
 
   packages/typescript/mcp-auth:
     devDependencies:
+      '@asap-protocol/client':
+        specifier: workspace:*
+        version: link:../client
       '@eslint/js':
         specifier: 9.18.0
         version: 9.18.0

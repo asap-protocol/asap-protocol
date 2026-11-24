@@ -114,6 +114,9 @@ jobs:
           ${{ matrix.mcp-sdk == 'pinned' && '--frozen-lockfile' || '--no-frozen-lockfile' }}
           --filter "@asap-protocol/mcp-auth..." --filter example-mcp-auth-http
 
+      - name: Build @asap-protocol/client (mcp-auth resolves it from dist)
+        run: pnpm --filter @asap-protocol/client run build
+
       - name: Lint
         run: pnpm --filter @asap-protocol/mcp-auth run lint
 

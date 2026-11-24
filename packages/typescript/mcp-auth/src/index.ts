@@ -19,6 +19,10 @@
 export const MCP_PROTOCOL_VERSION = "2026-07-28";
 
 export { McpAuthErrorCode, toolErrorResult } from "./errors.js";
+export { createAgentJwtVerifier } from "./agent-jwt-verifier.js";
+export type { AgentJwtPrincipal, AgentJwtVerifierConfig } from "./agent-jwt-verifier.js";
 
 // MCP-TS-003: SDK types that appear in this package's public signatures.
 export type { AuthInfo, CallToolResult, OAuthTokenVerifier } from "@modelcontextprotocol/server";
+// The same for the @asap-protocol/client types in the verifier config.
+export type { AgentKeyLookup, AgentKeyResolver, JtiReplayCache, ResolvedAgentKey } from "@asap-protocol/client";
