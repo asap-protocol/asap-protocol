@@ -59,6 +59,7 @@ curl -s http://127.0.0.1:8787/mcp \
 - The two `_meta` keys are required. `io.modelcontextprotocol/clientInfo` is optional.
 - The headers must agree with the body. A different `Mcp-Name` gets HTTP 400 with JSON-RPC error `-32020`.
 - A request with no token passes only with `MCP-Protocol-Version: 2026-07-28`, and only for `echo`, `tools/list`, or `server/discover`. Any other request with no token gets HTTP 401.
+- A request with a valid token passes only with `MCP-Protocol-Version: 2026-07-28`, and only for `echo`, `secure_action`, `tools/list`, or `server/discover` (deny by default). Any other request with a valid token gets HTTP 403 `insufficient_scope` with `asap:capability_denied`.
 - `secure_action` needs `Authorization: Bearer <token>`: an Agent JWT (`typ: agent+jwt`) or an access token from the test issuer. An Agent JWT is single-use and lives 60 seconds, so a client mints one per request; an access token works on every request until it expires.
 
 ## Compliance mode (test only)
