@@ -4,24 +4,31 @@ Implements COMPAT-001. :class:`ExternalTokenVerifier` keeps a fixed
 order: the token type and the algorithm are checked from the header first;
 then the unverified ``iss`` is looked up in the allowlist; then the signature
 is verified with **that issuer's** keys only; then :func:`principal_from_claims`
-checks ``aud``, ``exp``, ``nbf``, and ``sub`` and maps the grants. So
+checks ``aud``, ``exp``, ``nbf``, ``sub``, and the issuer's ``required_claims``
+and maps the grants. So
 ``alg: none``, HMAC, an ASAP Agent JWT or Host JWT, and an unknown issuer are
 refused before any key is looked up or fetched. There is no replay check: an
 OAuth access token is sent on every request until it expires.
 
-Opaque tokens (RFC 7662; any bearer that does not have three
-dot-separated segments) go to the one issuer configured with introspection,
-as do JWTs that name it; the header checks still run first, so
-an ASAP token or another issuer's token is never sent. ``TokenIntrospector``
-posts through the guarded POST and caches an active answer until shortly
-before its ``exp``. Its answer then gets the same claim checks as a verified
-JWT, plus ``active`` and, when present, ``iss``.
+Opaque tokens (RFC 7662) go to the one issuer configured with
+introspection, as do JWTs that name it. A JWS gets the header and issuer
+checks first, so an ASAP token or a JWT of another issuer is never sent. A
+bearer whose first dot-separated segment is base64url JSON (a JOSE header)
+must be a three-segment JWS; any other such shape, a JWE included, is
+``malformed_token`` and is never sent. Every other bearer is opaque: it names
+no issuer, so it goes to the introspection issuer with this server's client
+credentials whoever minted it. ``TokenIntrospector`` posts through the guarded
+POST and reuses an answer for at most the issuer's
+``introspection.cache_ttl_seconds`` after receipt (default 60 s).
+A value of zero sends a request on every call. The verifier applies the same
+claim checks as for a verified JWT. It also checks ``active`` and, when present, ``iss``.
 
 Errors carry a typed reason and never the token or its signature.
 """
 
 from __future__ import annotations
 
+import base64
 import json
 import math
 import time
@@ -34,7 +41,7 @@ from joserfc import jwt as jose_jwt
 from joserfc.errors import JoseError
 from joserfc.jws import extract_compact
 
-from asap.auth.external_grants import map_external_grants, scope_tokens
+from asap.auth.external_grants import claim_holds_value, map_external_grants, scope_tokens
 from asap.auth.external_keys import IssuerKeySource
 from asap.auth.external_tokens import (
     ExternalIssuerConfig,
@@ -58,12 +65,24 @@ _ASAP_TOKEN_TYPES = frozenset({"agent+jwt", "host+jwt"})
 Reason = ExternalTokenErrorReason
 
 
+def _is_jose_header(segment: str) -> bool:
+    """Return True if ``segment`` is base64url of a JSON object, as a JWS or JWE header is."""
+    try:
+        decoded = base64.b64decode(segment + "=" * (-len(segment) % 4), b"-_", validate=True)
+        return isinstance(json.loads(decoded), dict)
+    except ValueError:
+        return False
+    except RecursionError:
+        # Nested past about 10,000 levels: no opaque token looks like that; never send it.
+        return True
+
+
 def _extract_compact_with_header(token: str) -> tuple[dict[str, Any], bytes]:
     """Read the unverified JWS header and require a JSON object."""
     try:
         compact = extract_compact(token.encode("utf-8"))
         header = compact.headers()
-    except (JoseError, UnicodeError, TypeError, ValueError) as exc:
+    except (JoseError, UnicodeError, TypeError, ValueError, RecursionError) as exc:
         raise ExternalTokenError(
             Reason.MALFORMED_TOKEN, f"not a usable JWS compact token ({type(exc).__name__})"
         ) from None
@@ -77,14 +96,21 @@ def _unverified_parts(token: str) -> tuple[dict[str, Any], dict[str, Any]] | Non
 
     Any bearer with three dot-separated segments counts as a JWS, even one
     joserfc refuses (its header limit is 512 bytes), so it is never sent to
-    the introspection issuer when it names another issuer.
+    the introspection issuer when it names another issuer. A bearer whose
+    first segment is a JOSE header but that has another number of segments
+    (a JWE, or a JWS with a segment added or removed) is malformed, not
+    opaque, for the same reason.
     """
     if token.count(".") != 2:
+        if _is_jose_header(token.split(".", 1)[0]):
+            raise ExternalTokenError(
+                Reason.MALFORMED_TOKEN, "a JOSE header, but not a three-segment JWS"
+            )
         return None
     header, raw_payload = _extract_compact_with_header(token)
     try:
         payload = json.loads(raw_payload)
-    except (JoseError, UnicodeError, ValueError) as exc:
+    except (ValueError, RecursionError) as exc:
         # ``from None``: a chained exception could print part of the token.
         raise ExternalTokenError(
             Reason.MALFORMED_TOKEN, f"not a usable JWS compact token ({type(exc).__name__})"
@@ -99,7 +125,9 @@ def _check_header(header: dict[str, Any]) -> None:
     if isinstance(typ, str) and typ.lower().removeprefix("application/") in _ASAP_TOKEN_TYPES:
         raise ExternalTokenError(Reason.TOKEN_TYPE_REJECTED, f"typ {typ!r} is an ASAP token")
     alg = header.get("alg")
-    if alg not in ALLOWED_EXTERNAL_JWT_ALGORITHMS:
+    # Type first: a list or an object in ``alg`` is unhashable and would raise
+    # TypeError in the set lookup. ``typ`` and ``kid`` are type-checked where read.
+    if not isinstance(alg, str) or alg not in ALLOWED_EXTERNAL_JWT_ALGORITHMS:
         raise ExternalTokenError(
             Reason.ALGORITHM_REJECTED, f"alg {alg!r} is not an allowed asymmetric algorithm"
         )
@@ -137,10 +165,22 @@ def _check_lifetime(claims: dict[str, Any]) -> datetime:
         raise ExternalTokenError(Reason.MALFORMED_TOKEN, "exp is out of range") from None
 
 
+def _check_required_claims(issuer: ExternalIssuerConfig, claims: dict[str, Any]) -> None:
+    """Refuse a token without the claim values that bind it to this server (ADR-17)."""
+    for name, expected in issuer.required_claims.items():
+        # The message names the claim and the expected value, never the token's value.
+        if claims.get(name) is None:
+            raise ExternalTokenError(Reason.MISSING_CLAIM, f"required claim {name!r} is missing")
+        if not claim_holds_value(claims, name, expected):
+            raise ExternalTokenError(
+                Reason.CLAIM_MISMATCH, f"required claim {name!r} does not hold {expected!r}"
+            )
+
+
 def principal_from_claims(
     issuer: ExternalIssuerConfig, claims: dict[str, Any]
 ) -> ExternalPrincipal:
-    """Check ``aud``, ``exp``, ``nbf``, and ``sub`` of trusted claims and map the grants.
+    """Check ``aud``, ``exp``, ``nbf``, ``sub``, and the issuer's ``required_claims``; map grants.
 
     Example:
         >>> principal = principal_from_claims(issuer_entry, verified_claims)
@@ -154,6 +194,7 @@ def principal_from_claims(
     subject = claims.get("sub")
     if not isinstance(subject, str) or not subject.strip():
         raise ExternalTokenError(Reason.MISSING_CLAIM, "sub must be a non-empty string")
+    _check_required_claims(issuer, claims)
     client_id = next(
         (claims[name] for name in ("client_id", "azp") if isinstance(claims.get(name), str)),
         None,
@@ -271,5 +312,9 @@ def _guarded_introspector(
         transport=transport,
     )
     return TokenIntrospector(
-        endpoint.url, endpoint.client_id, endpoint.client_secret.get_secret_value(), poster=poster
+        endpoint.url,
+        endpoint.client_id,
+        endpoint.client_secret.get_secret_value(),
+        poster=poster,
+        max_cache_ttl_seconds=endpoint.cache_ttl_seconds,
     )

@@ -120,6 +120,19 @@ async def test_bad_responses_are_refused(
     assert len(calls) == 1, "a redirect or a retry must never cause a second request"
 
 
+async def test_too_deeply_nested_json_is_invalid_json() -> None:
+    # json.loads raises RecursionError, not ValueError, past about 10,000 levels.
+    body = b'{"keys": ' + b"[" * 100_000 + b"]" * 100_000 + b"}"
+
+    with pytest.raises(GuardedFetchError) as caught:
+        await guarded_fetch_json(
+            _JWKS_URL,
+            resolver=_public_resolver,
+            transport=httpx.MockTransport(lambda request: httpx.Response(200, content=body)),
+        )
+    assert caught.value.code == "invalid_json"
+
+
 async def test_transport_error_is_reported_without_the_response() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("connection refused", request=request)

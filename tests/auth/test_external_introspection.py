@@ -20,7 +20,7 @@ from asap.auth.external_tokens import (
     ExternalTokenErrorReason,
 )
 from asap.auth.external_verifier import ExternalTokenVerifier
-from tests.auth.local_issuer import LocalIssuer
+from tests.auth.local_issuer import LocalIssuer, nested_payload_token, unsigned_token
 
 _ISSUER = "https://idp.example"
 _AUDIENCE = "https://api.example/asap"
@@ -48,16 +48,23 @@ class _FakeIntrospectionEndpoint:
             "client_id": "mcp-client",
             "exp": int(time.time()) + 600,
         }
+        self.raw_answer: bytes | None = None
+        self.required_claims: dict[str, str] = {}
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
+        if self.raw_answer is not None:
+            return httpx.Response(self.status, content=self.raw_answer)
         return httpx.Response(self.status, json=self.answer)
 
-    def verifier(self, *extra_issuers: LocalIssuer) -> ExternalTokenVerifier:
+    def verifier(
+        self, *extra_issuers: LocalIssuer, **endpoint_overrides: Any
+    ) -> ExternalTokenVerifier:
         endpoint = {"url": f"{_ISSUER}/introspect", "client_id": "rs", "client_secret": _SECRET}
+        endpoint.update(endpoint_overrides)
         rules = [{"scope": "files:read", "capability": "file.read"}]
         entry = {"issuer": _ISSUER, "audience": _AUDIENCE, "introspection": endpoint}
-        issuers = [{**entry, "grant_rules": rules}]
+        issuers = [{**entry, "grant_rules": rules, "required_claims": self.required_claims}]
         issuers += [issuer.config_entry(_AUDIENCE) for issuer in extra_issuers]
         config = ExternalTokenConfig.model_validate({"issuers": issuers})
         transport = httpx.MockTransport(self)
@@ -97,6 +104,37 @@ async def test_same_token_used_twice_succeeds_and_is_cached(
     assert len(endpoint.requests) == 1
 
 
+@pytest.mark.parametrize(("overrides", "ttl"), [({}, 60), ({"cache_ttl_seconds": 10}, 10)])
+async def test_revoked_token_works_until_the_cache_ttl_then_fails(
+    endpoint: _FakeIntrospectionEndpoint,
+    monkeypatch: pytest.MonkeyPatch,
+    overrides: dict[str, Any],
+    ttl: int,
+) -> None:
+    # Before the per-issuer cap the answer was cached until
+    # 30 s before exp, so a revoked token kept working for most of its life.
+    clock = [time.time()]
+    monkeypatch.setattr("asap.auth.introspection.time.time", lambda: clock[0])
+    verifier = endpoint.verifier(**overrides)
+    await verifier.verify(_TOKEN)
+    endpoint.answer = {"active": False}
+
+    clock[0] += ttl - 1
+    assert (await verifier.verify(_TOKEN)).subject == "user-9"
+    clock[0] += 2
+    await _refused(verifier, _TOKEN, Reason.TOKEN_INACTIVE)
+    assert len(endpoint.requests) == 2
+
+
+async def test_cache_ttl_of_zero_asks_on_every_request(
+    endpoint: _FakeIntrospectionEndpoint,
+) -> None:
+    verifier = endpoint.verifier(cache_ttl_seconds=0)
+    await verifier.verify(_TOKEN)
+    await verifier.verify(_TOKEN)
+    assert len(endpoint.requests) == 2
+
+
 @pytest.mark.parametrize(
     ("answer", "reason"),
     [
@@ -125,6 +163,24 @@ async def test_endpoint_failure_is_key_source_unavailable(
     await _refused(endpoint.verifier(), _TOKEN, Reason.KEY_SOURCE_UNAVAILABLE)
 
 
+async def test_too_deeply_nested_answer_is_unavailable_not_a_crash(
+    endpoint: _FakeIntrospectionEndpoint,
+) -> None:
+    endpoint.raw_answer = b'{"active": ' + b"[" * 100_000 + b"]" * 100_000 + b"}"
+    await _refused(endpoint.verifier(), _TOKEN, Reason.KEY_SOURCE_UNAVAILABLE)
+
+
+async def test_required_claims_bind_the_introspection_path(
+    endpoint: _FakeIntrospectionEndpoint,
+) -> None:
+    endpoint.required_claims = {"agent_id": "urn:asap:agent:y"}
+    await _refused(endpoint.verifier(), _TOKEN, Reason.MISSING_CLAIM)
+    endpoint.answer["agent_id"] = "urn:asap:agent:x"
+    await _refused(endpoint.verifier(), _TOKEN, Reason.CLAIM_MISMATCH)
+    endpoint.answer["agent_id"] = "urn:asap:agent:y"
+    assert (await endpoint.verifier().verify(_TOKEN)).subject == "user-9"
+
+
 async def test_jwt_of_the_introspection_issuer_is_introspected(
     endpoint: _FakeIntrospectionEndpoint,
 ) -> None:
@@ -134,19 +190,43 @@ async def test_jwt_of_the_introspection_issuer_is_introspected(
     assert parse_qs(endpoint.requests[0].content.decode())["token"] == [token]
 
 
-@pytest.mark.parametrize("typ_or_issuer", ["agent+jwt", "host+jwt", "https://other.example"])
-async def test_asap_tokens_and_other_issuers_are_never_sent(
-    endpoint: _FakeIntrospectionEndpoint, typ_or_issuer: str
+def _never_sent_tokens() -> dict[str, tuple[str, Reason]]:
+    idp, other = LocalIssuer(_ISSUER), LocalIssuer("https://other.example")
+    agent_jwt = idp.mint(idp.claims(_AUDIENCE), header={"typ": "agent+jwt"})
+    other_jwt = other.mint(other.claims(_AUDIENCE))
+    header, payload, _ = other_jwt.split(".")
+    jwe_header = unsigned_token({"alg": "RSA-OAEP-256", "enc": "A256GCM"}, {}).split(".")[0]
+    return {
+        "agent+jwt": (agent_jwt, Reason.TOKEN_TYPE_REJECTED),
+        "host+jwt": (idp.mint(idp.claims(_AUDIENCE), header={"typ": "host+jwt"}), Reason.TOKEN_TYPE_REJECTED),
+        "another issuer": (other_jwt, Reason.UNTRUSTED_ISSUER),
+        # JOSE-shaped but not a three-segment JWS: these were sent before the
+        # malformed-token check.
+        "a JWT plus a dot": (other_jwt + ".", Reason.MALFORMED_TOKEN),
+        "an agent+jwt plus a dot": (agent_jwt + ".", Reason.MALFORMED_TOKEN),
+        "header and payload, one dot": (f"{header}.{payload}", Reason.MALFORMED_TOKEN),
+        "a JWE, five segments": (f"{jwe_header}.a2V5.aXY.Y2lwaGVy.dGFn", Reason.MALFORMED_TOKEN),
+        "a JOSE header alone": (header, Reason.MALFORMED_TOKEN),
+        "JSON nested too deeply to read": (nested_payload_token({}).split(".")[1] + ".x", Reason.MALFORMED_TOKEN),
+    }  # fmt: skip
+
+
+@pytest.mark.parametrize("name", list(_never_sent_tokens()))
+async def test_asap_tokens_other_issuers_and_jose_shapes_are_never_sent(
+    endpoint: _FakeIntrospectionEndpoint, name: str
 ) -> None:
-    if typ_or_issuer.startswith("https://"):
-        other = LocalIssuer(typ_or_issuer)
-        token, reason = other.mint(other.claims(_AUDIENCE)), Reason.UNTRUSTED_ISSUER
-    else:
-        idp = LocalIssuer(_ISSUER)
-        token = idp.mint(idp.claims(_AUDIENCE), header={"typ": typ_or_issuer})
-        reason = Reason.TOKEN_TYPE_REJECTED
+    token, reason = _never_sent_tokens()[name]
     await _refused(endpoint.verifier(), token, reason)
     assert endpoint.requests == []
+
+
+@pytest.mark.parametrize("token", ["ory_at_x8Yb2Q.k9JdW1", "a.b", "opaque.with.three.dots"])
+async def test_dotted_opaque_tokens_are_still_introspected(
+    endpoint: _FakeIntrospectionEndpoint, token: str
+) -> None:
+    # The first segment is not base64url JSON, so nothing marks these as JOSE.
+    assert (await endpoint.verifier().verify(token)).subject == "user-9"
+    assert parse_qs(endpoint.requests[0].content.decode())["token"] == [token]
 
 
 async def test_jwt_issuer_next_to_the_introspection_issuer_still_verifies_locally(

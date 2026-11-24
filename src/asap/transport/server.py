@@ -110,6 +110,7 @@ from asap.economics.audit import AuditStore
 from asap.economics.sla_storage import SLAStorage
 from asap.economics.storage import MeteringStorage
 from asap.state.metering import MeteringStorageBridge
+from asap.transport._external_auth import warn_if_oauth2_idp_unbound
 from asap.transport.agent_routes import create_agent_identity_router
 from asap.transport.capability_routes import CAPABILITY_EXECUTE_PATH, create_capability_router
 from asap.transport.escalation_routes import create_escalation_router
@@ -918,9 +919,19 @@ def create_app(
             (startup warnings remain when those APIs are enabled without auth).
         external_token_config: Allowlist of external OAuth issuers (COMPAT-001). When set,
             ``POST /asap/capability/execute`` also accepts their access tokens instead of an
-            Agent JWT; each principal gets only the grants of its issuer's rules. To accept
-            the ``oauth2_config`` IdP's tokens on that route, list it here. Default None
-            keeps that route on Agent JWT only.
+            Agent JWT; each principal gets only the grants of its issuer's rules. Default None
+            keeps that route on Agent JWT only. To accept the ``oauth2_config`` IdP's tokens
+            on that route, list it here. ``OAuth2Middleware`` skips that route, so for those
+            tokens these ``oauth2_config`` checks stop applying there: ``required_scope``
+            (the entry's grant rules decide instead), the identity binding (the custom claim
+            or the ``ASAP_AUTH_SUBJECT_MAP`` allowlist), and ``expected_issuer`` and
+            ``expected_audience`` (the entry's ``issuer`` and ``audience`` are checked
+            instead). Give that entry ``required_claims={custom_claim: manifest.id}``, where
+            ``custom_claim`` is the middleware's claim (``oauth2_config.custom_claim``, else
+            ``ASAP_AUTH_CUSTOM_CLAIM``, else ``DEFAULT_CUSTOM_CLAIM``), to restore the
+            custom-claim binding; the subject allowlist has no equivalent. Without it, a
+            token the IdP minted for another agent with the same audience executes here,
+            and ``create_app`` logs ``asap.server.external_issuer_unbound``.
         agent_card: A signed A2A v1.0 Agent Card for this agent, from
             :func:`asap.adapters.a2a.build_signed_agent_card` (COMPAT-003). When set,
             ``GET /.well-known/agent-card.json`` serves it beside the manifest, with the
@@ -1021,6 +1032,7 @@ def create_app(
     )
     if external_token_config is not None:
         app.state.external_token_verifier = ExternalTokenVerifier(external_token_config)
+        warn_if_oauth2_idp_unbound(external_token_config, oauth2_config, manifest_id=manifest.id)
     if audit_store is not None:
         _warn_if_operator_api_unauthenticated(
             "asap.server.audit_api_unauthenticated",

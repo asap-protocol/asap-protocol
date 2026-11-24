@@ -99,6 +99,18 @@ async def test_bad_responses_are_refused_without_the_credentials(
     _assert_no_secret(caught.value)
 
 
+async def test_too_deeply_nested_answer_is_invalid_json() -> None:
+    body = b'{"active": ' + b"[" * 100_000 + b"]" * 100_000 + b"}"
+
+    with pytest.raises(GuardedFetchError) as caught:
+        await guarded_post_form_json(
+            _URL, _FORM, basic_auth=("rs", _SECRET), resolver=_public_resolver,
+            transport=httpx.MockTransport(lambda request: httpx.Response(200, content=body)),
+        )  # fmt: skip
+    assert caught.value.code == "invalid_json"
+    _assert_no_secret(caught.value)
+
+
 async def test_private_host_is_refused_before_the_post() -> None:
     calls: list[str] = []
 

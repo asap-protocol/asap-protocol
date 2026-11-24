@@ -133,6 +133,22 @@ async def test_unreachable_key_source_is_503(
     assert event["reason"] == "key_source_unavailable"
 
 
+async def test_a_forged_token_shows_a_listed_issuer_only_while_its_keys_are_down(
+    idp: LocalIssuer,
+) -> None:
+    # The gap the module docstring names: kept so a
+    # legitimate caller can tell a key-source outage from a bad token.
+    verifier = _verifier(idp, key_source={"kind": "jwks_uri", "jwks_uri": f"{idp.issuer}/jwks"})
+    forger, stranger = LocalIssuer(idp.issuer), LocalIssuer("https://stranger.example")
+    statuses = []
+    for signer in (forger, stranger):
+        token = signer.mint(signer.claims(_AUDIENCE))
+        response = await verify_external_bearer(verifier, token, request_id="rid-4")
+        assert isinstance(response, JSONResponse)
+        statuses.append(response.status_code)
+    assert statuses == [503, 401]
+
+
 @pytest.mark.parametrize(
     ("grant", "arguments", "outcome"),
     [

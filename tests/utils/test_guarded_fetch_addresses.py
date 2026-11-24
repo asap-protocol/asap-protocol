@@ -40,7 +40,52 @@ def test_non_public_addresses_are_refused(address: str) -> None:
     assert is_public_ip_address(address) is False
 
 
-@pytest.mark.parametrize("address", ["93.184.216.34", "2606:4700::1111"])
+# One address per block of the IANA IPv6 special-purpose registry that is not
+# globally reachable, plus the deprecated site-local fec0::/10 (RFC 3879), which
+# ``ipaddress`` counts as global.
+_IPV6_NOT_GLOBALLY_REACHABLE = [
+    "::",  # unspecified
+    "64:ff9b:1::1",  # local-use IPv4/IPv6 translation
+    "100::1",  # discard-only
+    "100:0:0:1::1",  # dummy prefix
+    "2001::1",  # Teredo
+    "2001:2::1",  # benchmarking
+    "2001:10::1",  # deprecated ORCHID
+    "2001:db8::1",  # documentation
+    "2002::1",  # 6to4
+    "3fff::1",  # documentation
+    "5f00::1",  # segment routing SIDs
+    "fec0::1",  # site-local
+    "feff:ffff::1",  # site-local, top of the block
+]
+
+
+@pytest.mark.parametrize("address", _IPV6_NOT_GLOBALLY_REACHABLE)
+def test_ipv6_special_purpose_blocks_are_refused(address: str) -> None:
+    assert is_public_ip_address(address) is False
+
+
+def test_site_local_literal_is_refused() -> None:
+    with pytest.raises(GuardedFetchError) as caught:
+        validate_guarded_url("https://[fec0::1]/keys")
+    assert caught.value.code == "host_not_public"
+
+
+async def test_hostname_that_resolves_to_site_local_is_refused() -> None:
+    with pytest.raises(GuardedFetchError) as caught:
+        await resolve_public_addresses(
+            validate_guarded_url("https://jwks.example.com/keys"),
+            resolver=_FakeResolver(["2606:4700::1111", "fec0::5"]),
+        )
+    assert caught.value.code == "host_not_public"
+
+
+@pytest.mark.parametrize(
+    "address",
+    ["93.184.216.34", "2606:4700::1111"]
+    # IPv6 special-purpose blocks that the registry marks globally reachable.
+    + ["2001:1::1", "2001:3::1", "2001:4:112::1", "2001:20::1", "2001:30::1", "2620:4f:8000::1"],
+)
 def test_public_addresses_are_accepted(address: str) -> None:
     assert is_public_ip_address(address) is True
 
@@ -114,6 +159,16 @@ async def test_switch_allows_a_hostname_that_resolves_to_loopback() -> None:
         url, allow_private_hosts=True, resolver=_FakeResolver(["127.0.0.1"])
     )
     assert addresses == ["127.0.0.1"]
+
+
+@pytest.mark.parametrize("host", ["a" * 64 + ".example", "a..b.example"])
+async def test_host_the_resolver_cannot_encode_is_a_dns_failure(host: str) -> None:
+    # The default resolver: socket.getaddrinfo IDNA-encodes the name and raises
+    # UnicodeError for a label over 63 bytes or an empty one, before any query.
+    url = validate_guarded_url(f"https://{host}/keys")
+    with pytest.raises(GuardedFetchError) as caught:
+        await resolve_public_addresses(url)
+    assert caught.value.code == "dns_failed"
 
 
 @pytest.mark.parametrize("resolver", [_failing_resolver, _FakeResolver([])])

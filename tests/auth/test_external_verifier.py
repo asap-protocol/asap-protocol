@@ -23,7 +23,7 @@ from asap.auth.external_tokens import (
     ExternalTokenErrorReason,
 )
 from asap.auth.external_verifier import ExternalTokenVerifier
-from tests.auth.local_issuer import LocalIssuer, unsigned_token
+from tests.auth.local_issuer import LocalIssuer, nested_payload_token, unsigned_token
 
 _AUDIENCE = "https://api.example/asap"
 _RULES = [{"scope": "files:read", "capability": "file.read"}]
@@ -142,6 +142,19 @@ _REFUSALS: dict[str, tuple[TokenFactory, Reason]] = {
         Reason.ALGORITHM_REJECTED,
     ),
     "HS256": (_hs256, Reason.ALGORITHM_REJECTED),
+    # An unhashable alg raised TypeError in the allowlist lookup.
+    "alg list": (
+        lambda idp: unsigned_token({"alg": ["ES256"], "kid": idp.kid}, idp.claims(_AUDIENCE)),
+        Reason.ALGORITHM_REJECTED,
+    ),
+    "alg object": (
+        lambda idp: unsigned_token({"alg": {"ES256": 1}}, idp.claims(_AUDIENCE)),
+        Reason.ALGORITHM_REJECTED,
+    ),
+    "payload nested too deeply": (
+        lambda idp: nested_payload_token({"alg": "ES256", "kid": idp.kid}),
+        Reason.MALFORMED_TOKEN,
+    ),
 }
 
 
@@ -153,7 +166,9 @@ async def test_refused_token_raises_a_typed_error_without_the_token(
     await _refused(_verifier(idp_a), factory(idp_a), reason)
 
 
-@pytest.mark.parametrize("name", ["unknown issuer", "agent+jwt", "alg none", "HS256"])
+@pytest.mark.parametrize(
+    "name", ["unknown issuer", "agent+jwt", "alg none", "HS256", "alg list", "alg object"]
+)
 async def test_header_and_issuer_checks_run_before_any_key_fetch(
     idp_a: LocalIssuer, name: str
 ) -> None:
@@ -188,3 +203,14 @@ async def test_token_never_picks_its_own_key(idp_a: LocalIssuer, header_name: st
     named = attacker.jwks["keys"][0] if header_name == "jwk" else "https://evil.example/jwks"
     token = attacker.mint(attacker.claims(_AUDIENCE), header={header_name: named})
     await _refused(_verifier(idp_a), token, Reason.INVALID_SIGNATURE)
+
+
+async def test_required_claims_bind_the_jwt_path(idp_a: LocalIssuer) -> None:
+    claim, agent = "https://github.com/adriannoes/asap-protocol/agent_id", "urn:asap:agent:y"
+    entry = idp_a.config_entry(_AUDIENCE, required_claims={claim: agent})
+    verifier = ExternalTokenVerifier(ExternalTokenConfig.model_validate({"issuers": [entry]}))
+
+    bound = idp_a.mint(idp_a.claims(_AUDIENCE, **{claim: agent}))
+    assert (await verifier.verify(bound)).subject == "user-1"
+    other = idp_a.mint(idp_a.claims(_AUDIENCE, **{claim: "urn:asap:agent:x"}))
+    await _refused(verifier, other, Reason.CLAIM_MISMATCH)

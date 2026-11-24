@@ -44,6 +44,17 @@ def unsigned_token(header: Mapping[str, Any], claims: Mapping[str, Any]) -> str:
     return f"{_b64url_json(header)}.{_b64url_json(claims)}."
 
 
+def nested_payload_token(header: Mapping[str, Any], depth: int = 30_000) -> str:
+    """Return a compact JWS whose payload nests ``depth`` arrays in ``iss``.
+
+    Past about 10,000 levels json.loads raises RecursionError; the default
+    stays under joserfc's 128,000-byte limit on the encoded payload.
+    """
+    payload = b'{"iss":' + b"[" * depth + b"]" * depth + b"}"
+    encoded = base64.urlsafe_b64encode(payload).decode("ascii").rstrip("=")
+    return f"{_b64url_json(header)}.{encoded}.c2ln"
+
+
 class LocalIssuer:
     """An access-token issuer that lives in the test process.
 

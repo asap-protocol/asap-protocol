@@ -56,6 +56,7 @@ def test_reason_codes_are_stable_strings() -> None:
         "token_expired",
         "token_not_yet_valid",
         "missing_claim",
+        "claim_mismatch",
         "token_inactive",
         "key_source_unavailable",
     ]

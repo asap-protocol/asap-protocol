@@ -7,9 +7,11 @@ the token's remaining lifetime.
 
 from __future__ import annotations
 
+import asyncio
 import time
 from collections import OrderedDict
 from collections.abc import Mapping
+from concurrent.futures import Future
 from threading import Lock
 from typing import Any, Optional, Protocol
 
@@ -118,14 +120,23 @@ class TokenIntrospector:
         transport: Optional[httpx.AsyncBaseTransport] = None,
         max_cache_size: int = 1000,
         poster: IntrospectionPoster | None = None,
+        max_cache_ttl_seconds: float | None = None,
     ) -> None:
+        # ``not x >= 0`` also refuses NaN, which min() would silently ignore.
+        if max_cache_ttl_seconds is not None and not max_cache_ttl_seconds >= 0:
+            raise ValueError(
+                f"max_cache_ttl_seconds must be >= 0 or None, got {max_cache_ttl_seconds!r}"
+            )
         self._url = introspection_url
         self._client_id = client_id
         self._client_secret = client_secret
         self._transport = transport
         # External-token issuers pass the guarded POST (v2.6.0); None keeps httpx.
         self._poster = poster
+        # None keeps the lifetime-based TTL. Zero disables the cache.
+        self._max_cache_ttl = max_cache_ttl_seconds
         self._cache: OrderedDict[str, _CacheEntry] = OrderedDict()
+        self._refreshes: dict[str, Future[None]] = {}
         self._lock = Lock()
         self._max_size = max_cache_size
 
@@ -134,6 +145,8 @@ class TokenIntrospector:
 
         Returns cached result when valid. For active tokens, TTL is derived
         from exp. For inactive tokens, a short TTL is used to reduce load.
+        A positive ``max_cache_ttl_seconds`` caps both and serializes refreshes
+        for each token. A value of zero sends a request on every call.
 
         Args:
             token: The opaque access token to introspect.
@@ -142,6 +155,32 @@ class TokenIntrospector:
             TokenInfo if the token is active, None if inactive or invalid.
             Raises httpx.HTTPError on network or protocol errors.
         """
+        if self._max_cache_ttl is None or self._max_cache_ttl == 0:
+            return await self._read_or_refresh(token)
+
+        return await self._read_or_refresh_in_order(token)
+
+    async def _read_or_refresh_in_order(self, token: str) -> TokenInfo | None:
+        """Wait for any refresh of this token before reading or replacing its entry."""
+        while True:
+            with self._lock:
+                pending = self._refreshes.get(token)
+                if pending is None:
+                    self._refreshes[token] = Future()
+                    break
+            # Each caller can use a different event loop. Its cancellation
+            # cannot cancel the refresh or the waiters in other loops.
+            await asyncio.shield(asyncio.wrap_future(pending))
+
+        try:
+            return await self._read_or_refresh(token)
+        finally:
+            with self._lock:
+                completed = self._refreshes.pop(token)
+            completed.set_result(None)
+
+    async def _read_or_refresh(self, token: str) -> TokenInfo | None:
+        """Use a current cache entry or get an answer from the issuer."""
         with self._lock:
             entry = self._cache.get(token)
             if entry is not None and not entry.is_expired():
@@ -149,9 +188,13 @@ class TokenIntrospector:
                 return entry.info if entry.info.active else None
 
         info = await self._do_introspect(token)
+        if self._max_cache_ttl == 0:
+            return info if info.active else None
 
         with self._lock:
             ttl = info.cache_ttl_seconds()
+            if self._max_cache_ttl is not None:
+                ttl = min(ttl, self._max_cache_ttl)
             if token in self._cache:
                 del self._cache[token]
             elif self._max_size > 0:
