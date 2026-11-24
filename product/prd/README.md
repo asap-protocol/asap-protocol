@@ -2,7 +2,7 @@
 
 Index of PRDs. **Shipped** releases have retrospective PRDs. **Planned** work is indexed in [prd-roadmap.md](./prd-roadmap.md). New PRDs are named by track, not by version; the target version is in each PRD header.
 
-**Current library:** `asap-protocol` **2.5.12** · **Next train:** Interop (v2.6.0) · **Release history:** [`CHANGELOG.md`](../../CHANGELOG.md)
+**Next train:** Interop (v2.6.0) · [Latest published library release](https://github.com/asap-protocol/asap-protocol/releases/latest) · [Release history](../../CHANGELOG.md)
 
 > **Deprecated redirect:** [prd-v2.4-adoption.md](./prd-v2.4-adoption.md) — do not use for new tasks.
 
@@ -23,7 +23,7 @@ Index of PRDs. **Shipped** releases have retrospective PRDs. **Planned** work is
 
 | Version | File | Shipped |
 |---------|------|---------|
-| v2.5.5–v2.5.12 | *(maintenance patches — security fixes, dependency floors, regression tests; no PRD)* — see [`CHANGELOG.md`](../../CHANGELOG.md) | 2026-09-11 → 2026-11-24 — [GitHub Releases](https://github.com/asap-protocol/asap-protocol/releases) |
+| v2.5.5 and later v2.5.x patches | [Changelog](../../CHANGELOG.md) | See [GitHub Releases](https://github.com/asap-protocol/asap-protocol/releases/latest) for publication dates. |
 | v2.5.4 | [prd-v2.5.4-distribution-loop.md](./prd-v2.5.4-distribution-loop.md) · [tasks](../../engineering/tasks/v2.5.4/tasks-v2.5.4-roadmap.md) | 2026-07-18 — tag [`v2.5.4`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.4) |
 | v2.5.3 | [prd-v2.5.3-adapter-lab-ii.md](./prd-v2.5.3-adapter-lab-ii.md) · [tasks](../../engineering/tasks/v2.5.3/tasks-v2.5.3-roadmap.md) | 2026-07-16 — tag [`v2.5.3`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5.3) |
 | v2.5.2 | [prd-v2.5.2-security-follow-up.md](./prd-v2.5.2-security-follow-up.md) | 2026-07-08 |
