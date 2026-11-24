@@ -233,7 +233,7 @@ class TestCardSignatureChecks:
     async def test_a_card_without_the_extension_is_bound_to_the_expected_urn(self) -> None:
         result = await _run(FakeA2AGateway(Fault.CARD_WITHOUT_EXTENSION))
 
-        assert _failed(result) == {"card_agent_urn"}
+        assert _failed(result) == {"card_agent_urn", "card_manifest_same_agent"}
 
     async def test_a_v03_card_is_named_as_such(self) -> None:
         result = await _run(FakeA2AGateway(Fault.CARD_V03))
@@ -273,3 +273,41 @@ class TestTheHarnessIsNotFooled:
             result, "card_signature"
         )
         assert CARD_PUBLIC_JWK["x"] not in str(result.checks)
+
+
+class TestInterfaceAndManifestChecks:
+    """The card names the interface that the calls use, and the same agent as the manifest."""
+
+    @pytest.mark.parametrize(
+        ("fault", "check_id"),
+        [
+            (Fault.CARD_INTERFACE_ELSEWHERE, "card_jsonrpc_interface"),
+            (Fault.MANIFEST_OF_ANOTHER_VERSION, "card_manifest_same_agent"),
+            (Fault.MANIFEST_ERROR, "card_manifest_same_agent"),
+            (Fault.CARD_FOR_ANOTHER_AGENT, "card_manifest_same_agent"),
+        ],
+    )
+    async def test_a_gateway_with_the_fault_fails_the_check(
+        self, fault: Fault, check_id: str
+    ) -> None:
+        result = await _run(FakeA2AGateway(fault))
+
+        assert check_id in _failed(result)
+
+    async def test_an_origin_without_an_asap_manifest_passes(self) -> None:
+        result = await _run(FakeA2AGateway(Fault.NO_MANIFEST))
+
+        assert "card_manifest_same_agent" not in _failed(result)
+
+    async def test_the_message_names_what_differs(self) -> None:
+        result = await _run(FakeA2AGateway(Fault.MANIFEST_OF_ANOTHER_VERSION))
+
+        assert _message(result, "card_manifest_same_agent").endswith("differ in version")
+
+    async def test_the_interface_must_be_at_the_configured_origin(self) -> None:
+        local = {"base_url": "http://127.0.0.1:8788", "allow_private_targets": True}
+
+        result = await _run(FakeA2AGateway(), **local)
+
+        assert "http://127.0.0.1:8788/a2a" in _message(result, "card_jsonrpc_interface")
+        assert "card_jsonrpc_interface" in _failed(result)

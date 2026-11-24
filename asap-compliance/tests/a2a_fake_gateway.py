@@ -48,6 +48,10 @@ class Fault(StrEnum):
     # Signed with the key that the checker trusts for AGENT_URN, for another agent URN.
     CARD_FOR_ANOTHER_AGENT = "card_for_another_agent"
     CARD_WITHOUT_EXTENSION = "card_without_extension"
+    CARD_INTERFACE_ELSEWHERE = "card_interface_elsewhere"
+    NO_MANIFEST = "no_manifest"
+    MANIFEST_ERROR = "manifest_error"
+    MANIFEST_OF_ANOTHER_VERSION = "manifest_of_another_version"
 
 
 def demo_manifest(agent_urn: str = AGENT_URN, version: str = "1.0.0") -> Manifest:
@@ -98,6 +102,7 @@ _CARDS_BY_FAULT: dict[Fault, dict[str, Any]] = {
     Fault.TAMPERED_CARD: {**_CARD, "description": "Changed in transit"},
     Fault.CARD_FOR_ANOTHER_AGENT: signed_card(demo_manifest(OTHER_AGENT_URN)),
     Fault.CARD_WITHOUT_EXTENSION: _signed_without_extension(_CARD),
+    Fault.CARD_INTERFACE_ELSEWHERE: signed_card(interface_url=f"{BASE_URL}/rpc"),
 }
 
 
@@ -112,7 +117,17 @@ class FakeA2AGateway:
         self.requests.append(request.url.path)
         if request.url.path == "/.well-known/agent-card.json":
             return self._card()
+        if request.url.path == "/.well-known/asap/manifest.json":
+            return self._manifest()
         return httpx.Response(404, json={"detail": "Not Found"})
+
+    def _manifest(self) -> httpx.Response:
+        if Fault.NO_MANIFEST in self.faults:
+            return httpx.Response(404, json={"detail": "Not Found"})
+        if Fault.MANIFEST_ERROR in self.faults:
+            return httpx.Response(500, json={"detail": "Internal Server Error"})
+        version = "2.0.0" if Fault.MANIFEST_OF_ANOTHER_VERSION in self.faults else "1.0.0"
+        return httpx.Response(200, json=demo_manifest(version=version).model_dump(mode="json"))
 
     def _card(self) -> httpx.Response:
         if Fault.NO_CARD in self.faults:

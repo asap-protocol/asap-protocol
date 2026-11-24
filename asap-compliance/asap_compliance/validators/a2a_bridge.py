@@ -46,7 +46,9 @@ from asap.adapters.a2a import (
 
 from asap_compliance.config import A2ABridgeComplianceConfig
 from asap_compliance.validators.a2a_transport import (
+    A2A_PROTOCOL_VERSION,
     AGENT_CARD_PATH,
+    ASAP_MANIFEST_PATH,
     A2AHttpResponse,
     A2AHttpTransport,
 )
@@ -67,6 +69,11 @@ _EXPECT_CARD_SIGNATURE = (
     "for the agent that the card names"
 )
 _EXPECT_CARD_AGENT_URN = "an ASAP extension in the card that names the expected agent URN"
+_EXPECT_INTERFACE = f"a JSONRPC interface with protocol version {A2A_PROTOCOL_VERSION} in the card"
+_EXPECT_SAME_AGENT = (
+    "the URN, name, and version of the card in the ASAP manifest on the same origin, "
+    "when there is one (COMPAT-003)"
+)
 _VERIFICATION_FAILURES: dict[type[A2AAdapterError], str] = {
     A2AUnsignedCardError: "the card has no signature",
     A2ANoTrustedSignatureError: (
@@ -126,6 +133,12 @@ class _BridgeRun:
                 f"the card does not parse as A2A v1.0 ({exc.error_count()} problems)"
             ) from None
 
+    async def manifest_answer(self) -> A2AHttpResponse:
+        """The answer at the ASAP manifest's well-known path."""
+        response = await self.transport.fetch_manifest()
+        self.responses.append(response)
+        return response
+
 
 def _card_document_problem(response: A2AHttpResponse) -> str | None:
     if response.status_code != 200:
@@ -182,6 +195,35 @@ async def _check_card_agent_urn(run: _BridgeRun) -> str | None:
     return None
 
 
+async def _check_card_jsonrpc_interface(run: _BridgeRun) -> str | None:
+    """The card's interfaces against the URL that the call checks use (never one from the card)."""
+    card = await run.card()
+    url = run.transport.a2a_url
+    for interface in card.supported_interfaces:
+        binding = (interface.protocol_binding, interface.protocol_version)
+        if interface.url == url and binding == ("JSONRPC", A2A_PROTOCOL_VERSION):
+            return None
+    return f"the card lists no such interface at {url}"
+
+
+async def _check_card_manifest_same_agent(run: _BridgeRun) -> str | None:
+    """The card against the ASAP manifest on the same origin, if any (COMPAT-003)."""
+    card = await run.card()
+    response = await run.manifest_answer()
+    manifest = response.json_body
+    if response.status_code == 404:
+        return None
+    if response.status_code != 200 or manifest is None:
+        return f"GET {ASAP_MANIFEST_PATH} answered HTTP {response.status_code}, not 200 or 404"
+    pairs = {
+        "URN": (_named_agent_urn(card), manifest.get("id")),
+        "name": (card.name, manifest.get("name")),
+        "version": (card.version, manifest.get("version")),
+    }
+    differ = [what for what, (on_card, in_manifest) in pairs.items() if on_card != in_manifest]
+    return f"the manifest and the card differ in {', '.join(differ)}" if differ else None
+
+
 def _named_agent_urn(card: AgentCard) -> str | None:
     """The URN in the card's ASAP extension; None when it has none, or the extension is bad."""
     try:
@@ -197,6 +239,8 @@ _PROFILE_CHECKS: tuple[ProfileCheck[_BridgeRun], ...] = (
     ("card_a2a_v1", _check_card_a2a_v1, _EXPECT_CARD_V1),
     ("card_signature", _check_card_signature, _EXPECT_CARD_SIGNATURE),
     ("card_agent_urn", _check_card_agent_urn, _EXPECT_CARD_AGENT_URN),
+    ("card_jsonrpc_interface", _check_card_jsonrpc_interface, _EXPECT_INTERFACE),
+    ("card_manifest_same_agent", _check_card_manifest_same_agent, _EXPECT_SAME_AGENT),
 )
 
 A2A_BRIDGE_CHECK_IDS: tuple[str, ...] = tuple(check_id for check_id, _, _ in _PROFILE_CHECKS)
