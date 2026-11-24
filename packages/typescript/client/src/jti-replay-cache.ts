@@ -12,12 +12,17 @@
  * ```
  */
 export interface JtiReplayCache {
-  /** Record `jti` under `partitionKey`. Return `false` when it is already recorded (a replay) or blank. */
-  checkAndRecord(partitionKey: string, jti: string): boolean | Promise<boolean>;
+  /**
+   * Record `jti` under `partitionKey`. Return `false` when it is already
+   * recorded (a replay) or blank. `expiresAt` is the token's `exp`, in seconds
+   * since the epoch: keep the record at least until then, so a token cannot be
+   * replayed after its record is gone.
+   */
+  checkAndRecord(partitionKey: string, jti: string, expiresAt?: number): boolean | Promise<boolean>;
 }
 
 export interface InMemoryJtiReplayCacheOptions {
-  /** How long a recorded `jti` blocks reuse. Default 90 s, longer than the 60 s Agent JWT lifetime. */
+  /** How long a recorded `jti` blocks reuse at least; longer when the token's `exp` is later. Default 90 s. */
   readonly ttlSeconds?: number;
   /** Maximum number of entries. When full, the oldest entries go first. Default 10 000. */
   readonly maxSize?: number;
@@ -46,7 +51,7 @@ export class InMemoryJtiReplayCache implements JtiReplayCache {
     this.#nowSeconds = options.nowSeconds ?? systemNowSeconds;
   }
 
-  checkAndRecord(partitionKey: string, jti: string): boolean {
+  checkAndRecord(partitionKey: string, jti: string, expiresAt = 0): boolean {
     if (jti.trim() === "") {
       return false;
     }
@@ -57,7 +62,7 @@ export class InMemoryJtiReplayCache implements JtiReplayCache {
     if (this.#expiryByKey.has(key)) {
       return false;
     }
-    this.#expiryByKey.set(key, now + this.#ttlSeconds);
+    this.#expiryByKey.set(key, Math.max(now + this.#ttlSeconds, expiresAt));
     this.#evictOldest();
     return true;
   }
@@ -70,8 +75,8 @@ export class InMemoryJtiReplayCache implements JtiReplayCache {
     }
   }
 
-  // Map iteration follows insertion order, and every entry has the same TTL,
-  // so the first keys are the ones that expire first.
+  // Map iteration follows insertion order. Since records keep the token's exp,
+  // the first keys are not always the ones that expire first.
   #evictOldest(): void {
     for (const key of this.#expiryByKey.keys()) {
       if (this.#expiryByKey.size <= this.#maxSize) {

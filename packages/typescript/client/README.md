@@ -33,10 +33,12 @@ if (result.ok) console.log(result.agentId, result.capabilities);
 | Check | Python `verify_agent_jwt` | `verifyAgentJwt` |
 |-------|---------------------------|------------------|
 | `typ`, `alg` (`EdDSA` or `Ed25519`), signature, `exp`, `iat`, `jti`, `aud` | In the function | In the function |
+| Lifetime: `exp` at most 120 s (the 60 s TTL plus the 60 s skew) after now and after `iat` | In the function | In the function |
 | Agent status (revoked, expired, pending), host revocation, host–agent binding | Read from `HostStore` and `AgentStore` | Your `resolveAgent` callback. Return `undefined` for an unknown agent and `usable: false` for any other refusal |
 | Idle-timeout slide (`last_used_at`) | Written to the agent store | Not done. Update your store in the resolver if you need it |
 | Audience | Optional | Required |
 | Replay check | Optional cache | Optional `replayCache`. Without it, a replayed token is not detected |
+| How long the replay record lasts | The cache window (default 90 s) | The later of the cache window (default 90 s) and the token's `exp`: `verifyAgentJwt` passes `exp` to `checkAndRecord` |
 | `exp` or `iat` as a numeric string | Accepted | Refused (RFC 7519 NumericDate is a JSON number) |
 
 A throw from `resolveAgent` or `replayCache` is not caught: it means a store failed, not that the token is bad.

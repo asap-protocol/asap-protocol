@@ -41,6 +41,28 @@ describe("InMemoryJtiReplayCache", () => {
     expect(cache.checkAndRecord("agent-1", "jwt_a")).toBe(true);
   });
 
+  // A record must not expire before the token does.
+  it("keeps a jti until the token's exp when that is later than the window", () => {
+    const clock = manualClock(1_700_000_000);
+    const cache = new InMemoryJtiReplayCache({ ttlSeconds: 90, nowSeconds: clock.now });
+
+    expect(cache.checkAndRecord("agent-1", "jwt_a", 1_700_000_120)).toBe(true);
+    clock.advance(119);
+    expect(cache.checkAndRecord("agent-1", "jwt_a", 1_700_000_120)).toBe(false);
+    clock.advance(1);
+    expect(cache.checkAndRecord("agent-1", "jwt_a", 1_700_000_120)).toBe(true);
+  });
+
+  it("keeps the window when the token's exp is earlier", () => {
+    const clock = manualClock(1_700_000_000);
+    const cache = new InMemoryJtiReplayCache({ ttlSeconds: 90, nowSeconds: clock.now });
+
+    cache.checkAndRecord("agent-1", "jwt_a", 1_700_000_010);
+    clock.advance(89);
+
+    expect(cache.checkAndRecord("agent-1", "jwt_a")).toBe(false);
+  });
+
   it("refuses a blank jti", () => {
     const cache = new InMemoryJtiReplayCache();
 

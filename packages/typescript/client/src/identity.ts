@@ -13,7 +13,8 @@ const AGENT_PUBLIC_KEY_CLAIM = "agent_public_key" as const;
 const CAPABILITIES_CLAIM = "capabilities" as const;
 
 const DEFAULT_HOST_JWT_TTL_SECONDS = 300;
-const AGENT_JWT_TTL_SECONDS = 60;
+/** Python `AGENT_JWT_TTL_SECONDS`: the lifetime of a minted Agent JWT. */
+export const AGENT_JWT_TTL_SECONDS = 60;
 
 export type AgentMode = "delegated" | "autonomous";
 
