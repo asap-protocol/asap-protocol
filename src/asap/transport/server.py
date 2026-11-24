@@ -122,12 +122,17 @@ from asap.transport.routes import (
     create_jsonrpc_router,
     create_websocket_router,
 )
+from asap.transport.routes.agent_card import (
+    create_agent_card_router,
+    validate_served_agent_card,
+)
 from asap.state.stores import create_snapshot_store
 from asap.transport.validators import InMemoryNonceStore, NonceStore
 from asap.transport.ws import WS_CLOSE_GOING_AWAY, WS_CLOSE_REASON_SHUTDOWN
 from asap.transport.mtls import MTLSConfig
 
 if TYPE_CHECKING:
+    from asap.adapters.a2a import AgentCard
     from asap.registry.auto_registration import AutoRegistrationConfig
 
 # Module logger
@@ -807,6 +812,7 @@ def create_app(
     ),
     require_operator_auth: bool = False,
     external_token_config: ExternalTokenConfig | None = None,
+    agent_card: AgentCard | None = None,
 ) -> FastAPI:
     """Create and configure a FastAPI application for ASAP protocol.
 
@@ -814,6 +820,7 @@ def create_app(
     - POST /asap endpoint for handling ASAP messages via JSON-RPC
     - WebSocket /asap/ws for real-time JSON-RPC (same protocol as POST /asap)
     - GET /.well-known/asap/manifest.json for agent discovery
+    - GET /.well-known/agent-card.json, when ``agent_card`` is set (A2A v1.0 discovery)
     - GET /asap/metrics for Prometheus-compatible metrics
     - Authentication middleware (if manifest.auth is configured)
     - Error handling middleware
@@ -914,13 +921,20 @@ def create_app(
             Agent JWT; each principal gets only the grants of its issuer's rules. To accept
             the ``oauth2_config`` IdP's tokens on that route, list it here. Default None
             keeps that route on Agent JWT only.
+        agent_card: A signed A2A v1.0 Agent Card for this agent, from
+            :func:`asap.adapters.a2a.build_signed_agent_card` (COMPAT-003). When set,
+            ``GET /.well-known/agent-card.json`` serves it beside the manifest, with the
+            same caching headers. It must carry a signature and name this agent: the same
+            name and version, and the URN of its ASAP extension equal to ``manifest.id``.
+            Default None: the route does not exist.
 
     Returns:
         Configured FastAPI application ready to run
 
     Raises:
         ValueError: If manifest requires authentication but no token_validator provided,
-            or if ``require_operator_auth`` is True without ``oauth2_config``.
+            if ``require_operator_auth`` is True without ``oauth2_config``, or if
+            ``agent_card`` is unsigned or describes another agent.
 
     Example:
         >>> from asap.models.entities import Manifest, Capability, Endpoint, Skill, AuthScheme, SLADefinition
@@ -963,6 +977,8 @@ def create_app(
             "require_operator_auth=True requires oauth2_config so /usage, /sla, and "
             "/audit can validate Bearer JWTs with scope asap:admin"
         )
+    if agent_card is not None:
+        validate_served_agent_card(agent_card, manifest)
 
     components = _build_server_components(
         manifest=manifest,
@@ -1046,6 +1062,9 @@ def create_app(
         rate_limit=rate_limit,
         require_operator_auth=require_operator_auth,
     )
+    if agent_card is not None:
+        app.state.agent_card = agent_card
+        app.include_router(create_agent_card_router())
     _configure_rate_limiting(app, rate_limit=rate_limit, manifest=manifest)
     # OpenTelemetry tracing (zero-config via OTEL_* env vars)
     configure_tracing(service_name=manifest.id, app=app)
