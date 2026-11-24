@@ -1,0 +1,65 @@
+{
+  "name": "@asap-protocol/mcp-auth",
+  "version": "0.1.0",
+  "description": "ASAP identity and capability grants for HTTP MCP servers (@modelcontextprotocol/server)",
+  "type": "module",
+  "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/asap-protocol/asap-protocol"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "peerDependencies": {
+    "@modelcontextprotocol/server": "^2.4.0"
+  },
+  "dependencies": {},
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tshy",
+    "test": "vitest run --coverage",
+    "test:no-coverage": "vitest run",
+    "lint": "eslint .",
+    "check:treeshake": "pnpm run build && agadoo ./dist/esm/index.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.18.0",
+    "@modelcontextprotocol/server": "2.4.0",
+    "@types/node": "^20.19.0",
+    "@vitest/coverage-v8": "4.1.5",
+    "agadoo": "3.0.0",
+    "eslint": "9.18.0",
+    "tshy": "^3.3.2",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "8.59.1",
+    "vitest": "^4.1.1"
+  },
+  "tshy": {
+    "project": "./tsconfig.build.json",
+    "exports": {
+      ".": "./src/index.ts"
+    }
+  },
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/index.d.ts",
+        "default": "./dist/commonjs/index.js"
+      }
+    }
+  },
+  "main": "./dist/commonjs/index.js",
+  "types": "./dist/commonjs/index.d.ts",
+  "module": "./dist/esm/index.js"
+}
