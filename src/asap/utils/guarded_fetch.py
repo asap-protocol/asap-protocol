@@ -6,9 +6,16 @@ Used for JWKS, OIDC discovery, token introspection, and A2A Agent Cards
 imports ``asap.auth``: a module inside either package would create an import
 cycle.
 
-This part holds the address checks: HTTPS only, and every address of the host
-must be public. ``allow_private_hosts=True`` disables the address checks for
+Rules: HTTPS only; every address of the host must be public; redirects are
+never followed; the body is read with a byte limit and a total deadline.
+``allow_private_hosts=True`` disables the address checks for
 local development and tests; HTTPS stays required.
+
+DNS rebinding: :func:`guarded_fetch_json` resolves the host once, checks every
+address, and connects to the first checked address. TLS SNI and certificate
+verification still use the original hostname, so a second DNS answer cannot
+move the connection. It does not guarantee more: a public address can still be
+the wrong server, and an injected ``transport`` decides itself where to connect.
 
 The address check is stricter than ``asap.transport.webhook.validate_callback_url``
 (it also refuses shared address space ``100.64.0.0/10``, multicast, and
@@ -19,17 +26,28 @@ from __future__ import annotations
 
 import asyncio
 import ipaddress
+import json
 import socket
 from collections.abc import Awaitable, Callable
-from typing import Literal
+from typing import Any, Literal
 
 import httpx
+
+DEFAULT_GUARDED_FETCH_TIMEOUT_SECONDS = 10.0
+DEFAULT_GUARDED_FETCH_MAX_BYTES = 1024 * 1024
 
 GuardedFetchRefusal = Literal[
     "invalid_url",
     "scheme_not_https",
     "host_not_public",
     "dns_failed",
+    "redirect_refused",
+    "http_status",
+    "content_encoding",
+    "too_large",
+    "timeout",
+    "transport_error",
+    "invalid_json",
 ]
 AddressResolver = Callable[[str], Awaitable[list[str]]]
 
@@ -132,3 +150,107 @@ async def resolve_public_addresses(
             str(url), "host_not_public", f"{host!r} resolves to non-public {blocked}"
         )
     return addresses
+
+
+def _refuse_json_constant(name: str) -> Any:
+    raise ValueError(f"non-standard JSON constant {name}")
+
+
+def _check_response_head(url: str, response: httpx.Response, max_bytes: int) -> None:
+    status = response.status_code
+    if 300 <= status < 400:
+        raise GuardedFetchError(url, "redirect_refused", f"status {status}; redirects are refused")
+    if not response.is_success:
+        raise GuardedFetchError(url, "http_status", f"status {status}, expected 2xx")
+    encoding = response.headers.get("Content-Encoding", "identity").strip().lower()
+    if encoding != "identity":
+        raise GuardedFetchError(url, "content_encoding", f"{encoding!r}, expected 'identity'")
+    declared = response.headers.get("Content-Length", "")
+    if declared.isdigit() and int(declared) > max_bytes:
+        raise GuardedFetchError(url, "too_large", f"{declared} bytes declared, limit {max_bytes}")
+
+
+async def _read_limited_body(url: str, response: httpx.Response, max_bytes: int) -> bytes:
+    body = bytearray()
+    # Identity encoding (checked above) means no decompression happens here, so
+    # the limit counts the bytes that crossed the wire.
+    async for chunk in response.aiter_bytes():
+        body.extend(chunk)
+        if len(body) > max_bytes:
+            raise GuardedFetchError(url, "too_large", f"body exceeds {max_bytes} bytes")
+    return bytes(body)
+
+
+async def _fetch_pinned(
+    url: httpx.URL,
+    address: str,
+    *,
+    max_bytes: int,
+    timeout_seconds: float,
+    transport: httpx.AsyncBaseTransport | None,
+) -> bytes:
+    host = url.raw_host.decode("ascii")
+    headers = {
+        "Host": url.netloc.decode("ascii"),
+        "Accept": "application/json",
+        "Accept-Encoding": "identity",
+    }
+    extensions = {} if _is_ip_literal(host) else {"sni_hostname": host}
+    async with (
+        # trust_env=False: an HTTP(S)_PROXY variable would move the connection
+        # to the proxy and void the address check.
+        httpx.AsyncClient(
+            transport=transport,
+            timeout=timeout_seconds,
+            follow_redirects=False,
+            trust_env=False,
+        ) as client,
+        client.stream(
+            "GET", url.copy_with(host=address), headers=headers, extensions=extensions
+        ) as response,
+    ):
+        _check_response_head(str(url), response, max_bytes)
+        return await _read_limited_body(str(url), response, max_bytes)
+
+
+async def guarded_fetch_json(
+    url: str,
+    *,
+    allow_private_hosts: bool = False,
+    max_bytes: int = DEFAULT_GUARDED_FETCH_MAX_BYTES,
+    timeout_seconds: float = DEFAULT_GUARDED_FETCH_TIMEOUT_SECONDS,
+    resolver: AddressResolver | None = None,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> dict[str, Any]:
+    """GET a JSON object through the guard.
+
+    ``timeout_seconds`` bounds the whole fetch, DNS included. Raises
+    :class:`GuardedFetchError` for every refusal or failure.
+
+    Example:
+        >>> jwks = await guarded_fetch_json("https://issuer.example/jwks.json")
+    """
+    parsed = validate_guarded_url(url, allow_private_hosts=allow_private_hosts)
+    try:
+        async with asyncio.timeout(timeout_seconds):
+            addresses = await resolve_public_addresses(
+                parsed, allow_private_hosts=allow_private_hosts, resolver=resolver
+            )
+            body = await _fetch_pinned(
+                parsed,
+                addresses[0],
+                max_bytes=max_bytes,
+                timeout_seconds=timeout_seconds,
+                transport=transport,
+            )
+    except (TimeoutError, httpx.TimeoutException) as exc:
+        raise GuardedFetchError(url, "timeout", f"no response within {timeout_seconds}s") from exc
+    except httpx.HTTPError as exc:
+        raise GuardedFetchError(url, "transport_error", type(exc).__name__) from exc
+    try:
+        document = json.loads(body, parse_constant=_refuse_json_constant)
+    except ValueError as exc:
+        raise GuardedFetchError(url, "invalid_json", str(exc)) from exc
+    if not isinstance(document, dict):
+        raise GuardedFetchError(url, "invalid_json", f"top level is {type(document).__name__}")
+    return document
