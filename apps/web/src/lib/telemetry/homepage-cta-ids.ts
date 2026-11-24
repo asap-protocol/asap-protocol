@@ -11,8 +11,9 @@ export const HOMEPAGE_HERO_CTA_IDS = {
   distLoopBadge: 'hero-dist-loop-badge',
   /** v2.5.10 release badge — retained for historical CTR dashboards. */
   releaseBadge2510: 'hero-release-2510',
-  /** v2.5.11 release badge (HeroSection). */
+  /** v2.5.11 release badge retained for historical CTR dashboards. */
   releaseBadge2511: 'hero-release-2511',
+  releaseBadge260: 'hero-release-260',
   /** Primary CTA for the Build for agents guide. */
   buildForAgents: 'hero-build-for-agents',
   /** Primary CTA for examples/starters. */
@@ -61,6 +62,10 @@ export const WHATS_NEW_RIBBON_CTA_IDS = {
   releaseChangelog2510: 'release-changelog-2510',
   /** v2.5.11 changelog pill (WhatsNewRibbon). */
   releaseChangelog2511: 'release-changelog-2511',
+  docsInterop260: 'docs-interop-260',
+  docsA2aExtension260: 'docs-a2a-extension-260',
+  docsMigration260: 'docs-migration-260',
+  releaseChangelog260: 'release-changelog-260',
 } as const;
 
 /** How it Works section primary CTAs (guide + starters). */
@@ -127,4 +132,9 @@ export const HOMEPAGE_CTA_IDS = [
   WHATS_NEW_RIBBON_CTA_IDS.docsMigration2511,
   WHATS_NEW_RIBBON_CTA_IDS.releaseChangelog2511,
   HOMEPAGE_HERO_CTA_IDS.releaseBadge2511,
+  WHATS_NEW_RIBBON_CTA_IDS.docsInterop260,
+  WHATS_NEW_RIBBON_CTA_IDS.docsA2aExtension260,
+  WHATS_NEW_RIBBON_CTA_IDS.docsMigration260,
+  WHATS_NEW_RIBBON_CTA_IDS.releaseChangelog260,
+  HOMEPAGE_HERO_CTA_IDS.releaseBadge260,
 ] as const;

@@ -7,13 +7,10 @@ import { HeroSection } from '@/components/landing/HeroSection';
 import { WhatsNewRibbon } from '@/components/landing/WhatsNewRibbon';
 import {
   BUILD_FOR_AGENTS_GUIDE_URL,
-  CURRENT_CHANGELOG_URL,
-  CURRENT_MIGRATION_URL,
-  CURRENT_RELEASE_DETAIL,
   CURRENT_RELEASE_TAGLINE,
-  CURRENT_RELEASE_URL,
   CURRENT_RELEASE_VERSION,
   STARTERS_URL,
+  interopReleaseLinks,
 } from '@/lib/landing/dist-loop-links';
 
 vi.mock('@/components/ui/background-paths', () => ({
@@ -50,30 +47,42 @@ describe('Dist Loop landing link contract', () => {
     expect(starters).toHaveAttribute('rel', 'noopener noreferrer');
   });
 
-  it('points the hero badge at the v2.5.11 GitHub release', () => {
+  it('points the hero badge at the v2.6.0 Interop announcement', () => {
     render(<HeroSection />);
 
     const badge = screen.getByRole('link', {
-      name: /view asap protocol v2\.5\.11 release on github/i,
+      name: /read the v2\.6\.0 interop announcement/i,
     });
-    expect(badge).toHaveAttribute('href', CURRENT_RELEASE_URL);
-    expect(badge.getAttribute('href')).toContain(`v${CURRENT_RELEASE_VERSION}`);
-    expect(badge).toHaveAttribute('data-cta', 'hero-release-2511');
-    expect(badge).toHaveTextContent(`v${CURRENT_RELEASE_VERSION} — ${CURRENT_RELEASE_TAGLINE}`);
+    expect(badge).toHaveAttribute('href', '#interop');
+    expect(badge).toHaveAttribute('data-cta', 'hero-release-260');
+    expect(badge).toHaveTextContent(`v${CURRENT_RELEASE_VERSION} ${CURRENT_RELEASE_TAGLINE}`);
   });
 
-  it('keeps WhatsNewRibbon docs pills on canonical GitHub URLs for v2.5.11', () => {
+  it('links the Interop announcement to the guide, migration, changelog, and extension', () => {
     render(<WhatsNewRibbon />);
 
     const ribbon = screen.getByRole('complementary', {
-      name: /latest release v2\.5\.11/i,
+      name: 'v2.6.0 Interop',
     });
 
-    expect(ribbon).toHaveTextContent(`${CURRENT_RELEASE_TAGLINE} · ${CURRENT_RELEASE_DETAIL}`);
-    expect(linkByCta(ribbon, 'docs-migration-2511')).toHaveAttribute('href', CURRENT_MIGRATION_URL);
-    expect(linkByCta(ribbon, 'release-changelog-2511')).toHaveAttribute(
+    expect(ribbon).toHaveAttribute('id', 'interop');
+    expect(ribbon).toHaveTextContent('Verify signed A2A v1.0 Agent Cards');
+    expect(ribbon).toHaveTextContent('MCP authorization (OAuth 2.1)');
+    expect(ribbon).toHaveTextContent('Run compliance checks for both flows');
+    const links = interopReleaseLinks();
+    for (const [cta, href] of [
+      ['docs-interop-260', links.guide],
+      ['docs-migration-260', links.migration],
+      ['release-changelog-260', links.changelog],
+    ] as const) {
+      const link = linkByCta(ribbon, cta);
+      expect(link).toHaveAttribute('href', href);
+      expect(link).toHaveAttribute('target', '_blank');
+      expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    }
+    expect(linkByCta(ribbon, 'docs-a2a-extension-260')).toHaveAttribute(
       'href',
-      CURRENT_CHANGELOG_URL
+      '/a2a/extensions/manifest/v1'
     );
     expect(linkByCta(ribbon, 'docs-build-for-agents')).toHaveAttribute(
       'href',

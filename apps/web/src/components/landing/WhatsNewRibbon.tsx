@@ -2,14 +2,12 @@ import Link from 'next/link';
 import { WHATS_NEW_RIBBON_CTA_IDS } from '@/lib/telemetry/homepage-cta-ids';
 import {
   BUILD_FOR_AGENTS_GUIDE_URL,
-  CURRENT_CHANGELOG_URL,
-  CURRENT_MIGRATION_URL,
-  CURRENT_RELEASE_DETAIL,
   CURRENT_RELEASE_TAGLINE,
   CURRENT_RELEASE_VERSION,
   GITHUB_BLOB_MAIN,
   GITHUB_TREE_MAIN,
   STARTERS_URL,
+  interopReleaseLinks,
 } from '@/lib/landing/dist-loop-links';
 import { EXTERNAL_LINK_FOCUS_CLASS, OpensInNewTabHint } from '@/components/links/opens-in-new-tab';
 import { cn } from '@/lib/utils';
@@ -46,7 +44,7 @@ const DOCS_AUTOMATION_CONNECTOR_SECURITY = `${GITHUB_BLOB_MAIN}/docs/guides/auto
 const DOCS_MICROSOFT_AGENT_FRAMEWORK = `${GITHUB_BLOB_MAIN}/docs/integrations/microsoft-agent-framework.md`;
 const DOCS_NEMO_AGENT_TOOLKIT = `${GITHUB_BLOB_MAIN}/docs/integrations/nemo-agent-toolkit.md`;
 
-const PILLS: Pill[] = [
+const RESOURCE_PILLS: Pill[] = [
   {
     label: 'Build for agents',
     href: BUILD_FOR_AGENTS_GUIDE_URL,
@@ -74,13 +72,6 @@ const PILLS: Pill[] = [
     icon: Lock,
     external: true,
     dataCta: WHATS_NEW_RIBBON_CTA_IDS.docsAutomationConnectorSecurity,
-  },
-  {
-    label: 'Migration',
-    href: CURRENT_MIGRATION_URL,
-    icon: ShieldCheck,
-    external: true,
-    dataCta: WHATS_NEW_RIBBON_CTA_IDS.docsMigration2511,
   },
   {
     label: 'MCP Auth Bridge',
@@ -129,36 +120,64 @@ const PILLS: Pill[] = [
     external: true,
     dataCta: WHATS_NEW_RIBBON_CTA_IDS.docsTypescript,
   },
-  {
-    label: 'Changelog',
-    href: CURRENT_CHANGELOG_URL,
-    icon: GitBranch,
-    external: true,
-    dataCta: WHATS_NEW_RIBBON_CTA_IDS.releaseChangelog2511,
-  },
 ];
 
 export function WhatsNewRibbon() {
+  const links = interopReleaseLinks();
+  const release = `v${CURRENT_RELEASE_VERSION} ${CURRENT_RELEASE_TAGLINE}`;
+  const pills: Pill[] = [
+    {
+      label: 'Interop guide',
+      href: links.guide,
+      icon: BookOpen,
+      external: true,
+      dataCta: WHATS_NEW_RIBBON_CTA_IDS.docsInterop260,
+    },
+    {
+      label: 'A2A extension',
+      href: '/a2a/extensions/manifest/v1',
+      icon: Code,
+      dataCta: WHATS_NEW_RIBBON_CTA_IDS.docsA2aExtension260,
+    },
+    {
+      label: 'Migration',
+      href: links.migration,
+      icon: ShieldCheck,
+      external: true,
+      dataCta: WHATS_NEW_RIBBON_CTA_IDS.docsMigration260,
+    },
+    {
+      label: 'Changelog',
+      href: links.changelog,
+      icon: GitBranch,
+      external: true,
+      dataCta: WHATS_NEW_RIBBON_CTA_IDS.releaseChangelog260,
+    },
+    ...RESOURCE_PILLS,
+  ];
+
   return (
     <aside
-      aria-label={`Latest release v${CURRENT_RELEASE_VERSION}`}
-      className="w-full border-y border-zinc-900 bg-zinc-950"
+      id="interop"
+      aria-label={release}
+      className="w-full scroll-mt-24 border-y border-zinc-900 bg-zinc-950"
     >
       <div className="container mx-auto flex max-w-5xl flex-col gap-4 px-4 py-8 md:flex-row md:items-center md:gap-4 md:px-6 md:py-10">
-        <div className="flex items-center gap-2 md:shrink-0 md:border-r md:border-zinc-800 md:pr-4">
+        <div className="flex items-start gap-2 md:max-w-xs md:shrink-0 md:border-r md:border-zinc-800 md:pr-4">
           <Sparkles className="h-4 w-4 shrink-0 text-indigo-400" aria-hidden />
           <div className="flex flex-col">
             <span className="font-mono text-xs tracking-wider text-indigo-400 uppercase">
-              Latest release v{CURRENT_RELEASE_VERSION}
+              {release}
             </span>
-            <span className="text-xs text-zinc-500">
-              {CURRENT_RELEASE_TAGLINE} · {CURRENT_RELEASE_DETAIL}
+            <span className="text-xs text-zinc-400">
+              Verify signed A2A v1.0 Agent Cards. Apply scoped grants with MCP authorization (OAuth
+              2.1). Run compliance checks for both flows.
             </span>
           </div>
         </div>
 
         <ul className="flex flex-wrap items-center gap-2">
-          {PILLS.map((pill) => {
+          {pills.map((pill) => {
             const Icon = pill.icon;
             const linkProps = pill.external
               ? { target: '_blank', rel: 'noopener noreferrer' as const }
