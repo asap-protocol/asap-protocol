@@ -15,6 +15,7 @@ from unittest.mock import Mock
 import httpx
 import pytest
 from joserfc import jwk
+from joserfc import jwt as jose_jwt
 
 from asap.auth.external_tokens import (
     ExternalTokenConfig,
@@ -76,6 +77,21 @@ async def test_parser_header_type_error_is_a_typed_refusal(
     monkeypatch.setattr("asap.auth.external_verifier.extract_compact", Mock(return_value=parsed))
 
     await _refused(_verifier(idp_a), "local.test.signature", Reason.MALFORMED_TOKEN)
+
+
+async def test_jwt_without_kid_requires_one_key_during_rotation(idp_a: LocalIssuer) -> None:
+    token = jose_jwt.encode({"alg": idp_a.algorithm}, idp_a.claims(_AUDIENCE), idp_a.signing_key)
+    assert (await _verifier(idp_a).verify(token)).issuer == idp_a.issuer
+
+    current = idp_a.jwks["keys"]
+    idp_a.rotate_key()
+    source = {"kind": "static_jwks", "jwks": {"keys": [*current, *idp_a.jwks["keys"]]}}
+    config = ExternalTokenConfig.model_validate(
+        {"issuers": [idp_a.config_entry(_AUDIENCE, key_source=source)]}
+    )
+    with pytest.raises(ExternalTokenError, match="kid is required") as caught:
+        await ExternalTokenVerifier(config).verify(token)
+    assert caught.value.reason is Reason.INVALID_SIGNATURE
 
 
 async def test_same_token_used_twice_succeeds_both_times(idp_a: LocalIssuer) -> None:

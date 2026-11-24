@@ -165,7 +165,9 @@ def principal_from_claims(
 class ExternalTokenVerifier:
     """Turn a bearer token into an :class:`ExternalPrincipal`, or raise :class:`ExternalTokenError`.
 
-    One instance per app: it holds the key cache of each allowlisted issuer.
+    One instance per app holds the key cache for each issuer.
+    Include a key ID (``kid``) in JWTs when the issuer publishes multiple keys.
+    Before a key rotation, check that the issuer supplies key IDs.
     ``resolver`` and ``transport`` are the test seams of the guarded fetch.
 
     Example:
@@ -211,10 +213,13 @@ class ExternalTokenVerifier:
             raise ExternalTokenError(Reason.UNTRUSTED_ISSUER, f"iss {claimed!r} is not allowlisted")
         if self._introspection is not None and issuer is self._introspection[0]:
             return await self._introspect(token, *self._introspection)
-        kid = header.get("kid")
-        keys = await self._key_sources[issuer.issuer].keys_for(
-            kid if isinstance(kid, str) else None
-        )
+        raw_kid = header.get("kid")
+        kid = raw_kid if isinstance(raw_kid, str) else None
+        keys = await self._key_sources[issuer.issuer].keys_for(kid)
+        if kid is None and len(keys.keys) != 1:
+            raise ExternalTokenError(
+                Reason.INVALID_SIGNATURE, "kid is required when the issuer publishes multiple keys"
+            )
         try:
             verified = jose_jwt.decode(token, keys, algorithms=[header["alg"]])
         except (JoseError, TypeError, ValueError) as exc:
