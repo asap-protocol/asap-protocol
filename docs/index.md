@@ -102,7 +102,7 @@ See [CLI reference](cli.md) (all commands, exit codes, `compliance-check`, `audi
 **See also:** [Build for agents](guides/build-for-agents.md) — agent-first onboarding into the three thin starters (OpenAPI provider, TypeScript consumer, MCP Auth Bridge).
 
 - [OpenAPI adapter](adapters/openapi.md) — derive ASAP skills and an upstream proxy from OpenAPI 3.x (`asap.adapters.openapi`)
-- [MCP Auth Bridge](adapters/mcp-auth-bridge.md) — opt-in Agent JWT + capability enforcement for native stdio `MCPServer` (`asap.mcp.auth.protect_server`)
+- [MCP Auth Bridge](adapters/mcp-auth-bridge.md) — opt-in Agent JWT + capability enforcement for native stdio `MCPServer` (`asap.mcp.auth.protect_server`), and for [HTTP MCP servers in TypeScript](adapters/mcp-auth-bridge.md#http-mcp-servers-in-typescript) (`@asap-protocol/mcp-auth`)
 - [Workflow connectors](integrations/workflow-connectors.md) — n8n / Activepieces-style workflow HTTP APIs → ASAP skills via OpenAPI (Adapter Lab II)
 - [Automation connector security](guides/automation-connector-security.md) — secrets, TLS, webhooks, grants, and MCP Path A notes for connectors
 - [Microsoft Agent Framework](integrations/microsoft-agent-framework.md) — research / experimental MAF ↔ ASAP interop (no .NET SDK)

@@ -92,6 +92,8 @@ if (!result.ok) {
 
 The package README lists every difference from the Python verifier.
 
+To protect an HTTP MCP server, you do not call `verifyAgentJwt` yourself: `@asap-protocol/mcp-auth` calls it on each request. See [HTTP MCP servers in TypeScript](../adapters/mcp-auth-bridge.md#http-mcp-servers-in-typescript).
+
 ## Discovery and capabilities
 
 ```ts
