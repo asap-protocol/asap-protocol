@@ -2,19 +2,20 @@ import { OAuthError } from "@modelcontextprotocol/server";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createExternalTokenVerifier, type RemoteJwksOptions } from "../src/index.js";
-import { LocalTestIssuer } from "./local-issuer.js";
+import { hmacToken, LocalTestIssuer, unsignedToken } from "./local-issuer.js";
 import { MCP_ENDPOINT } from "./mcp-requests.js";
 
 const ISSUER = "https://issuer.example";
 const JWKS_URI = "https://issuer.example/.well-known/jwks.json";
 
 let issuer: LocalTestIssuer;
+let rotated: LocalTestIssuer;
 let clockMs: number;
 let fetches: string[];
 let serve: (url: string, init: RequestInit) => Promise<Response>;
 
 beforeAll(async () => {
-  issuer = await LocalTestIssuer.create(ISSUER);
+  [issuer, rotated] = await Promise.all([LocalTestIssuer.create(ISSUER), LocalTestIssuer.create(ISSUER)]);
 });
 
 beforeEach(() => {
@@ -61,6 +62,51 @@ describe("jwksUri: fetch, cache, and refresh", () => {
     await auth.verifyAccessToken(await token());
 
     expect(fetches).toHaveLength(2);
+  });
+
+  it("refreshes once on an unknown kid, so a rotated key verifies", async () => {
+    const auth = verifier();
+    await auth.verifyAccessToken(await token());
+    serve = async () => Response.json(rotated.jwks);
+    clockMs += 30_000;
+
+    await expect(auth.verifyAccessToken(await rotated.mint(rotated.claims(MCP_ENDPOINT)))).resolves.toBeDefined();
+    expect(fetches).toHaveLength(2);
+  });
+
+  it("shares one refresh between concurrent requests with an unknown kid", async () => {
+    const auth = verifier();
+    await auth.verifyAccessToken(await token());
+    serve = async () => Response.json(rotated.jwks);
+    clockMs += 30_000;
+    const tokens = await Promise.all([1, 2, 3, 4, 5].map(() => rotated.mint(rotated.claims(MCP_ENDPOINT))));
+
+    await Promise.all(tokens.map((rotatedToken) => expect(auth.verifyAccessToken(rotatedToken)).resolves.toBeDefined()));
+    expect(fetches).toHaveLength(2);
+  });
+
+  it("does not turn random kid values into fetches: at most one refresh per cooldown", async () => {
+    const auth = verifier();
+    await auth.verifyAccessToken(await token());
+    clockMs += 30_000;
+
+    for (let index = 0; index < 20; index += 1) {
+      const forged = await issuer.mint(issuer.claims(MCP_ENDPOINT), { kid: `random-${index}` });
+      await expect(auth.verifyAccessToken(forged)).rejects.toThrow("asap:invalid_token: issuer or signature not accepted");
+    }
+
+    expect(fetches).toHaveLength(2);
+  });
+
+  it("fetches nothing for a token refused before key lookup", async () => {
+    const auth = verifier();
+    const claims = issuer.claims(MCP_ENDPOINT);
+
+    for (const refused of [unsignedToken({ alg: "none" }, claims), await hmacToken(claims), await issuer.mint(claims, { typ: "agent+jwt" }), await issuer.mint({ ...claims, iss: "https://evil.example" })]) {
+      await expect(auth.verifyAccessToken(refused)).rejects.toBeInstanceOf(OAuthError);
+    }
+
+    expect(fetches).toEqual([]);
   });
 
   it("drops symmetric and private keys from a fetched JWKS", async () => {

@@ -1,4 +1,4 @@
-import { createLocalJWKSet, type JWK } from "jose";
+import { createLocalJWKSet, errors, type JWK } from "jose";
 
 /** How a `jwksUri` key source fetches and caches. The defaults suit a production issuer. */
 export interface RemoteJwksOptions {
@@ -70,9 +70,11 @@ function publicKeySet(url: URL, text: string, isPublicKey: (key: JWK) => boolean
  * A key source for `jwtVerify` that fetches an issuer's JWKS. The fetch is
  * HTTPS only, follows a redirect only on the same origin (at most three),
  * has a size limit and a timeout, and caches keys for at most `maxAgeMs`.
- * After a failed fetch, no fetch runs within `refreshCooldownMs`. A token
- * never adds a fetch target: `jku`, `x5u`, and the issuer URL are not
- * fetched. It does not pin the resolved IP address.
+ * An unknown `kid` refreshes the keys, so a rotated key verifies. At most
+ * one fetch runs per `refreshCooldownMs`, and concurrent requests share it,
+ * so random `kid` values cannot amplify fetches. A token never adds a fetch
+ * target: `jku`, `x5u`, and the issuer URL are not fetched. It does not pin
+ * the resolved IP address.
  */
 export function createRemoteJwksSource(jwksUri: string, isPublicKey: (key: JWK) => boolean, options: RemoteJwksOptions = {}): KeySet {
   const url = parseJwksUri(jwksUri);
@@ -125,5 +127,14 @@ export function createRemoteJwksSource(jwksUri: string, isPublicKey: (key: JWK) 
     return refresh();
   }
 
-  return async (protectedHeader, token) => (await currentKeys())(protectedHeader, token);
+  // An unknown kid may be a rotated key: refresh once, but never more often than the cooldown allows.
+  return async (protectedHeader, token) => {
+    const keys = await currentKeys();
+    try {
+      return await keys(protectedHeader, token);
+    } catch (error) {
+      if (!(error instanceof errors.JWKSNoMatchingKey) || !mayFetch()) throw error;
+      return (await refresh())(protectedHeader, token);
+    }
+  };
 }
