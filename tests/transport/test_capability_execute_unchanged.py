@@ -1,7 +1,7 @@
 """``POST /asap/capability/execute`` answers exactly as it did before.
 
 The expected responses were recorded from the route before the external-token
-change (commit 050130cc). Request ids and agent ids are random, so they are
+path was added. Request ids and agent ids are random, so they are
 compared as placeholders; Pydantic errors are compared as ``type`` and ``loc``.
 """
 

@@ -2,6 +2,9 @@
 # test, coverage, security, and the live compliance flows (COMPAT-007).
 # Branch protection on main requires quality (python), quality (web),
 # test (python), test (web), coverage, security, and security (web).
+# Branch protection on release/2.6.0 should also require compliance (live
+# flows). It runs when the diff touches a path of the compliance_live filter,
+# and when path detection fails.
 # security (web) runs the npm audits when the diff touches apps/web/** or
 # .github/**, and when path detection fails. A python-only change skips it.
 # A skipped required check still passes. A real advisory fails the check and

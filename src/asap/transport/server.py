@@ -937,7 +937,9 @@ def create_app(
             ``GET /.well-known/agent-card.json`` serves it beside the manifest, with the
             same caching headers. It must carry a signature and name this agent: the same
             name and version, and the URN of its ASAP extension equal to ``manifest.id``.
-            Default None: the route does not exist.
+            ``create_app`` does not verify the signature, so build the card with
+            ``build_signed_agent_card``, which signs it. Default None: the route does not
+            exist.
 
     Returns:
         Configured FastAPI application ready to run
@@ -945,7 +947,8 @@ def create_app(
     Raises:
         ValueError: If manifest requires authentication but no token_validator provided,
             if ``require_operator_auth`` is True without ``oauth2_config``, or if
-            ``agent_card`` is unsigned or describes another agent.
+            ``agent_card`` has no signature, has no ASAP extension, or describes another
+            agent.
 
     Example:
         >>> from asap.models.entities import Manifest, Capability, Endpoint, Skill, AuthScheme, SLADefinition
