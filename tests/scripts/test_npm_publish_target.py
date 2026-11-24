@@ -1,16 +1,19 @@
-"""Tests for scripts/npm_publish_target.py.
+"""Tests for scripts/npm_publish_target.py and the npm tag triggers.
 
 ``publish-typescript.yml`` cannot run locally, so the tag → package → version
-logic lives in the script and is tested here.
+logic lives in the script and is tested here, and the workflow triggers are read
+from the YAML files.
 """
 
 from __future__ import annotations
 
 import json
+from fnmatch import fnmatchcase
 from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml  # type: ignore[import-untyped]  # PyYAML ships with the docs toolchain; no stubs installed
 
 from scripts.npm_publish_target import (
     PACKAGES_BY_TAG_PREFIX,
@@ -21,6 +24,8 @@ from scripts.npm_publish_target import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+WORKFLOWS = REPO_ROOT / ".github" / "workflows"
+NPM_TAGS = ["client-v2.5.0", "mcp-auth-v0.1.0", "mcp-auth-v0.1.0-rc.1"]
 
 
 def _write_package(root: Path, package_dir: str, manifest: dict[str, Any]) -> None:
@@ -132,3 +137,31 @@ def test_main_fails_with_the_reason_on_stderr(
     captured = capsys.readouterr()
     assert captured.out == ""
     assert "does not match version '2.5.0'" in captured.err
+
+
+def _push_tag_patterns(workflow: str) -> list[str]:
+    config = yaml.safe_load((WORKFLOWS / workflow).read_text(encoding="utf-8"))
+    triggers = config.get("on", config.get(True))  # YAML 1.1 reads a bare `on` key as True
+    return list(triggers["push"]["tags"])
+
+
+def _matches(tag: str, patterns: list[str]) -> bool:
+    """GitHub filter patterns match the whole tag name; with `*` as the only special
+    character (true for these workflows), ``fnmatchcase`` gives the same answer."""
+    assert all(set(pattern) & set("?[]!+") == set() for pattern in patterns), patterns
+    return any(fnmatchcase(tag, pattern) for pattern in patterns)
+
+
+@pytest.mark.parametrize("tag", NPM_TAGS)
+def test_release_yml_does_not_react_to_npm_tags(tag: str) -> None:
+    """release.yml (`v*`) builds PyPI and Docker; a per-package npm tag must not start it."""
+    assert not _matches(tag, _push_tag_patterns("release.yml"))
+
+
+@pytest.mark.parametrize("tag", NPM_TAGS)
+def test_publish_typescript_reacts_to_npm_tags(tag: str) -> None:
+    assert _matches(tag, _push_tag_patterns("publish-typescript.yml"))
+
+
+def test_the_python_release_tag_does_not_publish_npm() -> None:
+    assert not _matches("v2.6.0", _push_tag_patterns("publish-typescript.yml"))
