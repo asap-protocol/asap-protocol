@@ -23,11 +23,13 @@ from asap.auth.external_tokens import (
     ExternalTokenError,
     ExternalTokenErrorReason,
 )
+from asap.utils.guarded_fetch import AddressResolver
 from tests.auth.local_issuer import LocalIssuer
 
 _ISSUER = "https://idp.example"
 _JWKS_URI = "https://keys.idp.example/jwks.json"
 _JWKS_SOURCE = {"kind": "jwks_uri", "jwks_uri": _JWKS_URI}
+_HMAC_KEY = {"kty": "oct", "kid": "hmac", "k": "c2VjcmV0LWtleS1mb3ItaG1hYy1vbmx5"}
 
 
 async def _public_resolver(hostname: str) -> list[str]:
@@ -43,25 +45,35 @@ class _FakeClock:
 
 
 class _FakeIdp:
-    """Serves the issuer's JWKS; records each requested path."""
+    """Serves discovery and the JWKS (plus ``extra_keys``); records each path."""
 
     def __init__(self, issuer: LocalIssuer) -> None:
         self.issuer = issuer
         self.paths: list[str] = []
         self.fail = False
         self.clock = _FakeClock()
+        self.discovery: dict[str, Any] = {"issuer": _ISSUER, "jwks_uri": _JWKS_URI}
+        self.extra_keys: list[dict[str, Any]] = []
+        self.serve_issuer_key = True
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         self.paths.append(request.url.path)
         if self.fail:
             return httpx.Response(500)
-        return httpx.Response(200, json=self.issuer.jwks)
+        if request.url.path == "/.well-known/openid-configuration":
+            return httpx.Response(200, json=self.discovery)
+        issuer_keys = self.issuer.jwks["keys"] if self.serve_issuer_key else []
+        return httpx.Response(200, json={"keys": [*self.extra_keys, *issuer_keys]})
 
-    def source(self, key_source: dict[str, Any] = _JWKS_SOURCE) -> IssuerKeySource:
+    def source(
+        self,
+        key_source: dict[str, Any] = _JWKS_SOURCE,
+        resolver: AddressResolver = _public_resolver,
+    ) -> IssuerKeySource:
         entry = self.issuer.config_entry("https://api.example/asap", key_source=key_source)
         return IssuerKeySource(
             ExternalIssuerConfig.model_validate(entry),
-            resolver=_public_resolver,
+            resolver=resolver,
             transport=httpx.MockTransport(self),
             clock=self.clock,
         )
@@ -142,3 +154,45 @@ async def test_failed_refresh_keeps_the_current_keys(idp: _FakeIdp) -> None:
 
     keys = await source.keys_for(secrets.token_hex(8))
     assert [key.kid for key in keys.keys] == [idp.issuer.kid]
+
+
+async def test_private_jwks_host_is_refused_before_any_request(idp: _FakeIdp) -> None:
+    async def private_resolver(hostname: str) -> list[str]:
+        return ["10.0.0.7"]
+
+    await _unavailable(idp.source(resolver=private_resolver), idp.issuer.kid)
+    assert idp.paths == []
+
+
+async def test_symmetric_keys_in_a_remote_jwks_are_dropped(idp: _FakeIdp) -> None:
+    idp.extra_keys = [_HMAC_KEY]
+    keys = await idp.source().keys_for("hmac")
+    assert [key.kid for key in keys.keys] == [idp.issuer.kid]
+
+
+async def test_jwks_without_an_asymmetric_key_is_unavailable(idp: _FakeIdp) -> None:
+    idp.extra_keys, idp.serve_issuer_key = [_HMAC_KEY], False
+    await _unavailable(idp.source(), "hmac")
+
+
+async def test_oidc_discovery_finds_the_jwks_uri(idp: _FakeIdp) -> None:
+    keys = await idp.source({"kind": "oidc_discovery"}).keys_for(idp.issuer.kid)
+    assert [key.kid for key in keys.keys] == [idp.issuer.kid]
+    assert idp.paths == ["/.well-known/openid-configuration", "/jwks.json"]
+
+
+@pytest.mark.parametrize(
+    "discovery",
+    [
+        {"issuer": "https://evil.example", "jwks_uri": _JWKS_URI},
+        {"issuer": _ISSUER},
+        {"issuer": _ISSUER, "jwks_uri": "https://169.254.169.254/jwks"},
+        {"issuer": _ISSUER, "jwks_uri": "http://keys.idp.example/jwks.json"},
+    ],
+)
+async def test_unusable_discovery_document_is_refused(
+    idp: _FakeIdp, discovery: dict[str, Any]
+) -> None:
+    idp.discovery = discovery
+    await _unavailable(idp.source({"kind": "oidc_discovery"}), idp.issuer.kid)
+    assert idp.paths == ["/.well-known/openid-configuration"]

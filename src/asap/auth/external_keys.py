@@ -1,8 +1,9 @@
 """Signing keys of allowlisted external issuers (v2.6.0).
 
-An issuer's keys come only from its own config entry: a static JWKS or its
-``jwks_uri``. A token never selects a key set; ``jku``, ``x5u``, and ``jwk``
-headers are never followed. Every fetch goes through
+An issuer's keys come only from its own config entry: a static JWKS, its
+``jwks_uri``, or the ``jwks_uri`` named by its OIDC discovery document. A
+token never selects a key set; ``jku``, ``x5u``, and ``jwk`` headers are never
+followed. A fetched JWKS keeps only RSA, EC, and OKP keys. Every fetch goes through
 :func:`asap.utils.guarded_fetch.guarded_fetch_json`.
 ``asap.auth.jwks.JWKSValidator`` is not reused: its fetch is unguarded and it
 refetches on every failed validation.
@@ -32,6 +33,7 @@ from asap.auth.external_tokens import (
     JwksUriKeySource,
     StaticJwksKeySource,
 )
+from asap.auth.jwks import issuer_matches_expected
 from asap.observability import get_logger
 from asap.utils.guarded_fetch import AddressResolver, GuardedFetchError, guarded_fetch_json
 
@@ -40,13 +42,22 @@ logger = get_logger(__name__)
 EXTERNAL_JWKS_CACHE_TTL_SECONDS = 300.0
 EXTERNAL_JWKS_MIN_REFETCH_SECONDS = 30.0
 _UNAVAILABLE = ExternalTokenErrorReason.KEY_SOURCE_UNAVAILABLE
+_VERIFYING_KEY_TYPES = frozenset({"RSA", "EC", "OKP"})
+_OIDC_DISCOVERY_PATH = "/.well-known/openid-configuration"
 
 
-def _import_fetched_keys(issuer: str, document: dict[str, Any]) -> jwk.KeySet:
+def _verifying_keys(issuer: str, document: dict[str, Any]) -> jwk.KeySet:
+    """Import a fetched JWKS and keep only asymmetric keys; ``oct`` keys are dropped."""
     try:
-        return jwk.KeySet.import_key_set(cast(jwk.KeySetSerialization, document))
+        imported = jwk.KeySet.import_key_set(cast(jwk.KeySetSerialization, document))
     except (JoseError, KeyError, TypeError, ValueError) as exc:
         raise ExternalTokenError(_UNAVAILABLE, f"issuer {issuer!r}: unusable JWKS: {exc}") from exc
+    keys = [key for key in imported.keys if key.key_type in _VERIFYING_KEY_TYPES]
+    if not keys:
+        raise ExternalTokenError(
+            _UNAVAILABLE, f"issuer {issuer!r}: JWKS has no RSA, EC, or OKP key"
+        )
+    return jwk.KeySet(keys)
 
 
 class IssuerKeySource:
@@ -113,7 +124,7 @@ class IssuerKeySource:
     async def _refresh(self, now: float) -> None:
         try:
             jwks_uri = await self._jwks_uri()
-            self._keys = _import_fetched_keys(self._issuer.issuer, await self._fetch(jwks_uri))
+            self._keys = _verifying_keys(self._issuer.issuer, await self._fetch(jwks_uri))
             self._fetched_at = now
         except ExternalTokenError as exc:
             logger.warning(
@@ -128,9 +139,18 @@ class IssuerKeySource:
         source = self._issuer.key_source
         if isinstance(source, JwksUriKeySource):
             return source.jwks_uri
-        raise ExternalTokenError(
-            _UNAVAILABLE, f"issuer {self._issuer.issuer!r}: OIDC discovery is not wired yet"
-        )
+        # OpenID Connect Discovery 1.0 §4.3: the document must name this issuer.
+        document = await self._fetch(self._issuer.issuer.rstrip("/") + _OIDC_DISCOVERY_PATH)
+        named_issuer, jwks_uri = document.get("issuer"), document.get("jwks_uri")
+        if not issuer_matches_expected({"iss": named_issuer}, self._issuer.issuer):
+            raise ExternalTokenError(
+                _UNAVAILABLE, f"discovery for {self._issuer.issuer!r} names {named_issuer!r}"
+            )
+        if not isinstance(jwks_uri, str):
+            raise ExternalTokenError(
+                _UNAVAILABLE, f"discovery for {self._issuer.issuer!r} has no jwks_uri string"
+            )
+        return jwks_uri
 
     async def _fetch(self, url: str) -> dict[str, Any]:
         try:
