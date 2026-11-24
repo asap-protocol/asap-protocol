@@ -2,16 +2,20 @@
 
 Provides:
 - Fixture: compliance_harness
+- Fixture: compliance_profile, the config of the profile that --asap-profile selects
 - Marker: @pytest.mark.asap_compliance
 """
 
 from __future__ import annotations
 
+import json
 import os
+from pathlib import Path
 
 import pytest
 
 from asap_compliance.config import ComplianceConfig
+from asap_compliance.harness import COMPLIANCE_PROFILES, ProfileConfig, profile_config
 
 MARKER_NAME = "asap_compliance"
 MARKER_HELP = "Marks a test as an ASAP protocol compliance test."
@@ -34,6 +38,21 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=30.0,
         help="HTTP timeout in seconds for compliance requests (default: 30.0)",
     )
+    group.addoption(
+        "--asap-profile",
+        action="store",
+        dest="asap_profile",
+        default=None,
+        choices=COMPLIANCE_PROFILES,
+        help="Compliance profile whose config the compliance_profile fixture builds",
+    )
+    group.addoption(
+        "--asap-profile-config",
+        action="store",
+        dest="asap_profile_config",
+        default=None,
+        help="JSON file with the config fields of the profile that --asap-profile selects",
+    )
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -50,3 +69,27 @@ def compliance_harness(request: pytest.FixtureRequest) -> ComplianceConfig:
         timeout_seconds=timeout,
         test_categories=["handshake", "schema", "state"],
     )
+
+
+@pytest.fixture
+def compliance_profile(request: pytest.FixtureRequest) -> ProfileConfig:
+    """The config of the profile that ``--asap-profile`` selects, from ``--asap-profile-config``.
+
+    Example::
+
+        def test_profile(compliance_profile):
+            result = validate_profile(compliance_profile)
+            assert result.passed, [check for check in result.checks if not check.passed]
+    """
+    name = request.config.getoption("asap_profile")
+    if name is None:
+        pytest.fail(
+            f"select a profile with --asap-profile ({', '.join(COMPLIANCE_PROFILES)})",
+            pytrace=False,
+        )
+    path = request.config.getoption("asap_profile_config")
+    fields = json.loads(Path(path).read_text(encoding="utf-8")) if path else {}
+    if not isinstance(fields, dict):
+        kind = type(fields).__name__
+        pytest.fail(f"--asap-profile-config must hold a JSON object, not {kind}", pytrace=False)
+    return profile_config(name, fields)

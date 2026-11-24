@@ -16,7 +16,8 @@ from asap_compliance.config import ComplianceConfig
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
-pytest_plugins = ["asap_compliance.pytest_plugin"]
+# pytester runs the plugin in a fresh pytest session (tests/test_plugin.py).
+pytest_plugins = ["asap_compliance.pytest_plugin", "pytester"]
 
 TEST_RATE_LIMIT = "999999/minute"
 
