@@ -12,17 +12,16 @@ import os
 import subprocess
 import sys
 import time
-from urllib.parse import quote_plus
+from collections.abc import Iterator
+from pathlib import Path
+from uuid import uuid4
 
 import httpx
 import pytest
 
 # Default manifest id used when running uvicorn asap.transport.server:app
 DEFAULT_SERVICE_NAME = "urn:asap:agent:default-server"
-JAEGER_UI_PORT = 16686
-JAEGER_OTLP_GRPC_PORT = 4317
 ASAP_SERVER_PORT = 8765
-CONTAINER_NAME = "asap-jaeger-tracing-test"
 
 
 def _docker_available() -> bool:
@@ -37,50 +36,67 @@ def _docker_available() -> bool:
         return False
 
 
-def _jaeger_container_running() -> bool:
+def _published_port(container_id: str, container_port: int) -> int:
+    """Read the host port that Docker assigned to this container."""
+    result = subprocess.run(
+        ["docker", "port", container_id, f"{container_port}/tcp"],
+        capture_output=True,
+        check=True,
+        text=True,
+        timeout=5,
+    )
+    host, _, port = result.stdout.strip().rpartition(":")
+    assert host == "127.0.0.1", "Jaeger must bind to localhost"
+    return int(port)
+
+
+@pytest.fixture
+def jaeger_urls(tmp_path: Path) -> Iterator[tuple[str, str]]:
+    """Start an isolated collector and remove only its container."""
+    if not _docker_available():
+        pytest.skip("Docker not available")
+    cidfile = tmp_path / "jaeger.cid"
     try:
-        result = subprocess.run(
-            ["docker", "ps", "--filter", f"name={CONTAINER_NAME}", "--format", "{{.Names}}"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        return CONTAINER_NAME in (result.stdout or "").strip()
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return False
+        try:
+            subprocess.run(
+                [
+                    "docker",
+                    "run",
+                    "--detach",
+                    "--rm",
+                    "--cidfile",
+                    str(cidfile),
+                    "--name",
+                    f"asap-jaeger-tracing-test-{uuid4().hex}",
+                    "--publish",
+                    "127.0.0.1::16686",
+                    "--publish",
+                    "127.0.0.1::4317",
+                    "jaegertracing/all-in-one:1.53",
+                ],
+                capture_output=True,
+                check=True,
+                timeout=60,
+            )
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+            pytest.skip(f"Could not start Jaeger: {type(exc).__name__}")
+
+        container_id = cidfile.read_text().strip()
+        ui_port = _published_port(container_id, 16686)
+        otlp_port = _published_port(container_id, 4317)
+        yield f"http://127.0.0.1:{ui_port}", f"http://127.0.0.1:{otlp_port}"
+    finally:
+        if cidfile.is_file() and (container_id := cidfile.read_text().strip()):
+            subprocess.run(
+                ["docker", "rm", "--force", container_id], capture_output=True, timeout=10
+            )
 
 
-def _start_jaeger() -> bool:
-    if _jaeger_container_running():
-        return True
-    try:
-        subprocess.run(
-            [
-                "docker",
-                "run",
-                "-d",
-                "--name",
-                CONTAINER_NAME,
-                "-p",
-                f"{JAEGER_UI_PORT}:16686",
-                "-p",
-                f"{JAEGER_OTLP_GRPC_PORT}:4317",
-                "jaegertracing/all-in-one:1.53",
-            ],
-            capture_output=True,
-            timeout=60,
-            check=True,
-        )
-        return True
-    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
-        return False
-
-
-def _wait_for_jaeger_ui(timeout_seconds: int = 30) -> bool:
+def _wait_for_jaeger_ui(jaeger_url: str, timeout_seconds: int = 30) -> bool:
     deadline = time.monotonic() + timeout_seconds
     while time.monotonic() < deadline:
         try:
-            r = httpx.get(f"http://127.0.0.1:{JAEGER_UI_PORT}", timeout=2.0)
+            r = httpx.get(jaeger_url, timeout=2.0, trust_env=False)
             if r.status_code == 200:
                 return True
         except httpx.HTTPError:
@@ -131,10 +147,10 @@ def _send_asap_request() -> bool:
         return False
 
 
-def _query_jaeger_traces(service: str) -> list[dict]:
+def _query_jaeger_traces(jaeger_url: str, service: str) -> list[dict]:
     try:
-        url = f"http://127.0.0.1:{JAEGER_UI_PORT}/api/traces?service={quote_plus(service)}"
-        r = httpx.get(url, timeout=5.0)
+        url = f"{jaeger_url}/api/traces"
+        r = httpx.get(url, params={"service": service}, timeout=5.0, trust_env=False)
         if r.status_code != 200:
             return []
         data = r.json()
@@ -143,47 +159,27 @@ def _query_jaeger_traces(service: str) -> list[dict]:
         return []
 
 
-def _wait_for_jaeger_traces(service: str, timeout_seconds: int = 15) -> list[dict]:
+def _wait_for_jaeger_traces(jaeger_url: str, service: str, timeout_seconds: int = 15) -> list[dict]:
     deadline = time.monotonic() + timeout_seconds
     while time.monotonic() < deadline:
-        traces = _query_jaeger_traces(service)
+        traces = _query_jaeger_traces(jaeger_url, service)
         if len(traces) >= 1:
             return traces
         time.sleep(1.0)
     return []
 
 
-def _stop_jaeger() -> None:
-    try:
-        subprocess.run(
-            ["docker", "stop", CONTAINER_NAME],
-            capture_output=True,
-            timeout=10,
-        )
-        subprocess.run(
-            ["docker", "rm", "-f", CONTAINER_NAME],
-            capture_output=True,
-            timeout=10,
-        )
-    except (subprocess.SubprocessError, subprocess.TimeoutExpired):
-        pass
-
-
-@pytest.mark.skipif(not _docker_available(), reason="Docker not available")
-def test_jaeger_receives_asap_traces() -> None:
-    """Start Jaeger, run ASAP server with OTLP, send request, verify traces in Jaeger."""
-    # Start Jaeger
-    if not _start_jaeger():
-        pytest.skip("Could not start Jaeger container")
-    if not _wait_for_jaeger_ui():
-        _stop_jaeger()
+def test_jaeger_receives_asap_traces(jaeger_urls: tuple[str, str]) -> None:
+    """Start the ASAP server with OTLP and check that Jaeger receives a trace."""
+    jaeger_url, otlp_url = jaeger_urls
+    if not _wait_for_jaeger_ui(jaeger_url):
         pytest.skip("Jaeger UI did not become ready")
 
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     src_path = os.path.join(project_root, "src")
     env = os.environ.copy()
     env["OTEL_TRACES_EXPORTER"] = "otlp"
-    env["OTEL_EXPORTER_OTLP_ENDPOINT"] = "http://localhost:4317"
+    env["OTEL_EXPORTER_OTLP_ENDPOINT"] = otlp_url
     env["PYTHONPATH"] = src_path
 
     # Start ASAP server (uvicorn asap.transport.server:app) with same Python as pytest
@@ -211,10 +207,10 @@ def test_jaeger_receives_asap_traces() -> None:
 
         # OTLP uses batch export; poll until traces appear or timeout.
         # Multiple traces may exist (e.g. health check). Find one with ASAP handler span.
-        traces = _wait_for_jaeger_traces(DEFAULT_SERVICE_NAME, timeout_seconds=15)
+        traces = _wait_for_jaeger_traces(jaeger_url, DEFAULT_SERVICE_NAME, timeout_seconds=15)
         assert len(traces) >= 1, (
             f"Expected at least one trace for service {DEFAULT_SERVICE_NAME} in Jaeger; "
-            f"got {len(traces)}. Check Jaeger UI at http://localhost:{JAEGER_UI_PORT}"
+            f"got {len(traces)}. Check Jaeger UI at {jaeger_url}"
         )
         handler_trace = None
         for trace in traces:
@@ -233,4 +229,3 @@ def test_jaeger_receives_asap_traces() -> None:
             proc.wait(timeout=5)
         except subprocess.TimeoutExpired:
             proc.kill()
-        _stop_jaeger()
