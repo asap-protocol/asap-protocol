@@ -165,3 +165,18 @@ async def test_jws_with_a_bad_payload_is_malformed_and_never_sent(
     header, _, signature = idp.mint(idp.claims(_AUDIENCE)).split(".")
     await _refused(endpoint.verifier(), f"{header}.WzFd.{signature}", Reason.MALFORMED_TOKEN)
     assert endpoint.requests == []
+
+
+@pytest.mark.parametrize("header_padding", [0, 600])
+async def test_three_segment_tokens_are_never_sent(
+    endpoint: _FakeIntrospectionEndpoint, header_padding: int
+) -> None:
+    # joserfc refuses a JWS header over 512 bytes (an x5c chain, say); such a
+    # token from another issuer must not reach the introspection issuer.
+    other = LocalIssuer("https://other.example")
+    header = {"x5u": "https://other.example/" + "c" * header_padding}
+    token = other.mint(other.claims(_AUDIENCE), header=header)
+    reason = Reason.UNTRUSTED_ISSUER if header_padding == 0 else Reason.MALFORMED_TOKEN
+    await _refused(endpoint.verifier(), token, reason)
+    await _refused(endpoint.verifier(), "a.b.c", Reason.MALFORMED_TOKEN)
+    assert endpoint.requests == []

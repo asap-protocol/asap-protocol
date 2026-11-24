@@ -9,8 +9,9 @@ checks ``aud``, ``exp``, ``nbf``, and ``sub`` and maps the grants. So
 refused before any key is looked up or fetched. There is no replay check: an
 OAuth access token is sent on every request until it expires.
 
-Opaque tokens (RFC 7662) go to the one issuer configured with
-introspection, as do JWTs that name it; the header checks still run first, so
+Opaque tokens (RFC 7662; any bearer that does not have three
+dot-separated segments) go to the one issuer configured with introspection,
+as do JWTs that name it; the header checks still run first, so
 an ASAP token or another issuer's token is never sent. ``TokenIntrospector``
 posts through the guarded POST and caches an active answer until shortly
 before its ``exp``. Its answer then gets the same claim checks as a verified
@@ -58,17 +59,21 @@ Reason = ExternalTokenErrorReason
 
 
 def _unverified_parts(token: str) -> tuple[dict[str, Any], dict[str, Any]] | None:
-    """Return the header and payload of a JWS compact token, or None if it is not one."""
-    try:
-        compact = extract_compact(token.encode("utf-8"))
-    except (JoseError, UnicodeError, ValueError):
+    """Return the header and payload of a JWS compact token, or None for an opaque token.
+
+    Any bearer with three dot-separated segments counts as a JWS, even one
+    joserfc refuses (its header limit is 512 bytes), so it is never sent to
+    the introspection issuer when it names another issuer.
+    """
+    if token.count(".") != 2:
         return None
     try:
+        compact = extract_compact(token.encode("utf-8"))
         payload = json.loads(compact.payload)
-    except ValueError as exc:
+    except (JoseError, UnicodeError, ValueError) as exc:
         # ``from None``: a chained exception could print part of the token.
         raise ExternalTokenError(
-            Reason.MALFORMED_TOKEN, f"the JWT payload is not JSON ({type(exc).__name__})"
+            Reason.MALFORMED_TOKEN, f"not a usable JWS compact token ({type(exc).__name__})"
         ) from None
     if not isinstance(payload, dict):
         raise ExternalTokenError(Reason.MALFORMED_TOKEN, "the JWT payload is not an object")
@@ -181,7 +186,7 @@ class ExternalTokenVerifier:
         if parts is None:
             if self._introspection is None:
                 raise ExternalTokenError(
-                    Reason.MALFORMED_TOKEN, "not a JWS compact token; no issuer uses introspection"
+                    Reason.MALFORMED_TOKEN, "an opaque token, and no issuer uses introspection"
                 )
             return await self._introspect(token, *self._introspection)
         header, unverified = parts
