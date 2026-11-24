@@ -1686,8 +1686,9 @@ async def test_verify_agent_jwt_iat_too_far_future(monkeypatch: pytest.MonkeyPat
             "iss": host_tp,
             "sub": "a1",
             "aud": "a",
-            "iat": t0 + 120,
-            "exp": t0 + 180,
+            # Inside the 120 s lifetime cap, so only the iat check refuses it.
+            "iat": t0 + 90,
+            "exp": t0 + 100,
             "jti": "j-iat",
         },
         okp,

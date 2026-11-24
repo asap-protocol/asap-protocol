@@ -57,6 +57,11 @@ HOST_REVOKED_ERROR = "host revoked"
 # Clock skew allowance for ``iat`` checks (seconds).
 _IAT_MAX_FUTURE_SKEW_SECONDS = 60
 
+# The longest Agent JWT lifetime that
+# ``verify_agent_jwt`` accepts, counted from now and from ``iat``: the TTL plus
+# the ``iat`` skew. A longer-lived token would outlast its replay-cache record.
+AGENT_JWT_MAX_LIFETIME_SECONDS = AGENT_JWT_TTL_SECONDS + _IAT_MAX_FUTURE_SKEW_SECONDS
+
 
 @dataclass(frozen=True)
 class JwtVerifyResult:
@@ -204,6 +209,20 @@ def _exp_valid(claims: dict[str, Any], *, now_ts: float) -> bool:
     return now_ts < exp_ts
 
 
+def _lifetime_within(claims: dict[str, Any], *, now_ts: float, max_seconds: float) -> bool:
+    """Return True if ``exp`` is at most ``max_seconds`` after now and after ``iat``.
+
+    Runs after :func:`_exp_valid`, so ``exp`` parses. An ``iat`` that is absent
+    or does not parse counts as now; the ``iat`` check refuses a bad one next.
+    """
+    exp_ts = float(claims["exp"])
+    try:
+        iat_ts = float(claims["iat"])
+    except (KeyError, TypeError, ValueError):
+        iat_ts = now_ts
+    return exp_ts - min(iat_ts, now_ts) <= max_seconds
+
+
 def _jti_present(claims: dict[str, Any]) -> bool:
     jti = claims.get("jti")
     return isinstance(jti, str) and bool(jti.strip())
@@ -214,12 +233,14 @@ def _validate_standard_claims(
     *,
     now_ts: float,
     expected_audience: str | list[str] | None,
+    max_lifetime_seconds: float | None = None,
 ) -> str | None:
     """Validate the shared ``exp``/``iat``/``jti``/``aud`` claims.
 
     Returns the first failure reason, or ``None`` when all checks pass. Used by
     both :func:`verify_host_jwt` and :func:`verify_agent_jwt` so the standard
-    claim gate has a single source of truth.
+    claim gate has a single source of truth. ``max_lifetime_seconds`` (Agent
+    JWTs only) caps how far ``exp`` may be after now and after ``iat``.
 
     Example:
         >>> err = _validate_standard_claims(claims, now_ts=now, expected_audience="aud")
@@ -228,6 +249,10 @@ def _validate_standard_claims(
     """
     if not _exp_valid(claims, now_ts=now_ts):
         return "token expired or missing exp"
+    if max_lifetime_seconds is not None and not _lifetime_within(
+        claims, now_ts=now_ts, max_seconds=max_lifetime_seconds
+    ):
+        return "token lifetime too long"
     if not _iat_not_in_future(claims, now_ts=now_ts):
         return "invalid iat (too far in the future)"
     if not _jti_present(claims):
@@ -326,6 +351,9 @@ async def verify_agent_jwt(
     """Verify an Agent JWT: typ, signatures, host/agent rows, exp/iat/jti, capabilities.
 
     When ``expected_audience`` is set, ``aud`` must match (RFC 7519 §4.1.3).
+    ``exp`` may be at most :data:`AGENT_JWT_MAX_LIFETIME_SECONDS` (120 s) after
+    now and after ``iat`` ("token lifetime too long"), so a token cannot
+    outlive the replay-cache record of its ``jti``.
 
     On success, slides idle timeout via ``agent_store.touch_if_current`` (LIFE-005
     ``last_used_at``). That persist is conditional: it refuses if status, host, or
@@ -361,7 +389,12 @@ async def verify_agent_jwt(
     claims = _claims_dict(decoded)
     now_ts = time.time()
     if (
-        err := _validate_standard_claims(claims, now_ts=now_ts, expected_audience=expected_audience)
+        err := _validate_standard_claims(
+            claims,
+            now_ts=now_ts,
+            expected_audience=expected_audience,
+            max_lifetime_seconds=AGENT_JWT_MAX_LIFETIME_SECONDS,
+        )
     ) is not None:
         return JwtVerifyResult(ok=False, error=err)
 
