@@ -25,7 +25,7 @@ export type { RemoteJwksOptions } from "./remote-jwks.js";
 export { createExternalTokenVerifier } from "./external-token-verifier.js";
 export type { ExternalPrincipal } from "./external-token-verifier.js";
 export { staticAgentGrants } from "./grant-layer.js";
-export type { AgentGrantResolver, ProtectTool, ToolCallbackWithArgs } from "./grant-layer.js";
+export type { AgentGrantResolver, McpAuthPrincipal, ProtectTool, ToolCallbackWithArgs } from "./grant-layer.js";
 
 // MCP-TS-003: SDK types that appear in this package's public signatures.
 export type {
@@ -33,6 +33,8 @@ export type {
   CallToolResult,
   McpHandlerRequestOptions,
   OAuthTokenVerifier,
+  ScopeChallenge,
+  ScopeChallengeHandler,
   ServerContext,
   ToolCallback,
 } from "@modelcontextprotocol/server";

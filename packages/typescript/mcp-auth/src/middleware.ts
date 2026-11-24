@@ -1,29 +1,41 @@
+import { AGENT_JWT_TYP } from "@asap-protocol/client";
 import {
   bearerAuthChallengeResponse,
   OAuthError,
   OAuthErrorCode,
   type AuthInfo,
   type McpHandlerRequestOptions,
+  type OAuthTokenVerifier,
+  type ScopeChallengeHandler,
 } from "@modelcontextprotocol/server";
+import { decodeProtectedHeader } from "jose";
 
 import { createAgentJwtVerifier, type AgentJwtVerifierConfig } from "./agent-jwt-verifier.js";
 import { McpAuthErrorCode } from "./errors.js";
-import { createProtectTool, type AgentGrantResolver, type ProtectTool } from "./grant-layer.js";
+import type { ExternalTokenConfig } from "./external-issuers.js";
+import { createExternalTokenVerifier } from "./external-token-verifier.js";
+import { createGrantLayer, type AgentGrantResolver, type ProtectTool } from "./grant-layer.js";
 import { isPublicMcpRequest } from "./public-request.js";
 
+/** Set `agentJwt`, `externalTokens`, or both. */
 export interface McpAuthConfig {
   /**
    * ASAP Agent JWT verification. With Agent JWTs, this package is a custom
    * auth strategy, which MCP allows; it is not MCP authorization (OAuth 2.1).
    */
-  readonly agentJwt: AgentJwtVerifierConfig;
+  readonly agentJwt?: AgentJwtVerifierConfig;
+  /**
+   * External OAuth 2.1 JWT access tokens from allowlisted issuers. With them,
+   * the server is the resource server of MCP authorization (OAuth 2.1).
+   */
+  readonly externalTokens?: ExternalTokenConfig;
   /** Tools that a request with no token may call, under the header rule. */
   readonly publicTools?: readonly string[];
   /** Tool name → ASAP capability for `protectTool`. A tool that is not listed uses its own name. */
   readonly toolCapabilities?: Readonly<Record<string, string>>;
   /** The grants of a verified Agent JWT principal, for example `staticAgentGrants(...)`. Default: none (deny). */
   readonly agentGrants?: AgentGrantResolver;
-  /** RFC 9728 metadata URL, sent as `resource_metadata` in every 401 challenge. */
+  /** RFC 9728 metadata URL: `resource_metadata` in every 401 challenge, and in `AuthInfo` for the SDK's 403 challenge. */
   readonly resourceMetadataUrl?: string;
   /**
    * Called when verification or a grant lookup fails for a reason other than
@@ -67,6 +79,14 @@ export interface McpAuthMiddleware {
    * runs unchanged.
    */
   protectTool: ProtectTool;
+  /**
+   * The external-token 403: pass it as `scopeChallenge` to `registerTool` for
+   * each protected tool. When an external principal has no grant for the
+   * tool's capability and a scope rule of its issuer gives one, the SDK
+   * answers HTTP 403 `insufficient_scope` with that scope and
+   * `asap:capability_denied`, before the tool runs.
+   */
+  scopeChallenge: ScopeChallengeHandler;
 }
 
 // RFC 6750 §2.1: "Bearer" 1*SP b64token. A token list or a second word does not match.
@@ -85,11 +105,32 @@ function invalidTokenResponse(reason: string, resourceMetadataUrl: string | unde
   return bearerAuthChallengeResponse(error, { resourceMetadataUrl });
 }
 
+function unverifiedTyp(token: string): unknown {
+  try {
+    return decodeProtectedHeader(token).typ;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * One verifier per token: with both token types, the unverified
+ * `typ` picks the verifier once, as Python does on the capability route; a
+ * token that this verifier refuses is never tried with the other one.
+ */
+function tokenVerifierRouter(agent?: OAuthTokenVerifier, external?: OAuthTokenVerifier): (token: string) => OAuthTokenVerifier {
+  if (agent !== undefined && external !== undefined) return (token) => (unverifiedTyp(token) === AGENT_JWT_TYP ? agent : external);
+  const only = agent ?? external;
+  if (only === undefined) throw new TypeError("createMcpAuthMiddleware needs agentJwt, externalTokens, or both");
+  return () => only;
+}
+
 /**
  * Create the ASAP auth middleware for an HTTP MCP server on
  * `@modelcontextprotocol/server` 2.x (MCP-TS-001). The token layer runs on the
  * headers, before the SDK parses the body. A request that carries a token is
- * always verified, even for a public tool.
+ * always verified, even for a public tool. It throws a `TypeError` for a
+ * config with no token type or an invalid issuer config.
  *
  * @example
  * ```ts
@@ -102,7 +143,10 @@ function invalidTokenResponse(reason: string, resourceMetadataUrl: string | unde
  * ```
  */
 export function createMcpAuthMiddleware(config: McpAuthConfig): McpAuthMiddleware {
-  const verifier = createAgentJwtVerifier(config.agentJwt);
+  const verifierFor = tokenVerifierRouter(
+    config.agentJwt && createAgentJwtVerifier(config.agentJwt),
+    config.externalTokens && createExternalTokenVerifier(config.externalTokens),
+  );
   const publicTools: ReadonlySet<string> = new Set(config.publicTools);
   // URL#href percent-encodes quotes, backslashes, and spaces, so it is safe inside a quoted-string.
   const resourceMetadataUrl = config.resourceMetadataUrl === undefined ? undefined : new URL(config.resourceMetadataUrl).href;
@@ -125,7 +169,8 @@ export function createMcpAuthMiddleware(config: McpAuthConfig): McpAuthMiddlewar
       return invalidTokenResponse(MALFORMED_AUTHORIZATION_REASON, resourceMetadataUrl);
     }
     try {
-      return await verifier.verifyAccessToken(token);
+      const authInfo = await verifierFor(token).verifyAccessToken(token);
+      return resourceMetadataUrl === undefined ? authInfo : { ...authInfo, resourceMetadataUrl };
     } catch (error) {
       // The verifier throws OAuthError only with fixed text; anything else is a 500 with no detail.
       if (!(error instanceof OAuthError)) {
@@ -147,6 +192,11 @@ export function createMcpAuthMiddleware(config: McpAuthConfig): McpAuthMiddlewar
     };
   }
 
-  const protectTool = createProtectTool({ ...config, publicTools, reportInternalError });
-  return { authenticate, protect, protectTool };
+  const { protectTool, scopeChallenge } = createGrantLayer({
+    ...config,
+    publicTools,
+    externalIssuers: config.externalTokens?.issuers,
+    reportInternalError,
+  });
+  return { authenticate, protect, protectTool, scopeChallenge };
 }
