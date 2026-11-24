@@ -41,13 +41,18 @@ _INVALID_TOKEN_CHALLENGE = f'Bearer error="invalid_token", {_ASAP_CHALLENGE}'
 
 
 class _App:
-    """An app with the external-token config for ``idp``, plus its identity stores."""
+    """An app whose external-token config lists ``issuers`` (none: no config), with its stores."""
 
-    def __init__(self, manifest: Manifest, limiter: ASAPRateLimiter | None, idp: LocalIssuer):
+    def __init__(
+        self,
+        manifest: Manifest,
+        limiter: ASAPRateLimiter | None,
+        *issuers: LocalIssuer,
+        **create_app_kwargs: Any,
+    ) -> None:
         self.agent_store = InMemoryAgentStore()
-        config = ExternalTokenConfig.model_validate(
-            {"issuers": [idp.config_entry(_AUDIENCE, grant_rules=_RULES)]}
-        )
+        entries = [issuer.config_entry(_AUDIENCE, grant_rules=_RULES) for issuer in issuers]
+        config = ExternalTokenConfig.model_validate({"issuers": entries}) if entries else None
         self.app: FastAPI = create_app(
             manifest,
             rate_limit="999999/minute",
@@ -55,6 +60,7 @@ class _App:
             identity_agent_store=self.agent_store,
             identity_rate_limit="999999/minute",
             external_token_config=config,
+            **create_app_kwargs,
         )
         self.registry = CapabilityRegistry()
         for capability in _DEFAULT_CAPS:

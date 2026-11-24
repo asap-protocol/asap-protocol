@@ -111,7 +111,7 @@ from asap.economics.sla_storage import SLAStorage
 from asap.economics.storage import MeteringStorage
 from asap.state.metering import MeteringStorageBridge
 from asap.transport.agent_routes import create_agent_identity_router
-from asap.transport.capability_routes import create_capability_router
+from asap.transport.capability_routes import CAPABILITY_EXECUTE_PATH, create_capability_router
 from asap.transport.escalation_routes import create_escalation_router
 from asap.transport.delegation_api import create_delegation_router
 from asap.transport.sla_api import create_sla_router
@@ -649,6 +649,7 @@ def _wire_middleware(
     asap_challenge_path_prefixes: tuple[str, ...] | None,
     manifest: Manifest,
     require_operator_auth: bool = False,
+    external_token_config: ExternalTokenConfig | None = None,
 ) -> None:
     """Add the size-limit, OAuth2, ASAP-version, and WWW-Authenticate middlewares."""
     # Size limit runs before routing.
@@ -670,6 +671,9 @@ def _wire_middleware(
             middleware_kwargs["extra_path_prefixes"] = OPERATOR_API_PATH_PREFIXES
         if oauth2_config.jwks_fetcher is not None:
             middleware_kwargs["jwks_fetcher"] = oauth2_config.jwks_fetcher
+        if external_token_config is not None:
+            # Execute then verifies its own bearer (Agent JWT or external).
+            middleware_kwargs["exempt_paths"] = frozenset({CAPABILITY_EXECUTE_PATH})
         # ONE canonical JWKSValidator shared by both transports so the HTTP
         # middleware stack instance and the WS ``app.state`` instance do not
         # keep divergent JWKS caches (S0 #237). Both middleware instances are
@@ -905,8 +909,10 @@ def create_app(
             (startup warnings remain when those APIs are enabled without auth).
         external_token_config: Allowlist of external OAuth issuers (COMPAT-001). When set,
             ``POST /asap/capability/execute`` also accepts their access tokens instead of an
-            Agent JWT; each principal gets only the grants of its issuer's rules. Default
-            None keeps that route on Agent JWT only.
+            Agent JWT; each principal gets only the grants of its issuer's rules. With
+            ``oauth2_config`` too, that route verifies its own bearer and the middleware
+            skips its exact path; list the ``oauth2_config`` IdP here to accept its tokens
+            there. Default None keeps that route on Agent JWT only.
 
     Returns:
         Configured FastAPI application ready to run
@@ -1032,6 +1038,7 @@ def create_app(
         asap_challenge_path_prefixes=asap_challenge_path_prefixes,
         manifest=manifest,
         require_operator_auth=require_operator_auth,
+        external_token_config=external_token_config,
     )
     _wire_core_routes(
         app,
