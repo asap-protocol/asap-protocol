@@ -109,7 +109,8 @@ class ExternalGrantRule(ASAPBaseModel):
         return False
 
 
-def _scope_tokens(claims: Mapping[str, Any]) -> frozenset[str]:
+def scope_tokens(claims: Mapping[str, Any]) -> frozenset[str]:
+    """Return the tokens of a string ``scope`` claim, split on single spaces."""
     scope = claims.get(_SCOPE_CLAIM)
     if not isinstance(scope, str):
         return frozenset()
@@ -143,7 +144,7 @@ def map_external_grants(
         >>> [g.capability for g in map_external_grants({"scope": "files:read admin"}, [rule])]
         ['file.read']
     """
-    scopes = _scope_tokens(claims)
+    scopes = scope_tokens(claims)
     granted: dict[str, CapabilityGrant] = {}
     for rule in rules:
         if rule.capability not in granted and rule.matches(claims, scopes):
