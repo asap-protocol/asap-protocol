@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any
 
 import httpx
 import pytest
 
-from asap_compliance.validators.mcp_http_transport import McpHttpTransport
+from asap_compliance.validators.mcp_http_transport import (
+    MAX_RESPONSE_BYTES,
+    McpHttpTransport,
+    McpHttpTransportError,
+)
 
 _MCP_URL = "http://mcp.test/mcp"
 _META = {
@@ -27,8 +32,10 @@ def _tool_result_response(request: httpx.Request, result: dict[str, Any]) -> htt
     )
 
 
-def _transport(handler: Any) -> McpHttpTransport:
-    return McpHttpTransport(_MCP_URL, http_transport=httpx.MockTransport(handler))
+def _transport(handler: Any, *, timeout_seconds: float = 5.0) -> McpHttpTransport:
+    return McpHttpTransport(
+        _MCP_URL, timeout_seconds=timeout_seconds, http_transport=httpx.MockTransport(handler)
+    )
 
 
 class TestToolsCallRequest:
@@ -144,3 +151,95 @@ class TestToolsCallResponse:
 
         assert response.status_code == 307
         assert seen == ["/mcp"]
+
+
+def _sse_response(stream: str) -> httpx.Response:
+    return httpx.Response(
+        200, content=stream.encode(), headers={"content-type": "text/event-stream"}
+    )
+
+
+class TestServerSentEventsResponse:
+    """A response can switch to SSE when a tool notifies first."""
+
+    async def test_takes_the_response_to_this_request_after_a_notification(self) -> None:
+        notification = {"jsonrpc": "2.0", "method": "notifications/progress", "params": {}}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            answer = {"jsonrpc": "2.0", "id": _request_id(request), "result": {"content": []}}
+            return _sse_response(
+                f"event: message\ndata: {json.dumps(notification)}\n\n"
+                f"event: message\ndata: {json.dumps(answer)}\n\n"
+            )
+
+        response = await _transport(handler).call_tool("echo", {})
+
+        assert response.tool_result == {"content": []}
+        assert "notifications/progress" in response.body_text
+
+    async def test_joins_data_lines_and_reads_crlf_line_ends(self) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            head = f'{{"jsonrpc": "2.0", "id": {_request_id(request)},'
+            return _sse_response(f'data: {head}\r\ndata: "result": {{"content": []}}}}\r\n\r\n')
+
+        response = await _transport(handler).call_tool("echo", {})
+
+        assert response.tool_result == {"content": []}
+
+    async def test_an_event_that_is_never_ended_is_not_read(self) -> None:
+        # WHATWG "Interpreting an event stream": pending data at the end of the stream is dropped.
+        def handler(request: httpx.Request) -> httpx.Response:
+            answer = {"jsonrpc": "2.0", "id": _request_id(request), "result": {"content": []}}
+            return _sse_response(f"data: {json.dumps(answer)}\n")
+
+        response = await _transport(handler).call_tool("echo", {})
+
+        assert response.json_body is None
+        assert response.tool_result is None
+
+
+class TestToolsCallFailure:
+    """No complete HTTP answer: one error type, and no token in its text."""
+
+    async def test_network_error_raises_without_the_token(self) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            raise httpx.ConnectError("connection refused", request=request)
+
+        with pytest.raises(McpHttpTransportError, match="ConnectError") as excinfo:
+            await _transport(handler).call_tool("secure_action", {}, bearer_token="secret-probe")
+
+        assert "secret-probe" not in str(excinfo.value)
+
+    async def test_an_answer_slower_than_the_timeout_raises(self) -> None:
+        async def handler(request: httpx.Request) -> httpx.Response:
+            await asyncio.sleep(5)
+            return _tool_result_response(request, {"content": []})
+
+        with pytest.raises(McpHttpTransportError, match="within 0.05s"):
+            await _transport(handler, timeout_seconds=0.05).call_tool("echo", {})
+
+    async def test_a_body_over_the_size_cap_raises(self) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, content=b"x" * (MAX_RESPONSE_BYTES + 1))
+
+        with pytest.raises(McpHttpTransportError, match=str(MAX_RESPONSE_BYTES)):
+            await _transport(handler).call_tool("echo", {})
+
+
+@pytest.mark.mcp_http_live
+class TestLiveExampleServer:
+    """Against ``examples/mcp_auth_http`` started with ``--compliance`` (CI: live flows)."""
+
+    async def test_public_tool_and_missing_token_answers(self, live_mcp_http_url: str) -> None:
+        transport = McpHttpTransport(live_mcp_http_url)
+
+        public = await transport.call_tool("echo", {"message": "asap-compliance"})
+        protected = await transport.call_tool("secure_action", {"action": "deploy"})
+
+        assert public.status_code == 200
+        assert public.tool_result is not None
+        assert public.tool_result["content"] == [{"type": "text", "text": "asap-compliance"}]
+        assert protected.status_code == 401
+        assert protected.headers["www-authenticate"].startswith("Bearer")
+        assert protected.json_body is not None
+        assert protected.json_body["error_description"] == "asap:auth_required"
