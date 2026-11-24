@@ -7,9 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **`asap.cli._compat`** ([#275](https://github.com/asap-protocol/asap-protocol/issues/275)) — the CLI compat shim deprecated in 2.5.1 is gone. Import `DEFAULT_SCHEMAS_DIR` from `asap.cli.schemas`, `export_all_schemas` from `asap.schemas`, and `_repl_namespace` from `asap.cli.repl`. See the [migration guide](docs/migration.md#upgrading-from-v25x-to-v260).
+- **`asap.transport.websocket`** — the WebSocket re-export shim deprecated in 2.5.1 is gone. Import the transport classes from `asap.transport.ws`. If you used the shim to import the third-party `websockets` package, use `import websockets`. Tests that patched names on the shim now patch `asap.transport.ws.client.websockets.connect`, or `encode_envelope_frame`, `PAYLOAD_TYPES_REQUIRING_ACK`, and `HEARTBEAT_PING_INTERVAL` on `asap.transport.ws.codecs`. See the [migration guide](docs/migration.md#upgrading-from-v25x-to-v260).
+- **`FRAME_ENCODING_BINARY`** — the literal kept on the `asap.transport.websocket` shim is gone with it. Binary WebSocket framing was already removed in 2.5.1; frames are JSON text only (`FRAME_ENCODING_JSON`). There is no replacement. See the [migration guide](docs/migration.md#upgrading-from-v25x-to-v260).
+- **`asap.adapters.mcp`** — the MCP Auth Bridge re-export shim deprecated in 2.5.1 is gone, with its six submodules. Import `protect_server`, `MCPAuthConfig`, `ProtectedMCPServer`, and `resolve_jwt_extractor` from `asap.mcp.auth`, and import from `asap.mcp.auth.<submodule>` where you imported from `asap.adapters.mcp.<submodule>`. See the [migration guide](docs/migration.md#upgrading-from-v25x-to-v260).
+- **`RemoteFatalRPCError` and `RemoteRecoverableRPCError` (Python)** — the two `asap.errors` subclasses deprecated in 2.5.1 are gone. Catch `RemoteRPCError` and branch on `is_recoverable`. The TypeScript classes of the same names in `@asap-protocol/client` stay. See the [migration guide](docs/migration.md#upgrading-from-v25x-to-v260).
+- **`metering_storage_adapter`** — the `asap.economics.storage` wrapper deprecated in 2.5.1 is gone. Build the same `MeteringStore` view with `MeteringStorageBridge(storage)` from `asap.state.metering` (also exported from `asap.state`). See the [migration guide](docs/migration.md#upgrading-from-v25x-to-v260).
+
 ### Follow-up (planned)
 
-- **v2.6.0 Interop** — A2A v1.0 Agent Card ↔ ASAP manifest bridge, external agent tokens (including MCP OAuth 2.1) → ASAP agent sessions, and `@asap-protocol/mcp-auth` for HTTP MCP servers (deferred from v2.5.0 — see [2.5.0] TypeScript note and [typescript-mcp-auth-spike.md](engineering/tasks/v2.5.0/typescript-mcp-auth-spike.md)); removes the `asap.cli._compat` shim (#275).
+- **v2.6.0 Interop** — A2A v1.0 Agent Card ↔ ASAP manifest bridge, external agent tokens (including MCP OAuth 2.1) → ASAP agent sessions, and `@asap-protocol/mcp-auth` for HTTP MCP servers (deferred from v2.5.0 — see [2.5.0] TypeScript note and [typescript-mcp-auth-spike.md](engineering/tasks/v2.5.0/typescript-mcp-auth-spike.md)).
 - **v2.7.0 Spec profile** — RFC 2119 profile of ASAP's identity, capability-grant, approval, and lifecycle surface ([prd-spec-profile.md](product/prd/prd-spec-profile.md)).
 - Collapse the dual `UsageMetrics`/`InMemoryMeteringStore` pair retained in S1 for API stability.
 - Reduce the `asap.transport.client` package aggregate LOC below the S2 target.

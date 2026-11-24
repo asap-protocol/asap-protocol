@@ -1,7 +1,7 @@
 # MCP Auth Bridge starter
 
 Thin wrapper around the Mode A native MCP protection demo
-(`asap.adapters.mcp.protect_server`). The parent client spawns the demo
+(`asap.mcp.auth.protect_server`). The parent client spawns the demo
 server, mints keys at runtime, and exercises `echo` (public) plus
 `secure_action` (Agent JWT via `_meta`).
 

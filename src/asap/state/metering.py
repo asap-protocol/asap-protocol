@@ -253,7 +253,8 @@ class MeteringStorageBridge:
     This bridge lets a single ``MeteringStorage`` serve both the Usage REST API
     (which wants the rich interface) and the handler recording path (which wants
     ``MeteringStore``), without economics depending on state for the adapter.
-    It replaces the old ``economics.storage.metering_storage_adapter``.
+    It is the only economics -> state bridge; v2.6.0 removed the old
+    economics-layer wrapper function.
 
     Example:
         >>> from asap.economics.storage import InMemoryMeteringStorage

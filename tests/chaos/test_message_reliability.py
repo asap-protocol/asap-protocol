@@ -28,7 +28,6 @@ from asap.models.envelope import Envelope
 from asap.models.enums import TaskStatus
 from asap.models.payloads import TaskRequest, TaskResponse
 from asap.transport.circuit_breaker import get_registry
-from asap.errors import RemoteRecoverableRPCError
 from asap.transport.client import (
     ASAPClient,
     ASAPConnectionError,
@@ -491,7 +490,6 @@ class TestPartialCorruption:
                     (
                         ASAPConnectionError,
                         ASAPRemoteError,
-                        RemoteRecoverableRPCError,
                         ValueError,
                         ValidationError,
                     )
@@ -535,7 +533,6 @@ class TestPartialCorruption:
                     (
                         ASAPConnectionError,
                         ASAPRemoteError,
-                        RemoteRecoverableRPCError,
                         ValueError,
                         ValidationError,
                     )
@@ -627,7 +624,6 @@ class TestMessageReliabilityEdgeCases:
                     (
                         ASAPConnectionError,
                         ASAPRemoteError,
-                        RemoteRecoverableRPCError,
                         ValueError,
                         ValidationError,
                     )
@@ -653,7 +649,6 @@ class TestMessageReliabilityEdgeCases:
                     (
                         ASAPConnectionError,
                         ASAPRemoteError,
-                        RemoteRecoverableRPCError,
                         ValueError,
                         ValidationError,
                     )
@@ -686,7 +681,6 @@ class TestMessageReliabilityEdgeCases:
                 (
                     ASAPConnectionError,
                     ASAPRemoteError,
-                    RemoteRecoverableRPCError,
                     ValueError,
                     ValidationError,
                 )

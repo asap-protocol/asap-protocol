@@ -9,9 +9,6 @@ review, so a future refactor cannot silently regress it:
 * ``test_jwt_verify_result_capabilities_accessor_edge_cases`` — the additive
   ``JwtVerifyResult.capabilities`` accessor must return ``[]`` for absent or
   non-list claims and a filtered ``list[str]`` otherwise.
-* ``test_adapters_mcp_shim_identity_with_mcp_auth`` — the deprecation shim must
-  re-export the SAME objects as ``asap.mcp.auth`` (``is`` identity), so the
-  public surface did not fork.
 * ``test_identity_limiter_missing_returns_503_on_agent_register`` — parity on a
   second identity route (``/asap/agent/register``): a missing
   ``identity_limiter`` must 503 cleanly (was ``AttributeError`` -> 500).
@@ -118,24 +115,6 @@ def test_jwt_verify_result_capabilities_accessor_edge_cases(
     """
     result = JwtVerifyResult(ok=True, claims=claims)
     assert result.capabilities == expected
-
-
-def test_adapters_mcp_shim_identity_with_mcp_auth() -> None:
-    """``asap.adapters.mcp`` re-exports the SAME objects as ``asap.mcp.auth``.
-
-    The deprecation shim must not fork the public surface — ``protect_server``,
-    ``MCPAuthConfig``, ``ProtectedMCPServer``, and ``resolve_jwt_extractor``
-    resolved through the legacy path must BE the objects in ``asap.mcp.auth``
-    (``is`` identity), so a caller mixing the two import paths cannot observe
-    two divergent implementations.
-    """
-    import asap.adapters.mcp as legacy
-    import asap.mcp.auth as canonical
-
-    assert legacy.protect_server is canonical.protect_server
-    assert legacy.MCPAuthConfig is canonical.MCPAuthConfig
-    assert legacy.ProtectedMCPServer is canonical.ProtectedMCPServer
-    assert legacy.resolve_jwt_extractor is canonical.resolve_jwt_extractor
 
 
 def test_identity_limiter_missing_returns_503_on_agent_register() -> None:

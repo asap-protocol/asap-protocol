@@ -39,7 +39,7 @@ class TestWSHandshakeAuthToken:
             captured["kwargs"] = kwargs
             return _FakeWS()
 
-        with patch("asap.transport.websocket.websockets.connect", _fake_connect):
+        with patch("asap.transport.ws.client.websockets.connect", _fake_connect):
             await transport.connect("ws://localhost:8000/asap/ws")
 
         assert captured["kwargs"].get("extra_headers") == {"Authorization": "Bearer test-token-123"}
@@ -60,7 +60,7 @@ class TestWSHandshakeAuthToken:
             captured["kwargs"] = kwargs
             return _FakeWS()
 
-        with patch("asap.transport.websocket.websockets.connect", _fake_connect):
+        with patch("asap.transport.ws.client.websockets.connect", _fake_connect):
             await transport.connect("ws://localhost:8000/asap/ws")
 
         assert "extra_headers" not in captured["kwargs"]
@@ -87,7 +87,7 @@ class TestWSHandshakeAuthToken:
             return _FakeWS()
 
         with (
-            patch("asap.transport.websocket.websockets.connect", _fake_connect),
+            patch("asap.transport.ws.client.websockets.connect", _fake_connect),
             patch.object(WebSocketTransport, "__init__", _spy_init),
             patch("httpx.AsyncClient", MagicMock(return_value=MagicMock(aclose=AsyncMock()))),
         ):
@@ -122,7 +122,7 @@ class TestWSHandshakeAuthToken:
             return _FakeWS()
 
         with (
-            patch("asap.transport.websocket.websockets.connect", _fake_connect),
+            patch("asap.transport.ws.client.websockets.connect", _fake_connect),
             patch.object(WebSocketTransport, "__init__", _spy_init),
             patch("httpx.AsyncClient", MagicMock(return_value=MagicMock(aclose=AsyncMock()))),
         ):

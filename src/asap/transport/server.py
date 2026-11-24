@@ -122,7 +122,7 @@ from asap.transport.routes import (
 )
 from asap.state.stores import create_snapshot_store
 from asap.transport.validators import InMemoryNonceStore, NonceStore
-from asap.transport.websocket import WS_CLOSE_GOING_AWAY, WS_CLOSE_REASON_SHUTDOWN
+from asap.transport.ws import WS_CLOSE_GOING_AWAY, WS_CLOSE_REASON_SHUTDOWN
 from asap.transport.mtls import MTLSConfig
 
 if TYPE_CHECKING:

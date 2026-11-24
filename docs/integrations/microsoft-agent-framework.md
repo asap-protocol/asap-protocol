@@ -70,7 +70,7 @@ MAF docs: [Function tools](https://learn.microsoft.com/en-us/agent-framework/age
 MAF can list MCP server tools and pass them to the agent as **`AITool`** instances (MCP C# SDK → cast to `AITool`). If the MCP server is an ASAP-backed stdio process protected with **`protect_server`**, each protected `tools/call` must carry **`_meta.asap_agent_jwt`**; the bridge verifies JWT and grants.
 
 ```text
-MAF agent  --MCP tools/call-->  MCP server (asap.adapters.mcp.protect_server)
+MAF agent  --MCP tools/call-->  MCP server (asap.mcp.auth.protect_server)
                                       |
                                       +-- verify Agent JWT + capability grant
                                       +-- invoke underlying tool / ASAP skill

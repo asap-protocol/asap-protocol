@@ -21,7 +21,7 @@ from unittest.mock import patch
 import httpx
 import pytest
 
-from asap.errors import CircuitOpenError, RemoteRecoverableRPCError
+from asap.errors import CircuitOpenError
 from asap.models.envelope import Envelope
 from asap.models.enums import TaskStatus
 from asap.models.payloads import TaskResponse
@@ -428,9 +428,7 @@ class TestServerCrashEdgeCases:
                 max_retries=1,
             ) as client:
                 # Should raise an error due to invalid JSON
-                with pytest.raises(
-                    (ASAPConnectionError, ASAPRemoteError, RemoteRecoverableRPCError)
-                ):
+                with pytest.raises((ASAPConnectionError, ASAPRemoteError)):
                     await client.send(sample_request_envelope)
 
     async def test_504_gateway_timeout(self, sample_request_envelope: Envelope) -> None:

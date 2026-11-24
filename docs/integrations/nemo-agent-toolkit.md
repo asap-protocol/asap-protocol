@@ -89,7 +89,7 @@ Full matrices: [research note §10](https://github.com/asap-protocol/asap-protoc
 | Piece | Note |
 |-------|------|
 | Python | **3.13** for joint examples (ASAP ∩ `nvidia-nat` 1.8.x) |
-| ASAP | `asap-protocol` in-repo (`uv sync`) — Auth Bridge via `asap.adapters.mcp` |
+| ASAP | `asap-protocol` in-repo (`uv sync`) — Auth Bridge via `asap.mcp.auth` |
 | NAT (optional) | `nvidia-nat[mcp]==1.8.0` from `examples/nemo_agent_toolkit_asap/requirements.txt` — **not** a core ASAP dependency |
 | NIM | `NVIDIA_API_KEY` only if you run `nat run` with the sample `react_agent` YAML |
 

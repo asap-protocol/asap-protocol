@@ -32,7 +32,7 @@ from asap.transport.client._helpers import (
 from asap.utils.sanitization import sanitize_url
 
 if TYPE_CHECKING:
-    from asap.transport.websocket import WebSocketTransport
+    from asap.transport.ws import WebSocketTransport
 
 
 @dataclass

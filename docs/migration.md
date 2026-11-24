@@ -1108,6 +1108,30 @@ Scope: [prd-v2.5.4-distribution-loop.md](../product/prd/prd-v2.5.4-distribution-
 
 ---
 
+### Upgrading from v2.5.x to v2.6.0
+
+**v2.6.0 (Interop)** is in development and is not released yet. This section
+grows as each change lands.
+
+#### Removed import paths
+
+v2.5.1 deprecated six import paths and said that v2.6.0 removes them (see
+`CHANGELOG.md` `[2.5.1]`, "Deprecated"). In v2.6.0, an import of a removed
+path fails with `ModuleNotFoundError` or `ImportError`. Change each import to
+its replacement before you upgrade. These removals do not change the wire
+protocol.
+
+| Removed path | Before (v2.5.x) | After (v2.6.0) |
+|--------------|-----------------|----------------|
+| `asap.cli._compat` ([#275](https://github.com/asap-protocol/asap-protocol/issues/275)) | `from asap.cli._compat import DEFAULT_SCHEMAS_DIR, export_all_schemas, _repl_namespace` | `from asap.cli.schemas import DEFAULT_SCHEMAS_DIR`; `from asap.schemas import export_all_schemas`; `from asap.cli.repl import _repl_namespace` |
+| `asap.transport.websocket` | `from asap.transport.websocket import WebSocketTransport` | `from asap.transport.ws import WebSocketTransport`. For the third-party module formerly exported by the shim, use `import websockets`. Test patch targets: `asap.transport.ws.client.websockets.connect`; `asap.transport.ws.codecs.encode_envelope_frame`, `.PAYLOAD_TYPES_REQUIRING_ACK`, `.HEARTBEAT_PING_INTERVAL` |
+| `FRAME_ENCODING_BINARY` | `from asap.transport.websocket import FRAME_ENCODING_BINARY` | No replacement. v2.5.1 removed binary framing; frames are JSON text only (`FRAME_ENCODING_JSON`). Delete the reference |
+| `asap.adapters.mcp` | `from asap.adapters.mcp import protect_server, MCPAuthConfig` (or `from asap.adapters.mcp.<submodule> import ...`) | `from asap.mcp.auth import protect_server, MCPAuthConfig` (same names). Submodules keep their names: `asap.adapters.mcp.config` becomes `asap.mcp.auth.config`, and the same for `auth_middleware`, `capability_map`, `errors`, `jwt_extractor`, and `protected_server` |
+| `RemoteFatalRPCError`, `RemoteRecoverableRPCError` (Python) | `from asap.errors import RemoteRecoverableRPCError`, then `except RemoteRecoverableRPCError:` | `from asap.errors import RemoteRPCError`, then `except RemoteRPCError as exc:` and branch on `exc.is_recoverable`. The TypeScript classes of the same names in `@asap-protocol/client` are not affected |
+| `metering_storage_adapter` | `from asap.economics.storage import metering_storage_adapter`, then `metering_storage_adapter(storage)` | `from asap.state.metering import MeteringStorageBridge`, then `MeteringStorageBridge(storage)`. It returns the same `MeteringStore` view |
+
+---
+
 ### Upgrading from v2.5.11 to v2.5.12
 
 **v2.5.12** is a maintenance patch for authentication, authorization, and

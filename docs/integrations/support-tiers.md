@@ -17,7 +17,7 @@ How releases carry these fixes is set by the [release and versioning policy](../
 | Integration | Package / module | Tier | CI coverage | Notes |
 |-------------|------------------|------|-------------|-------|
 | Python SDK core | `asap-protocol`: `asap.models`, `asap.transport`, `asap.auth`, `asap.discovery`, `asap.state` | **1** | `ci.yml`: `test (python)`, `coverage` (85% floor), `security` | Required checks on `main` |
-| MCP Auth Bridge | `asap.mcp.auth` (`protect_server`, `MCPAuthConfig`); legacy path `asap.adapters.mcp` | **1** | `ci.yml`: `test (python)` (`tests/adapters/mcp/`, `serial_mcp` subprocess test); `starters-smoke.yml` | `asap.adapters.mcp` is a deprecation shim until v2.6.0. Guide: [MCP Auth Bridge](../adapters/mcp-auth-bridge.md) |
+| MCP Auth Bridge | `asap.mcp.auth` (`protect_server`, `MCPAuthConfig`) | **1** | `ci.yml`: `test (python)` (`tests/adapters/mcp/`, `serial_mcp` subprocess test); `starters-smoke.yml` | Guide: [MCP Auth Bridge](../adapters/mcp-auth-bridge.md) |
 | MCP stdio server and client | `asap.mcp` (`MCPServer`, `MCPClient`, `asap.mcp.protocol`) | **1** | `ci.yml`: `test (python)` (`tests/mcp/`) | The Auth Bridge wraps this server, so it has the same tier. Guide: [MCP integration](../mcp-integration.md) |
 | OpenAPI adapter | `asap.adapters.openapi`, extra `[openapi]` | **1** | `ci.yml`: `test (python)` (`tests/adapters/openapi/`); `starters-smoke.yml` | Guide: [OpenAPI adapter](../adapters/openapi.md) |
 | TypeScript client | `@asap-protocol/client` (`packages/typescript/client`) | **1** | `typescript-sdk.yml` (lint, typecheck, test, tree-shake); `starters-smoke.yml` | Includes the LLM adapter subpaths `adapters/vercel-ai`, `adapters/openai`, `adapters/anthropic`. Guide: [TypeScript client](../sdks/typescript.md) |
@@ -62,3 +62,4 @@ Open an [`adapter-request` issue](https://github.com/asap-protocol/asap-protocol
 | Date | Change |
 |------|--------|
 | 2026-11-18 | Initial tiers and classification. |
+| 2026-11-23 | MCP Auth Bridge row: v2.6.0 removes the old import path, so the row names only `asap.mcp.auth`. The tier does not change. |

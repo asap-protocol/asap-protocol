@@ -53,11 +53,11 @@ from asap.transport.errors import (
     assert_stream_correlation_binds,
 )
 from asap.transport.jsonrpc import ASAP_METHOD
-from asap.transport.websocket import WebSocketRemoteError
+from asap.transport.ws import WebSocketRemoteError
 from asap.utils.sanitization import sanitize_url
 
 if TYPE_CHECKING:
-    from asap.transport.websocket import WebSocketTransport
+    from asap.transport.ws import WebSocketTransport
 
 
 class _SendMixin:

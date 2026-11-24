@@ -12,7 +12,8 @@ from asap.economics import (
     SQLiteMeteringStorage,
     UsageMetrics,
 )
-from asap.economics.storage import _period_to_metering_query, metering_storage_adapter
+from asap.economics.storage import _period_to_metering_query
+from asap.state.metering import MeteringStorageBridge
 
 
 @pytest.fixture
@@ -725,12 +726,12 @@ def _metric(
 
 
 # ---------------------------------------------------------------------------
-# metering_storage_adapter
+# MeteringStorageBridge over the economics backends
 # ---------------------------------------------------------------------------
 
 
 class TestMeteringStorageAdapter:
-    """Cover metering_storage_adapter -> MeteringStore bridge."""
+    """Cover the ``MeteringStore`` view that ``MeteringStorageBridge`` gives each backend."""
 
     @pytest.mark.asyncio
     async def test_adapter_record_and_query(self) -> None:
@@ -739,7 +740,7 @@ class TestMeteringStorageAdapter:
         from asap.state.metering import UsageMetrics as StateUsageMetrics
 
         backend = InMemoryMeteringStorage()
-        adapter = metering_storage_adapter(backend)
+        adapter = MeteringStorageBridge(backend)
 
         event = UsageEvent(
             task_id="t1",
@@ -768,7 +769,7 @@ class TestMeteringStorageAdapter:
     async def test_adapter_aggregate_matching_agent(self) -> None:
         """Adapter aggregate() returns StateUsageAggregate for matching agent."""
         backend = InMemoryMeteringStorage()
-        adapter = metering_storage_adapter(backend)
+        adapter = MeteringStorageBridge(backend)
 
         now = datetime.now(timezone.utc)
         m = _metric(agent_id="a1", tokens_in=10, tokens_out=20, api_calls=3, timestamp=now)
@@ -783,7 +784,7 @@ class TestMeteringStorageAdapter:
     async def test_adapter_aggregate_no_matching_agent(self) -> None:
         """Adapter aggregate() returns empty StateUsageAggregate when no data."""
         backend = InMemoryMeteringStorage()
-        adapter = metering_storage_adapter(backend)
+        adapter = MeteringStorageBridge(backend)
 
         agg = await adapter.aggregate(agent_id="nonexistent", period="day")
         assert agg.agent_id == "nonexistent"
@@ -793,7 +794,7 @@ class TestMeteringStorageAdapter:
     async def test_adapter_aggregate_unknown_period(self) -> None:
         """Adapter aggregate() with unknown period returns data (no time filter)."""
         backend = InMemoryMeteringStorage()
-        adapter = metering_storage_adapter(backend)
+        adapter = MeteringStorageBridge(backend)
 
         await backend.record(_metric(agent_id="a1"))
         agg = await adapter.aggregate(agent_id="a1", period="all")
@@ -805,7 +806,7 @@ class TestMeteringStorageAdapter:
         self, sqlite_storage: SQLiteMeteringStorage
     ) -> None:
         """Adapter aggregate(period='h') on SQLite excludes events older than one hour."""
-        adapter = metering_storage_adapter(sqlite_storage)
+        adapter = MeteringStorageBridge(sqlite_storage)
         now = datetime.now(timezone.utc)
 
         await sqlite_storage.record(

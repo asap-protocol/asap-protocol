@@ -2,11 +2,10 @@
 
 MCP auth belongs inside the MCP package (``asap.mcp.auth``), next to
 :mod:`asap.mcp.protocol` and :mod:`asap.mcp.server`, rather than under the
-OpenAPI-centric ``asap.adapters`` namespace. The legacy ``asap.adapters.mcp``
-import path is preserved as a thin deprecation shim so existing callers keep
-working during the deprecation window.
+OpenAPI-centric ``asap.adapters`` namespace. Import from here: v2.6.0
+removes the old path under ``asap.adapters`` (see ``docs/migration.md``).
 
-Public surface (unchanged): ``protect_server``, ``MCPAuthConfig``,
+Public surface: ``protect_server``, ``MCPAuthConfig``,
 ``ProtectedMCPServer``, ``resolve_jwt_extractor``.
 
 Example:

@@ -24,7 +24,7 @@ from asap.transport.errors import ProtocolCorrelationError
 from asap.transport.jsonrpc import ASAP_METHOD, INTERNAL_ERROR, JsonRpcRequest
 from asap.transport.server import create_app
 from asap.transport.ws._actions import WSCloseAction, _ws_close_code
-from asap.transport.websocket import (
+from asap.transport.ws import (
     ASAP_ACK_METHOD,
     DEFAULT_POOL_IDLE_TIMEOUT,
     DEFAULT_POOL_MAX_SIZE,
@@ -535,7 +535,7 @@ class TestWebSocketTransportCorrelation(NoRateLimitTestBase):
             connect_calls.append((url, dict(kwargs)))
             raise ConnectionRefusedError("mock: no real server")
 
-        with patch("asap.transport.websocket.websockets.connect", side_effect=fake_connect):
+        with patch("asap.transport.ws.client.websockets.connect", side_effect=fake_connect):
             transport = WebSocketTransport(ssl_context=ssl_ctx)
             with pytest.raises(ConnectionRefusedError):
                 await transport.connect("wss://example.com/asap/ws")
@@ -559,7 +559,7 @@ class TestWebSocketTransportCorrelation(NoRateLimitTestBase):
             await release_connect.wait()
             return AsyncMock()
 
-        with patch("asap.transport.websocket.websockets.connect", side_effect=slow_connect):
+        with patch("asap.transport.ws.client.websockets.connect", side_effect=slow_connect):
             transport = WebSocketTransport(
                 receive_timeout=5.0,
                 reconnect_on_disconnect=False,
@@ -899,7 +899,7 @@ class TestWebSocketReconnection(NoRateLimitTestBase):
 
     def test_reconnect_delay_exponential_capped(self) -> None:
         """Backoff delay is 1s, 2s, 4s, ... and capped at max_backoff."""
-        from asap.transport.websocket import _reconnect_delay
+        from asap.transport.ws import _reconnect_delay
 
         assert _reconnect_delay(1) == 1.0
         assert _reconnect_delay(2) == 2.0
@@ -1825,7 +1825,7 @@ class TestWebSocketTransportSend(NoRateLimitTestBase):
 
         # Mock encode_envelope_frame to return bytes
         with (
-            patch("asap.transport.websocket.encode_envelope_frame", return_value=b"binary"),
+            patch("asap.transport.ws.codecs.encode_envelope_frame", return_value=b"binary"),
             pytest.raises(TypeError, match="Expected text frame"),
         ):
             await transport.send(envelope)
@@ -1882,7 +1882,7 @@ class TestDoConnect:
             transport._closed = True  # simulate close during connect
             return fake_ws
 
-        with patch("asap.transport.websocket.websockets.connect", side_effect=fake_connect):
+        with patch("asap.transport.ws.client.websockets.connect", side_effect=fake_connect):
             await transport._do_connect("ws://localhost:8080")
 
         assert transport._ws is None
@@ -2519,7 +2519,7 @@ class TestHeartbeatLoopCoverage:
         last_received = [time.monotonic() - STALE_CONNECTION_TIMEOUT - 10]
         closed = asyncio.Event()
 
-        with patch("asap.transport.websocket.HEARTBEAT_PING_INTERVAL", 0.01):
+        with patch("asap.transport.ws.codecs.HEARTBEAT_PING_INTERVAL", 0.01):
             task = asyncio.create_task(_heartbeat_loop(ws, last_received, closed))
             await asyncio.sleep(0.1)
 
@@ -2536,7 +2536,7 @@ class TestHeartbeatLoopCoverage:
         last_received = [time.monotonic()]  # Fresh, not stale
         closed = asyncio.Event()
 
-        with patch("asap.transport.websocket.HEARTBEAT_PING_INTERVAL", 0.01):
+        with patch("asap.transport.ws.codecs.HEARTBEAT_PING_INTERVAL", 0.01):
             task = asyncio.create_task(_heartbeat_loop(ws, last_received, closed))
             await asyncio.sleep(0.1)
 
@@ -2580,7 +2580,7 @@ class TestConnectReconnect:
 
         with (
             patch(
-                "asap.transport.websocket.websockets.connect",
+                "asap.transport.ws.client.websockets.connect",
                 side_effect=ConnectionRefusedError("refused"),
             ),
             pytest.raises(ConnectionRefusedError, match="refused"),

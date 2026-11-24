@@ -45,8 +45,8 @@ def _is_prepared_request(prepared: Any) -> bool:
     ``envelope``/``ctx``/``trace_token``) or a JSON-RPC error
     :class:`fastapi.responses.Response` (has ``body``, no ``envelope``). We avoid
     importing ``PreparedRequest`` at module top to break a circular import
-    (``asap.transport.server`` → ``routes`` → ``asap.transport.websocket`` →
-    ``asap.transport.ws`` → this module), so the check is structural.
+    (``asap.transport.server`` → ``routes`` → ``asap.transport.ws`` → this
+    module), so the check is structural.
     """
     return hasattr(prepared, "envelope") and hasattr(prepared, "ctx")
 
