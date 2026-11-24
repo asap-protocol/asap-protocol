@@ -3,8 +3,8 @@
 With both set, ``POST /asap/capability/execute`` owns its bearer: the
 middleware skips that exact path, and the route verifies the token once,
 on the Agent JWT path or the external path. Every other ``/asap`` path stays
-behind the middleware. To accept the ``oauth2_config`` IdP on execute, list
-it as an external issuer.
+behind the middleware, with or without the external config. To accept the
+``oauth2_config`` IdP on execute, list it as an external issuer.
 """
 
 from __future__ import annotations
@@ -16,11 +16,7 @@ from joserfc import jwk
 
 from asap.auth import OAuth2Config
 from tests.auth.local_issuer import LocalIssuer
-from tests.transport.test_capability_execute_unchanged import (
-    _ASAP_CHALLENGE,
-    EXPECTED_AGENT_PATH,
-    execute_case,
-)
+from tests.transport.test_capability_execute_unchanged import EXPECTED_AGENT_PATH, execute_case
 from tests.transport.test_capability_external_tokens import _AUDIENCE, _App
 
 if TYPE_CHECKING:
@@ -81,22 +77,20 @@ def test_idp_token_not_listed_is_refused_by_the_route(
         ("POST", "/asap"),
     ],
 )
-def test_other_asap_paths_stay_behind_the_middleware(both: _App, method: str, path: str) -> None:
+@pytest.mark.parametrize("external_config", [True, False], ids=["both configs", "oauth2 only"])
+def test_other_asap_paths_stay_behind_the_middleware(
+    sample_manifest: Manifest,
+    isolated_rate_limiter: ASAPRateLimiter | None,
+    external_config: bool,
+    method: str,
+    path: str,
+) -> None:
+    issuers = (_IDP, _PARTNER) if external_config else ()
+    server = _server(sample_manifest, isolated_rate_limiter, *issuers)
     for token, expected in [
         (_token(_PARTNER), _MIDDLEWARE_REFUSAL),
         (None, (401, {"detail": "Authentication required"})),
     ]:
         headers = {"Authorization": f"Bearer {token}"} if token else {}
-        response = both.client.request(method, path, headers=headers, json={})
+        response = server.client.request(method, path, headers=headers, json={})
         assert (response.status_code, response.json()) == expected, (path, token is None)
-
-
-@pytest.mark.filterwarnings("ignore:EdDSA is deprecated:UserWarning")
-async def test_without_the_external_config_the_middleware_still_guards_execute(
-    sample_manifest: Manifest, isolated_rate_limiter: ASAPRateLimiter | None
-) -> None:
-    server = _server(sample_manifest, isolated_rate_limiter)
-    actual = await execute_case(
-        server.client, server.app, server.agent_store, server.registry, "granted"
-    )
-    assert actual == (*_MIDDLEWARE_REFUSAL, f"Bearer, {_ASAP_CHALLENGE}")

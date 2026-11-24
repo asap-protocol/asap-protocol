@@ -649,7 +649,6 @@ def _wire_middleware(
     asap_challenge_path_prefixes: tuple[str, ...] | None,
     manifest: Manifest,
     require_operator_auth: bool = False,
-    external_token_config: ExternalTokenConfig | None = None,
 ) -> None:
     """Add the size-limit, OAuth2, ASAP-version, and WWW-Authenticate middlewares."""
     # Size limit runs before routing.
@@ -671,9 +670,10 @@ def _wire_middleware(
             middleware_kwargs["extra_path_prefixes"] = OPERATOR_API_PATH_PREFIXES
         if oauth2_config.jwks_fetcher is not None:
             middleware_kwargs["jwks_fetcher"] = oauth2_config.jwks_fetcher
-        if external_token_config is not None:
-            # Execute then verifies its own bearer (Agent JWT or external).
-            middleware_kwargs["exempt_paths"] = frozenset({CAPABILITY_EXECUTE_PATH})
+        # Execute always requires and verifies its own bearer (Agent JWT, or an external
+        # token when configured), like /asap/agent/*. Behind the middleware it could never
+        # succeed: an Agent JWT failed the IdP JWKS check.
+        middleware_kwargs["exempt_paths"] = frozenset({CAPABILITY_EXECUTE_PATH})
         # ONE canonical JWKSValidator shared by both transports so the HTTP
         # middleware stack instance and the WS ``app.state`` instance do not
         # keep divergent JWKS caches (S0 #237). Both middleware instances are
@@ -828,8 +828,10 @@ def create_app(
             Required if manifest.auth is configured. Should return agent ID
             if token is valid, None otherwise.
         oauth2_config: When set, OAuth2Middleware validates IdP JWTs for ``path_prefix``
-            routes; ``/asap/agent/*`` uses Host JWT instead. Without it, ``/asap`` is open
-            unless ``manifest.auth`` and ``token_validator`` are configured.
+            routes; ``/asap/agent/*`` uses Host JWT instead, and ``POST
+            /asap/capability/execute`` verifies its own Agent JWT (or external token).
+            Without it, ``/asap`` is open unless ``manifest.auth`` and ``token_validator``
+            are configured.
         rate_limit: Optional rate limit string (e.g., "10/second;100/minute").
             Rate limiting is IP-based (per client IP address) to prevent DoS attacks.
             Uses token bucket pattern: burst limit + sustained limit.
@@ -909,10 +911,9 @@ def create_app(
             (startup warnings remain when those APIs are enabled without auth).
         external_token_config: Allowlist of external OAuth issuers (COMPAT-001). When set,
             ``POST /asap/capability/execute`` also accepts their access tokens instead of an
-            Agent JWT; each principal gets only the grants of its issuer's rules. With
-            ``oauth2_config`` too, that route verifies its own bearer and the middleware
-            skips its exact path; list the ``oauth2_config`` IdP here to accept its tokens
-            there. Default None keeps that route on Agent JWT only.
+            Agent JWT; each principal gets only the grants of its issuer's rules. To accept
+            the ``oauth2_config`` IdP's tokens on that route, list it here. Default None
+            keeps that route on Agent JWT only.
 
     Returns:
         Configured FastAPI application ready to run
@@ -1038,7 +1039,6 @@ def create_app(
         asap_challenge_path_prefixes=asap_challenge_path_prefixes,
         manifest=manifest,
         require_operator_auth=require_operator_auth,
-        external_token_config=external_token_config,
     )
     _wire_core_routes(
         app,
