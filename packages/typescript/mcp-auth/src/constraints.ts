@@ -4,11 +4,11 @@ import type { ConstraintViolation } from "@asap-protocol/client";
 export type ConstraintSet = Readonly<Record<string, unknown>>;
 
 /** Python `OPERATOR_KEYS` (`src/asap/auth/capabilities.py`). */
-const CONSTRAINT_OPERATORS: readonly string[] = ["max", "min", "in", "not_in"];
+export const CONSTRAINT_OPERATORS: readonly string[] = ["max", "min", "in", "not_in"];
 
 type JsonObject = Readonly<Record<string, unknown>>;
 
-function isJsonObject(value: unknown): value is JsonObject {
+export function isJsonObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
@@ -23,7 +23,7 @@ function asPythonNumber(value: unknown): number | undefined {
  * recursion stops at the shallower side, and one side is always the
  * configured constraint, so a deep argument cannot exhaust the stack.
  */
-function pythonEquals(left: unknown, right: unknown): boolean {
+export function pythonEquals(left: unknown, right: unknown): boolean {
   const leftNumber = asPythonNumber(left);
   const rightNumber = asPythonNumber(right);
   if (leftNumber !== undefined || rightNumber !== undefined) return leftNumber === rightNumber;
