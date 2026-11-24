@@ -39,6 +39,8 @@ async function connect(token?: () => Promise<string>): Promise<{ client: Client;
 }
 
 const validToken = () => server.demo.mintAgentJwt(server.url.href);
+// The example serves RFC 9728 metadata for its external issuer, so every 401 links it.
+const metadataUrl = () => new URL("/.well-known/oauth-protected-resource/mcp", server.url).href;
 
 describe("examples/mcp_auth_http protected end to end (MCP-TS-001, MCP-TS-002)", () => {
   it("success: a granted call runs the tool", async () => {
@@ -59,7 +61,7 @@ describe("examples/mcp_auth_http protected end to end (MCP-TS-001, MCP-TS-002)",
 
     expect(responses.at(-1)).toEqual({
       status: 401,
-      wwwAuthenticate: "Bearer",
+      wwwAuthenticate: `Bearer resource_metadata="${metadataUrl()}"`,
       body: JSON.stringify({ error: "invalid_token", error_description: "asap:auth_required" }),
     });
   });
@@ -72,7 +74,7 @@ describe("examples/mcp_auth_http protected end to end (MCP-TS-001, MCP-TS-002)",
     const description = "asap:invalid_token: malformed token";
     expect(responses.at(-1)).toEqual({
       status: 401,
-      wwwAuthenticate: `Bearer error="invalid_token", error_description="${description}"`,
+      wwwAuthenticate: `Bearer error="invalid_token", error_description="${description}", resource_metadata="${metadataUrl()}"`,
       body: JSON.stringify({ error: "invalid_token", error_description: description }),
     });
   });

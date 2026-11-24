@@ -21,10 +21,11 @@ export interface ComplianceProbeTokens {
   readonly allowed_arguments: Record<string, unknown>;
   readonly constraint_violation_arguments: Record<string, unknown>;
   readonly agent_jwt: { readonly valid: string; readonly out_of_grant: string; readonly constraint_violation: string };
-  readonly external: { readonly valid: string; readonly out_of_grant: string };
+  /** Absent when the server runs with Agent JWTs only. */
+  readonly external?: { readonly valid: string; readonly out_of_grant: string };
 }
 
-export async function mintComplianceProbeTokens(mcpUrl: URL, protectedTool: string, demo: DemoIdentity, issuer: TestIssuer): Promise<ComplianceProbeTokens> {
+export async function mintComplianceProbeTokens(mcpUrl: URL, protectedTool: string, demo: DemoIdentity, issuer: TestIssuer | undefined): Promise<ComplianceProbeTokens> {
   const audience = mcpUrl.href;
   return {
     profile: "mcp-auth-http",
@@ -38,7 +39,7 @@ export async function mintComplianceProbeTokens(mcpUrl: URL, protectedTool: stri
       out_of_grant: await demo.mintAgentJwt(audience, ["unrelated_capability"]),
       constraint_violation: await demo.mintAgentJwt(audience),
     },
-    external: {
+    external: issuer && {
       valid: await issuer.mint(audience, EXTERNAL_SCOPE),
       out_of_grant: await issuer.mint(audience, "unrelated:scope"),
     },

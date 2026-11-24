@@ -5,7 +5,15 @@ A Streamable HTTP MCP server on `@modelcontextprotocol/server` 2.x (MCP revision
 The server accepts two token types:
 
 - **ASAP Agent JWT.** At each start, the server creates a demo ASAP host and agent in memory. The agent has one grant: capability `secure_action`, with the constraint that `action` is not `forbidden-action`. With an Agent JWT, the package is a custom auth strategy, which MCP allows; it is not MCP authorization (OAuth 2.1).
-- **External OAuth 2.1 access token.** A local test issuer, `https://test-issuer.invalid`, is created at each start; the server gets its public keys as a static JWKS, so nothing is fetched. Its one grant rule maps the scope `secure_action:run` to `secure_action`, with the same constraint. On this path the server is the resource server of MCP authorization (OAuth 2.1). A token without the scope gets HTTP 403 `insufficient_scope`. The example does not serve RFC 9728 metadata, because the test issuer has no authorization endpoint; the package tests show that setup.
+- **External OAuth 2.1 access token.** A local test issuer, `https://test-issuer.invalid`, is created at each start; the server gets its public keys as a static JWKS, so nothing is fetched. Its one grant rule maps the scope `secure_action:run` to `secure_action`, with the same constraint. On this path the server is the resource server of MCP authorization (OAuth 2.1). A token without the scope gets HTTP 403 `insufficient_scope`.
+
+## Protected-resource metadata (RFC 9728)
+
+MCP authorization says a protected MCP server must serve RFC 9728 metadata. The example serves it at `/.well-known/oauth-protected-resource/mcp`, with no token. `resource` is the MCP URL, `authorization_servers` lists only the issuer that the server accepts tokens from, and `bearer_methods_supported` is `["header"]`. Every 401 links the document with `resource_metadata="<url>"`.
+
+The built-in test issuer is a local key pair for the tests and the smoke run. It has no authorization endpoint, so a standard MCP client cannot get a token from it. A real deployment sets its own issuer, its keys (`jwks` or `jwksUri`), and its grant rules. The example serves no authorization-server metadata and does not invent authorization or token endpoints.
+
+With `startExampleServer({ externalTokens: false })` the server accepts Agent JWTs only. Then it serves no metadata document (the path answers 404), and the 401 challenge has no `resource_metadata`, because Agent JWTs alone are a custom auth strategy, not MCP authorization.
 
 The server serves only the `2026-07-28` revision (`legacy: "reject"`), and it accepts only local `Host` and `Origin` values.
 
@@ -20,7 +28,7 @@ pnpm --filter example-mcp-auth-http test
 | Case | Layer | Answer |
 |------|-------|--------|
 | Granted call | Tool result | `executed: <action>` |
-| No token | HTTP | 401, `asap:auth_required` |
+| No token | HTTP | 401, `asap:auth_required`, `resource_metadata` in the challenge |
 | Invalid token | HTTP | 401, `asap:invalid_token: <reason>` |
 | Token without the capability | Tool result | `isError: true`, `asap:capability_denied` |
 | `action: "forbidden-action"` | Tool result | `isError: true`, `asap:constraint_violation` |

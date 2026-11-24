@@ -53,8 +53,9 @@ describe("compliance mode (test only)", () => {
       expect(await toolText(await callProtectedTool(mcpUrl, probe.agent_jwt.valid, probe.allowed_arguments))).toBe("executed: deploy");
       expect(await toolText(await callProtectedTool(mcpUrl, probe.agent_jwt.out_of_grant, probe.allowed_arguments))).toMatch(/^asap:capability_denied/);
       expect(await toolText(await callProtectedTool(mcpUrl, probe.agent_jwt.constraint_violation, probe.constraint_violation_arguments))).toMatch(/^asap:constraint_violation/);
-      expect(await toolText(await callProtectedTool(mcpUrl, probe.external.valid, probe.allowed_arguments))).toBe("executed: deploy");
-      expect((await callProtectedTool(mcpUrl, probe.external.out_of_grant, probe.allowed_arguments)).status).toBe(403);
+      const external = probe.external ?? { valid: "missing", out_of_grant: "missing" };
+      expect(await toolText(await callProtectedTool(mcpUrl, external.valid, probe.allowed_arguments))).toBe("executed: deploy");
+      expect((await callProtectedTool(mcpUrl, external.out_of_grant, probe.allowed_arguments)).status).toBe(403);
     }
   });
 });

@@ -22,6 +22,7 @@ import * as z from "zod";
 
 import { COMPLIANCE_PROBE_PATH, mintComplianceProbeTokens } from "./compliance.js";
 import { createDemoIdentity, type DemoIdentity } from "./demo-identity.js";
+import { protectedResourceMetadata } from "./resource-metadata.js";
 import { createTestIssuer, type TestIssuer } from "./test-issuer.js";
 
 export const PUBLIC_TOOL = "echo";
@@ -52,6 +53,8 @@ export interface ExampleServerOptions {
   readonly host?: string;
   /** Test only: serve fresh probe tokens at `POST /compliance/probe-tokens`. Default: off. */
   readonly compliance?: boolean;
+  /** Accept access tokens from the local test issuer and serve RFC 9728 metadata. Default: on. */
+  readonly externalTokens?: boolean;
 }
 
 export interface RunningExampleServer {
@@ -61,7 +64,8 @@ export interface RunningExampleServer {
   close(): Promise<void>;
 }
 
-export async function startExampleServer({ port = 0, host = "127.0.0.1", compliance = false }: ExampleServerOptions = {}): Promise<RunningExampleServer> {
+export async function startExampleServer(options: ExampleServerOptions = {}): Promise<RunningExampleServer> {
+  const { port = 0, host = "127.0.0.1", compliance = false, externalTokens = true } = options;
   const [demo, testIssuer] = await Promise.all([createDemoIdentity(), createTestIssuer()]);
   // The audience is the endpoint URL, which is known only once the port is bound.
   let app: { fetch(request: Request): Promise<Response> } | undefined;
@@ -69,23 +73,30 @@ export async function startExampleServer({ port = 0, host = "127.0.0.1", complia
   await new Promise<void>((resolve) => httpServer.listen(port, host, resolve));
   const url = new URL(`http://${host}:${(httpServer.address() as AddressInfo).port}/mcp`);
 
+  const issuers = externalTokens ? [testIssuer.configFor(url.href)] : [];
+  const metadata = protectedResourceMetadata(url, issuers);
   const auth = createMcpAuthMiddleware({
     agentJwt: { audience: url.href, resolveAgent: demo.resolveAgent },
     agentGrants: demo.agentGrants,
-    externalTokens: { issuers: [testIssuer.configFor(url.href)] },
+    externalTokens: issuers.length === 0 ? undefined : { issuers },
     publicTools: [PUBLIC_TOOL],
+    resourceMetadataUrl: metadata?.url,
   });
   // legacy: "reject" serves only 2026-07-28. A 2025-era request skips the SDK's check of
   // Mcp-Method and Mcp-Name against the body, which the token layer relies on.
   const mcpHandler = createMcpHandler(() => buildExampleMcpServer(auth), { legacy: "reject" });
   const protectedMcp = auth.protect(mcpHandler);
   const isProbeRequest = (request: Request) => compliance && request.method === "POST" && new URL(request.url).pathname === COMPLIANCE_PROBE_PATH;
+  // Well-known documents need no token and never reach the MCP handler.
+  const wellKnownResponse = (request: Request) =>
+    new URL(request.url).pathname.startsWith("/.well-known/") ? (metadata?.respond(request) ?? new Response(null, { status: 404 })) : undefined;
   app = {
     fetch: async (request) =>
       hostHeaderValidationResponse(request, localhostAllowedHostnames()) ??
       originValidationResponse(request, localhostAllowedOrigins()) ??
+      wellKnownResponse(request) ??
       (isProbeRequest(request)
-        ? Response.json(await mintComplianceProbeTokens(url, PROTECTED_TOOL, demo, testIssuer))
+        ? Response.json(await mintComplianceProbeTokens(url, PROTECTED_TOOL, demo, externalTokens ? testIssuer : undefined))
         : protectedMcp.fetch(request)),
   };
   return {
