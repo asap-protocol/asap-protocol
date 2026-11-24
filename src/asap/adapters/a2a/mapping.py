@@ -20,12 +20,24 @@ from asap.adapters.a2a.card_security import (
     prepare_card_security_schemes,
 )
 from asap.adapters.a2a.errors import A2AMappingError, A2AMappingInputError
-from asap.adapters.a2a.extension import AsapExtensionParams, SkillSchemas, build_asap_extension
-from asap.adapters.a2a.models import AgentCard, AgentExtension, AgentInterface, AgentProvider
+from asap.adapters.a2a.extension import (
+    ASAP_EXTENSION_URI,
+    AsapExtensionParams,
+    SkillSchemas,
+    build_asap_extension,
+    read_asap_extension,
+)
+from asap.adapters.a2a.models import (
+    AgentCard,
+    AgentExtension,
+    AgentInterface,
+    AgentProvider,
+    AgentSkill,
+)
 from asap.adapters.a2a.security import SecurityRequirement, SecurityScheme
 from asap.adapters.a2a.unmapped import UNMAPPED_MANIFEST_FIELDS, DroppedField
 from asap.models.base import ASAPBaseModel
-from asap.models.entities import Manifest, Skill
+from asap.models.entities import Endpoint, Manifest, Skill
 
 _TagList = Annotated[list[NonEmptyStr], Field(min_length=1)]
 
@@ -101,6 +113,103 @@ def manifest_to_agent_card(manifest: Manifest, inputs: AgentCardInputs) -> CardM
     except ValidationError as exc:
         raise A2AMappingError.from_validation_error(source, "A2A v1.0 Agent Card", exc) from exc
     return CardMapping(card=card, dropped=_dropped_manifest_fields(manifest))
+
+
+@dataclass(frozen=True, slots=True)
+class ManifestMapping:
+    """Result of :func:`agent_card_to_manifest`."""
+
+    manifest: Manifest
+
+
+def agent_card_to_manifest(
+    card: AgentCard, *, agent_id: str | None = None, endpoints: Endpoint | None = None
+) -> ManifestMapping:
+    """Build an ASAP manifest from an A2A v1.0 Agent Card.
+
+    The URN, the endpoints, the ASAP version, state persistence, and the skill
+    schemas come from the card's ASAP extension. A card without it needs
+    ``agent_id`` and ``endpoints`` from the caller. When the card has it, a
+    value that the caller also passes must equal the card's. Map only a card
+    whose signature was verified; the manifest is built from the
+    parsed model, so a field outside the A2A v1.0 schema never reaches it.
+
+    Raises:
+        A2AMappingInputError: A caller input is missing or conflicts with the card.
+        A2AMappingError: The manifest would not be valid, for example because the
+            card version is not one a manifest accepts; or the ASAP extension is
+            broken; or two skills share an id.
+
+    Example:
+        >>> agent_card_to_manifest(card, agent_id="urn:asap:agent:x",
+        ...     endpoints=Endpoint(asap="https://x.example/asap")).manifest  # doctest: +SKIP
+    """
+    source = f"Agent Card {card.name!r}"
+    params = read_asap_extension(card)
+    manifest_id, manifest_endpoints = _identity_for(params, agent_id, endpoints)
+    _require_unique_skill_ids([skill.id for skill in card.skills], source)
+    try:
+        manifest = Manifest.model_validate(
+            {
+                "id": manifest_id,
+                "name": card.name,
+                "version": card.version,
+                "description": card.description,
+                "capabilities": _manifest_capabilities(card, params),
+                "endpoints": manifest_endpoints,
+            }
+        )
+    except ValidationError as exc:
+        raise A2AMappingError.from_validation_error(source, "ASAP manifest", exc) from exc
+    return ManifestMapping(manifest=manifest)
+
+
+def _identity_for(
+    params: AsapExtensionParams | None, agent_id: str | None, endpoints: Endpoint | None
+) -> tuple[str, Endpoint]:
+    if params is None:
+        if agent_id is None or endpoints is None:
+            missing = "agent_id" if agent_id is None else "endpoints"
+            raise A2AMappingInputError(
+                missing,
+                f"the card has no ASAP extension ({ASAP_EXTENSION_URI}), so the caller "
+                f"must pass agent_id and endpoints; {missing} is missing",
+            )
+        return agent_id, endpoints
+    card_endpoints = Endpoint(asap=params.asap_endpoint, events=params.events_endpoint)
+    _require_equal("agent_id", agent_id, params.agent_urn)
+    _require_equal("endpoints", endpoints, card_endpoints)
+    return params.agent_urn, card_endpoints
+
+
+def _require_equal(input_name: str, given: object, from_card: object) -> None:
+    if given is not None and given != from_card:
+        raise A2AMappingInputError(
+            input_name,
+            f"{input_name} {given!r} conflicts with the card's ASAP extension, "
+            f"which gives {from_card!r}",
+        )
+
+
+def _manifest_capabilities(card: AgentCard, params: AsapExtensionParams | None) -> dict[str, Any]:
+    schemas = (params.skill_schemas if params else None) or {}
+    capabilities: dict[str, Any] = {
+        "streaming": card.capabilities.streaming is True,
+        "skills": [_manifest_skill(skill, schemas.get(skill.id)) for skill in card.skills],
+    }
+    if params is not None:
+        capabilities["asap_version"] = params.asap_version
+        capabilities["state_persistence"] = params.state_persistence
+    return capabilities
+
+
+def _manifest_skill(skill: AgentSkill, schemas: SkillSchemas | None) -> dict[str, Any]:
+    return {
+        "id": skill.id,
+        "description": skill.description,
+        "input_schema": schemas.input_schema if schemas else None,
+        "output_schema": schemas.output_schema if schemas else None,
+    }
 
 
 def _card_fields(

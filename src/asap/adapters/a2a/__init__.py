@@ -23,7 +23,13 @@ from asap.adapters.a2a.extension import (
     SkillSchemas,
     read_asap_extension,
 )
-from asap.adapters.a2a.mapping import AgentCardInputs, CardMapping, manifest_to_agent_card
+from asap.adapters.a2a.mapping import (
+    AgentCardInputs,
+    CardMapping,
+    ManifestMapping,
+    agent_card_to_manifest,
+    manifest_to_agent_card,
+)
 from asap.adapters.a2a.models import (
     AgentCapabilities,
     AgentCard,
@@ -74,6 +80,7 @@ __all__ = [
     "DroppedField",
     "HTTPAuthSecurityScheme",
     "ImplicitOAuthFlow",
+    "ManifestMapping",
     "MutualTlsSecurityScheme",
     "OAuth2SecurityScheme",
     "OAuthFlows",
@@ -84,6 +91,7 @@ __all__ = [
     "SkillSchemas",
     "StringList",
     "UNMAPPED_MANIFEST_FIELDS",
+    "agent_card_to_manifest",
     "manifest_to_agent_card",
     "read_asap_extension",
 ]
