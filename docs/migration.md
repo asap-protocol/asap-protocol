@@ -1144,13 +1144,8 @@ Each change below can affect code that worked with v2.5.x.
 
 | Change | Who is affected | What to do |
 |--------|-----------------|------------|
-| **Agent JWT lifetime.** `verify_agent_jwt` refuses an Agent JWT whose `exp` is more than 120 seconds after the current time, or after its `iat`, with the error `token lifetime too long`. A longer-lived token could outlive the replay-cache record of its `jti` | Code that mints Agent JWTs itself with a longer lifetime. `create_agent_jwt` (Python) and `signAgentJwt` (TypeScript) mint 60-second tokens, which pass. Host JWTs are not capped | Mint one Agent JWT per request, with `exp` at most 120 seconds after `iat` |
-| **Constraint checks fail closed.** A `max` or `min` constraint is a violation when the argument or the bound is `NaN`, `Infinity`, or `-Infinity`. A constraint whose operand types the operator cannot compare (for example `in` on a string with a number argument, or a `max` that is not a number) is a violation, not a `TypeError`. This applies to `validate_constraints`, `CapabilityRegistry.check_grant`, `POST /asap/capability/execute`, and the MCP Auth Bridge | Callers whose arguments passed such a check before. `POST /asap/capability/execute` now answers 403 `constraint_violated` where it answered 500; the MCP Auth Bridge answers `asap:constraint_violation` | Give `max` and `min` finite numbers, and give `in` and `not_in` a list of values of the argument's type |
 | **`POST /asap/capability/execute` with `oauth2_config`.** `OAuth2Middleware` no longer validates this exact path, because the route verifies its own bearer. Before, when `oauth2_config` covered `/asap`, the middleware refused every Agent JWT there, so the route could not succeed. Now a valid Agent JWT succeeds, and a token from the `oauth2_config` provider gets the route's 401 unless you list that provider in `external_token_config`. `required_scope` and the identity binding of `oauth2_config` no longer apply on this route. `GET /asap/capability/list`, `describe`, `/asap`, and any other spelling of the path stay behind the middleware | Apps that set `oauth2_config` and call capability execute | Call it with an Agent JWT. To accept the provider's tokens there, list the provider as an external issuer, with `required_claims` for the identity binding ([guide](guides/interoperability.md#with-oauth2_config)) |
 | **MCP stdio messages without `null` fields.** `tools/call` results from `MCPServer`, and the `asap:*` error results of the MCP Auth Bridge (`tool_error_result`), leave the optional `annotations` field out of each content item instead of sending `null`. `MCPClient.call_tool` without `meta` leaves `_meta` out of the params instead of sending `null` | Code that reads the `annotations` key of a content item, or the `_meta` key of the params, and expects it to be present | Treat an absent key as "not set". The text and `isError` do not change |
-| **`OAuth2Middleware` matches the routed path.** The middleware decides which requests need a token, and where `required_scope` applies, from the path without the ASGI `root_path`, the path that routing matches. Before, it read the full request path. Under a prefix, that path did not start with `/asap`, so the middleware validated nothing, and a request with no token reached the `/asap` routes. The `/asap/agent/` exemption and the operator API prefixes (`/usage`, `/sla`, `/audit`) follow the same rule | Apps that set `oauth2_config` (or add `OAuth2Middleware` themselves) and are served under a prefix: mounted in another app (`app.mount("/api", ...)` or a Starlette `Mount`), run with `uvicorn --root-path`, or with `FastAPI.root_path` set. Their `/asap` routes now answer 401 without a valid token, and 403 without `required_scope`, as they do without a prefix. An app without a prefix sees one change: a path in which an encoded `?` or `#` directly follows `/asap` (for example `/asap%3Fx`) gets 404 instead of 401. No route serves that path, before or after | Make every client of a prefixed app send a valid token on the `/asap` routes. Before you upgrade, look for clients that call them without `Authorization`: these calls now fail |
-| **Malformed tokens and deeply nested JSON are client errors.** `verify_agent_jwt` and `verify_host_jwt` return `invalid JWT structure` for a header or payload that is not a JSON object, or that is nested past the interpreter's recursion limit (about 10,000 levels), instead of raising. `verify_host_jwt` also refuses a `host_public_key` with an unknown `crv`, and an `exp` or `iat` too large for a float | Clients and monitors that saw HTTP 500 for these inputs. The identity and capability routes answer 401; the MCP Auth Bridge answers `asap:invalid_token`; a nested body on `POST /asap` or `POST /asap/stream` gets the JSON-RPC parse error; a nested WebSocket frame is ignored and the connection stays open; a nested MCP stdio line gets the MCP parse error, and the server keeps running; `validate_delegation` returns `Invalid or malformed token` | Nothing for valid tokens and bodies. Code that caught `RecursionError`, `AttributeError`, `TypeError`, `KeyError`, or `OverflowError` from `verify_agent_jwt` or `verify_host_jwt` reads the `error` of the result instead |
-| **An agent URN must match in full.** `validate_agent_urn` matches the whole value, so an agent URN with a trailing newline (for example `"urn:asap:agent:research\n"`) is refused in `Manifest.id`, `Agent.id`, `Envelope.sender`, `Envelope.recipient`, and `RegistryEntry.id`. Before, such an id passed and did not compare equal to the same id without the newline | Code that builds these models from ids read from a file, a pipe, or an environment variable without removing the line end. It now gets a `ValidationError` | Strip the id before you use it (`value.strip()`). `AGENT_URN_PATTERN` does not change |
 | **npm release tags.** Each `@asap-protocol/*` npm package now publishes from its own tag (`client-v<version>`, `mcp-auth-v<version>`), with the version from its `package.json`. `v2.3.*` and `v2.4.*` tags no longer publish to npm, and the `hotfix-release.yml` workflow and its `hotfix` dist-tag track are gone | Maintainers, and forks that publish the packages | Follow [npm publishing](maintainers/npm-publishing.md). Versions already on npm stay as they are |
 
 The new `create_app` arguments (`agent_card`, `external_token_config`) are
@@ -1192,12 +1187,9 @@ walks through each one.
 
 1. Change each [removed import](#removed-import-paths) to its replacement.
 2. Bump with `pip install 'asap-protocol==2.6.0'` (or `uv add asap-protocol`).
-3. If you mint Agent JWTs yourself, keep `exp` at most 120 seconds after `iat`.
-4. If you set `oauth2_config`, read the capability execute row and the
-   routed-path row in [Behavior changes](#behavior-changes). Under a prefix,
-   make every client send a token on the `/asap` routes.
-5. If you read agent ids from files or environment variables, strip them.
-6. TypeScript: code that reads a private-key member other than `d` (for
+3. If you set `oauth2_config`, read the capability execute row in
+   [Behavior changes](#behavior-changes).
+4. TypeScript: code that reads a private-key member other than `d` (for
    example `dp`) from `publicJwk` no longer type-checks with
    `@asap-protocol/client` 2.5.0; read only public members. Add
    `@asap-protocol/mcp-auth` only to protect an HTTP MCP server.
@@ -1206,10 +1198,9 @@ walks through each one.
 
 - **Wire protocol**: unchanged. The ASAP envelope, the JSON-RPC methods, and
   the manifest schema are the same as in v2.5.x.
-- **Breaking changes**: the six removed import paths, the Agent JWT lifetime
-  cap, the constraint checks that now fail closed, the token that an app
-  with `oauth2_config` under a prefix now requires on its `/asap` routes, and
-  the agent URNs with a trailing newline that are now refused.
+- **Breaking changes**: the six removed import paths. The behavior changes that
+  shipped in v2.5.12 are in
+  [Upgrading from v2.5.11 to v2.5.12](#upgrading-from-v2511-to-v2512).
 - **TypeScript**: `HostContext.publicJwk`, `AgentContext.publicJwk`, and the
   `agentPublicKey` option of `signHostJwt` are typed `PublicJwk` instead of
   the DOM `JsonWebKey`. Each type can be assigned to the other; code that
