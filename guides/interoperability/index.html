@@ -1,0 +1,4530 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A streamlined protocol for agent-to-agent communication">
+      
+      
+      
+        <link rel="canonical" href="https://asap-protocol.github.io/asap-protocol/guides/interoperability/">
+      
+      
+        <link rel="prev" href="../build-for-agents/">
+      
+      
+        <link rel="next" href="../identity-signing/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Interoperability (A2A, MCP) - ASAP Protocol</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#interoperability-a2a-mcp-and-asap" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="ASAP Protocol" class="md-header__button md-logo" aria-label="ASAP Protocol" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ASAP Protocol
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Interoperability (A2A, MCP)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/asap-protocol/asap-protocol" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    asap-protocol/asap-protocol
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="ASAP Protocol" class="md-nav__button md-logo" aria-label="ASAP Protocol" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    ASAP Protocol
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/asap-protocol/asap-protocol" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    asap-protocol/asap-protocol
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SDKs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    SDKs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sdks/typescript/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TypeScript client
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integrations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Integrations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/support-tiers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Support tiers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/mastra/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mastra
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/openai-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAI Agents SDK
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/workflow-connectors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflow connectors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/microsoft-agent-framework/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Microsoft Agent Framework
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/nemo-agent-toolkit/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NeMo Agent Toolkit
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adapters
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Adapters
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adapters/openapi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adapters/mcp-auth-bridge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Auth Bridge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/first-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Building Your First Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/stateful-workflows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stateful Workflows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/multi-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Orchestration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/resilience/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Building Resilient Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/production-checklist/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Production Deployment Checklist
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture Decision Records
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture Decision Records
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Index
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-001-ulid-for-id-generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-001 ULID for ID Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-002-async-first-api-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-002 Async-First API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-003-jsonrpc20-binding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-003 JSON-RPC 2.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-004-pydantic-for-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-004 Pydantic for Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-005-state-machine-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-005 State Machine
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-006-security-defaults/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-006 Security Defaults
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-007-fastapi-for-server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-007 FastAPI for Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-008-httpx-for-client/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-008 httpx for Client
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-009-snapshot-vs-event-sourced/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-009 Snapshot vs Event-Sourced
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-010-python-313-requirement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-010 Python 3.13+
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-011-per-sender-rate-limiting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-011 Per-Sender Rate Limiting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-012-error-taxonomy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-012 Error Taxonomy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-013-mcp-integration-approach/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-013 MCP Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-014-testing-strategy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-014 Testing Strategy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-015-observability-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-015 Observability Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-016-versioning-policy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-016 Versioning Policy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-017-failure-injection-strategy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-017 Failure Injection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../build-for-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build for agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interoperability (A2A, MCP)
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interoperability (A2A, MCP)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#start-here" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Start here
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#terms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Terms
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-asap-sits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where ASAP sits
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pinned-versions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pinned versions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#flow-a-an-a2a-client-calls-an-asap-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flow A: an A2A client calls an ASAP agent
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Flow A: an A2A client calls an ASAP agent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#who-trusts-whom" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Who trusts whom
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-1-run-the-reference-gateway" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1: run the reference gateway
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-build-and-serve-a-signed-agent-card" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2: build and serve a signed Agent Card
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-verify-a-card-that-you-fetch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3: verify a card that you fetch
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-4-call-a-skill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 4: call a skill
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-5-refusals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 5: refusals
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#agent-card-and-manifest-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agent Card and manifest fields
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Agent Card and manifest fields">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mapped-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mapped fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#manifest-fields-that-a-card-does-not-carry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manifest fields that a card does not carry
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#card-fields-that-a-manifest-does-not-carry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Card fields that a manifest does not carry
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-asap-extension" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The ASAP extension
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mapping-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mapping rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#signed-agent-cards" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Signed Agent Cards
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Signed Agent Cards">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#signing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Signing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verification-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verification policy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trust-store-and-jku-allowlist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trust store and jku allowlist
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#algorithms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Algorithms
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-verified-means" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What "verified" means
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#external-access-tokens-on-an-asap-server-python" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        External access tokens on an ASAP server (Python)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="External access tokens on an ASAP server (Python)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-a-principal-is" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What a principal is
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configure-the-issuers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configure the issuers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#grant-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Grant rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#call-the-route" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Call the route
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#with-oauth2_config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        With oauth2_config
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#opaque-tokens" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Opaque tokens
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#flow-b-an-mcp-client-calls-an-http-mcp-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flow B: an MCP client calls an HTTP MCP server
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Flow B: an MCP client calls an HTTP MCP server">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#who-trusts-whom_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Who trusts whom
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#run-the-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Run the example
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#write-your-own-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Write your own server
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-four-asap-codes-over-http" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The four asap:* codes over HTTP
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compliance-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compliance checks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-is-not-supported" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is not supported
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ietf-drafts-that-the-project-tracks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        IETF drafts that the project tracks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related documentation
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../identity-signing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Identity Signing (v1.2)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compliance-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compliance Testing (v1.2)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../migration-v1.1-to-v1.2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migration v1.1 → v1.2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../registry/auto-registration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lite Registry auto-registration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../automation-connector-security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Automation connector security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../state-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transport
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../deployment/kubernetes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment (Kubernetes)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_8_1" id="__nav_8_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Models
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Models
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/models/entities.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Entities
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/models/payloads.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Payloads
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/models/parts.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Parts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/transport.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transport
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/state.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../error-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error Handling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#start-here" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Start here
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#terms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Terms
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-asap-sits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where ASAP sits
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pinned-versions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pinned versions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#flow-a-an-a2a-client-calls-an-asap-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flow A: an A2A client calls an ASAP agent
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Flow A: an A2A client calls an ASAP agent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#who-trusts-whom" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Who trusts whom
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-1-run-the-reference-gateway" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1: run the reference gateway
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-build-and-serve-a-signed-agent-card" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2: build and serve a signed Agent Card
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-verify-a-card-that-you-fetch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3: verify a card that you fetch
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-4-call-a-skill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 4: call a skill
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-5-refusals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 5: refusals
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#agent-card-and-manifest-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agent Card and manifest fields
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Agent Card and manifest fields">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mapped-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mapped fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#manifest-fields-that-a-card-does-not-carry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manifest fields that a card does not carry
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#card-fields-that-a-manifest-does-not-carry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Card fields that a manifest does not carry
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-asap-extension" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The ASAP extension
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mapping-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mapping rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#signed-agent-cards" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Signed Agent Cards
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Signed Agent Cards">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#signing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Signing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verification-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verification policy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trust-store-and-jku-allowlist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trust store and jku allowlist
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#algorithms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Algorithms
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-verified-means" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What "verified" means
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#external-access-tokens-on-an-asap-server-python" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        External access tokens on an ASAP server (Python)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="External access tokens on an ASAP server (Python)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-a-principal-is" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What a principal is
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configure-the-issuers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configure the issuers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#grant-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Grant rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#call-the-route" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Call the route
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#with-oauth2_config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        With oauth2_config
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#opaque-tokens" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Opaque tokens
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#flow-b-an-mcp-client-calls-an-http-mcp-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flow B: an MCP client calls an HTTP MCP server
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Flow B: an MCP client calls an HTTP MCP server">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#who-trusts-whom_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Who trusts whom
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#run-the-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Run the example
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#write-your-own-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Write your own server
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-four-asap-codes-over-http" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The four asap:* codes over HTTP
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compliance-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compliance checks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-is-not-supported" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is not supported
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ietf-drafts-that-the-project-tracks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        IETF drafts that the project tracks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related documentation
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="interoperability-a2a-mcp-and-asap">Interoperability: A2A, MCP, and ASAP</h1>
+<p>ASAP layers on A2A v1.0 and MCP authorization (OAuth 2.1). It does not replace them. An A2A client keeps sending A2A messages, and an MCP client keeps sending MCP requests. ASAP adds a check on the server side: before a skill or a tool runs, the caller must hold an ASAP <em>grant</em> for it.</p>
+<p>This guide shows two flows that run end to end in this repository:</p>
+<ul>
+<li><strong>Flow A (A2A):</strong> an A2A client reads the signed Agent Card of an ASAP agent, verifies it, and calls one skill with an OAuth access token. An ASAP grant decides whether the skill runs.</li>
+<li><strong>Flow B (MCP):</strong> an MCP client calls a tool on an HTTP MCP server. <code>@asap-protocol/mcp-auth</code> checks the token and the grant before the tool runs.</li>
+</ul>
+<p>The guide describes <code>asap-protocol</code> 2.6.0 and <code>@asap-protocol/mcp-auth</code> 0.1.0.</p>
+<h2 id="start-here">Start here</h2>
+<table>
+<thead>
+<tr>
+<th>You have</th>
+<th>You want</th>
+<th>Read</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>An A2A v1.0 client</td>
+<td>To call a skill of an ASAP agent</td>
+<td><a href="#flow-a-an-a2a-client-calls-an-asap-agent">Flow A</a></td>
+</tr>
+<tr>
+<td>An ASAP agent</td>
+<td>To be found and called by A2A clients</td>
+<td><a href="#flow-a-an-a2a-client-calls-an-asap-agent">Flow A</a>, then <a href="#signed-agent-cards">Signed Agent Cards</a></td>
+</tr>
+<tr>
+<td>An Agent Card from another party</td>
+<td>To verify it and read it as an ASAP manifest</td>
+<td><a href="#step-3-verify-a-card-that-you-fetch">Verify a card that you fetch</a></td>
+</tr>
+<tr>
+<td>An OAuth 2.1 authorization server</td>
+<td>ASAP grants for its access tokens on a Python ASAP server</td>
+<td><a href="#external-access-tokens-on-an-asap-server-python">External access tokens</a></td>
+</tr>
+<tr>
+<td>An HTTP MCP server in TypeScript</td>
+<td>Agent JWTs or access tokens checked against grants</td>
+<td><a href="#flow-b-an-mcp-client-calls-an-http-mcp-server">Flow B</a></td>
+</tr>
+<tr>
+<td>A Python MCP server on stdio</td>
+<td>Agent JWTs checked against grants</td>
+<td><a href="../../adapters/mcp-auth-bridge/">MCP Auth Bridge</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="terms">Terms</h2>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Agent</strong></td>
+<td>A program that acts for a person or a service. In ASAP, each agent has a URN, such as <code>urn:asap:agent:research</code>.</td>
+</tr>
+<tr>
+<td><strong>Host</strong></td>
+<td>The app or service that runs an agent and holds its keys.</td>
+</tr>
+<tr>
+<td><strong>Manifest</strong></td>
+<td>ASAP's description of an agent: its URN, name, version, skills, and the URL of its ASAP endpoint. It is served at <code>/.well-known/asap/manifest.json</code>.</td>
+</tr>
+<tr>
+<td><strong>Agent Card</strong></td>
+<td>A2A's description of an agent. It is served at <code>/.well-known/agent-card.json</code>. A card can carry signatures.</td>
+</tr>
+<tr>
+<td><strong>Skill</strong></td>
+<td>One task that an agent can do, such as <code>web_research</code>. A2A and ASAP both use this word.</td>
+</tr>
+<tr>
+<td><strong>Capability</strong></td>
+<td>A named permission, such as <code>file:read</code>. In the flows of this guide, each skill or tool needs one capability.</td>
+</tr>
+<tr>
+<td><strong>Grant</strong></td>
+<td>Gives one caller one capability, with optional constraints. With no grant, the call is refused.</td>
+</tr>
+<tr>
+<td><strong>Constraint</strong></td>
+<td>A rule on the arguments of a call, inside a grant: an exact value, or the operators <code>max</code>, <code>min</code>, <code>in</code>, and <code>not_in</code>.</td>
+</tr>
+<tr>
+<td><strong>Agent JWT</strong></td>
+<td>ASAP's own token. An ASAP agent signs a new one for each request with its Ed25519 key. It lives 60 seconds and works once.</td>
+</tr>
+<tr>
+<td><strong>Access token</strong></td>
+<td>An OAuth 2.1 access token from an authorization server (the <em>issuer</em>) that you list. This guide also calls it an <em>external token</em>.</td>
+</tr>
+<tr>
+<td><strong>Principal</strong></td>
+<td>The verified caller of one request. For an access token, ASAP builds the principal from the token and keeps it for that request only.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="where-asap-sits">Where ASAP sits</h2>
+<p>ASAP reuses the base standard at each layer and adds identity, grants, and conformance checks on top.</p>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Base standard</th>
+<th>What ASAP adds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Interaction</td>
+<td>A2A v1.0 tasks and messages</td>
+<td>The ASAP envelope and task state machine, ASAP's own wire format (the flows in this guide do not use it). For A2A callers: a reference gateway that checks an ASAP grant before a skill runs (<code>examples/a2a_gateway/</code>)</td>
+</tr>
+<tr>
+<td>Tool execution</td>
+<td>MCP tools</td>
+<td>The MCP Auth Bridge: an Agent JWT or an access token, and a grant, on each <code>tools/call</code>. Python covers stdio servers; <code>@asap-protocol/mcp-auth</code> covers Streamable HTTP servers in TypeScript</td>
+</tr>
+<tr>
+<td>Discovery</td>
+<td>A2A Agent Card</td>
+<td>The manifest and its well-known URI; a signed Agent Card built from the manifest and served beside it; verification of the cards that you fetch</td>
+</tr>
+<tr>
+<td>Identity and access</td>
+<td>OAuth 2.1 and OpenID Connect; MCP authorization (OAuth 2.1)</td>
+<td>Host and Agent JWTs, capability grants, approval flows; grants for access tokens from issuers that you list</td>
+</tr>
+<tr>
+<td>Conformance</td>
+<td>None</td>
+<td><code>asap-compliance</code> checks</td>
+</tr>
+</tbody>
+</table>
+<h2 id="pinned-versions">Pinned versions</h2>
+<p>This release is built and tested against these versions. The A2A and MCP rules that this guide describes come from them.</p>
+<table>
+<thead>
+<tr>
+<th>What</th>
+<th>Version</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A2A specification</td>
+<td>1.0, from <code>specification/a2a.proto</code> at tag <code>v1.0.1</code></td>
+</tr>
+<tr>
+<td>A2A Python SDK (<code>a2a-sdk</code>)</td>
+<td>1.3.1. Only the tests and the reference gateway use it; <code>asap-protocol</code> does not depend on it</td>
+</tr>
+<tr>
+<td>MCP specification</td>
+<td>Revision <code>2026-07-28</code></td>
+</tr>
+<tr>
+<td>MCP TypeScript SDK</td>
+<td><code>@modelcontextprotocol/server</code> 2.4.0. <code>@asap-protocol/mcp-auth</code> accepts 2.4.0 and later 2.x releases</td>
+</tr>
+</tbody>
+</table>
+<h2 id="flow-a-an-a2a-client-calls-an-asap-agent">Flow A: an A2A client calls an ASAP agent</h2>
+<h3 id="who-trusts-whom">Who trusts whom</h3>
+<div class="highlight"><pre><span></span><code>A2A client                                    Gateway in front of an ASAP agent
+    │                                                    │
+    │ 1. GET /.well-known/agent-card.json                │
+    │ ─────────────────────────────────────────────────► │
+    │ ◄───────────────────────────── signed Agent Card   │
+    │ 2. verify the card with a key that you trust       │
+    │                                                    │
+    │ 3. SendMessage, Authorization: Bearer &lt;token&gt;      │
+    │ ─────────────────────────────────────────────────► │ 4. verify the token: issuer, audience, signature, expiry
+    │                                                    │ 5. turn the token into grants, with your rules
+    │                                                    │ 6. run the skill only if a grant allows the call
+    │ ◄──────────────────────────────── the skill result │
+</code></pre></div>
+<ul>
+<li>The client trusts a card only when a key that it trusts signed the card for that agent. It never takes a key from a URL that the card names, unless you allow that URL.</li>
+<li>The gateway trusts only the issuers that you list, and only tokens whose audience is the gateway.</li>
+<li>The token's scopes grant nothing by themselves. Your grant rules decide which capability each scope gives.</li>
+</ul>
+<p>What ships, and what is an example:</p>
+<ul>
+<li><strong><code>asap.adapters.a2a</code></strong> (in <code>asap-protocol</code>, Tier 1): models of the A2A v1.0 Agent Card, the mapping between a card and a manifest, card signing, and card verification. It does not import <code>a2a-sdk</code>, and it holds no A2A server or client.</li>
+<li><strong><code>create_app(agent_card=...)</code></strong> serves the signed card beside the manifest.</li>
+<li><strong><code>examples/a2a_gateway/</code></strong> is a reference gateway built with the A2A Python SDK. It has no support tier: copy it and adapt it.</li>
+</ul>
+<h3 id="step-1-run-the-reference-gateway">Step 1: run the reference gateway</h3>
+<p>From the repository root, after <code>uv sync</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">ASAP_LOG_LEVEL</span><span class="o">=</span>ERROR<span class="w"> </span>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>examples.a2a_gateway.smoke
+</code></pre></div>
+<p>Expected output:</p>
+<div class="highlight"><pre><span></span><code>a2a-sdk client: card &#39;A2A Gateway Demo&#39; verified (EdDSA, kid gateway-card-1)
+ASAP ingest: card verified, manifest urn:asap:agent:a2a-gateway-demo
+greet with scope demo:greet: {&#39;greeting&#39;: &#39;Hello, Ada!&#39;}
+</code></pre></div>
+<p>The run starts the gateway in the same process. It opens no port and fetches nothing from the network. The access tokens come from a local test issuer, whose public keys sit in the token config. The <a href="https://github.com/asap-protocol/asap-protocol/blob/main/examples/a2a_gateway/README.md">gateway README</a> explains each line.</p>
+<p>To run the allowed call and every refusal:</p>
+<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/examples/test_a2a_gateway.py<span class="w"> </span>tests/examples/test_a2a_gateway_skill_call.py<span class="w"> </span>tests/examples/test_a2a_gateway_denied.py<span class="w"> </span>tests/examples/test_a2a_gateway_smoke.py<span class="w"> </span>-q
+</code></pre></div>
+<h3 id="step-2-build-and-serve-a-signed-agent-card">Step 2: build and serve a signed Agent Card</h3>
+<p><code>build_signed_agent_card</code> makes the card from the manifest and signs it. <code>create_app</code> then serves it at <code>/.well-known/agent-card.json</code>, beside the manifest.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">cryptography.hazmat.primitives.asymmetric.ed25519</span><span class="w"> </span><span class="kn">import</span> <span class="n">Ed25519PrivateKey</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.adapters.a2a</span><span class="w"> </span><span class="kn">import</span> <span class="n">AgentCardInputs</span><span class="p">,</span> <span class="n">AgentInterface</span><span class="p">,</span> <span class="n">CardSigner</span><span class="p">,</span> <span class="n">build_signed_agent_card</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.auth.external_tokens</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExternalTokenConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.models.entities</span><span class="w"> </span><span class="kn">import</span> <span class="n">Capability</span><span class="p">,</span> <span class="n">Endpoint</span><span class="p">,</span> <span class="n">Manifest</span><span class="p">,</span> <span class="n">Skill</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.transport.handlers</span><span class="w"> </span><span class="kn">import</span> <span class="n">HandlerRegistry</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.transport.server</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_app</span>
+
+<span class="n">ORIGIN</span> <span class="o">=</span> <span class="s2">&quot;https://agent.example.com&quot;</span>
+
+<span class="n">manifest</span> <span class="o">=</span> <span class="n">Manifest</span><span class="p">(</span>
+    <span class="nb">id</span><span class="o">=</span><span class="s2">&quot;urn:asap:agent:research&quot;</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Research Agent&quot;</span><span class="p">,</span>
+    <span class="n">version</span><span class="o">=</span><span class="s2">&quot;1.0.0&quot;</span><span class="p">,</span>
+    <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Searches the web and sums up what it finds&quot;</span><span class="p">,</span>
+    <span class="n">capabilities</span><span class="o">=</span><span class="n">Capability</span><span class="p">(</span><span class="n">skills</span><span class="o">=</span><span class="p">[</span><span class="n">Skill</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s2">&quot;web_research&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Search the web&quot;</span><span class="p">)]),</span>
+    <span class="n">endpoints</span><span class="o">=</span><span class="n">Endpoint</span><span class="p">(</span><span class="n">asap</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ORIGIN</span><span class="si">}</span><span class="s2">/asap&quot;</span><span class="p">),</span>
+<span class="p">)</span>
+
+<span class="c1"># The tokens that the A2A interface accepts. The card describes them.</span>
+<span class="n">tokens</span> <span class="o">=</span> <span class="n">ExternalTokenConfig</span><span class="o">.</span><span class="n">model_validate</span><span class="p">({</span><span class="s2">&quot;issuers&quot;</span><span class="p">:</span> <span class="p">[{</span>
+    <span class="s2">&quot;issuer&quot;</span><span class="p">:</span> <span class="s2">&quot;https://auth.example.com&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;audience&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ORIGIN</span><span class="si">}</span><span class="s2">/a2a&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;key_source&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;kind&quot;</span><span class="p">:</span> <span class="s2">&quot;oidc_discovery&quot;</span><span class="p">},</span>
+    <span class="s2">&quot;grant_rules&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="s2">&quot;scope&quot;</span><span class="p">:</span> <span class="s2">&quot;research:run&quot;</span><span class="p">,</span> <span class="s2">&quot;capability&quot;</span><span class="p">:</span> <span class="s2">&quot;web_research&quot;</span><span class="p">}],</span>
+<span class="p">}]})</span>
+
+<span class="c1"># Card data that a manifest does not hold.</span>
+<span class="n">inputs</span> <span class="o">=</span> <span class="n">AgentCardInputs</span><span class="p">(</span>
+    <span class="n">interfaces</span><span class="o">=</span><span class="p">[</span><span class="n">AgentInterface</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ORIGIN</span><span class="si">}</span><span class="s2">/a2a&quot;</span><span class="p">,</span> <span class="n">protocol_binding</span><span class="o">=</span><span class="s2">&quot;JSONRPC&quot;</span><span class="p">,</span> <span class="n">protocol_version</span><span class="o">=</span><span class="s2">&quot;1.0&quot;</span><span class="p">)],</span>
+    <span class="n">default_input_modes</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;application/json&quot;</span><span class="p">],</span>
+    <span class="n">default_output_modes</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;application/json&quot;</span><span class="p">],</span>
+    <span class="n">skill_tags</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;web_research&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;research&quot;</span><span class="p">]},</span>
+<span class="p">)</span>
+
+<span class="n">card_key</span> <span class="o">=</span> <span class="n">Ed25519PrivateKey</span><span class="o">.</span><span class="n">generate</span><span class="p">()</span>  <span class="c1"># in production, load the agent&#39;s own Ed25519 key</span>
+<span class="n">card</span> <span class="o">=</span> <span class="n">build_signed_agent_card</span><span class="p">(</span>
+    <span class="n">manifest</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">signers</span><span class="o">=</span><span class="p">[</span><span class="n">CardSigner</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">card_key</span><span class="p">,</span> <span class="n">kid</span><span class="o">=</span><span class="s2">&quot;research-card-1&quot;</span><span class="p">)],</span> <span class="n">external_tokens</span><span class="o">=</span><span class="n">tokens</span>
+<span class="p">)</span><span class="o">.</span><span class="n">card</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">create_app</span><span class="p">(</span><span class="n">manifest</span><span class="p">,</span> <span class="n">registry</span><span class="o">=</span><span class="n">HandlerRegistry</span><span class="p">(),</span> <span class="n">agent_card</span><span class="o">=</span><span class="n">card</span><span class="p">)</span>
+</code></pre></div>
+<ul>
+<li><strong><code>inputs</code></strong> holds what a card needs and a manifest lacks: the A2A interfaces, the input and output media types, and at least one tag per skill. A missing input raises <code>A2AMappingInputError</code>.</li>
+<li><strong><code>external_tokens</code></strong> writes the card's security. An issuer configured for OpenID Connect discovery publishes its discovery URL. Other issuers publish an HTTP Bearer scheme. Each scope rule becomes a requirement on its skill. The card can say less than the server accepts (a claim rule is not shown), never more.</li>
+<li><strong><code>CardSigner</code></strong> signs with <code>EdDSA</code> by default. See <a href="#signed-agent-cards">Signed Agent Cards</a>.</li>
+<li><strong><code>create_app</code></strong> refuses a card with no signature, a card without the ASAP extension, and a card for another agent (another URN, name, or version). It does not verify the signature, so build the card with <code>build_signed_agent_card</code>, which signs it. It serves the card with <code>Content-Type: application/json</code>, <code>Cache-Control: public, max-age=300</code>, and an <code>ETag</code>.</li>
+<li><strong><code>registry</code></strong>: put your ASAP task handlers here. Without a registry, <code>create_app</code> installs a demo echo handler on <code>POST /asap</code>.</li>
+</ul>
+<p><code>asap-protocol</code> serves the card, not the A2A interface. The A2A interface at <code>/a2a</code> comes from the A2A SDK. The reference gateway (<code>examples/a2a_gateway/gateway.py</code>) shows how to put the token check, the skill selection, and the grant check in front of the SDK's request handler.</p>
+<h3 id="step-3-verify-a-card-that-you-fetch">Step 3: verify a card that you fetch</h3>
+<p><code>AgentCardIngestor</code> fetches a card, verifies its signatures, and maps it to an ASAP manifest. A card passes only when a key that you trust for that agent signed it.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">asap.adapters.a2a</span><span class="w"> </span><span class="kn">import</span> <span class="n">A2ATrustConfig</span><span class="p">,</span> <span class="n">AgentCardIngestor</span><span class="p">,</span> <span class="n">PinnedCardKey</span>
+
+<span class="n">trust</span> <span class="o">=</span> <span class="n">A2ATrustConfig</span><span class="p">(</span>
+    <span class="n">pinned_keys</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">&quot;research-card-1&quot;</span><span class="p">:</span> <span class="n">PinnedCardKey</span><span class="p">(</span>
+            <span class="n">jwk</span><span class="o">=</span><span class="n">research_card_public_jwk</span><span class="p">,</span>  <span class="c1"># the public JWK of the card key, from the agent&#39;s operator</span>
+            <span class="n">agents</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;urn:asap:agent:research&quot;</span><span class="p">,),</span>  <span class="c1"># the agents that this key may sign for</span>
+        <span class="p">)</span>
+    <span class="p">}</span>
+<span class="p">)</span>
+<span class="n">ingestor</span> <span class="o">=</span> <span class="n">AgentCardIngestor</span><span class="p">(</span><span class="n">trust</span><span class="p">)</span>
+<span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ingestor</span><span class="o">.</span><span class="n">ingest</span><span class="p">(</span><span class="s2">&quot;https://agent.example.com/.well-known/agent-card.json&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">manifest</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">verified</span><span class="p">,</span> <span class="p">[</span><span class="n">signer</span><span class="o">.</span><span class="n">kid</span> <span class="k">for</span> <span class="n">signer</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">signers</span><span class="p">])</span>
+</code></pre></div>
+<p>The last line prints <code>urn:asap:agent:research True ['research-card-1']</code>.</p>
+<ul>
+<li>The fetch takes HTTPS URLs only, refuses private and loopback addresses, follows no redirect, and stops after 10 seconds or 1 MiB.</li>
+<li>A card that fails a check raises a typed error, a subclass of <code>A2AAdapterError</code>. It is never cached, and a card that fails verification is never mapped.</li>
+<li>A card that passes is cached by its URL for 300 seconds. That includes an unsigned card that <code>allow_unsigned</code> accepted: its results keep <code>verified</code> false.</li>
+<li><code>result.dropped</code> lists the card fields that the manifest does not carry (see <a href="#agent-card-and-manifest-fields">Agent Card and manifest fields</a>).</li>
+</ul>
+<p>A card with the ASAP extension holds the agent URN and the ASAP endpoint. For a card without it, pass them yourself: <code>ingest(url, agent_id="urn:asap:agent:...", endpoints=Endpoint(asap="https://..."))</code>.</p>
+<h3 id="step-4-call-a-skill">Step 4: call a skill</h3>
+<p>The gateway's A2A interface is JSON-RPC at <code>POST /a2a</code>. Send the headers <code>A2A-Version: 1.0</code> and <code>Authorization: Bearer &lt;access token&gt;</code>. An A2A message does not name a skill, so the gateway reads the skill from the message metadata key <code>https://asap-protocol.com/a2a/extensions/manifest/v1</code>. The arguments go in one <code>data</code> part:</p>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;jsonrpc&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2.0&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;method&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SendMessage&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;messageId&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;8e954b92-2f1e-4da8-be79-83dd0328cd8f&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;role&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ROLE_USER&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;parts&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">&quot;data&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Ada&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;language&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;en&quot;</span><span class="p">}}],</span>
+<span class="w">  </span><span class="nt">&quot;metadata&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;https://asap-protocol.com/a2a/extensions/manifest/v1&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;skill_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;greet&quot;</span><span class="p">}}</span>
+<span class="p">}}}</span>
+</code></pre></div>
+<p>With a token that has the scope <code>demo:greet</code>, the answer is HTTP 200 with one message:</p>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;jsonrpc&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2.0&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;result&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;role&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ROLE_AGENT&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;parts&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">&quot;data&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;greeting&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Hello, Ada!&quot;</span><span class="p">}}],</span><span class="w"> </span><span class="nt">&quot;messageId&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;…&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;contextId&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;…&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;taskId&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;…&quot;</span><span class="p">}}}</span>
+</code></pre></div>
+<ul>
+<li>When the agent has one skill only, a message without the metadata key runs that skill.</li>
+<li>The skill <code>id</code> is the capability name. The grant rule <code>{"scope": "demo:greet", "capability": "greet", "constraints": {"language": {"in": ["en", "pt"]}}}</code> lets a token with the scope <code>demo:greet</code> call <code>greet</code> in English or Portuguese.</li>
+<li>The gateway serves <code>SendMessage</code> only, and it keeps no tasks.</li>
+</ul>
+<h3 id="step-5-refusals">Step 5: refusals</h3>
+<p>The gateway checks the token first, then the skill selection, then the grant. A refused call never reaches the skill.</p>
+<table>
+<thead>
+<tr>
+<th>Case</th>
+<th>HTTP</th>
+<th><code>WWW-Authenticate</code></th>
+<th>Body</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No token</td>
+<td>401</td>
+<td><code>Bearer</code></td>
+<td><code>{"error":"invalid_token","error_description":"asap:auth_required"}</code></td>
+</tr>
+<tr>
+<td>Token refused: wrong audience, expired, unknown issuer, an ASAP Agent JWT, and so on</td>
+<td>401</td>
+<td><code>Bearer error="invalid_token", error_description="asap:invalid_token"</code></td>
+<td><code>{"error":"invalid_token","error_description":"asap:invalid_token"}</code></td>
+</tr>
+<tr>
+<td>The issuer's keys cannot be fetched</td>
+<td>503</td>
+<td>None</td>
+<td><code>{"error":"temporarily_unavailable","error_description":"Authentication service unavailable"}</code></td>
+</tr>
+<tr>
+<td>No grant for the selected skill</td>
+<td>403</td>
+<td><code>Bearer error="insufficient_scope", error_description="asap:capability_denied"</code></td>
+<td><code>{"error":"insufficient_scope","error_description":"asap:capability_denied"}</code></td>
+</tr>
+<tr>
+<td>Arguments that break a constraint of the grant</td>
+<td>403</td>
+<td>None</td>
+<td><code>{"error":"access_denied","error_description":"asap:constraint_violation","violations":[{"field":"language","operator":"in"}]}</code></td>
+</tr>
+<tr>
+<td>No skill selected on a card with several skills, an unknown skill, or arguments that are not one JSON object</td>
+<td>200</td>
+<td>None</td>
+<td>JSON-RPC error <code>-32602</code></td>
+</tr>
+<tr>
+<td>A method other than <code>SendMessage</code></td>
+<td>200</td>
+<td>None</td>
+<td>JSON-RPC error <code>-32004</code></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>A2A v1.0 has no error type for authentication and authorization failures, so the gateway answers them at the HTTP layer, before the A2A SDK runs. An OAuth client can read these answers without an A2A parser.</li>
+<li>The body and the challenge never hold the token. The reason that a token was refused goes to the log only, so the answer does not tell which check failed.</li>
+<li>The <code>a2a-sdk</code> client raises <code>A2AClientError</code> for a 401, 403, or 503 answer. Its <code>__cause__</code> is the <code>httpx.HTTPStatusError</code> with the status, the headers, and the body.</li>
+</ul>
+<h2 id="agent-card-and-manifest-fields">Agent Card and manifest fields</h2>
+<p><code>manifest_to_agent_card</code> maps a manifest to a card, and <code>agent_card_to_manifest</code> maps a card to a manifest. Both are pure functions: no network and no clock. Each returns the result and a <code>dropped</code> list: the source fields that the other format cannot carry, each with its reason. The tables below are also exported as data, <code>UNMAPPED_MANIFEST_FIELDS</code> and <code>UNMAPPED_CARD_FIELDS</code>.</p>
+<h3 id="mapped-fields">Mapped fields</h3>
+<p>"Extension" means the params of the ASAP extension (see <a href="#the-asap-extension">The ASAP extension</a>).</p>
+<table>
+<thead>
+<tr>
+<th>ASAP manifest</th>
+<th>A2A Agent Card</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>Extension <code>agent_urn</code></td>
+<td>A card without the extension: you pass <code>agent_id</code></td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td><code>name</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>version</code></td>
+<td><code>version</code></td>
+<td>Card to manifest: a version that the manifest does not accept raises <code>A2AMappingError</code>. The mapping does not guess</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td><code>description</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>endpoints.asap</code></td>
+<td>Extension <code>asap_endpoint</code></td>
+<td>Card to manifest: must be an <code>https</code> URL. A card without the extension: you pass <code>endpoints</code></td>
+</tr>
+<tr>
+<td><code>endpoints.events</code></td>
+<td>Extension <code>events_endpoint</code></td>
+<td>Card to manifest: must be a <code>wss</code> URL</td>
+</tr>
+<tr>
+<td><code>capabilities.asap_version</code></td>
+<td>Extension <code>asap_version</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>capabilities.state_persistence</code></td>
+<td>Extension <code>state_persistence</code></td>
+<td>Without the extension: <code>false</code></td>
+</tr>
+<tr>
+<td><code>capabilities.streaming</code></td>
+<td><code>capabilities.streaming</code></td>
+<td>By default the mapper copies this value. The reference gateway advertises <code>false</code> because it serves only <code>SendMessage</code>. If the ASAP endpoint supports streaming, the gateway preserves that value in the extension</td>
+</tr>
+<tr>
+<td><code>capabilities.skills[].id</code></td>
+<td><code>skills[].id</code></td>
+<td>Skill ids must be unique</td>
+</tr>
+<tr>
+<td><code>capabilities.skills[].description</code></td>
+<td><code>skills[].description</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>capabilities.skills[].input_schema</code>, <code>output_schema</code></td>
+<td>Extension <code>skill_schemas.&lt;skill id&gt;</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>A card needs data that a manifest does not hold. You give it in <code>AgentCardInputs</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Card field</th>
+<th><code>AgentCardInputs</code> field</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>supportedInterfaces</code></td>
+<td><code>interfaces</code></td>
+<td>Yes, at least one</td>
+</tr>
+<tr>
+<td><code>defaultInputModes</code>, <code>defaultOutputModes</code></td>
+<td><code>default_input_modes</code>, <code>default_output_modes</code></td>
+<td>Yes, at least one each</td>
+</tr>
+<tr>
+<td><code>skills[].tags</code></td>
+<td><code>skill_tags</code></td>
+<td>Yes, at least one tag for every skill</td>
+</tr>
+<tr>
+<td><code>skills[].name</code></td>
+<td><code>skill_names</code></td>
+<td>No. The default is the skill <code>id</code></td>
+</tr>
+<tr>
+<td><code>provider</code>, <code>documentationUrl</code>, <code>iconUrl</code></td>
+<td><code>provider</code>, <code>documentation_url</code>, <code>icon_url</code></td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>securitySchemes</code>, <code>securityRequirements</code>, <code>skills[].securityRequirements</code></td>
+<td><code>security_schemes</code>, <code>security_requirements</code>, <code>skill_security_requirements</code>, or the <code>external_tokens</code> argument of <code>build_signed_agent_card</code></td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h3 id="manifest-fields-that-a-card-does-not-carry">Manifest fields that a card does not carry</h3>
+<table>
+<thead>
+<tr>
+<th>Manifest field</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>supported_versions</code></td>
+<td>ASAP HTTP wire versions of the ASAP endpoint. Each A2A interface has its own <code>protocolVersion</code>. Not in the extension params</td>
+</tr>
+<tr>
+<td><code>auth</code></td>
+<td>Configures the ASAP endpoint. The card's security schemes describe the A2A interfaces and come from caller input</td>
+</tr>
+<tr>
+<td><code>signature</code></td>
+<td>Signs the manifest, not the card. Agent Card signatures are separate</td>
+</tr>
+<tr>
+<td><code>sla</code></td>
+<td>No A2A v1.0 field, and not in the extension params</td>
+</tr>
+<tr>
+<td><code>verification</code></td>
+<td>A registry trust badge. A card must not assert it about itself</td>
+</tr>
+<tr>
+<td><code>ttl_seconds</code></td>
+<td>No A2A v1.0 field. A2A uses HTTP caching headers for the card</td>
+</tr>
+<tr>
+<td><code>capabilities.mcp_tools</code></td>
+<td>No A2A v1.0 field, and not in the extension params</td>
+</tr>
+<tr>
+<td><code>capabilities.hardware</code></td>
+<td>No A2A v1.0 field, and not in the extension params</td>
+</tr>
+<tr>
+<td><code>capabilities.inference</code></td>
+<td>No A2A v1.0 field, and not in the extension params</td>
+</tr>
+</tbody>
+</table>
+<h3 id="card-fields-that-a-manifest-does-not-carry">Card fields that a manifest does not carry</h3>
+<table>
+<thead>
+<tr>
+<th>Card field</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>supportedInterfaces</code></td>
+<td>A2A endpoints. The manifest endpoint is the ASAP endpoint, from the extension or from you</td>
+</tr>
+<tr>
+<td><code>provider</code>, <code>documentationUrl</code>, <code>iconUrl</code></td>
+<td>No manifest field</td>
+</tr>
+<tr>
+<td><code>capabilities.pushNotifications</code>, <code>capabilities.extendedAgentCard</code></td>
+<td>No manifest field</td>
+</tr>
+<tr>
+<td><code>capabilities.extensions[]</code> other than the ASAP extension</td>
+<td>No manifest field</td>
+</tr>
+<tr>
+<td><code>securitySchemes</code>, <code>securityRequirements</code>, <code>skills[].securityRequirements</code></td>
+<td>They describe the A2A interfaces, not the ASAP endpoint, and a card signature does not cover all of them</td>
+</tr>
+<tr>
+<td><code>defaultInputModes</code>, <code>defaultOutputModes</code>, <code>skills[].inputModes</code>, <code>skills[].outputModes</code></td>
+<td>No manifest field. ASAP skills use JSON Schema</td>
+</tr>
+<tr>
+<td><code>skills[].name</code></td>
+<td>No manifest field. Listed only when it differs from the skill <code>id</code>, which the mapping uses as the name</td>
+</tr>
+<tr>
+<td><code>skills[].tags</code>, <code>skills[].examples</code></td>
+<td>No manifest field</td>
+</tr>
+<tr>
+<td><code>signatures</code></td>
+<td>They cover the card, not a manifest. Verify them before you map the card. The manifest signature is a different scheme</td>
+</tr>
+</tbody>
+</table>
+<h3 id="the-asap-extension">The ASAP extension</h3>
+<p>ASAP data that a card has no field for rides in one A2A extension, in <code>capabilities.extensions[]</code>. A card signature covers it.</p>
+<ul>
+<li><strong>URI:</strong> <code>https://asap-protocol.com/a2a/extensions/manifest/v1</code>. The page at that address describes the params.</li>
+<li><strong><code>required</code>:</strong> <code>false</code>, so an A2A client that does not know ASAP can still use the card.</li>
+<li>A reader ignores params that it does not know. A breaking change to the params will get a new URI.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Param</th>
+<th>Type</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>agent_urn</code></td>
+<td>string</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>asap_endpoint</code></td>
+<td>string</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>events_endpoint</code></td>
+<td>string</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>asap_version</code></td>
+<td>string</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>state_persistence</code></td>
+<td>boolean</td>
+<td>No (default <code>false</code>)</td>
+</tr>
+<tr>
+<td><code>asap_streaming</code></td>
+<td>boolean</td>
+<td>No. Present when the ASAP and A2A endpoints differ. When absent, the reader uses the A2A streaming flag, which defaults to <code>false</code></td>
+</tr>
+<tr>
+<td><code>skill_schemas</code></td>
+<td>object: skill <code>id</code> → <code>{input_schema, output_schema}</code>, only for skills that have a schema</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h3 id="mapping-rules">Mapping rules</h3>
+<ul>
+<li><strong>Security schemes come only from you.</strong> The card's <code>securitySchemes</code> and <code>securityRequirements</code> come from <code>AgentCardInputs</code> or from the token config. The manifest's <code>auth</code> is not mapped in either direction: it configures the ASAP endpoint, while the card's schemes describe the A2A interfaces.</li>
+<li><strong><code>securityRequirements</code> is a list of alternatives.</strong> A client may meet any one entry. Inside one entry, it must meet every named scheme, as in OpenAPI. A2A v1.0 does not say this; it is how ASAP reads the list.</li>
+<li><strong>No requirement without a scope.</strong> The mapping refuses a requirement that names no scheme, a scheme with no scope, or a scheme that the card does not declare. A signature does not cover such an entry, so it is never written.</li>
+<li><strong>Skill schemas with empty values are refused, not changed.</strong> A schema that holds <code>"required": []</code>, <code>"properties": {}</code>, <code>"enum": []</code>, or <code>"default": null</code> makes signing fail with <code>A2ACardNotSignableError</code>, whose <code>paths</code> name every such value. The signed form of a card drops empty values, so they would be data that no signature covers. Fix the schema at its source.</li>
+<li><strong>A2A v0.3 cards are refused</strong> with <code>A2AUnsupportedVersionError</code>. A v0.3 card has a top-level <code>url</code> or <code>protocolVersion</code> and no <code>supportedInterfaces</code>.</li>
+<li>A card lists at most 1000 skills.</li>
+</ul>
+<h2 id="signed-agent-cards">Signed Agent Cards</h2>
+<p>An A2A v1.0 card can carry signatures in <code>signatures[]</code>. Each one is a JWS with a detached payload: the signed bytes are the RFC 8785 (JCS) form of the card without <code>signatures</code>, after empty values are removed, as the A2A SDKs do.</p>
+<h3 id="signing">Signing</h3>
+<ul>
+<li><strong>Default:</strong> one <code>EdDSA</code> signature with the agent's Ed25519 key.</li>
+<li><strong>Extra <code>ES256</code> signature (opt-in):</strong> a verifier that allows only <code>ES256</code> and <code>RS256</code> refuses a card that has only an <code>EdDSA</code> signature. To serve such verifiers too, add a second signer with a P-256 key. A verifier skips a signature whose algorithm it does not allow, so the card then passes in both kinds of verifier.</li>
+</ul>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">cryptography.hazmat.primitives.asymmetric.ec</span><span class="w"> </span><span class="kn">import</span> <span class="n">SECP256R1</span><span class="p">,</span> <span class="n">generate_private_key</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cryptography.hazmat.primitives.asymmetric.ed25519</span><span class="w"> </span><span class="kn">import</span> <span class="n">Ed25519PrivateKey</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.adapters.a2a</span><span class="w"> </span><span class="kn">import</span> <span class="n">CardSigner</span>
+
+<span class="n">signers</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">CardSigner</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">Ed25519PrivateKey</span><span class="o">.</span><span class="n">generate</span><span class="p">(),</span> <span class="n">kid</span><span class="o">=</span><span class="s2">&quot;research-card-1&quot;</span><span class="p">),</span>
+    <span class="n">CardSigner</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">generate_private_key</span><span class="p">(</span><span class="n">SECP256R1</span><span class="p">()),</span> <span class="n">kid</span><span class="o">=</span><span class="s2">&quot;research-card-ec-1&quot;</span><span class="p">,</span> <span class="n">alg</span><span class="o">=</span><span class="s2">&quot;ES256&quot;</span><span class="p">),</span>
+<span class="p">]</span>
+</code></pre></div>
+<ul>
+<li>The protected header holds <code>alg</code>, <code>kid</code>, and <code>typ: "JOSE"</code>, plus <code>jku</code> when you set it on the signer.</li>
+<li>The signer refuses a card whose signed form would lose data: an empty string, list, or object, a <code>null</code>, or an integer beyond ±(2^53 − 1). The error lists every such path.</li>
+<li><code>build_signed_agent_card</code> needs at least one signer. A card that cannot be signed is never built, so there is no unsigned card to serve.</li>
+</ul>
+<h3 id="verification-policy">Verification policy</h3>
+<ul>
+<li><strong>A signature is required by default.</strong> An unsigned card fails with <code>A2AUnsignedCardError</code>. <code>A2ATrustConfig(policy="allow_unsigned")</code> accepts it, and then <code>result.verified</code> is <code>false</code>: the whole manifest is unverified data.</li>
+<li><strong>A bad signature always fails.</strong> A signature from a trusted key that does not verify fails the card, even when another signature verifies. The A2A Python SDK 1.3.1 accepts the first signature that verifies; ASAP is stricter.</li>
+<li><strong>An unknown key is skipped.</strong> A signature whose <code>kid</code> you do not trust, or whose algorithm is off your list, is skipped. A card whose signatures are all skipped fails with <code>A2ANoTrustedSignatureError</code>. So a card can carry an old and a new key during a key rotation.</li>
+<li><strong>A malformed signature entry fails the card</strong>, before any key lookup. A card carries at most 16 signatures.</li>
+<li>Every failure is a subclass of <code>A2ACardVerificationError</code>. No error message holds key material.</li>
+</ul>
+<h3 id="trust-store-and-jku-allowlist">Trust store and <code>jku</code> allowlist</h3>
+<p><code>A2ATrustConfig</code> says which keys may sign the cards that you ingest, and for which agents.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">asap.adapters.a2a</span><span class="w"> </span><span class="kn">import</span> <span class="n">ANY_AGENT</span><span class="p">,</span> <span class="n">A2ATrustConfig</span>
+
+<span class="n">trust</span> <span class="o">=</span> <span class="n">A2ATrustConfig</span><span class="o">.</span><span class="n">model_validate</span><span class="p">({</span>
+    <span class="s2">&quot;pinned_keys&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;bank-a-card-1&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;jwk&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;kty&quot;</span><span class="p">:</span> <span class="s2">&quot;OKP&quot;</span><span class="p">,</span> <span class="s2">&quot;crv&quot;</span><span class="p">:</span> <span class="s2">&quot;Ed25519&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="s2">&quot;11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo&quot;</span><span class="p">},</span>
+            <span class="s2">&quot;agents&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;urn:asap:agent:bank-a&quot;</span><span class="p">],</span>
+        <span class="p">}</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;jku_allowlist&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;https://keys.bank-b.example/jwks.json&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;agents&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;urn:asap:agent:bank-b&quot;</span><span class="p">,</span> <span class="s2">&quot;urn:asap:agent:bank-b:payments&quot;</span><span class="p">],</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;https://registry.example/jwks.json&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;agents&quot;</span><span class="p">:</span> <span class="n">ANY_AGENT</span><span class="p">},</span>
+    <span class="p">},</span>
+<span class="p">})</span>
+</code></pre></div>
+<ul>
+<li><strong>Every trust source names its agents.</strong> A signature proves who signed the card, not whose card it is. So a card passes only when a key that verified may sign for the card's agent URN; otherwise ingest raises <code>A2ASignerScopeError</code>. <code>agents</code> is required. The value <code>ANY_AGENT</code> lets a source sign for every agent: whoever holds that key, or controls that <code>jku</code> host, can then make a card that verifies for any agent. Use it only for a source that you trust that much, such as your own registry key.</li>
+<li><strong>Pinned keys come first.</strong> A pinned <code>kid</code> is used at once, and nothing is fetched.</li>
+<li><strong>A <code>jku</code> is fetched only when it equals an allowlist entry exactly</strong>, character for character. A <code>jku</code> that is not on the allowlist causes no request. The fetch takes HTTPS only, refuses private and loopback addresses, follows no redirect, and reads at most 64 KiB. A fetched key set is kept for 300 seconds; an unknown <code>kid</code> does not cause a new fetch before then.</li>
+<li>Pinned keys must be public OKP, EC, or RSA keys. A small-order Ed25519 key is refused.</li>
+<li><code>allow_private_hosts=True</code> lets entries and fetches reach private and loopback hosts. It is for local development and tests only.</li>
+</ul>
+<h3 id="algorithms">Algorithms</h3>
+<table>
+<thead>
+<tr>
+<th>Algorithm</th>
+<th>Key</th>
+<th>Sign</th>
+<th>Verify</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>EdDSA</code></td>
+<td>Ed25519 (never Ed448)</td>
+<td>Yes, the default</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>Ed25519</code> (the RFC 9864 name)</td>
+<td>Ed25519</td>
+<td>No: the A2A Python SDK cannot verify this name</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>ES256</code></td>
+<td>P-256</td>
+<td>Yes, opt-in</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>RS256</code></td>
+<td>RSA, 2048 bits or more</td>
+<td>No</td>
+<td>Yes</td>
+</tr>
+</tbody>
+</table>
+<p><code>none</code> and every <code>HS*</code> algorithm are always refused, before any key lookup. The algorithm in the header must fit the key: an <code>ES256</code> signature from an RSA key fails.</p>
+<h3 id="what-verified-means">What "verified" means</h3>
+<p>When <code>result.verified</code> is <code>true</code> after <code>AgentCardIngestor.ingest</code>, or after <code>verify_agent_card_for_agent</code>:</p>
+<ul>
+<li>a signature over the card verified with a key that you trust;</li>
+<li>no signature from a trusted key failed;</li>
+<li>the signature covers every value of the ASAP extension params;</li>
+<li>a key that verified may sign for the card's agent URN.</li>
+</ul>
+<p>It does <strong>not</strong> mean:</p>
+<ul>
+<li><strong>that the card came from the URL that served it.</strong> The URL is not signed. A copy of the card verifies from any URL.</li>
+<li><strong>that the card is fresh.</strong> A signed card has no expiry and no nonce. It can be served again for as long as its key stays trusted.</li>
+<li><strong>more than the weakest key.</strong> A card for an agent is as strong as the weakest trusted key that may sign for that agent, an <code>ANY_AGENT</code> source included.</li>
+</ul>
+<p><code>verify_agent_card</code> alone checks the signatures but does not bind the card to an agent. When you know the expected URN, pass it to <code>verify_agent_card_for_agent</code> or to <code>AgentCardIngestor.ingest</code> as <code>agent_id</code>. Both compare the expected URN with the signed extension when present. For a card without the extension, both use the supplied URN to check the signer. <code>CardVerification.require_signer_for(agent_urn)</code> checks only the signer's scope.</p>
+<h2 id="external-access-tokens-on-an-asap-server-python">External access tokens on an ASAP server (Python)</h2>
+<p>An ASAP server can accept OAuth 2.1 access tokens from issuers that you list, and give each token only the grants that your rules map. The reference gateway of Flow A uses this verifier. <code>create_app</code> uses it on one route: <code>POST /asap/capability/execute</code>.</p>
+<h3 id="what-a-principal-is">What a principal is</h3>
+<p>For each request, ASAP verifies the token and builds an <code>ExternalPrincipal</code>: the issuer, the subject (<code>sub</code>), the client id, the scopes, the expiry, and the grants that your rules give. It is keyed by <code>(issuer, subject)</code>.</p>
+<ul>
+<li>It lives for that request only. Nothing is stored, and the next request is checked again.</li>
+<li>It is not an ASAP agent. It has no host, no key, no registry entry, and no <code>agent_id</code>, and it never reads the grants of the capability registry. Its grants come only from the rules of its issuer.</li>
+<li>This is the OAuth <em>resource server</em> model: the token comes with every request, and the server checks it every time.</li>
+</ul>
+<h3 id="configure-the-issuers">Configure the issuers</h3>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">asap.auth.external_tokens</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExternalTokenConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asap.transport.server</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_app</span>
+
+<span class="n">tokens</span> <span class="o">=</span> <span class="n">ExternalTokenConfig</span><span class="o">.</span><span class="n">model_validate</span><span class="p">({</span>
+    <span class="s2">&quot;issuers&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;issuer&quot;</span><span class="p">:</span> <span class="s2">&quot;https://auth.example.com&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;audience&quot;</span><span class="p">:</span> <span class="s2">&quot;https://agent.example.com/asap&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;key_source&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;kind&quot;</span><span class="p">:</span> <span class="s2">&quot;jwks_uri&quot;</span><span class="p">,</span> <span class="s2">&quot;jwks_uri&quot;</span><span class="p">:</span> <span class="s2">&quot;https://auth.example.com/.well-known/jwks.json&quot;</span><span class="p">},</span>
+            <span class="s2">&quot;grant_rules&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="p">{</span><span class="s2">&quot;scope&quot;</span><span class="p">:</span> <span class="s2">&quot;files:read&quot;</span><span class="p">,</span> <span class="s2">&quot;capability&quot;</span><span class="p">:</span> <span class="s2">&quot;file:read&quot;</span><span class="p">},</span>
+                <span class="p">{</span><span class="s2">&quot;scope&quot;</span><span class="p">:</span> <span class="s2">&quot;files:write&quot;</span><span class="p">,</span> <span class="s2">&quot;capability&quot;</span><span class="p">:</span> <span class="s2">&quot;file:write&quot;</span><span class="p">,</span> <span class="s2">&quot;constraints&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;in&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;/tmp&quot;</span><span class="p">]}}},</span>
+                <span class="p">{</span><span class="s2">&quot;claim&quot;</span><span class="p">:</span> <span class="s2">&quot;groups&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="s2">&quot;auditors&quot;</span><span class="p">,</span> <span class="s2">&quot;capability&quot;</span><span class="p">:</span> <span class="s2">&quot;file:read&quot;</span><span class="p">},</span>
+            <span class="p">],</span>
+        <span class="p">}</span>
+    <span class="p">]</span>
+<span class="p">})</span>
+<span class="n">app</span> <span class="o">=</span> <span class="n">create_app</span><span class="p">(</span><span class="n">manifest</span><span class="p">,</span> <span class="n">external_token_config</span><span class="o">=</span><span class="n">tokens</span><span class="p">)</span>
+</code></pre></div>
+<p>Each issuer entry has these fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>issuer</code></td>
+<td>The issuer identifier. The token's <code>iss</code> must match it (a trailing slash is ignored). A token from an issuer that is not listed is refused. There is no "accept any issuer" mode</td>
+</tr>
+<tr>
+<td><code>audience</code></td>
+<td>Required. The identifier of this server (RFC 8707). The token's <code>aud</code> must name it. A token for another resource is refused and never passed on</td>
+</tr>
+<tr>
+<td><code>key_source</code></td>
+<td>Where the issuer's public keys come from: <code>{"kind": "jwks_uri", "jwks_uri": "https://..."}</code>, <code>{"kind": "oidc_discovery"}</code> (reads <code>jwks_uri</code> from <code>&lt;issuer&gt;/.well-known/openid-configuration</code>), or <code>{"kind": "static_jwks", "jwks": {...}}</code> (no fetch)</td>
+</tr>
+<tr>
+<td><code>introspection</code></td>
+<td>For opaque tokens, instead of <code>key_source</code>: see <a href="#opaque-tokens">Opaque tokens</a></td>
+</tr>
+<tr>
+<td><code>grant_rules</code></td>
+<td>The only source of grants for this issuer's tokens. No rule, no grant</td>
+</tr>
+<tr>
+<td><code>required_claims</code></td>
+<td>Claims that every token must hold, with exact values. See <a href="#with-oauth2_config">With <code>oauth2_config</code></a></td>
+</tr>
+<tr>
+<td><code>allow_private_hosts</code></td>
+<td>Lets the URLs of this entry reach private or loopback hosts. For local development only</td>
+</tr>
+</tbody>
+</table>
+<p>The config refuses an empty issuer list, a missing audience, a duplicate issuer, a URL that is not HTTPS or that names <code>localhost</code> or a private IP address, and a static JWKS with a private or symmetric key.</p>
+<p>How a token is checked, in this order:</p>
+<ol>
+<li>The header: an ASAP Agent JWT (<code>typ: agent+jwt</code>) or Host JWT (<code>typ: host+jwt</code>) is refused. So are <code>alg: none</code>, every <code>HS*</code> algorithm, and any other algorithm that is not RSA, RSA-PSS, ECDSA, or <code>EdDSA</code>.</li>
+<li>The issuer: the token's <code>iss</code> must be listed.</li>
+<li>The signature, with that issuer's keys only. A <code>jku</code>, <code>x5u</code>, or <code>jwk</code> header in the token is ignored.</li>
+<li>The claims: <code>aud</code> must name the audience; <code>exp</code> is required and <code>nbf</code> is checked, with 30 seconds of clock skew; <code>sub</code> must be a non-empty string; then <code>required_claims</code>.</li>
+<li>The grants, from the rules.</li>
+</ol>
+<p>Every fetch (JWKS, OpenID discovery, introspection) takes HTTPS only, refuses private addresses, and follows no redirect. A fetched key set is kept for 300 seconds. An unknown <code>kid</code> fetches the set again, at most once every 30 seconds per issuer. A JWT without a <code>kid</code> requires a set with exactly one key. Include the signing key's <code>kid</code> in tokens before publishing a second key for rotation.</p>
+<h3 id="grant-rules">Grant rules</h3>
+<p>A rule gives one capability, with optional constraints, when it matches the token:</p>
+<ul>
+<li><strong><code>scope</code> rule:</strong> matches one entry of the <code>scope</code> claim (a space-separated string). A token with <code>scope: "files:read files:write"</code> matches both scope rules above.</li>
+<li><strong><code>claim</code> rule:</strong> matches when a top-level claim is exactly <code>value</code>, or is a list that holds <code>value</code>. Numbers, booleans, and nested objects never match. The <code>groups</code> rule above matches <code>"groups": ["auditors", "dev"]</code>.</li>
+</ul>
+<p>Deny by default:</p>
+<ul>
+<li>A scope or a claim that no rule names gives nothing. A broad scope such as <code>admin</code> gives nothing unless a rule names it.</li>
+<li>Each capability gets at most one grant. Two rules that give one capability must have the same constraints, or the config is refused.</li>
+<li>A constraint object may hold only <code>max</code>, <code>min</code>, <code>in</code>, and <code>not_in</code>. <code>max</code> and <code>min</code> need a finite number; <code>in</code> and <code>not_in</code> need a list.</li>
+<li>At call time, a constrained field that the call leaves out is a violation, as is a check that cannot be evaluated, such as <code>NaN</code> against <code>max</code>.</li>
+</ul>
+<h3 id="call-the-route">Call the route</h3>
+<p><code>POST /asap/capability/execute</code> takes the capability name and its arguments. With the config above:</p>
+<div class="highlight"><pre><span></span><code><span class="err">POST /asap/capability/execute</span>
+<span class="err">Authorization: Bearer &lt;access token with scope &quot;files:read&quot;&gt;</span>
+<span class="err">Content-Type: application/json</span>
+
+<span class="err">{&quot;capability&quot;: &quot;file:read&quot;}</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="kr">HTTP</span><span class="o">/</span><span class="m">1.1</span> <span class="m">200</span> <span class="ne">OK</span>
+
+{&quot;capability&quot;: &quot;file:read&quot;, &quot;status&quot;: &quot;executed&quot;, &quot;principal&quot;: {&quot;type&quot;: &quot;external&quot;, &quot;issuer&quot;: &quot;https://auth.example.com&quot;, &quot;subject&quot;: &quot;user-42&quot;}}
+</code></pre></div>
+<ul>
+<li>The answer holds the principal, never an <code>agent_id</code>.</li>
+<li>The route checks the token and the grant, and answers. It does not run code for the capability.</li>
+<li>The route still accepts an ASAP Agent JWT, exactly as before. The header <code>typ</code> picks the path: <code>agent+jwt</code> goes to the Agent JWT check, and every other bearer goes to the access-token check. A token that one check refuses is never tried with the other.</li>
+<li>Only this route accepts access tokens. <code>GET /asap/capability/list</code> and <code>describe</code>, JSON-RPC <code>POST /asap</code>, the WebSocket, and <code>/asap/agent/*</code> keep their own authentication.</li>
+<li>Each call is logged as <code>asap.capability.external_execute</code>, with the issuer, the subject, the client id, the capability, and the outcome. No answer and no log line holds the token.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Case</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No bearer</td>
+<td>401 <code>{"detail": "Authentication required"}</code>, <code>WWW-Authenticate: Bearer</code></td>
+</tr>
+<tr>
+<td>Token refused, for any reason</td>
+<td>401 <code>{"detail": "invalid_token", "request_id": "…"}</code>, <code>WWW-Authenticate: Bearer error="invalid_token"</code>. The reason goes to the log only</td>
+</tr>
+<tr>
+<td>The issuer's keys or the introspection endpoint cannot be reached</td>
+<td>503 <code>{"detail": "Authentication service unavailable", "request_id": "…"}</code></td>
+</tr>
+<tr>
+<td>No grant for the capability</td>
+<td>403, <code>error.code</code> <code>capability_not_granted</code>, <code>WWW-Authenticate: Bearer error="insufficient_scope"</code></td>
+</tr>
+<tr>
+<td>A constraint is broken</td>
+<td>403, <code>error</code> <code>constraint_violated</code> with the <code>violations</code> (field, operator, message), no challenge</td>
+</tr>
+<tr>
+<td>A body that is not valid JSON or not a valid request</td>
+<td>400, after the token check</td>
+</tr>
+</tbody>
+</table>
+<p>ASAP also adds its own <code>ASAP</code> challenge to each 401 under <code>/asap/capability</code>. A 503 shows that the issuer that the token names is listed: a client can tell an outage from a bad token. The issuer list is not a secret.</p>
+<h3 id="with-oauth2_config">With <code>oauth2_config</code></h3>
+<p><code>oauth2_config</code> puts <code>OAuth2Middleware</code> in front of <code>/asap</code>. <code>POST /asap/capability/execute</code> always verifies its own bearer, so the middleware skips that exact path. Any other spelling of the path still goes through the middleware.</p>
+<p>To accept the tokens of the <code>oauth2_config</code> identity provider on execute, list it as an issuer, with its audience and grant rules. The middleware does not run on that route, so its checks do not apply there: <code>required_scope</code>, the identity binding of the agent (the custom claim or the <code>ASAP_AUTH_SUBJECT_MAP</code> allowlist), and its expected issuer and audience. The entry's own <code>issuer</code>, <code>audience</code>, and grant rules apply instead.</p>
+<p>One provider can mint tokens for many agents with one audience. To keep a token for agent X off agent Y, set <code>required_claims</code> to the middleware's custom claim and this agent's URN:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">asap.auth.middleware</span><span class="w"> </span><span class="kn">import</span> <span class="n">DEFAULT_CUSTOM_CLAIM</span>
+
+<span class="n">idp_issuer</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;issuer&quot;</span><span class="p">:</span> <span class="s2">&quot;https://idp.example.com&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;audience&quot;</span><span class="p">:</span> <span class="s2">&quot;https://agent.example.com/asap&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;key_source&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;kind&quot;</span><span class="p">:</span> <span class="s2">&quot;jwks_uri&quot;</span><span class="p">,</span> <span class="s2">&quot;jwks_uri&quot;</span><span class="p">:</span> <span class="s2">&quot;https://idp.example.com/.well-known/jwks.json&quot;</span><span class="p">},</span>
+    <span class="s2">&quot;grant_rules&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="s2">&quot;scope&quot;</span><span class="p">:</span> <span class="s2">&quot;files:read&quot;</span><span class="p">,</span> <span class="s2">&quot;capability&quot;</span><span class="p">:</span> <span class="s2">&quot;file:read&quot;</span><span class="p">}],</span>
+    <span class="s2">&quot;required_claims&quot;</span><span class="p">:</span> <span class="p">{</span><span class="n">DEFAULT_CUSTOM_CLAIM</span><span class="p">:</span> <span class="s2">&quot;urn:asap:agent:research&quot;</span><span class="p">},</span>  <span class="c1"># the claim and this agent&#39;s URN</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Use the claim name that the middleware uses: <code>oauth2_config.custom_claim</code>, else the <code>ASAP_AUTH_CUSTOM_CLAIM</code> environment variable, else <code>DEFAULT_CUSTOM_CLAIM</code>. A token whose claim is missing or different gets the <code>invalid_token</code> 401. Without <code>required_claims</code> on that entry, <code>create_app</code> logs the warning <code>asap.server.external_issuer_unbound</code> with the value to set. The subject allowlist has no equivalent.</p>
+<h3 id="opaque-tokens">Opaque tokens</h3>
+<p>For an issuer whose tokens are not JWTs, set <code>introspection</code> instead of <code>key_source</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="n">opaque_token_issuer</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;issuer&quot;</span><span class="p">:</span> <span class="s2">&quot;https://auth.example.com&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;audience&quot;</span><span class="p">:</span> <span class="s2">&quot;https://agent.example.com/asap&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;introspection&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;url&quot;</span><span class="p">:</span> <span class="s2">&quot;https://auth.example.com/oauth2/introspect&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;client_id&quot;</span><span class="p">:</span> <span class="s2">&quot;asap-agent&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;client_secret&quot;</span><span class="p">:</span> <span class="s2">&quot;&lt;secret&gt;&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;cache_ttl_seconds&quot;</span><span class="p">:</span> <span class="mi">60</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;grant_rules&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="s2">&quot;scope&quot;</span><span class="p">:</span> <span class="s2">&quot;files:read&quot;</span><span class="p">,</span> <span class="s2">&quot;capability&quot;</span><span class="p">:</span> <span class="s2">&quot;file:read&quot;</span><span class="p">}],</span>
+<span class="p">}</span>
+</code></pre></div>
+<ul>
+<li>At most one issuer may use introspection. An opaque token names no issuer, so it goes to that one endpoint, with this server's client credentials (HTTP Basic).</li>
+<li>A bearer shaped like a JWT is never sent to the endpoint unless its <code>iss</code> is that issuer.</li>
+<li>The answer must say <code>active: true</code>. Its claims then get the same checks as a JWT: <code>aud</code>, <code>exp</code>, <code>sub</code>, <code>required_claims</code>, and the grant rules.</li>
+<li><code>cache_ttl_seconds</code> (default 60, at most 3600) limits how long the server reuses a response after it arrives. Revocation takes effect when the server receives an inactive response from the issuer. <code>0</code> asks the endpoint on every request.</li>
+</ul>
+<h2 id="flow-b-an-mcp-client-calls-an-http-mcp-server">Flow B: an MCP client calls an HTTP MCP server</h2>
+<p><code>@asap-protocol/mcp-auth</code> protects an MCP server in TypeScript that serves Streamable HTTP on <code>@modelcontextprotocol/server</code> 2.x, MCP revision <code>2026-07-28</code> only. It accepts two kinds of token, and they differ in how they relate to MCP:</p>
+<table>
+<thead>
+<tr>
+<th>Token</th>
+<th>Sent by</th>
+<th>Relation to MCP authorization (OAuth 2.1)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OAuth 2.1 access token (a JWT)</td>
+<td>A standard MCP client, after it signs in at your authorization server</td>
+<td>Your server is the resource-server side of MCP authorization</td>
+</tr>
+<tr>
+<td>ASAP Agent JWT</td>
+<td>An ASAP agent, a new token for each request</td>
+<td>None. It is a custom auth strategy, which MCP allows. It is not MCP authorization</td>
+</tr>
+</tbody>
+</table>
+<h3 id="who-trusts-whom_1">Who trusts whom</h3>
+<div class="highlight"><pre><span></span><code>MCP client                                   HTTP MCP server with @asap-protocol/mcp-auth
+    │                                                    │
+    │ POST /mcp  tools/call                              │
+    │ Authorization: Bearer &lt;access token or Agent JWT&gt;  │
+    │ ─────────────────────────────────────────────────► │ token layer: verify the token
+    │                                                    │   no token or a bad token: HTTP 401
+    │                                                    │   a tool or method you did not declare: HTTP 403
+    │                                                    │ grant layer: grant and constraints for this tool
+    │ ◄───────────────────────────────────── tool result │   refused: an error tool result (or HTTP 403)
+</code></pre></div>
+<ul>
+<li><strong>Access token:</strong> the server trusts the issuers that you list, and only tokens whose audience is the MCP URL. It never passes the token on. It links its RFC 9728 protected-resource metadata from every challenge, so a client can find the authorization server. You serve that document; the package does not.</li>
+<li><strong>Agent JWT:</strong> the server trusts the agents that your resolver returns, with their Ed25519 keys and their host. Each Agent JWT works once and lives 60 seconds.</li>
+<li>Grants come from your config: a map for agents, or grant rules for access tokens, deny by default.</li>
+</ul>
+<h3 id="run-the-example">Run the example</h3>
+<p><a href="https://github.com/asap-protocol/asap-protocol/tree/main/examples/mcp_auth_http"><code>examples/mcp_auth_http/</code></a> is a server with one public tool, <code>echo</code>, and one protected tool, <code>secure_action</code>. It creates a demo agent and a local test issuer at each start. From the repository root:</p>
+<div class="highlight"><pre><span></span><code>pnpm<span class="w"> </span>install
+pnpm<span class="w"> </span>--filter<span class="w"> </span>@asap-protocol/client<span class="w"> </span>run<span class="w"> </span>build<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>pnpm<span class="w"> </span>--filter<span class="w"> </span>@asap-protocol/mcp-auth<span class="w"> </span>run<span class="w"> </span>build
+pnpm<span class="w"> </span>--filter<span class="w"> </span>example-mcp-auth-http<span class="w"> </span><span class="nb">test</span>
+</code></pre></div>
+<p>The tests start the server on a free local port and run the five cases of the flow with the MCP SDK client: a granted call, no token, a bad token, a call with no grant, and a broken constraint. They also call with an access token twice, and with an access token that lacks the scope.</p>
+<p>To run the server and call the public tool with plain HTTP:</p>
+<div class="highlight"><pre><span></span><code>pnpm<span class="w"> </span>--filter<span class="w"> </span>example-mcp-auth-http<span class="w"> </span>start<span class="w">   </span><span class="c1"># MCP endpoint: http://127.0.0.1:8787/mcp</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-s<span class="w"> </span>http://127.0.0.1:8787/mcp<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-H<span class="w"> </span><span class="s1">&#39;Content-Type: application/json&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-H<span class="w"> </span><span class="s1">&#39;MCP-Protocol-Version: 2026-07-28&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-H<span class="w"> </span><span class="s1">&#39;Mcp-Method: tools/call&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-H<span class="w"> </span><span class="s1">&#39;Mcp-Name: echo&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--data<span class="w"> </span><span class="s1">&#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:1,&quot;method&quot;:&quot;tools/call&quot;,&quot;params&quot;:{&quot;name&quot;:&quot;echo&quot;,&quot;arguments&quot;:{&quot;message&quot;:&quot;hi&quot;},&quot;_meta&quot;:{&quot;io.modelcontextprotocol/protocolVersion&quot;:&quot;2026-07-28&quot;,&quot;io.modelcontextprotocol/clientCapabilities&quot;:{}}}}&#39;</span>
+</code></pre></div>
+<p>The answer:</p>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;result&quot;</span><span class="p">:{</span><span class="nt">&quot;content&quot;</span><span class="p">:[{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="s2">&quot;text&quot;</span><span class="p">,</span><span class="nt">&quot;text&quot;</span><span class="p">:</span><span class="s2">&quot;hi&quot;</span><span class="p">}],</span><span class="nt">&quot;resultType&quot;</span><span class="p">:</span><span class="s2">&quot;complete&quot;</span><span class="p">,</span><span class="nt">&quot;_meta&quot;</span><span class="p">:{</span><span class="nt">&quot;io.modelcontextprotocol/serverInfo&quot;</span><span class="p">:{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="s2">&quot;mcp-auth-http-example&quot;</span><span class="p">,</span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="s2">&quot;0.1.0&quot;</span><span class="p">}}},</span><span class="nt">&quot;jsonrpc&quot;</span><span class="p">:</span><span class="s2">&quot;2.0&quot;</span><span class="p">,</span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="mi">1</span><span class="p">}</span>
+</code></pre></div>
+<ul>
+<li>Revision <code>2026-07-28</code> has no <code>initialize</code> handshake and no session: one POST calls one tool.</li>
+<li>The headers must agree with the body. Both <code>_meta</code> keys are required.</li>
+<li>A request with no token passes only with <code>MCP-Protocol-Version: 2026-07-28</code>, and only for a public tool, <code>tools/list</code>, or <code>server/discover</code>. A call to <code>secure_action</code> needs <code>Authorization: Bearer &lt;token&gt;</code>.</li>
+</ul>
+<h3 id="write-your-own-server">Write your own server</h3>
+<p><a href="../../adapters/mcp-auth-bridge/#http-mcp-servers-in-typescript">MCP Auth Bridge: HTTP MCP servers in TypeScript</a> has the code for a server with Agent JWTs, a server with access tokens, a client for each, and every answer of the package. The parts that matter for interoperability:</p>
+<ul>
+<li><code>createMcpAuthMiddleware({ externalTokens: { issuers: [...] }, resourceMetadataUrl, ... })</code> takes the same kind of issuer entry as the Python config: <code>issuer</code>, a required <code>audience</code>, keys from <code>jwksUri</code> or a static <code>jwks</code>, and <code>grantRules</code> with <code>scope</code> or <code>claim</code> rules. The rules and the constraint checks give the same answers as Python: both run the shared test vectors in <code>tests/fixtures/interop/</code>.</li>
+<li>The package accepts access tokens signed with <code>EdDSA</code>, <code>RS256</code>, or <code>ES256</code>. The Python path also accepts <code>RS384</code>, <code>RS512</code>, the <code>PS*</code> algorithms, <code>ES384</code>, and <code>ES512</code>.</li>
+<li>With <code>externalTokens</code>, <code>resourceMetadataUrl</code> is required, and you serve the metadata document at that URL.</li>
+<li><code>toolCapabilities</code> must list every protected tool, and every one must be wrapped with <code>protectTool</code>. A tool or a method that the config does not declare gets HTTP 403 for a verified token.</li>
+<li><code>scopeChallenge</code> on a protected tool turns a missing grant for an access token into HTTP 403 <code>insufficient_scope</code>, with the scope that gives the grant.</li>
+<li>With Agent JWTs, <code>verifyAgentJwt</code> from <code>@asap-protocol/client</code> 2.5.0 checks each token. Your <code>resolveAgent</code> callback returns the agent's key and whether the agent is usable.</li>
+</ul>
+<h2 id="the-four-asap-codes-over-http">The four <code>asap:*</code> codes over HTTP</h2>
+<p>ASAP reports a refusal with one of four codes: <code>asap:auth_required</code>, <code>asap:invalid_token</code>, <code>asap:capability_denied</code>, and <code>asap:constraint_violation</code>. The Python stdio bridge returns every one of them in a tool result, because stdio has no HTTP layer. Over HTTP, each path puts them where its protocol expects them:</p>
+<table>
+<thead>
+<tr>
+<th>Case</th>
+<th>Flow A gateway (A2A)</th>
+<th>Python <code>POST /asap/capability/execute</code>, access token</th>
+<th><code>@asap-protocol/mcp-auth</code>, access token</th>
+<th><code>@asap-protocol/mcp-auth</code>, Agent JWT</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No token</td>
+<td>HTTP 401, <code>asap:auth_required</code></td>
+<td>HTTP 401, <code>Authentication required</code></td>
+<td>HTTP 401, <code>asap:auth_required</code></td>
+<td>HTTP 401, <code>asap:auth_required</code></td>
+</tr>
+<tr>
+<td>Token refused</td>
+<td>HTTP 401, <code>asap:invalid_token</code></td>
+<td>HTTP 401, <code>invalid_token</code></td>
+<td>HTTP 401, <code>asap:invalid_token: &lt;reason&gt;</code></td>
+<td>HTTP 401, <code>asap:invalid_token: &lt;reason&gt;</code></td>
+</tr>
+<tr>
+<td>The issuer's keys cannot be fetched</td>
+<td>HTTP 503</td>
+<td>HTTP 503</td>
+<td>HTTP 503, with <code>Retry-After</code></td>
+<td>Does not apply</td>
+</tr>
+<tr>
+<td>No grant for the skill, tool, or capability</td>
+<td>HTTP 403 <code>insufficient_scope</code>, <code>asap:capability_denied</code></td>
+<td>HTTP 403 <code>insufficient_scope</code>, <code>capability_not_granted</code></td>
+<td>HTTP 403 <code>insufficient_scope</code>, <code>asap:capability_denied</code>, when a scope rule gives the grant and the tool has <code>scopeChallenge</code>; else a tool result</td>
+<td>Tool result, <code>asap:capability_denied</code></td>
+</tr>
+<tr>
+<td>A constraint is broken</td>
+<td>HTTP 403, <code>asap:constraint_violation</code>, no challenge</td>
+<td>HTTP 403, <code>constraint_violated</code>, no challenge</td>
+<td>Tool result, <code>asap:constraint_violation</code></td>
+<td>Tool result, <code>asap:constraint_violation</code></td>
+</tr>
+</tbody>
+</table>
+<p>Why the paths differ:</p>
+<ul>
+<li><strong>Token errors are HTTP 401 everywhere.</strong> MCP authorization requires HTTP 401 for an invalid or expired token, and a tool result cannot carry an HTTP status.</li>
+<li><strong>A missing grant on an access-token path is HTTP 403 <code>insufficient_scope</code>.</strong> A standard OAuth client reads this challenge and can ask for more scope. On the Agent JWT path of <code>mcp-auth</code>, a missing grant stays a tool result, as in the Python bridge.</li>
+<li><strong>A broken constraint is a tool result in MCP and HTTP 403 elsewhere.</strong> It depends on the arguments, and more scope does not help, so its 403 has no challenge. MCP has a tool result to carry it; A2A and the Python route do not.</li>
+<li>The Python execute route answers with its own error bodies, not the <code>asap:*</code> strings. The status codes and the challenges follow the same rules.</li>
+</ul>
+<h2 id="compliance-checks">Compliance checks</h2>
+<p><code>asap-compliance</code> has one profile for each flow. Each profile runs against a running server over plain HTTP, with no A2A or MCP SDK. It judges each answer by its code and by its layer. It gets a fresh token for each request from the server's test-only probe endpoint, so a second run passes too.</p>
+<table>
+<thead>
+<tr>
+<th>Profile</th>
+<th>Flow</th>
+<th>What it checks</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>a2a-bridge</code></td>
+<td><a href="#flow-a-an-a2a-client-calls-an-asap-agent">Flow A</a></td>
+<td>The signed Agent Card at the well-known path, verified under the keys and the agent URN in your config, never under values read from the target. The card's JSON-RPC interface, and its match with the ASAP manifest. Then one <code>SendMessage</code> per case: a valid access token (sent twice), no token, a malformed, forged, or wrong-audience token, a token without the grant, arguments that break the grant's constraint, and a skill that the card does not list</td>
+</tr>
+<tr>
+<td><code>mcp-auth-http</code></td>
+<td><a href="#flow-b-an-mcp-client-calls-an-http-mcp-server">Flow B</a></td>
+<td>The public tool, missing and invalid tokens, Agent JWT replay, access-token reuse, grant and constraint errors in their layers, and a tool that the server does not declare</td>
+</tr>
+</tbody>
+</table>
+<p>Both profiles also check that each HTTP 401 carries a <code>Bearer</code> challenge, and that no answer holds a token that the run sent. A verified card proves who signed it. It does not prove where the card was served from, or that it is fresh.</p>
+<p><a href="../compliance-testing/#profiles">Compliance testing</a> shows how to run both profiles, with every config field and check ID, and what they do not check. The probe endpoint hands out valid tokens to anyone who can reach the server: turn it on only for a local or CI run (<code>pnpm --filter example-mcp-auth-http start -- --compliance</code>, <code>uv run python -m examples.a2a_gateway.serve --port 8788 --compliance</code>).</p>
+<h2 id="security-notes">Security notes</h2>
+<ul>
+<li><strong>No token passthrough.</strong> A server never sends on the token that it received. Every path checks the audience, so a token for another resource is refused. The gateway also removes <code>Authorization</code> and <code>Cookie</code> before the A2A SDK and the skills see the request.</li>
+<li><strong>An audience on every token.</strong> The audience is required config on every path. No mode skips it, and no mode accepts any issuer.</li>
+<li><strong>No replay check on access tokens.</strong> An OAuth client sends the same access token on every request until it expires, and MCP requires the token on every request. Refusing a second use would break every standard client. An access token works until its <code>exp</code>. For opaque tokens, the server can reuse a cached active response until its cache entry expires.</li>
+<li><strong>Agent JWTs work once.</strong> A replay cache keeps the <code>jti</code> of each accepted Agent JWT and refuses it a second time. A token whose <code>exp</code> is more than 120 seconds after the current time, or after its <code>iat</code>, is refused, so a token cannot outlive its replay record. The default replay cache of <code>@asap-protocol/mcp-auth</code> is in memory, in one process: several server instances with one audience need a shared cache.</li>
+<li><strong>Token types are kept apart.</strong> The header <code>typ</code> picks the check: <code>agent+jwt</code> for an Agent JWT, any other token for the access-token check. A token that one check refuses is never tried with the other, and the access-token check refuses an ASAP Agent JWT or Host JWT.</li>
+<li><strong>Fetches are guarded.</strong> In Python, every fetch of a card, a key set, OpenID discovery, or introspection takes HTTPS only, resolves the host once and refuses private, loopback, and link-local addresses, follows no redirect, and stops at a size and time limit. In Node.js, <code>@asap-protocol/mcp-auth</code> cannot check the address behind a host name; see <a href="../../adapters/mcp-auth-bridge/#key-fetch-and-ssrf">Key fetch and SSRF</a>.</li>
+<li><strong>No token in answers or logs.</strong> Refusals carry a code and a fixed reason. The logs hold the issuer, the subject, and the reason, never the token.</li>
+</ul>
+<h2 id="what-is-not-supported">What is not supported</h2>
+<ul>
+<li><strong>Replacing A2A or MCP.</strong> ASAP layers on them.</li>
+<li><strong>An A2A server or client in <code>asap-protocol</code>.</strong> Use the A2A SDK. The gateway in <code>examples/a2a_gateway/</code> is an example.</li>
+<li><strong>The ASAP envelope in these flows.</strong> Both flows use A2A and MCP on their own wire formats.</li>
+<li><strong>Outbound A2A calls.</strong> <code>asap-protocol</code> fetches, verifies, and maps a card. It does not call an A2A agent.</li>
+<li><strong>A2A v0.3 Agent Cards.</strong> They are refused with <code>A2AUnsupportedVersionError</code>.</li>
+<li><strong>HTTP MCP servers in Python.</strong> The Python bridge covers stdio only.</li>
+<li><strong>Opaque access tokens in <code>@asap-protocol/mcp-auth</code>.</strong> It accepts JWT access tokens only. The Python path accepts opaque tokens through introspection.</li>
+<li><strong>MCP TypeScript SDK 1.x (<code>@modelcontextprotocol/sdk</code>), the HTTP+SSE transport, and MCP revisions before <code>2026-07-28</code></strong> in <code>@asap-protocol/mcp-auth</code>.</li>
+<li><strong>Access tokens on other ASAP routes.</strong> Only <code>POST /asap/capability/execute</code> accepts them.</li>
+<li><strong>RFC 9728 metadata from the Python ASAP server.</strong> An A2A client finds the issuer in the card's security scheme.</li>
+<li><strong>Approval flows as a source of grants for access tokens.</strong> Grants come only from static rules.</li>
+<li><strong>Hiding tools from <code>tools/list</code>.</strong> Every caller sees every tool.</li>
+</ul>
+<h2 id="ietf-drafts-that-the-project-tracks">IETF drafts that the project tracks</h2>
+<p>This section is for information. No behavior in this release depends on these drafts.</p>
+<ul>
+<li><code>draft-ietf-oauth-v2-1</code>: OAuth 2.1, which MCP authorization refers to</li>
+<li><code>draft-ietf-wimse-aims</code>, from the IETF WIMSE working group</li>
+<li><code>draft-ietf-oauth-identity-assertion-authz-grant</code></li>
+<li><code>draft-ietf-oauth-client-id-metadata-document</code></li>
+</ul>
+<h2 id="related-documentation">Related documentation</h2>
+<ul>
+<li><a href="../../adapters/mcp-auth-bridge/">MCP Auth Bridge</a>: the Python stdio bridge and <code>@asap-protocol/mcp-auth</code> for HTTP servers</li>
+<li><a href="../../sdks/typescript/">TypeScript client</a>: Agent JWT minting and <code>verifyAgentJwt</code></li>
+<li><a href="../compliance-testing/">Compliance testing</a></li>
+<li><a href="../../integrations/support-tiers/">Support tiers</a></li>
+<li><a href="../../migration/#upgrading-from-v25x-to-v260">Migration: upgrading from v2.5.x to v2.6.0</a></li>
+<li><a href="https://asap-protocol.com/a2a/extensions/manifest/v1">ASAP extension for A2A</a>: the params of the extension</li>
+<li><a href="https://github.com/asap-protocol/asap-protocol/tree/main/examples/a2a_gateway">A2A gateway example</a> and <a href="https://github.com/asap-protocol/asap-protocol/tree/main/examples/mcp_auth_http">HTTP MCP example</a></li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
