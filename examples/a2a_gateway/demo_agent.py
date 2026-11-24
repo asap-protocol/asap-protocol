@@ -17,6 +17,9 @@ from asap.models.entities import Capability, Endpoint, Manifest, Skill
 A2A_PATH = "/a2a"
 """Path of the A2A JSON-RPC interface on the gateway origin."""
 
+DEMO_AGENT_URN = "urn:asap:agent:a2a-gateway-demo"
+"""The demo agent's URN: a fixed value, so a checker can pin the card key for it."""
+
 SkillHandler = Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]
 
 _TEXT_INPUT = {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]}
@@ -40,7 +43,7 @@ DEMO_GRANT_RULES: tuple[dict[str, Any], ...] = (
 def demo_manifest(origin: str) -> Manifest:
     """The ASAP manifest of the demo agent served at *origin*."""
     return Manifest(
-        id="urn:asap:agent:a2a-gateway-demo",
+        id=DEMO_AGENT_URN,
         name="A2A Gateway Demo",
         version="1.0.0",
         description="An ASAP agent reached through a reference A2A v1.0 gateway",

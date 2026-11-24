@@ -23,12 +23,19 @@ TEST_RATE_LIMIT = "999999/minute"
 # Live tests need examples/mcp_auth_http started with --compliance. They are skipped
 # unless this variable holds its MCP URL; the live-flows CI job sets it.
 LIVE_MCP_HTTP_URL_ENV = "ASAP_COMPLIANCE_MCP_HTTP_URL"
+# Live A2A tests need `python -m examples.a2a_gateway.serve --compliance`. They are
+# skipped unless this variable holds the gateway origin; the live-flows CI job sets it.
+LIVE_A2A_GATEWAY_URL_ENV = "ASAP_COMPLIANCE_A2A_GATEWAY_URL"
 
 
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers",
         f"mcp_http_live: needs a live HTTP MCP server; runs when {LIVE_MCP_HTTP_URL_ENV} is set",
+    )
+    config.addinivalue_line(
+        "markers",
+        f"a2a_gateway_live: needs a live A2A gateway; runs when {LIVE_A2A_GATEWAY_URL_ENV} is set",
     )
 
 
@@ -38,6 +45,15 @@ def live_mcp_http_url() -> str:
     url = os.environ.get(LIVE_MCP_HTTP_URL_ENV, "")
     if not url:
         pytest.skip(f"set {LIVE_MCP_HTTP_URL_ENV} (example: http://127.0.0.1:8787/mcp)")
+    return url
+
+
+@pytest.fixture
+def live_a2a_gateway_url() -> str:
+    """Origin of a live ``examples/a2a_gateway`` served with ``--compliance``, or skip the test."""
+    url = os.environ.get(LIVE_A2A_GATEWAY_URL_ENV, "")
+    if not url:
+        pytest.skip(f"set {LIVE_A2A_GATEWAY_URL_ENV} (example: http://127.0.0.1:8788)")
     return url
 
 

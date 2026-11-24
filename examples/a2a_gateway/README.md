@@ -36,6 +36,40 @@ The run starts the gateway in the same process and talks to it over `httpx.ASGIT
 3. ASAP's own ingest (`AgentCardIngestor`) fetches the same card, verifies it, and maps it back to the manifest. Its trust config pins the card key for the demo agent's URN only.
 4. The client calls the skill `greet` through `POST /a2a` with a token that has the scope `demo:greet`. The gateway verifies the token, selects the skill, checks the grant, and runs the skill.
 
+## Serve over HTTP
+
+Run this command from the repository root:
+
+```bash
+uv run python -m examples.a2a_gateway.serve --port 8788
+```
+
+The gateway then serves its card, its manifest, and `POST /a2a` at `http://127.0.0.1:8788`. That origin is in the card, in the token audience (`http://127.0.0.1:8788/a2a`), and in the interface URL.
+
+- **Loopback only.** `--host` takes a loopback IP address: `127.0.0.1` (the default), another `127.x.x.x` address, or `::1`. Any other value stops the command before it opens a port.
+- **Local requests only.** The gateway answers HTTP 403 when the `Host` header does not name a loopback address or `localhost`, or when an `Origin` header names another host. So a web page cannot reach the gateway through DNS rebinding. This is the stance of `examples/mcp_auth_http`.
+- **No tokens.** The command creates a new `LocalIssuer` and a new card key at each start. Nobody outside the process can get a token from that issuer, so the gateway refuses every skill call in this mode.
+
+The demo agent's URN is fixed: `urn:asap:agent:a2a-gateway-demo` (`DEMO_AGENT_URN` in `demo_agent.py`).
+
+## Compliance mode (test only)
+
+> **Warning:** compliance mode hands out valid tokens to anyone who can reach the gateway. Use it only for a compliance run on a local machine or in CI. It is off by default, and only the command-line flag turns it on; no environment variable does.
+
+```bash
+uv run python -m examples.a2a_gateway.serve --port 8788 --compliance
+```
+
+In this mode, each `POST /compliance/probe-tokens` returns a fresh set as JSON:
+
+- `a2a_url`, `skill_id` (`greet`), `allowed_arguments` (`{"name": "Ada", "language": "en"}`), and `constraint_violation_arguments` (`"language": "fr"`, which the grant does not allow).
+- `external.valid`: a token with the scope `demo:greet`. `external.out_of_grant`: a token with the scope `demo:echo`, a grant for another skill. `external.wrong_audience`: a token with the scope `demo:greet` for the audience `<origin>/not-this-gateway`.
+- `card_key`: the `kid` and the public JWK of the card key made at this start.
+
+The shape is the one of `examples/mcp_auth_http`, so the `ComplianceEndpointTokenProvider` of `asap-compliance` reads it unchanged. Without the flag, the path does not exist (HTTP 404).
+
+The `a2a-bridge` compliance profile takes the card key and the agent URN from its own config, never from the gateway. In a demo run you copy `card_key` into that config. That step exists only because the demo makes a new key at each start. For a real gateway, pin the key that the agent's owner publishes.
+
 ## Walk-through
 
 The steps below use the demo agent of `demo_agent.py`. Each request and answer is the one the tests send and check.
@@ -191,5 +225,7 @@ signers = [
 | `skill_call.py` | Skill selection from the message metadata, and the grant check |
 | `client.py` | The `a2a-sdk` client side: the pinned card verifier and `call_skill` |
 | `smoke.py` | The smoke run above |
+| `serve.py` | The HTTP server on a loopback address, with the `Host` and `Origin` checks |
+| `compliance.py` | The test-only probe path of compliance mode |
 
 The tests are in `tests/examples/test_a2a_gateway*.py`.

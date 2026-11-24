@@ -25,7 +25,7 @@ import base64
 import json
 import secrets
 import time
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -40,27 +40,22 @@ from asap_compliance.validators.mcp_http_answers import (
     AUTH_REQUIRED_401,
     CAPABILITY_DENIED_403,
     INVALID_TOKEN_401,
-    has_bearer_challenge,
     tool_error_problem,
     tool_success_problem,
 )
-from asap_compliance.validators.mcp_http_transport import (
-    McpHttpResponse,
-    McpHttpTransport,
-    McpHttpTransportError,
-)
-from asap_compliance.validators.probe_tokens import (
-    ComplianceEndpointTokenProvider,
-    ProbeTokenError,
-    ProbeTokenKind,
-    ProbeTokenProvider,
+from asap_compliance.validators.mcp_http_transport import McpHttpResponse, McpHttpTransport
+from asap_compliance.validators.probe_tokens import ProbeTokenKind, ProbeTokenProvider
+from asap_compliance.validators.profile_run import (
+    ProfileCheck,
+    echoed_token_problem,
+    endpoint_token_provider,
+    run_profile_checks,
+    unchallenged_401_problem,
 )
 
 # Built by the harness; no server accepts it.
 _MALFORMED_TOKEN = "asap-compliance-malformed-token"
 _UNDECLARED_TOOL = "asap_compliance_undeclared_tool"
-# A JWT part this long belongs to one token; a shorter one could match by chance.
-_MIN_ECHO_FRAGMENT = 16
 # What passing means, for the check messages.
 _EXPECT_TOOL_RESULT = "HTTP 200 and a tool result"
 _EXPECT_AUTH_REQUIRED = "HTTP 401, a Bearer challenge with no error, asap:auth_required"
@@ -224,34 +219,16 @@ async def _check_undeclared_tool(run: _ProbeRun) -> str | None:
 
 async def _check_www_authenticate_on_401(run: _ProbeRun) -> str | None:
     """Every HTTP 401 answer of the run so far."""
-    unauthorized = [response for response in run.responses if response.status_code == 401]
-    if not unauthorized:
-        return "the run saw no HTTP 401"
-    bare = [response for response in unauthorized if not has_bearer_challenge(response)]
-    return f"{len(bare)} of {len(unauthorized)} HTTP 401 answers have none" if bare else None
+    return unchallenged_401_problem(run.responses)
 
 
 async def _check_token_not_echoed(run: _ProbeRun) -> str | None:
     """Every answer of the run so far, against every token the run sent."""
-    fragments = {
-        fragment
-        for token in run.sent_tokens
-        for fragment in [token, *token.split(".")]
-        if len(fragment) >= _MIN_ECHO_FRAGMENT
-    }
-    echoed = [
-        response.request_id
-        for response in run.responses
-        for place in [response.body_text, *response.headers.values()]
-        if any(fragment in place for fragment in fragments)
-    ]
-    return f"the answers to requests {sorted(set(echoed))} hold one" if echoed else None
+    return echoed_token_problem(run.sent_tokens, run.responses)
 
 
-_CheckRunner = Callable[[_ProbeRun], Awaitable[str | None]]
-
-# (check ID, runner, what passing means), in the order the checks run.
-_PROFILE_CHECKS: tuple[tuple[str, _CheckRunner, str], ...] = (
+# The checks, in the order they run.
+_PROFILE_CHECKS: tuple[ProfileCheck[_ProbeRun], ...] = (
     ("public_tool", _check_public_tool, _EXPECT_TOOL_RESULT),
     ("auth_required", _check_auth_required, _EXPECT_AUTH_REQUIRED),
     ("invalid_token", _check_invalid_token, _EXPECT_INVALID_TOKEN),
@@ -288,35 +265,6 @@ _PROFILE_CHECKS: tuple[tuple[str, _CheckRunner, str], ...] = (
 MCP_AUTH_HTTP_CHECK_IDS: tuple[str, ...] = tuple(check_id for check_id, _, _ in _PROFILE_CHECKS)
 
 
-async def _run_check(
-    run: _ProbeRun, check_id: str, runner: _CheckRunner, passing: str
-) -> CheckResult:
-    if check_id in run.config.skip_checks:
-        return CheckResult(check_id, True, "skipped")
-    try:
-        problem = await runner(run)
-    except (McpHttpTransportError, ProbeTokenError) as exc:
-        problem = str(exc)
-    if problem is None:
-        return CheckResult(check_id, True, passing)
-    return CheckResult(check_id, False, f"expected {passing}; {problem}")
-
-
-def _endpoint_token_provider(
-    config: McpAuthHttpComplianceConfig, http_transport: httpx.AsyncBaseTransport | None
-) -> ProbeTokenProvider:
-    if config.probe_tokens_url is None:
-        raise ValueError(
-            "the mcp-auth-http profile needs fresh probe tokens: got probe_tokens_url=None "
-            "and no token_provider; set one of them"
-        )
-    return ComplianceEndpointTokenProvider(
-        config.probe_tokens_url,
-        timeout_seconds=config.timeout_seconds,
-        http_transport=http_transport,
-    )
-
-
 async def validate_mcp_auth_http_async(
     config: McpAuthHttpComplianceConfig,
     *,
@@ -339,12 +287,17 @@ async def validate_mcp_auth_http_async(
         ValueError: if there is neither a ``token_provider`` nor a ``probe_tokens_url``.
     """
     if token_provider is None:
-        token_provider = _endpoint_token_provider(config, http_transport)
+        token_provider = endpoint_token_provider(
+            config.profile,
+            config.probe_tokens_url,
+            timeout_seconds=config.timeout_seconds,
+            http_transport=http_transport,
+        )
     transport = McpHttpTransport(
         config.mcp_url, timeout_seconds=config.timeout_seconds, http_transport=http_transport
     )
     run = _ProbeRun(config, transport, token_provider)
-    checks = [await _run_check(run, *check) for check in _PROFILE_CHECKS]
+    checks = await run_profile_checks(run, _PROFILE_CHECKS, skip_checks=config.skip_checks)
     return McpAuthHttpResult(profile=config.profile, checks=checks)
 
 
