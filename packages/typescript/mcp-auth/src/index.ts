@@ -4,12 +4,14 @@
  *
  * @example
  * ```ts
- * import { MCP_PROTOCOL_VERSION } from "@asap-protocol/mcp-auth";
- * request.headers.get("mcp-protocol-version") === MCP_PROTOCOL_VERSION;
+ * import { createMcpAuthMiddleware } from "@asap-protocol/mcp-auth";
+ * const auth = createMcpAuthMiddleware({ agentJwt: { audience, resolveAgent }, publicTools: ["echo"] });
  * ```
  */
 
 export { MCP_PROTOCOL_VERSION } from "./public-request.js";
+export { createMcpAuthMiddleware } from "./middleware.js";
+export type { McpAuthConfig, McpAuthMiddleware } from "./middleware.js";
 
 export { McpAuthErrorCode, toolErrorResult } from "./errors.js";
 export { createAgentJwtVerifier } from "./agent-jwt-verifier.js";

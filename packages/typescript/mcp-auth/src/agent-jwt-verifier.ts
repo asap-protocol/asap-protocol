@@ -59,6 +59,12 @@ function agentJwtAuthInfo(token: string, verified: VerifiedAgentJwt): AuthInfo {
  * ```
  */
 export function createAgentJwtVerifier(config: AgentJwtVerifierConfig): OAuthTokenVerifier {
+  const audiences = typeof config.audience === "string" ? [config.audience] : config.audience;
+  if (audiences.length === 0 || audiences.some((audience) => audience.trim() === "")) {
+    throw new TypeError(
+      `agentJwt.audience must be a non-blank string or a non-empty list of them (PRD §7); received ${JSON.stringify(config.audience)}`,
+    );
+  }
   const replayCache = config.replayCache ?? new InMemoryJtiReplayCache();
   return {
     async verifyAccessToken(token: string): Promise<AuthInfo> {
