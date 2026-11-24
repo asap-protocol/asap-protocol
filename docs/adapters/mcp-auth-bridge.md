@@ -2,8 +2,8 @@
 
 The `asap.mcp.auth` package adds **opt-in** Agent JWT and capability enforcement to a native **stdio MCP** server (`MCPServer`). Call `protect_server` to wrap an existing server without forking the JSON-RPC protocol loop (Mode A).
 
-> **Import path (v2.5.1+):** Prefer `from asap.mcp.auth import ...`. The legacy
-> `asap.adapters.mcp` package remains a deprecation shim until **v2.6.0**.
+> **Import path:** `from asap.mcp.auth import ...`. v2.6.0 removes the old
+> import path; see the [migration guide](../migration.md#upgrading-from-v25x-to-v260).
 
 **Default behavior:** Unprotected `MCPServer` usage remains valid. Protection is explicit (MCP-DOC-004).
 

@@ -1,6 +1,6 @@
 # MCP Auth Bridge reference example
 
-Runnable demo of **Mode A** native MCP protection via `asap.adapters.mcp.protect_server`:
+Runnable demo of **Mode A** native MCP protection via `asap.mcp.auth.protect_server`:
 
 - **`echo`** — public tool (`public_tools`); no Agent JWT required.
 - **`secure_action`** — protected; requires a valid Agent JWT, matching `capabilities` claim, and an active registry grant.

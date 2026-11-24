@@ -50,7 +50,7 @@ For coverage and pre-push gates, see [`.cursor/README.md`](.cursor/README.md#can
 - **Arch Decisions (ADRs)**: `product/decision-records/`
 - **Documentation checkpoints** (post-release PRD follow-up): `product/checkpoints.md`
 - **Tech Stack**: `engineering/architecture/tech-stack-decisions.md`
-- **MCP Auth Bridge**: `asap.mcp.auth` (`protect_server`, `MCPAuthConfig`; legacy shim `asap.adapters.mcp` is removed in v2.6.0) — [docs/adapters/mcp-auth-bridge.md](docs/adapters/mcp-auth-bridge.md)
+- **MCP Auth Bridge**: `asap.mcp.auth` (`protect_server`, `MCPAuthConfig`) — [docs/adapters/mcp-auth-bridge.md](docs/adapters/mcp-auth-bridge.md)
 
 ### 2. Development Status
 - **Active Sprint**: none — **Phase 0 reset** (no active feature sprint). The `engineering/tasks/v2.6.0/` folder is created at v2.6.0 kickoff. Last shipped sprint: [engineering/tasks/v2.5.4/](engineering/tasks/v2.5.4/tasks-v2.5.4-roadmap.md) (Distribution Loop).
@@ -63,7 +63,7 @@ For coverage and pre-push gates, see [`.cursor/README.md`](.cursor/README.md#can
 ### Project Structure
 ```text
 src/asap/
-├── adapters/      # Third-party wire adapters (OpenAPI, MCP auth bridge)
+├── adapters/      # Third-party wire adapters (OpenAPI)
 ├── models/        # Data models (Envelope, TaskRequest, TaskStream)
 ├── auth/          # OAuth2/OIDC, Agent Identity, Capabilities, Approval
 ├── transport/     # HTTP Client/Server, WebSocket, SSE Streaming
