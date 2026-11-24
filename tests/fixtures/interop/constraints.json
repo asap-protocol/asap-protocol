@@ -1,0 +1,161 @@
+{
+  "description": "Grant constraints and call arguments give the violations that Python asap.auth.capabilities.validate_constraints returns today, including the ones a port could get wrong: a boolean counts as a number, true equals 1, and `in` on a string is a substring test. Each violation is a field and an operator; compare them as a sorted list and never compare message text. An empty list means the call is allowed. The TypeScript port must match this file.",
+  "vectors": [
+    {
+      "name": "plain value is an exact match",
+      "constraints": { "region": "eu" },
+      "arguments": { "region": "eu" },
+      "violations": []
+    },
+    {
+      "name": "plain value that differs fails eq",
+      "constraints": { "region": "eu" },
+      "arguments": { "region": "us" },
+      "violations": [{ "field": "region", "operator": "eq" }]
+    },
+    {
+      "name": "max allows an equal number",
+      "constraints": { "amount": { "max": 100 } },
+      "arguments": { "amount": 100 },
+      "violations": []
+    },
+    {
+      "name": "max refuses a larger number",
+      "constraints": { "amount": { "max": 100 } },
+      "arguments": { "amount": 100.5 },
+      "violations": [{ "field": "amount", "operator": "max" }]
+    },
+    {
+      "name": "min refuses a smaller number",
+      "constraints": { "amount": { "min": 1 } },
+      "arguments": { "amount": 0 },
+      "violations": [{ "field": "amount", "operator": "min" }]
+    },
+    {
+      "name": "max refuses a numeric string",
+      "constraints": { "amount": { "max": 100 } },
+      "arguments": { "amount": "5" },
+      "violations": [{ "field": "amount", "operator": "max" }]
+    },
+    {
+      "name": "in allows a listed value",
+      "constraints": { "env": { "in": ["dev", "staging"] } },
+      "arguments": { "env": "dev" },
+      "violations": []
+    },
+    {
+      "name": "in refuses an unlisted value",
+      "constraints": { "env": { "in": ["dev", "staging"] } },
+      "arguments": { "env": "prod" },
+      "violations": [{ "field": "env", "operator": "in" }]
+    },
+    {
+      "name": "in is case-sensitive",
+      "constraints": { "env": { "in": ["dev", "staging"] } },
+      "arguments": { "env": "DEV" },
+      "violations": [{ "field": "env", "operator": "in" }]
+    },
+    {
+      "name": "not_in refuses a listed value",
+      "constraints": { "env": { "not_in": ["prod"] } },
+      "arguments": { "env": "prod" },
+      "violations": [{ "field": "env", "operator": "not_in" }]
+    },
+    {
+      "name": "missing argument fails required",
+      "constraints": { "env": "dev" },
+      "arguments": {},
+      "violations": [{ "field": "env", "operator": "required" }]
+    },
+    {
+      "name": "null argument counts as missing",
+      "constraints": { "env": "dev" },
+      "arguments": { "env": null },
+      "violations": [{ "field": "env", "operator": "required" }]
+    },
+    {
+      "name": "every operator is checked and reported",
+      "constraints": { "amount": { "max": 5, "min": 10 } },
+      "arguments": { "amount": 7 },
+      "violations": [{ "field": "amount", "operator": "max" }, { "field": "amount", "operator": "min" }]
+    },
+    {
+      "name": "every constrained field is checked",
+      "constraints": { "a": 1, "b": 2 },
+      "arguments": { "a": 0, "b": 0 },
+      "violations": [{ "field": "a", "operator": "eq" }, { "field": "b", "operator": "eq" }]
+    },
+    {
+      "name": "arguments without a constraint are not checked",
+      "constraints": { "env": "dev" },
+      "arguments": { "env": "dev", "extra": 1 },
+      "violations": []
+    },
+    {
+      "name": "a boolean counts as a number for max",
+      "constraints": { "amount": { "max": 10 } },
+      "arguments": { "amount": true },
+      "violations": []
+    },
+    {
+      "name": "a boolean counts as the number 1 for min",
+      "constraints": { "amount": { "min": 2 } },
+      "arguments": { "amount": true },
+      "violations": [{ "field": "amount", "operator": "min" }]
+    },
+    {
+      "name": "1 equals 1.0",
+      "constraints": { "limit": 1 },
+      "arguments": { "limit": 1.0 },
+      "violations": []
+    },
+    {
+      "name": "true equals 1 for an exact match",
+      "constraints": { "flag": 1 },
+      "arguments": { "flag": true },
+      "violations": []
+    },
+    {
+      "name": "true is in a list that holds 1",
+      "constraints": { "n": { "in": [1, 2] } },
+      "arguments": { "n": true },
+      "violations": []
+    },
+    {
+      "name": "in on a string is a substring test",
+      "constraints": { "path": { "in": "/srv/public" } },
+      "arguments": { "path": "srv" },
+      "violations": []
+    },
+    {
+      "name": "in on a string allows the empty string",
+      "constraints": { "path": { "in": "/srv/public" } },
+      "arguments": { "path": "" },
+      "violations": []
+    },
+    {
+      "name": "not_in on a string is a substring test",
+      "constraints": { "path": { "not_in": "/etc/passwd" } },
+      "arguments": { "path": "etc" },
+      "violations": [{ "field": "path", "operator": "not_in" }]
+    },
+    {
+      "name": "in on an object tests its keys",
+      "constraints": { "tier": { "in": { "gold": 1 } } },
+      "arguments": { "tier": "gold" },
+      "violations": []
+    },
+    {
+      "name": "an object without operator keys is an exact match",
+      "constraints": { "opts": { "eq": 5 } },
+      "arguments": { "opts": 5 },
+      "violations": [{ "field": "opts", "operator": "eq" }]
+    },
+    {
+      "name": "unknown keys next to an operator are ignored",
+      "constraints": { "amount": { "max": 5, "mxa": 3 } },
+      "arguments": { "amount": 4 },
+      "violations": []
+    }
+  ]
+}

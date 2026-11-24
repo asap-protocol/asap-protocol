@@ -193,11 +193,44 @@ def validate_constraints(
 
 @dataclass
 class GrantCheckResult:
-    """Result of :meth:`CapabilityRegistry.check_grant`."""
+    """Result of :func:`check_capability_grant` and :meth:`CapabilityRegistry.check_grant`."""
 
     allowed: bool
     violations: list[ConstraintViolation]
     grant: CapabilityGrant | None = None
+
+
+def check_capability_grant(
+    grant: CapabilityGrant | None, arguments: dict[str, Any] | None = None
+) -> GrantCheckResult:
+    """Return whether one grant allows a call with *arguments*.
+
+    Denied when there is no grant, when it is not ``active``, or when it has
+    expired. Constrained grants treat omitted ``arguments`` as ``{}``. Each
+    constrained field is required, so a caller cannot skip the allowlist by
+    leaving the object out of the execute body. Shared by
+    :meth:`CapabilityRegistry.check_grant` and the external-token path, whose
+    grants come from its issuer's rules, not from the registry.
+
+    Example:
+        >>> check_capability_grant(CapabilityGrant(capability="a", status="active")).allowed
+        True
+    """
+    if grant is None:
+        return GrantCheckResult(allowed=False, violations=[], grant=None)
+
+    if grant.status != "active":
+        return GrantCheckResult(allowed=False, violations=[], grant=grant)
+
+    if grant.expires_at is not None and datetime.now(timezone.utc) > grant.expires_at:
+        return GrantCheckResult(allowed=False, violations=[], grant=grant)
+
+    if grant.constraints:
+        violations = validate_constraints(grant.constraints, arguments or {})
+        if violations:
+            return GrantCheckResult(allowed=False, violations=violations, grant=grant)
+
+    return GrantCheckResult(allowed=True, violations=[], grant=grant)
 
 
 class CapabilityRegistry:
@@ -258,28 +291,9 @@ class CapabilityRegistry:
     ) -> GrantCheckResult:
         """Return whether *agent_id* may invoke *capability* with *arguments*.
 
-        Constrained grants treat omitted ``arguments`` as ``{}``. Each
-        constrained field is required, so a caller cannot skip the allowlist
-        by leaving the object out of the execute body.
+        See :func:`check_capability_grant` for the rules.
         """
-        agent_grants = self._grants.get(agent_id, {})
-        g = agent_grants.get(capability)
-
-        if g is None:
-            return GrantCheckResult(allowed=False, violations=[], grant=None)
-
-        if g.status != "active":
-            return GrantCheckResult(allowed=False, violations=[], grant=g)
-
-        if g.expires_at is not None and datetime.now(timezone.utc) > g.expires_at:
-            return GrantCheckResult(allowed=False, violations=[], grant=g)
-
-        if g.constraints:
-            violations = validate_constraints(g.constraints, arguments or {})
-            if violations:
-                return GrantCheckResult(allowed=False, violations=violations, grant=g)
-
-        return GrantCheckResult(allowed=True, violations=[], grant=g)
+        return check_capability_grant(self._grants.get(agent_id, {}).get(capability), arguments)
 
 
 # ---------------------------------------------------------------------------

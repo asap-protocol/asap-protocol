@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import time
 from collections import OrderedDict
+from collections.abc import Mapping
 from threading import Lock
-from typing import Any, Optional
+from typing import Any, Optional, Protocol
 
 import httpx
 from pydantic import Field
@@ -51,6 +52,9 @@ class TokenInfo(ASAPBaseModel):
     client_id: str | None = Field(default=None, description="Client identifier")
     username: str | None = Field(default=None, description="Resource owner identifier")
     token_type: str | None = Field(default=None, description="Token type")
+    claims: dict[str, Any] = Field(
+        default_factory=dict, description="Every member of the introspection response"
+    )
 
     def cache_ttl_seconds(self) -> float:
         """Compute cache TTL from token lifetime.
@@ -66,6 +70,14 @@ class TokenInfo(ASAPBaseModel):
         if remaining <= 0:
             return 0.0
         return min(float(remaining), MAX_ACTIVE_CACHE_TTL_SECONDS)
+
+
+class IntrospectionPoster(Protocol):
+    """Sends the RFC 7662 form POST and returns the JSON object of the response."""
+
+    async def __call__(
+        self, url: str, form: Mapping[str, str], *, basic_auth: tuple[str, str]
+    ) -> dict[str, Any]: ...
 
 
 class _CacheEntry:
@@ -105,11 +117,14 @@ class TokenIntrospector:
         *,
         transport: Optional[httpx.AsyncBaseTransport] = None,
         max_cache_size: int = 1000,
+        poster: IntrospectionPoster | None = None,
     ) -> None:
         self._url = introspection_url
         self._client_id = client_id
         self._client_secret = client_secret
         self._transport = transport
+        # External-token issuers pass the guarded POST (v2.6.0); None keeps httpx.
+        self._poster = poster
         self._cache: OrderedDict[str, _CacheEntry] = OrderedDict()
         self._lock = Lock()
         self._max_size = max_cache_size
@@ -151,19 +166,10 @@ class TokenIntrospector:
         auth = (self._client_id, self._client_secret)
         data = {"token": token, "token_type_hint": "access_token"}  # nosec B105
 
-        kwargs: dict[str, Any] = {"timeout": httpx.Timeout(10.0)}
-        if self._transport is not None:
-            kwargs["transport"] = self._transport
-
-        async with httpx.AsyncClient(**kwargs) as client:
-            resp = await client.post(
-                self._url,
-                auth=auth,
-                data=data,
-                headers={"Accept": "application/json"},
-            )
-            resp.raise_for_status()
-            body = resp.json()
+        if self._poster is not None:
+            body = await self._poster(self._url, data, basic_auth=auth)
+        else:
+            body = await self._post_with_httpx(auth, data)
 
         active = body.get("active", False)
         if not isinstance(active, bool):
@@ -200,4 +206,20 @@ class TokenIntrospector:
             client_id=client_id_str,
             username=username_str,
             token_type=token_type_str,
+            claims=dict(body),
         )
+
+    async def _post_with_httpx(self, auth: tuple[str, str], data: dict[str, str]) -> Any:
+        kwargs: dict[str, Any] = {"timeout": httpx.Timeout(10.0)}
+        if self._transport is not None:
+            kwargs["transport"] = self._transport
+
+        async with httpx.AsyncClient(**kwargs) as client:
+            resp = await client.post(
+                self._url,
+                auth=auth,
+                data=data,
+                headers={"Accept": "application/json"},
+            )
+            resp.raise_for_status()
+            return resp.json()
