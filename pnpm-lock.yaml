@@ -182,6 +182,12 @@ importers:
 
   examples/mcp_auth_http:
     dependencies:
+      '@asap-protocol/client':
+        specifier: workspace:*
+        version: link:../../packages/typescript/client
+      '@asap-protocol/mcp-auth':
+        specifier: workspace:*
+        version: link:../../packages/typescript/mcp-auth
       '@modelcontextprotocol/node':
         specifier: 2.1.2
         version: 2.1.2(@modelcontextprotocol/server@2.4.0)

@@ -46,7 +46,7 @@ afterAll(async () => {
   await server.close();
 });
 
-describe("examples/mcp_auth_http (protocol probe)", () => {
+describe("examples/mcp_auth_http (protocol probe, protected)", () => {
   it("serves both tools to the SDK client pinned to 2026-07-28", async () => {
     const client = new Client({ name: "probe", version: "0.0.0" }, { versionNegotiation: { mode: { pin: MCP_REVISION } } });
     await client.connect(new StreamableHTTPClientTransport(server.url));
@@ -81,13 +81,17 @@ describe("examples/mcp_auth_http (protocol probe)", () => {
     expect((await response.json()).error.code).toBe(-32020);
   });
 
+  // With no token, the token layer refuses it first (401); with a valid token, the SDK refuses it.
   it("refuses a 2025-era request that has no _meta envelope", async () => {
-    const response = await fetch(server.url, {
-      method: "POST",
-      headers: { "content-type": "application/json", "mcp-method": "tools/call", "mcp-name": PUBLIC_TOOL },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: PROTECTED_TOOL } }),
-    });
+    const legacyCall = (headers: Record<string, string>) =>
+      fetch(server.url, {
+        method: "POST",
+        headers: { "content-type": "application/json", "mcp-method": "tools/call", "mcp-name": PUBLIC_TOOL, ...headers },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: PROTECTED_TOOL } }),
+      });
 
+    expect((await legacyCall({})).status).toBe(401);
+    const response = await legacyCall({ authorization: `Bearer ${await server.demo.mintAgentJwt(server.url.href)}` });
     expect(response.status).toBe(400);
     expect((await response.json()).error.code).toBe(-32022);
   });
