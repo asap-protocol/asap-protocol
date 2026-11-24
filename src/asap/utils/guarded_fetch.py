@@ -21,8 +21,9 @@ move the connection. It does not guarantee more: a public address can still be
 the wrong server, and an injected ``transport`` decides itself where to connect.
 
 The address check is stricter than ``asap.transport.webhook.validate_callback_url``
-(it also refuses shared address space ``100.64.0.0/10``, multicast, and
-reserved prefixes such as NAT64). Existing callers keep their own guard.
+(it also refuses shared address space ``100.64.0.0/10``, multicast, IPv6
+site-local ``fec0::/10``, and reserved prefixes such as NAT64). Existing
+callers keep their own guard.
 """
 
 from __future__ import annotations
@@ -70,11 +71,18 @@ class GuardedFetchError(Exception):
 def is_public_ip_address(address: str) -> bool:
     """Return True if ``address`` is a globally routable unicast address.
 
+    ``is_global`` follows the IANA special-purpose registries. Multicast and
+    reserved addresses are refused too, and so is the deprecated IPv6
+    site-local block ``fec0::/10`` (RFC 3879), which ``ipaddress`` counts as
+    global but which some networks still route internally.
+
     Example:
         >>> is_public_ip_address("10.0.0.1")
         False
     """
     ip = ipaddress.ip_address(address)
+    if isinstance(ip, ipaddress.IPv6Address) and ip.is_site_local:
+        return False
     return ip.is_global and not ip.is_multicast and not ip.is_reserved
 
 
