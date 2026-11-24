@@ -53,6 +53,8 @@ Tag [`v2.5.12`](https://github.com/asap-protocol/asap-protocol/releases/tag/v2.5
 
 - **MCP stdio bridge: no more `"annotations": null`** — `tools/call` results from `MCPServer` and the auth bridge's `asap:*` error results (`tool_error_result`) now leave the optional `annotations` field out of each content item instead of sending `null`. MCP TypeScript SDK 2.x clients rejected the null and can now read these results; the text and `isError` do not change.
 
+- **MCP client: no more `"_meta": null`** — `MCPClient.call_tool` called without `meta` now leaves `_meta` out of the `tools/call` params instead of sending `null`, which MCP TypeScript SDK 2.x servers rejected. A `meta` you pass is still sent as given.
+
 ### Documentation
 
 - **docs/migration.md** — removed the "Key Improvements in ASAP" table from the A2A section. It described an old Agent Card format, not A2A v1.0. The v2.6.0 interoperability guide will replace that section.
