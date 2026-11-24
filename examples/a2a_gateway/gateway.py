@@ -41,6 +41,7 @@ from asap.auth.external_verifier import ExternalTokenVerifier
 from asap.models.entities import Manifest
 from asap.observability import get_logger
 from asap.transport.server import create_app
+from examples.a2a_gateway import refusals
 from examples.a2a_gateway.demo_agent import A2A_PATH, SkillHandler
 from examples.a2a_gateway.skill_call import (
     AuthorizedSkillCall,
@@ -123,13 +124,14 @@ class A2AGate:
     async def _authenticate(self, authorization: str | None) -> ExternalPrincipal | Response:
         scheme, _, token = (authorization or "").partition(" ")
         if scheme.lower() != "bearer" or not token.strip():
-            return Response(status_code=401, headers={"WWW-Authenticate": "Bearer"})
+            return refusals.auth_required()
         try:
             return await self._verifier.verify(token.strip())
         except ExternalTokenError as exc:
-            # The typed reason goes to the log only, never the token.
+            # The typed reason goes to the log only, never the token; the answer
+            # is the same for every reason, so it names no allowlisted issuer.
             logger.warning("a2a_gateway.token_rejected", reason=exc.reason.value)
-            return Response(status_code=401, headers={"WWW-Authenticate": "Bearer"})
+            return refusals.invalid_token()
 
     def _decide(
         self, principal: ExternalPrincipal, body: dict[str, Any]
@@ -152,8 +154,10 @@ class A2AGate:
             skill_id=skill_id,
             outcome=outcome,
         )
+        if check.violations:
+            return refusals.constraint_violation(check.violations)
         if not check.allowed:
-            return Response(status_code=403)
+            return refusals.capability_denied()
         return AuthorizedSkillCall(principal=principal, skill_id=skill_id, arguments=arguments)
 
 

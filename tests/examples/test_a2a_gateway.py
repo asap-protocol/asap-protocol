@@ -45,7 +45,7 @@ async def _public_dns(hostname: str) -> list[str]:
     return ["93.184.216.34"]
 
 
-def _gateway(skills: Mapping[str, SkillHandler] = DEMO_SKILLS) -> FastAPI:
+def build_gateway(skills: Mapping[str, SkillHandler] = DEMO_SKILLS) -> FastAPI:
     tokens = ExternalTokenConfig.model_validate(
         {"issuers": [ISSUER.config_entry(AUDIENCE, grant_rules=DEMO_GRANT_RULES)]}
     )
@@ -60,7 +60,7 @@ def _gateway(skills: Mapping[str, SkillHandler] = DEMO_SKILLS) -> FastAPI:
 
 @pytest.fixture
 def gateway() -> FastAPI:
-    return _gateway()
+    return build_gateway()
 
 
 @pytest.fixture
@@ -123,7 +123,7 @@ async def test_the_manifest_and_the_card_describe_the_same_agent(http: httpx.Asy
 
 def test_the_skills_must_match_the_manifest() -> None:
     with pytest.raises(ValueError, match="must match the manifest skills"):
-        _gateway(skills={"echo": DEMO_SKILLS["echo"]})
+        build_gateway(skills={"echo": DEMO_SKILLS["echo"]})
 
 
 async def test_an_a2a_client_calls_a_skill_with_an_external_token_under_an_asap_grant(
