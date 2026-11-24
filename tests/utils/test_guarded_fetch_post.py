@@ -8,6 +8,7 @@ network: the resolver and the httpx transport are fakes.
 
 from __future__ import annotations
 
+from base64 import b64decode
 from collections.abc import Callable
 from typing import Any
 from urllib.parse import parse_qs
@@ -24,7 +25,8 @@ from asap.utils.guarded_fetch import (
 
 _PUBLIC_ADDRESS = "93.184.216.34"
 _URL = "https://idp.example/oauth/introspect"
-_SECRET = "client-s3cret-value"
+_CLIENT_ID = "local client:test"
+_SECRET = "local+secret%"
 _FORM = {"token": "opaque-access-token-value", "token_type_hint": "access_token"}
 
 
@@ -38,7 +40,7 @@ async def _post(
     return await guarded_post_form_json(
         url,
         _FORM,
-        basic_auth=("resource-server", _SECRET),
+        basic_auth=(_CLIENT_ID, _SECRET),
         max_bytes=1024,
         resolver=_public_resolver,
         transport=httpx.MockTransport(handler),
@@ -66,7 +68,9 @@ async def test_post_is_pinned_and_sends_the_form_with_basic_auth() -> None:
     assert request.headers["Host"] == "idp.example"
     assert request.extensions["sni_hostname"] == "idp.example"
     assert request.headers["Content-Type"] == "application/x-www-form-urlencoded"
-    assert request.headers["Authorization"].startswith("Basic ")
+    scheme, encoded = request.headers["Authorization"].split(" ", 1)
+    assert scheme == "Basic"
+    assert b64decode(encoded) == b"local+client%3Atest:local%2Bsecret%25"
     assert parse_qs(request.content.decode()) == {k: [v] for k, v in _FORM.items()}
     assert _SECRET not in str(request.url) and _FORM["token"] not in str(request.url)
 

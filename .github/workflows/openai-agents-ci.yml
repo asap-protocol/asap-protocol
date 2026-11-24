@@ -11,6 +11,7 @@ on:
       - "pnpm-workspace.yaml"
       - ".github/workflows/openai-agents-ci.yml"
   pull_request:
+    types: [opened, synchronize, reopened, edited]
     branches: [main, release/2.6.0]
     paths:
       - "packages/typescript/openai-agents/**"
