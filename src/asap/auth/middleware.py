@@ -178,8 +178,10 @@ class OAuth2Middleware(BaseHTTPMiddleware):
     Extracts Authorization: Bearer <token>, validates the JWT signature
     with keys from jwks_uri, checks exp, and optionally enforces a
     required scope. Sets request.state.oauth2_claims on success.
-    Skips ``/asap/agent/*`` (Host JWT, not IdP access tokens). Paths are matched
-    as routed, without the ASGI ``root_path``.
+    Skips ``/asap/agent/*`` (Host JWT, not IdP access tokens) and each path in
+    ``exempt_paths``, compared exactly: list only a route that verifies its own
+    bearer. Any other spelling of that path is still validated here. Paths are
+    matched as routed, without the ASGI ``root_path``.
 
     Returns 401 if the token is missing or invalid, 403 if scope is insufficient.
     """
@@ -198,9 +200,11 @@ class OAuth2Middleware(BaseHTTPMiddleware):
         expected_issuer: str | None = None,
         expected_audience: str | list[str] | None = None,
         validator: JWKSValidator | None = None,
+        exempt_paths: frozenset[str] = frozenset(),
     ) -> None:
         super().__init__(app)
         self._jwks_uri = jwks_uri
+        self._exempt_paths = exempt_paths
         self._required_scope = required_scope
         self._path_prefix = path_prefix
         self._extra_path_prefixes = extra_path_prefixes
@@ -232,7 +236,7 @@ class OAuth2Middleware(BaseHTTPMiddleware):
 
     def _should_validate(self, path: str) -> bool:
         """Return True if this request path should be validated."""
-        if path.startswith(AGENT_IDENTITY_ROUTE_PREFIX):
+        if path.startswith(AGENT_IDENTITY_ROUTE_PREFIX) or path in self._exempt_paths:
             return False
         # path_prefix=None keeps the historic "validate everything" semantics.
         if self._path_prefix is None:
