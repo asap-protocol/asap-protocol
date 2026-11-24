@@ -180,17 +180,6 @@ ASAP (Agent State and Action Protocol) builds upon concepts from both A2A and MC
 }
 ```
 
-### Key Improvements in ASAP
-
-| Feature | A2A Agent Card | ASAP Manifest |
-|---------|----------------|---------------|
-| **Identity** | URL-based | URN-based (`urn:asap:agent:*`) |
-| **Versioning** | None | Semantic versioning |
-| **Skills** | String list | Structured with schemas |
-| **State** | Not specified | `state_persistence` flag |
-| **Endpoints** | Single URL | Multiple endpoints |
-| **Validation** | None | JSON Schema for I/O |
-
 ---
 
 ## Payload Type Mapping
