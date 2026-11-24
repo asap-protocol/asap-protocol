@@ -1197,7 +1197,9 @@ walks through each one.
    routed-path row in [Behavior changes](#behavior-changes). Under a prefix,
    make every client send a token on the `/asap` routes.
 5. If you read agent ids from files or environment variables, strip them.
-6. TypeScript: `@asap-protocol/client` 2.5.0 needs no code change. Add
+6. TypeScript: code that reads a private-key member other than `d` (for
+   example `dp`) from `publicJwk` no longer type-checks with
+   `@asap-protocol/client` 2.5.0; read only public members. Add
    `@asap-protocol/mcp-auth` only to protect an HTTP MCP server.
 
 #### Backward compatibility (v2.6.0)
@@ -1210,8 +1212,9 @@ walks through each one.
   the agent URNs with a trailing newline that are now refused.
 - **TypeScript**: `HostContext.publicJwk`, `AgentContext.publicJwk`, and the
   `agentPublicKey` option of `signHostJwt` are typed `PublicJwk` instead of
-  the DOM `JsonWebKey`. Each type can be assigned to the other, so existing
-  code compiles. The classes `RemoteFatalRPCError` and
+  the DOM `JsonWebKey`. Each type can be assigned to the other; code that
+  reads a private-key member other than `d` (`p`, `q`, `dp`, `dq`, `qi`,
+  `oth`, `k`) from `publicJwk` no longer type-checks. The classes `RemoteFatalRPCError` and
   `RemoteRecoverableRPCError` of `@asap-protocol/client` stay.
 
 ---

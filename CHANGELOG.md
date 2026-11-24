@@ -38,7 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **`@asap-protocol/client` 2.5.0**
 
-- **`verifyAgentJwt`** — the token checks of the Python `verify_agent_jwt`, with a resolver callback for the agent's key and status. With it: `InMemoryJtiReplayCache` (a live `jti` is never evicted; a full cache raises `JtiReplayCacheFullError`), `AgentJwtFailureReason`, and the `PublicJwk` type. Guide: [TypeScript client](docs/sdks/typescript.md).
+- **`verifyAgentJwt`** — the token checks of the Python `verify_agent_jwt`, with a resolver callback for the agent's key and status. With it: `InMemoryJtiReplayCache` (a live `jti` is never evicted; a full cache raises `JtiReplayCacheFullError`), `AgentJwtFailureReason`, and the `PublicJwk` type. `verifyAgentJwt` refuses an Agent JWT whose `exp` is more than 120 seconds after the current time or after its `iat` (`token lifetime too long`), the same cap as `verify_agent_jwt`, and the in-memory cache keeps each `jti` until the token's `exp`. Guide: [TypeScript client](docs/sdks/typescript.md).
 
 **Compliance (COMPAT-007)**
 
