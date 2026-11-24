@@ -15,19 +15,51 @@ same answers (``tests/fixtures/interop/grant-mapping.json``):
 * a ``claim`` rule matches when that top-level claim is the exact string
   ``value``, or a list that holds it. Numbers, booleans, and nested objects
   never match.
+
+Rule constraints are checked by ``validate_constraints`` at call time; a rule
+refuses an operator object that this check would misread
+(``tests/fixtures/interop/constraints.json`` pins what it does).
 """
 
 from __future__ import annotations
 
+import math
 from collections.abc import Iterable, Mapping
 from typing import Any
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
-from asap.auth.capabilities import CapabilityGrant
+from asap.auth.capabilities import OPERATOR_KEYS, CapabilityGrant
 from asap.models.base import ASAPBaseModel
 
 _SCOPE_CLAIM = "scope"
+_NUMBER_OPERATORS = frozenset({"max", "min"})
+
+
+def _check_constraint_spec(field: str, spec: Any) -> None:
+    """Refuse operator objects that ``validate_constraints`` ignores, misreads, or fails on.
+
+    It ignores unknown keys next to an operator, compares an object with no
+    operator key for equality, reads ``in`` on a string as a substring test,
+    and raises ``TypeError`` on a non-number bound. A plain value stays an
+    exact-match constraint.
+    """
+    if not isinstance(spec, dict):
+        return
+    if not spec or not spec.keys() <= OPERATOR_KEYS:
+        raise ValueError(
+            f"constraint {field!r}: an object may hold only {sorted(OPERATOR_KEYS)}, "
+            f"got keys {sorted(spec)}"
+        )
+    for operator, expected in spec.items():
+        if operator in _NUMBER_OPERATORS:
+            is_number = isinstance(expected, int | float) and not isinstance(expected, bool)
+            if not (is_number and math.isfinite(expected)):
+                raise ValueError(
+                    f"constraint {field!r}.{operator}: expected a finite number, got {expected!r}"
+                )
+        elif not isinstance(expected, list):
+            raise ValueError(f"constraint {field!r}.{operator}: expected a list, got {expected!r}")
 
 
 class ExternalGrantRule(ASAPBaseModel):
@@ -42,6 +74,13 @@ class ExternalGrantRule(ASAPBaseModel):
     value: str | None = None
     capability: str = Field(min_length=1)
     constraints: dict[str, Any] | None = None
+
+    @field_validator("constraints")
+    @classmethod
+    def _well_formed_constraints(cls, constraints: dict[str, Any] | None) -> dict[str, Any] | None:
+        for field, spec in (constraints or {}).items():
+            _check_constraint_spec(field, spec)
+        return constraints
 
     @model_validator(mode="after")
     def _exactly_one_matcher(self) -> ExternalGrantRule:

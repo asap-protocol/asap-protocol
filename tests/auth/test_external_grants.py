@@ -63,3 +63,29 @@ def test_rules_that_give_one_capability_two_constraint_sets_are_an_error() -> No
     ]
     with pytest.raises(ValidationError, match="file.read"):
         ExternalIssuerConfig.model_validate(_issuer_with_rules(rules))
+
+
+@pytest.mark.parametrize(
+    "constraints",
+    [
+        {"amount": {"max": "100"}},
+        {"amount": {"max": True}},
+        {"amount": {"min": float("inf")}},
+        {"env": {"in": "dev,staging"}},
+        {"tier": {"in": {"gold": 1}}},
+        {"opts": {"eq": 5}},
+        {"amount": {"max": 5, "mxa": 3}},
+        {"opts": {}},
+    ],
+)
+def test_rule_refuses_constraints_that_validate_constraints_misreads(
+    constraints: dict[str, Any],
+) -> None:
+    with pytest.raises(ValidationError, match="constraint"):
+        ExternalGrantRule(scope="files:read", capability="file.read", constraints=constraints)
+
+
+def test_rule_accepts_well_formed_constraints() -> None:
+    constraints = {"amount": {"max": 5, "min": 0.5}, "env": {"in": ["dev"]}, "region": "eu"}
+    rule = ExternalGrantRule(scope="files:read", capability="file.read", constraints=constraints)
+    assert rule.constraints == constraints
