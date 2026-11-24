@@ -77,7 +77,11 @@ The gateway serves two documents from one origin:
 - `GET /.well-known/asap/manifest.json`: the ASAP manifest.
 - `GET /.well-known/agent-card.json`: the A2A v1.0 Agent Card, signed. Its ASAP extension (`https://asap-protocol.com/a2a/extensions/manifest/v1`) holds the manifest `id` as `agent_urn`.
 
-Both answers have `Cache-Control: public, max-age=300` and an `ETag`. The card states what the gateway enforces. Each token issuer is one OpenID Connect scheme, and each scope that grants a skill is one requirement on that skill:
+The card advertises `streaming: false` because the gateway serves `SendMessage` only. If the ASAP manifest advertises streaming, the extension preserves that value as `asap_streaming: true`.
+
+Both answers have `Cache-Control: public, max-age=300` and an `ETag`. The card lists one security scheme per issuer. It lists an OpenID Connect scheme when the issuer config uses `oidc_discovery`. For other issuers, it lists HTTP Bearer and the client obtains the token separately. Each scope that grants a skill adds one requirement to that skill.
+
+The issuer in the example uses `oidc_discovery`.
 
 ```json
 "securitySchemes": {
@@ -90,7 +94,7 @@ Both answers have `Cache-Control: public, max-age=300` and an `ETag`. The card s
 }
 ```
 
-The skill `greet` lists `{"schemes": {"https://issuer.example": {"list": ["demo:greet"]}}}`. The card-level list holds every such requirement.
+The skill `greet` lists `{"schemes": {"https://issuer.example": {"list": ["demo:greet"]}}}`. The card-level list holds every such requirement. The gateway also evaluates claim rules that you configure. The card lists only scope rules.
 
 ### 3. Verify the card
 

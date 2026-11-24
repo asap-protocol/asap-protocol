@@ -11,6 +11,7 @@ on:
       - "client-v*"
       - "mcp-auth-v*"
   pull_request:
+    types: [opened, synchronize, reopened, edited]
     branches: [main, release/2.6.0]
     paths:
       - "packages/typescript/client/**"
