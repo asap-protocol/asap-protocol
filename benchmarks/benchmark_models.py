@@ -44,7 +44,7 @@ class TestEnvelopeCreation:
                 sender="urn:asap:agent:sender",
                 recipient="urn:asap:agent:recipient",
                 payload_type="task.request",
-                payload={"task_id": "test"},
+                payload={"conversation_id": "conv_001", "skill_id": "echo", "input": {}},
             )
 
         result = benchmark(create_envelope)
@@ -63,7 +63,7 @@ class TestEnvelopeCreation:
                 payload={
                     "task_id": "01JGQXYZ1234567890123456",
                     "status": "completed",
-                    "output": {"result": "success", "data": [1, 2, 3, 4, 5]},
+                    "result": {"message": "success", "data": [1, 2, 3, 4, 5]},
                 },
                 correlation_id="corr_001",
                 trace_id="trace_001",
@@ -124,7 +124,11 @@ class TestJsonDeserialization:
             "sender": "urn:asap:agent:sender",
             "recipient": "urn:asap:agent:recipient",
             "payload_type": "task.request",
-            "payload": {"task_id": "01JGQXYZ1234567890123456"},
+            "payload": {
+                "conversation_id": "01JGQXYZ1234567890123456",
+                "skill_id": "echo",
+                "input": {},
+            },
         }
 
         result = benchmark(Envelope.model_validate, data)
@@ -160,7 +164,7 @@ class TestJsonDeserialization:
                 "max_results": 10,
                 "filters": {"date_range": "last_month"},
             },
-            "config": {"priority": "high", "timeout": 30000},
+            "config": {"priority": "high", "timeout_seconds": 30},
         }
 
         result = benchmark(TaskRequest.model_validate, data)
@@ -260,7 +264,7 @@ class TestBatchOperations:
                     sender="urn:asap:agent:sender",
                     recipient="urn:asap:agent:recipient",
                     payload_type="task.request",
-                    payload={"task_id": f"task_{i}"},
+                    payload={"conversation_id": f"conv_{i}", "skill_id": "echo", "input": {}},
                 )
                 for i in range(100)
             ]
@@ -276,7 +280,7 @@ class TestBatchOperations:
                 sender="urn:asap:agent:sender",
                 recipient="urn:asap:agent:recipient",
                 payload_type="task.request",
-                payload={"task_id": f"task_{i}"},
+                payload={"conversation_id": f"conv_{i}", "skill_id": "echo", "input": {}},
             )
             for i in range(100)
         ]
