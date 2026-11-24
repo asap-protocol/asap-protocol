@@ -1,0 +1,45 @@
+{
+  "description": "MCP auth error codes and the tools/call error payload. Python asap.mcp.auth.errors and @asap-protocol/mcp-auth must both match this file.",
+  "codes": [
+    "asap:auth_required",
+    "asap:invalid_token",
+    "asap:capability_denied",
+    "asap:constraint_violation"
+  ],
+  "tool_error_results": [
+    {
+      "code": "asap:auth_required",
+      "detail": null,
+      "result": {
+        "content": [{ "type": "text", "text": "asap:auth_required" }],
+        "isError": true
+      }
+    },
+    {
+      "code": "asap:invalid_token",
+      "detail": "Agent JWT expired",
+      "result": {
+        "content": [{ "type": "text", "text": "asap:invalid_token: Agent JWT expired" }],
+        "isError": true
+      }
+    },
+    {
+      "code": "asap:capability_denied",
+      "detail": "no active grant for capability 'web_search'",
+      "result": {
+        "content": [
+          { "type": "text", "text": "asap:capability_denied: no active grant for capability 'web_search'" }
+        ],
+        "isError": true
+      }
+    },
+    {
+      "code": "asap:constraint_violation",
+      "detail": "max_results: 50 exceeds max 10",
+      "result": {
+        "content": [{ "type": "text", "text": "asap:constraint_violation: max_results: 50 exceeds max 10" }],
+        "isError": true
+      }
+    }
+  ]
+}
