@@ -15,7 +15,7 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric import ed25519
 from joserfc.jwk import OKPKey
 
-from asap.adapters.a2a import A2AKeyResolutionError, A2AKeyResolver, A2ATrustConfig
+from asap.adapters.a2a import A2AKeyResolutionError, A2AKeyResolver, A2ATrustConfig, AllowedJku
 
 _JKUS = [f"https://keys{n}.example.com/jwks.json" for n in range(3)]
 _KEY = {
@@ -50,7 +50,8 @@ async def _public_dns(hostname: str) -> list[str]:
 
 
 def _resolver(server: _CountingJwksServer, clock: _Clock, **config: Any) -> A2AKeyResolver:
-    trust = A2ATrustConfig(jku_allowlist=_JKUS, **config)
+    allowlist = {jku: AllowedJku(agents=["urn:asap:agent:research"]) for jku in _JKUS}
+    trust = A2ATrustConfig(jku_allowlist=allowlist, **config)
     return A2AKeyResolver(trust, dns_resolver=_public_dns, transport=server.transport, clock=clock)
 
 

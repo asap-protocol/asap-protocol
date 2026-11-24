@@ -13,12 +13,14 @@ from __future__ import annotations
 
 from asap.adapters.a2a.canonical import (
     MAX_CARD_NESTING_DEPTH,
+    MAX_REPORTED_PATH_LENGTH,
     CanonicalCardForm,
     canonical_card_form,
     canonicalize_agent_card,
 )
 from asap.adapters.a2a.errors import (
     A2AAdapterError,
+    A2AAgentMismatchError,
     A2ACanonicalFormError,
     A2ACardFetchError,
     A2ACardNotSignableError,
@@ -28,6 +30,7 @@ from asap.adapters.a2a.errors import (
     A2AMappingError,
     A2AMappingInputError,
     A2ANoTrustedSignatureError,
+    A2ASignerScopeError,
     A2AUncoveredExtensionError,
     A2AUnsignedCardError,
     A2AUnsupportedVersionError,
@@ -48,6 +51,7 @@ from asap.adapters.a2a.mapping import (
     manifest_to_agent_card,
 )
 from asap.adapters.a2a.models import (
+    MAX_CARD_SKILLS,
     AgentCapabilities,
     AgentCard,
     AgentCardSignature,
@@ -85,20 +89,32 @@ from asap.adapters.a2a.token_security import (
     external_token_card_security,
 )
 from asap.adapters.a2a.trust import JWKS_MAX_BYTES, A2AKeyResolver, A2ATrustConfig
+from asap.adapters.a2a.trust_scope import (
+    ANY_AGENT,
+    AgentScope,
+    AllowedJku,
+    PinnedCardKey,
+    scope_allows,
+)
 from asap.adapters.a2a.unmapped import (
     UNMAPPED_CARD_FIELDS,
     UNMAPPED_MANIFEST_FIELDS,
     DroppedField,
 )
 from asap.adapters.a2a.verification import (
+    PINNED_KEY_SOURCE,
     CardKeyResolver,
     CardVerification,
     SignaturePolicy,
+    TrustedCardKey,
+    VerifiedCardSigner,
     verify_agent_card,
+    verify_agent_card_for_agent,
 )
 
 __all__ = [
     "A2AAdapterError",
+    "A2AAgentMismatchError",
     "A2ACanonicalFormError",
     "A2ACardFetchError",
     "A2ACardNotSignableError",
@@ -109,10 +125,12 @@ __all__ = [
     "A2AMappingError",
     "A2AMappingInputError",
     "A2ANoTrustedSignatureError",
+    "A2ASignerScopeError",
     "A2ATrustConfig",
     "A2AUncoveredExtensionError",
     "A2AUnsignedCardError",
     "A2AUnsupportedVersionError",
+    "ANY_AGENT",
     "APIKeySecurityScheme",
     "ASAP_EXTENSION_URI",
     "AgentCapabilities",
@@ -123,7 +141,9 @@ __all__ = [
     "AgentExtension",
     "AgentInterface",
     "AgentProvider",
+    "AgentScope",
     "AgentSkill",
+    "AllowedJku",
     "AsapExtensionParams",
     "AuthorizationCodeOAuthFlow",
     "CARD_VERIFY_ALGORITHMS",
@@ -146,19 +166,25 @@ __all__ = [
     "JWKS_MAX_BYTES",
     "MAX_CARD_NESTING_DEPTH",
     "MAX_CARD_SIGNATURES",
+    "MAX_CARD_SKILLS",
+    "MAX_REPORTED_PATH_LENGTH",
+    "PINNED_KEY_SOURCE",
     "ManifestMapping",
     "MutualTlsSecurityScheme",
     "OAuth2SecurityScheme",
     "OAuthFlows",
     "OpenIdConnectSecurityScheme",
     "PasswordOAuthFlow",
+    "PinnedCardKey",
     "SecurityRequirement",
     "SecurityScheme",
     "SignaturePolicy",
     "SkillSchemas",
     "StringList",
+    "TrustedCardKey",
     "UNMAPPED_CARD_FIELDS",
     "UNMAPPED_MANIFEST_FIELDS",
+    "VerifiedCardSigner",
     "agent_card_to_manifest",
     "build_signed_agent_card",
     "canonical_card_form",
@@ -166,6 +192,8 @@ __all__ = [
     "external_token_card_security",
     "manifest_to_agent_card",
     "read_asap_extension",
+    "scope_allows",
     "sign_agent_card",
     "verify_agent_card",
+    "verify_agent_card_for_agent",
 ]

@@ -20,7 +20,14 @@ from cryptography.hazmat.primitives.asymmetric import ed25519
 from fastapi import FastAPI
 from joserfc.jwk import OKPKey
 
-from asap.adapters.a2a import A2ATrustConfig, AgentCardIngestor, CardSigner
+from asap.adapters.a2a import (
+    A2ASignerScopeError,
+    A2ATrustConfig,
+    AgentCardIngestor,
+    CardSigner,
+    PinnedCardKey,
+    VerifiedCardSigner,
+)
 from asap.auth.external_tokens import ExternalTokenConfig
 from asap.models.entities import Manifest
 from examples.a2a_gateway.client import call_skill, pinned_card_verifier
@@ -99,20 +106,46 @@ async def test_a_card_from_an_unpinned_key_fails_in_the_sdk_verifier(
         await resolver.get_agent_card(signature_verifier=pinned_card_verifier(CARD_KID, other_key))
 
 
+def card_trust(agent_urn: str) -> A2ATrustConfig:
+    """Trust the gateway's card key for *agent_urn* only."""
+    public_jwk = {**OKPKey.import_key(CARD_KEY.public_key()).as_dict(), "kid": CARD_KID}
+    return A2ATrustConfig(
+        pinned_keys={CARD_KID: PinnedCardKey(jwk=public_jwk, agents=(agent_urn,))}
+    )
+
+
 async def test_asap_ingest_verifies_the_served_card_and_maps_it_to_the_manifest(
     gateway: FastAPI,
 ) -> None:
-    public_jwk = {**OKPKey.import_key(CARD_KEY.public_key()).as_dict(), "kid": CARD_KID}
+    agent_urn = demo_manifest(ORIGIN).id
     ingestor = AgentCardIngestor(
-        A2ATrustConfig(pinned_keys={CARD_KID: public_jwk}),
+        card_trust(agent_urn),
         dns_resolver=_public_dns,
         transport=httpx.ASGITransport(app=gateway),
     )
 
     result = await ingestor.ingest(f"{ORIGIN}/.well-known/agent-card.json")
 
-    assert (result.verified, result.signer_kids, result.uncovered) == (True, (CARD_KID,), ())
+    assert (result.verified, result.uncovered) == (True, ())
+    assert result.signers == (
+        VerifiedCardSigner(source="pinned", kid=CARD_KID, agents=(agent_urn,)),
+    )
     assert result.manifest == demo_manifest(ORIGIN)
+
+
+async def test_asap_ingest_refuses_the_served_card_for_a_key_scoped_to_another_agent(
+    gateway: FastAPI,
+) -> None:
+    ingestor = AgentCardIngestor(
+        card_trust("urn:asap:agent:another-agent"),
+        dns_resolver=_public_dns,
+        transport=httpx.ASGITransport(app=gateway),
+    )
+
+    with pytest.raises(A2ASignerScopeError) as raised:
+        await ingestor.ingest(f"{ORIGIN}/.well-known/agent-card.json")
+
+    assert raised.value.agent_urn == demo_manifest(ORIGIN).id
 
 
 async def test_the_manifest_and_the_card_describe_the_same_agent(http: httpx.AsyncClient) -> None:

@@ -20,13 +20,22 @@ from typing import Any, cast
 import jcs
 from pydantic_core import PydanticSerializationError
 
-from asap.adapters.a2a.errors import A2ACanonicalFormError
+from asap.adapters.a2a.errors import A2ACanonicalFormError, describe_card, quoted_prefix
 from asap.adapters.a2a.models import AgentCard
 
 MAX_CARD_NESTING_DEPTH = 128
 """The most objects and arrays open on one path; the card object counts as 1.
 
 The ``a2a-sdk`` limit (``a2a.utils._jcs.MAX_DEPTH``): a deeper card has no form there either.
+"""
+
+MAX_REPORTED_PATH_LENGTH = 256
+"""Longest path that ``uncovered`` reports; a longer path is cut and ends with ``…``.
+
+Without the cut, a chain of long keys makes every path below it nearly as long
+as the card, and the work grows with the square of the card size. Every path
+starts with its fixed head (for example
+``capabilities.extensions[0].params``), so a prefix check still holds.
 """
 
 _MAX_EXACT_INTEGER = 2**53 - 1
@@ -63,7 +72,7 @@ def canonical_card_form(card: AgentCard) -> CanonicalCardForm:
         dumped = card.model_dump(mode="json", exclude={"signatures"})
     except PydanticSerializationError as exc:
         raise A2ACanonicalFormError(
-            f"Agent Card {card.name!r} has nesting deeper than the model serializer allows"
+            f"{describe_card(card.name)} has nesting deeper than the model serializer allows"
         ) from exc
     uncovered: list[str] = []
     projection = _strip_empty_values(dumped, "", 1, uncovered)
@@ -71,7 +80,8 @@ def canonical_card_form(card: AgentCard) -> CanonicalCardForm:
         payload = cast(bytes, jcs.canonicalize(projection))
     except ValueError as exc:
         raise A2ACanonicalFormError(
-            f"Agent Card {card.name!r} holds text that is not valid Unicode: {exc}"
+            f"{describe_card(card.name)} holds text that is not valid Unicode: "
+            f"{quoted_prefix(str(exc), _MAX_REPORTED_PATH_LENGTH)}"
         ) from exc
     return CanonicalCardForm(payload=payload, uncovered=tuple(uncovered))
 
@@ -92,7 +102,7 @@ def _strip_empty_values(value: Any, path: str, depth: int, uncovered: list[str])
         if depth > MAX_CARD_NESTING_DEPTH:
             raise A2ACanonicalFormError(
                 f"nesting deeper than {MAX_CARD_NESTING_DEPTH} (the a2a-sdk limit for a "
-                f"canonical form) at {path[:_MAX_REPORTED_PATH_LENGTH]!r}"
+                f"canonical form) at {quoted_prefix(path, _MAX_REPORTED_PATH_LENGTH)}"
             )
         return _strip_container(value, path, depth, uncovered)
     if value is None or value == "":
@@ -118,7 +128,9 @@ def _strip_container(
         kept_container = [
             kept
             for index, item in enumerate(value)
-            if (kept := _strip_empty_values(item, f"{path}[{index}]", depth + 1, inner))
+            if (
+                kept := _strip_empty_values(item, _child_path(path, f"[{index}]"), depth + 1, inner)
+            )
             is not _REMOVED
         ]
     if not kept_container:
@@ -129,4 +141,14 @@ def _strip_container(
 
 
 def _member_path(path: str, key: str) -> str:
-    return f"{path}.{key}" if path else key
+    return _child_path(path, f".{key}") if path else _child_path("", key)
+
+
+def _child_path(path: str, part: str) -> str:
+    """Append *part* to *path*, cut to :data:`MAX_REPORTED_PATH_LENGTH` plus ``…``."""
+    if len(path) > MAX_REPORTED_PATH_LENGTH:
+        return path  # already cut: every path below it reports as this one
+    child = f"{path}{part}"
+    return (
+        child if len(child) <= MAX_REPORTED_PATH_LENGTH else child[:MAX_REPORTED_PATH_LENGTH] + "…"
+    )

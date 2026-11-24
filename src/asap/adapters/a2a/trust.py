@@ -8,8 +8,12 @@ only, a size limit, and a timeout. A ``jku`` off the allowlist causes no request
 A fetched key set is cached per ``jku`` for a bounded lifetime, and a ``kid``
 that is not in it does not refetch it: random ``kid`` values cost no request.
 
+Every pinned key and every allowed ``jku`` names the agents it may sign for
+(:mod:`asap.adapters.a2a.trust_scope`); there is no implicit "any agent".
+
 Example:
-    >>> config = A2ATrustConfig(pinned_keys={"agent-key-1": agent_public_jwk})  # doctest: +SKIP
+    >>> config = A2ATrustConfig(pinned_keys={"agent-key-1": PinnedCardKey(
+    ...     jwk=agent_public_jwk, agents=("urn:asap:agent:research",))})  # doctest: +SKIP
     >>> resolver = A2AKeyResolver(config)  # doctest: +SKIP
     >>> await verify_agent_card(card, resolver, algorithms=config.algorithms,
     ...                         policy=config.policy)  # doctest: +SKIP
@@ -23,14 +27,20 @@ from collections.abc import Callable, Mapping
 from typing import Any, Self
 
 import httpx
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from joserfc import jwk
 from joserfc.errors import JoseError
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from asap.adapters.a2a._ttl_cache import BoundedTTLCache
-from asap.adapters.a2a.errors import A2AKeyResolutionError
-from asap.adapters.a2a.signature_keys import CARD_VERIFY_ALGORITHMS, CardKey
-from asap.adapters.a2a.verification import SignaturePolicy
+from asap.adapters.a2a.errors import A2AKeyResolutionError, quoted_prefix, without_user_info
+from asap.adapters.a2a.signature_keys import (
+    CARD_VERIFY_ALGORITHMS,
+    CardKey,
+    is_small_order_ed25519,
+)
+from asap.adapters.a2a.trust_scope import AllowedJku, PinnedCardKey
+from asap.adapters.a2a.verification import PINNED_KEY_SOURCE, SignaturePolicy, TrustedCardKey
 from asap.models.base import ASAPBaseModel
 from asap.utils.guarded_fetch import (
     AddressResolver,
@@ -46,8 +56,11 @@ JWKS_MAX_BYTES = 64 * 1024
 class A2ATrustConfig(ASAPBaseModel):
     """Which keys may sign the Agent Cards that ASAP ingests, and how cards are checked.
 
-    ``pinned_keys`` maps a ``kid`` to a public JWK (OKP, EC, or RSA). A ``jku``
-    is fetched only when it is in ``jku_allowlist`` exactly. ``allow_private_hosts``
+    ``pinned_keys`` maps a ``kid`` to a :class:`PinnedCardKey`: a public JWK
+    (OKP, EC, or RSA) and the agent URNs it may sign for. ``jku_allowlist``
+    maps each allowed ``jku`` URL to an :class:`AllowedJku`: the agent URNs
+    that the keys of that JWKS may sign for. A ``jku`` is fetched only when it
+    is a key of ``jku_allowlist`` exactly. ``allow_private_hosts``
     lets allowlist entries and ``jku`` fetches reach private or loopback hosts,
     for local development and tests only. A fetched JWKS is kept for
     ``jwks_cache_ttl_seconds`` (at most a day), in a cache of at most
@@ -57,8 +70,8 @@ class A2ATrustConfig(ASAPBaseModel):
     # A validation error must not echo a pinned JWK back: it may hold private members.
     model_config = ConfigDict(hide_input_in_errors=True)
 
-    pinned_keys: dict[str, dict[str, Any]] = Field(default_factory=dict)
-    jku_allowlist: frozenset[str] = frozenset()
+    pinned_keys: dict[str, PinnedCardKey] = Field(default_factory=dict)
+    jku_allowlist: dict[str, AllowedJku] = Field(default_factory=dict)
     algorithms: tuple[str, ...] = CARD_VERIFY_ALGORITHMS
     policy: SignaturePolicy = "require_signature"
     allow_private_hosts: bool = False
@@ -67,9 +80,9 @@ class A2ATrustConfig(ASAPBaseModel):
 
     @field_validator("pinned_keys")
     @classmethod
-    def _check_pinned_keys(cls, keys: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
-        for kid, member in keys.items():
-            import_pinned_key(kid, member)
+    def _check_pinned_keys(cls, keys: dict[str, PinnedCardKey]) -> dict[str, PinnedCardKey]:
+        for kid, entry in keys.items():
+            import_pinned_key(kid, entry.jwk)
         return keys
 
     @field_validator("algorithms")
@@ -84,8 +97,9 @@ class A2ATrustConfig(ASAPBaseModel):
     @model_validator(mode="after")
     def _check_jku_allowlist(self) -> Self:
         for url in self.jku_allowlist:
-            if httpx.URL(url).userinfo:
-                # Checked first and not echoed: the user info may be a credential.
+            if without_user_info(url) != url:
+                # Checked on the text first, so a URL that does not parse is
+                # covered too, and never echoed: the user info may be a credential.
                 raise ValueError("a jku_allowlist entry holds user info; a jku never carries one")
             try:
                 validate_guarded_url(url, allow_private_hosts=self.allow_private_hosts)
@@ -97,7 +111,8 @@ class A2ATrustConfig(ASAPBaseModel):
 def import_pinned_key(kid: str, member: Mapping[str, Any]) -> CardKey:
     """Import one pinned JWK; raise ``ValueError`` unless it is a public OKP, EC, or RSA key.
 
-    The message never repeats a key member.
+    A small-order Ed25519 key is refused too. The
+    message never repeats a key member.
     """
     if member.get("kid", kid) != kid:
         raise ValueError(f"pinned key {kid!r} has a different kid member")
@@ -107,6 +122,9 @@ def import_pinned_key(kid: str, member: Mapping[str, Any]) -> CardKey:
         raise ValueError(f"pinned key {kid!r} is not a valid JWK ({type(exc).__name__})") from exc
     if key.key_type == "oct" or key.is_private:
         raise ValueError(f"pinned key {kid!r} must be a public OKP, EC, or RSA key")
+    public = key.public_key
+    if isinstance(public, Ed25519PublicKey) and is_small_order_ed25519(public):
+        raise ValueError(f"pinned key {kid!r} is a small-order Ed25519 key: anyone can sign for it")
     return key
 
 
@@ -126,7 +144,12 @@ class A2AKeyResolver:
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self.config = config
-        self._pinned = {kid: import_pinned_key(kid, m) for kid, m in config.pinned_keys.items()}
+        # Snapshots: a dict inside the frozen config can still be changed in place.
+        self._pinned = {
+            kid: TrustedCardKey(import_pinned_key(kid, entry.jwk), PINNED_KEY_SOURCE, entry.agents)
+            for kid, entry in config.pinned_keys.items()
+        }
+        self._jku_scopes = {url: entry.agents for url, entry in config.jku_allowlist.items()}
         self._dns_resolver = dns_resolver
         self._transport = transport
         self._jwks_cache: BoundedTTLCache[dict[str, CardKey]] = BoundedTTLCache(
@@ -137,8 +160,11 @@ class A2AKeyResolver:
         # One lock per allowlisted jku, so concurrent lookups make one request.
         self._fetch_locks: dict[str, asyncio.Lock] = {}
 
-    async def __call__(self, kid: str, jku: str | None) -> CardKey | None:
+    async def __call__(self, kid: str, jku: str | None) -> TrustedCardKey | None:
         """Return the trusted key for *kid*: pinned first, then an allowlisted *jku*.
+
+        The result names its source (``"pinned"`` or the *jku*) and the agents
+        that source may sign for.
 
         Raises:
             A2AKeyResolutionError: The allowlisted *jku* could not be fetched or
@@ -147,9 +173,10 @@ class A2AKeyResolver:
         pinned = self._pinned.get(kid)
         if pinned is not None:
             return pinned
-        if jku is None or jku not in self.config.jku_allowlist:
+        if jku is None or jku not in self._jku_scopes:
             return None
-        return (await self._cached_jwks(jku)).get(kid)
+        key = (await self._cached_jwks(jku)).get(kid)
+        return None if key is None else TrustedCardKey(key, jku, self._jku_scopes[jku])
 
     async def _cached_jwks(self, jku: str) -> dict[str, CardKey]:
         async with self._fetch_locks.setdefault(jku, asyncio.Lock()):
@@ -183,10 +210,10 @@ def _keys_by_kid(jku: str, document: dict[str, Any]) -> dict[str, CardKey]:
         if not isinstance(kid, str):
             continue
         if kid in keys:
-            raise A2AKeyResolutionError(jku, "invalid_jwks", f"kid {kid[:64]!r} repeats")
+            raise A2AKeyResolutionError(jku, "invalid_jwks", f"kid {quoted_prefix(kid)} repeats")
         try:
             keys[kid] = jwk.import_key(member)
         except (JoseError, ValueError, TypeError, KeyError) as exc:
-            detail = f"key {kid[:64]!r} is not a valid JWK ({type(exc).__name__})"
+            detail = f"key {quoted_prefix(kid)} is not a valid JWK ({type(exc).__name__})"
             raise A2AKeyResolutionError(jku, "invalid_jwks", detail) from exc
     return keys

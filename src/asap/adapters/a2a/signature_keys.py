@@ -9,6 +9,8 @@ The ``alg`` of a signature picks one row of a fixed table; the key's own
 - ``ES256``: a P-256 key. ``RS256``: an RSA key of at least 2048 bits.
 - A key whose ``use`` is not ``sig``, whose ``alg`` hint names another
   algorithm, or whose ``key_ops`` exclude ``verify`` does not fit.
+- A small-order Ed25519 public key never fits: with the identity point as the
+  key, ``R = identity, S = 0`` verifies every message.
 """
 
 from __future__ import annotations
@@ -29,6 +31,22 @@ CARD_VERIFY_ALGORITHMS: tuple[str, ...] = ("ES256", "RS256", "EdDSA", "Ed25519")
 """The verify list. ``none`` and HMAC names are refused before any key lookup."""
 
 MIN_RSA_KEY_BITS = 2048
+
+# The eight small-order points of edwards25519 and their non-canonical
+# encodings, with the sign bit (bit 255) cleared, so one entry covers both
+# signs of x. Same list as libsodium's small-order blocklist.
+_SMALL_ORDER_ED25519 = frozenset(
+    bytes.fromhex(encoding)
+    for encoding in (
+        "0000000000000000000000000000000000000000000000000000000000000000",  # order 4
+        "0100000000000000000000000000000000000000000000000000000000000000",  # identity
+        "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05",  # order 8
+        "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",  # order 8
+        "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",  # order 2: p - 1
+        "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",  # order 4: p
+        "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",  # identity: p + 1
+    )
+)
 
 _ALGORITHM_FAMILY = {"EdDSA": "Ed25519", "Ed25519": "Ed25519", "ES256": "ES256", "RS256": "RS256"}
 _VERIFY_MODELS = {
@@ -72,4 +90,18 @@ def _key_fits(alg: str, key: CardKey) -> bool:
         return isinstance(public, EllipticCurvePublicKey) and isinstance(public.curve, SECP256R1)
     if alg == "RS256":
         return isinstance(public, RSAPublicKey) and public.key_size >= MIN_RSA_KEY_BITS
-    return isinstance(public, Ed25519PublicKey)
+    return isinstance(public, Ed25519PublicKey) and not is_small_order_ed25519(public)
+
+
+def is_small_order_ed25519(public: Ed25519PublicKey) -> bool:
+    """Return True if *public* encodes a small-order point, in any encoding.
+
+    A forger can make a signature for such a key without its private key, so
+    it must never verify a card.
+
+    Example:
+        >>> is_small_order_ed25519(Ed25519PublicKey.from_public_bytes(bytes([1]) + bytes(31)))
+        True
+    """
+    raw = public.public_bytes_raw()
+    return raw[:31] + bytes([raw[31] & 0x7F]) in _SMALL_ORDER_ED25519

@@ -8,19 +8,28 @@ returns its result together with the source fields it dropped, as data (see
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Annotated, Any
 
 from pydantic import BaseModel, Field, StrictBool, ValidationError
+from pydantic_core import PydanticSerializationError
 
 from asap.adapters.a2a._base import NonEmptyStr
 from asap.adapters.a2a.card_security import (
     check_card_security_requirements,
     prepare_card_security_schemes,
 )
-from asap.adapters.a2a.errors import A2AMappingError, A2AMappingInputError
+from asap.adapters.a2a.endpoint_checks import require_card_endpoint_shape
+from asap.adapters.a2a.errors import (
+    A2AMappingError,
+    A2AMappingInputError,
+    describe_card,
+    describe_paths,
+    quoted_prefix,
+)
 from asap.adapters.a2a.extension import (
     ASAP_EXTENSION_URI,
     AsapExtensionParams,
@@ -152,23 +161,37 @@ def agent_card_to_manifest(
     ``asap_streaming`` value, the manifest uses the card's streaming value.
     A card without the extension needs
     ``agent_id`` and ``endpoints`` from the caller. When the card has it, a
-    value that the caller also passes must equal the card's. Map only a card
-    whose signature was verified; the manifest is built from the
-    parsed model, so a field outside the A2A v1.0 schema never reaches it.
-    ``dropped`` lists each card value of :data:`UNMAPPED_CARD_FIELDS` that the
-    manifest does not carry.
+    value that the caller also passes must equal the card's. The manifest is
+    built from the parsed model, so a field outside the A2A v1.0 schema never
+    reaches it, and no value that :func:`asap.adapters.a2a.canonical_card_form`
+    reports as uncovered outside the ASAP extension params is mapped.
+
+    This function checks no signature. Map the ``card`` of a
+    :class:`asap.adapters.a2a.CardVerification` whose ``verified`` is true:
+    :func:`asap.adapters.a2a.verify_agent_card` refuses a card whose ASAP
+    extension params hold a value that no signature covers, so then every
+    mapped value is covered. :class:`asap.adapters.a2a.AgentCardIngestor`
+    does both steps.
+
+    The card's own endpoints must be ``https`` (``wss`` for events) URLs with
+    a host and no user info; the host itself is not checked here (see
+    :mod:`asap.adapters.a2a.endpoint_checks`). Endpoints that the caller
+    passes are the caller's own and are not checked. ``dropped`` lists each
+    card value of :data:`UNMAPPED_CARD_FIELDS` that the manifest does not carry.
 
     Raises:
         A2AMappingInputError: A caller input is missing or conflicts with the card.
         A2AMappingError: The manifest would not be valid, for example because the
             card version is not one a manifest accepts; or the ASAP extension is
-            broken; or two skills share an id.
+            broken or names an endpoint of the wrong shape; or two skills share
+            an id; or a free-form member nests deeper than the model serializer
+            allows.
 
     Example:
         >>> agent_card_to_manifest(card, agent_id="urn:asap:agent:x",
         ...     endpoints=Endpoint(asap="https://x.example/asap")).manifest  # doctest: +SKIP
     """
-    source = f"Agent Card {card.name!r}"
+    source = describe_card(card.name)
     params = read_asap_extension(card)
     manifest_id, manifest_endpoints = _identity_for(params, agent_id, endpoints)
     _require_unique_skill_ids([skill.id for skill in card.skills], source)
@@ -189,7 +212,16 @@ def agent_card_to_manifest(
 
 
 def _dropped_card_fields(card: AgentCard) -> tuple[DroppedField, ...]:
-    card_json = card.model_dump(mode="json")
+    try:
+        card_json = card.model_dump(mode="json")
+    except PydanticSerializationError as exc:
+        # json.loads accepts far deeper nesting than the serializer, and the
+        # canonical form does not cover a signature's unprotected header.
+        raise A2AMappingError(
+            f"{describe_card(card.name)} nests deeper than the model serializer allows in "
+            "a free-form member (extension params or a signature's unprotected header)",
+            fields=["capabilities.extensions[].params", "signatures[].header"],
+        ) from exc
     carried = _carried_card_paths(card)
     return tuple(
         DroppedField(path=path, field=field, reason=reason)
@@ -240,6 +272,9 @@ def _identity_for(
                 f"must pass agent_id and endpoints; {missing} is missing",
             )
         return agent_id, endpoints
+    require_card_endpoint_shape("asap", params.asap_endpoint)
+    if params.events_endpoint is not None:
+        require_card_endpoint_shape("events", params.events_endpoint)
     card_endpoints = Endpoint(asap=params.asap_endpoint, events=params.events_endpoint)
     _require_equal("agent_id", agent_id, params.agent_urn)
     _require_equal("endpoints", endpoints, card_endpoints)
@@ -250,8 +285,8 @@ def _require_equal(input_name: str, given: object, from_card: object) -> None:
     if given is not None and given != from_card:
         raise A2AMappingInputError(
             input_name,
-            f"{input_name} {given!r} conflicts with the card's ASAP extension, "
-            f"which gives {from_card!r}",
+            f"{input_name} {quoted_prefix(str(given))} conflicts with the card's ASAP "
+            f"extension, which gives {quoted_prefix(str(from_card))}",
         )
 
 
@@ -375,10 +410,11 @@ def _require_known_skill_ids(
 
 
 def _require_unique_skill_ids(skill_ids: list[str], source: str) -> None:
-    duplicates = sorted({skill_id for skill_id in skill_ids if skill_ids.count(skill_id) > 1})
+    # One counting pass: list.count per id was quadratic.
+    duplicates = sorted(skill_id for skill_id, seen in Counter(skill_ids).items() if seen > 1)
     if duplicates:
         raise A2AMappingError(
-            f"{source} has duplicate skill ids {duplicates}: tags, names, and schemas "
+            f"{source} has duplicate skill ids {describe_paths(duplicates)}: tags, names, and schemas "
             "are keyed by skill id, so each id must be unique",
             fields=["skills"],
         )

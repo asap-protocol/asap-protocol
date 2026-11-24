@@ -15,9 +15,11 @@ from joserfc.jwk import OKPKey
 from asap.adapters.a2a import (
     A2AInvalidSignatureError,
     A2ANoTrustedSignatureError,
+    A2AUncoveredExtensionError,
     A2AUnsignedCardError,
     AgentCard,
     AgentCardSignature,
+    VerifiedCardSigner,
     manifest_to_agent_card,
     sign_agent_card,
     verify_agent_card,
@@ -47,7 +49,8 @@ async def test_a_valid_signature_passes() -> None:
 
     result = await verify_agent_card(_signed_card(), resolver)
 
-    assert (result.verified, result.signer_kids) == (True, ("k1",))
+    assert result.verified is True
+    assert result.signers == (VerifiedCardSigner(source="pinned", kid="k1", agents="any_agent"),)
     assert resolver.calls == [("k1", None)]
 
 
@@ -91,7 +94,7 @@ async def test_an_unsigned_card_passes_under_allow_unsigned_marked_unverified() 
 
     result = await verify_agent_card(card, resolver, policy="allow_unsigned")
 
-    assert (result.verified, result.signer_kids, result.card) == (False, (), card)
+    assert (result.verified, result.signers, result.card) == (False, (), card)
     assert resolver.calls == []
 
 
@@ -157,3 +160,42 @@ async def test_a_malformed_entry_fails_the_card_before_any_key_lookup() -> None:
 async def test_a_misconfigured_verifier_raises_value_error(options: dict[str, Any]) -> None:
     with pytest.raises(ValueError, match="algorithms|policy"):
         await verify_agent_card(_signed_card(), _trusting_k1(), **options)
+
+
+_SCHEMA = "capabilities.extensions[0].params.skill_schemas.web_research.input_schema"
+
+
+@pytest.mark.parametrize(
+    ("change", "path"),
+    [
+        (
+            {"properties": {"query": {"type": "string", "enum": []}}},
+            f"{_SCHEMA}.properties.query.enum",
+        ),
+        ({"required": []}, f"{_SCHEMA}.required"),
+        ({"maximum": float("inf")}, f"{_SCHEMA}.maximum"),
+    ],
+    ids=["empty enum", "empty required", "infinity"],
+)
+async def test_verify_refuses_asap_params_that_the_signature_does_not_cover(
+    change: dict[str, Any], path: str
+) -> None:
+    """The rule once lived only in ingest, so verify then map skipped it."""
+    card_json = _signed_card().model_dump(mode="json")
+    card_json["capabilities"]["extensions"][0]["params"]["skill_schemas"]["web_research"][
+        "input_schema"
+    ].update(change)
+
+    with pytest.raises(A2AUncoveredExtensionError) as raised:
+        await verify_agent_card(AgentCard.model_validate(card_json), _trusting_k1())
+
+    assert raised.value.paths == (path,)
+
+
+async def test_uncovered_values_outside_the_asap_params_are_reported_not_refused() -> None:
+    card = _signed_card()
+    card_json = card.model_dump(mode="json") | {"iconUrl": ""}
+
+    result = await verify_agent_card(AgentCard.model_validate(card_json), _trusting_k1())
+
+    assert (result.verified, result.uncovered) == (True, ("iconUrl",))

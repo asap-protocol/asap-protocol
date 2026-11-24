@@ -16,12 +16,10 @@ import pytest
 from a2a.client.errors import A2AClientError
 from a2a.utils.signing import InvalidSignaturesError
 from fastapi import FastAPI
-from joserfc.jwk import OKPKey
 from starlette.requests import Request
 
 from asap.adapters.a2a import (
     A2AInvalidSignatureError,
-    A2ATrustConfig,
     AgentCardIngestor,
     CardSigner,
 )
@@ -43,11 +41,11 @@ from tests.examples.test_a2a_gateway import (
     ISSUER,
     ORIGIN,
     build_gateway,
+    card_trust,
 )
 from tests.auth.local_issuer import LocalIssuer
 
 _VERIFY_CARD = pinned_card_verifier(CARD_KID, CARD_KEY.public_key())
-_CARD_JWK = {**OKPKey.import_key(CARD_KEY.public_key()).as_dict(), "kid": CARD_KID}
 _INVALID = 'Bearer error="invalid_token", error_description="asap:invalid_token"'
 _SCOPE = 'Bearer error="insufficient_scope", error_description="asap:capability_denied"'
 
@@ -177,9 +175,7 @@ async def test_a_tampered_card_fails_both_verifiers_and_no_call_is_made(
                 arguments={"text": "hi"},
             )
     ingestor = AgentCardIngestor(
-        A2ATrustConfig(pinned_keys={CARD_KID: _CARD_JWK}),
-        dns_resolver=_public_dns,
-        transport=transport,
+        card_trust(demo_manifest(ORIGIN).id), dns_resolver=_public_dns, transport=transport
     )
     with pytest.raises(A2AInvalidSignatureError):
         await ingestor.ingest(f"{ORIGIN}/.well-known/agent-card.json")

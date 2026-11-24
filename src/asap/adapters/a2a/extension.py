@@ -19,7 +19,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, StrictBool, ValidationError
 
 from asap.adapters.a2a._base import NonEmptyStr
-from asap.adapters.a2a.errors import A2AMappingError
+from asap.adapters.a2a.errors import A2AMappingError, describe_card
 from asap.adapters.a2a.models import AgentCard, AgentExtension
 
 ASAP_EXTENSION_URI = "https://asap-protocol.com/a2a/extensions/manifest/v1"
@@ -78,7 +78,7 @@ def read_asap_extension(card: AgentCard) -> AsapExtensionParams | None:
     entries = [ext for ext in card.capabilities.extensions or [] if ext.uri == ASAP_EXTENSION_URI]
     if not entries:
         return None
-    source = f"Agent Card {card.name!r}"
+    source = describe_card(card.name)
     if len(entries) > 1:
         raise A2AMappingError(
             f"{source} lists the ASAP extension {ASAP_EXTENSION_URI} {len(entries)} times; "

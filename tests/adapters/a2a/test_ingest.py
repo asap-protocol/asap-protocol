@@ -31,6 +31,7 @@ from asap.adapters.a2a import (
     manifest_to_agent_card,
     sign_agent_card,
 )
+from asap.adapters.a2a.trust_scope import PinnedCardKey
 from asap.models.entities import Endpoint
 from tests.adapters.a2a.helpers import load_card_fixture, research_card_inputs, research_manifest
 from tests.adapters.a2a.signing_helpers import sign_with_joserfc
@@ -38,7 +39,12 @@ from tests.adapters.a2a.signing_helpers import sign_with_joserfc
 _CARD_URL = "https://agent.example.com/.well-known/agent-card.json"
 _KEY = ed25519.Ed25519PrivateKey.generate()
 _TRUST = A2ATrustConfig(
-    pinned_keys={"k1": {**OKPKey.import_key(_KEY.public_key()).as_dict(), "kid": "k1"}}
+    pinned_keys={
+        "k1": PinnedCardKey(
+            jwk={**OKPKey.import_key(_KEY.public_key()).as_dict(), "kid": "k1"},
+            agents=["urn:asap:agent:research"],
+        )
+    }
 )
 
 
@@ -85,7 +91,8 @@ async def test_a_signed_card_is_fetched_verified_and_mapped() -> None:
     result = await _ingestor(server).ingest(_CARD_URL)
 
     assert result.manifest == research_manifest()
-    assert (result.verified, result.signer_kids, result.uncovered) == (True, ("k1",), ())
+    assert (result.verified, result.uncovered) == (True, ())
+    assert [(s.source, s.kid) for s in result.signers] == [("pinned", "k1")]
     assert "supportedInterfaces" in [dropped.field for dropped in result.dropped]
     assert server.requests == 1
 
@@ -117,7 +124,7 @@ async def test_an_unsigned_card_under_allow_unsigned_yields_a_manifest_marked_un
     result = await _ingestor(server, A2ATrustConfig(policy="allow_unsigned")).ingest(_CARD_URL)
 
     assert result.manifest == research_manifest()
-    assert (result.verified, result.signer_kids) == (False, ())
+    assert (result.verified, result.signers) == (False, ())
 
 
 @pytest.mark.parametrize(

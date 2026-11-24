@@ -30,6 +30,7 @@ from asap.adapters.a2a import (
     manifest_to_agent_card,
     verify_agent_card,
 )
+from asap.adapters.a2a.trust_scope import PinnedCardKey
 from asap.auth.external_tokens import ExternalTokenConfig
 from asap.models.entities import Skill
 from tests.adapters.a2a.helpers import (
@@ -44,10 +45,17 @@ _ED_KEY = ed25519.Ed25519PrivateKey.generate()
 _EC_KEY = ec.generate_private_key(ec.SECP256R1())
 _ED_SIGNER = CardSigner(key=_ED_KEY, kid="card-ed")
 _EC_SIGNER = CardSigner(key=_EC_KEY, kid="card-ec", alg="ES256")
+_RESEARCH = ["urn:asap:agent:research"]
 _TRUST = A2ATrustConfig(
     pinned_keys={
-        "card-ed": {**OKPKey.import_key(_ED_KEY.public_key()).as_dict(), "kid": "card-ed"},
-        "card-ec": {**ECKey.import_key(_EC_KEY.public_key()).as_dict(), "kid": "card-ec"},
+        "card-ed": PinnedCardKey(
+            jwk={**OKPKey.import_key(_ED_KEY.public_key()).as_dict(), "kid": "card-ed"},
+            agents=_RESEARCH,
+        ),
+        "card-ec": PinnedCardKey(
+            jwk={**ECKey.import_key(_EC_KEY.public_key()).as_dict(), "kid": "card-ec"},
+            agents=_RESEARCH,
+        ),
     }
 )
 _KEYS = {"card-ed": _ED_KEY, "card-ec": _EC_KEY}
@@ -71,7 +79,8 @@ async def test_the_default_card_has_one_eddsa_signature_that_both_verifiers_acce
     )
 
     result = await verify_agent_card(mapping.card, A2AKeyResolver(_TRUST))
-    assert (result.verified, result.signer_kids, result.uncovered) == (True, ("card-ed",), ())
+    assert (result.verified, result.uncovered) == (True, ())
+    assert [signer.kid for signer in result.signers] == ["card-ed"]
     _sdk_verify(mapping.card, ["EdDSA"])
     with pytest.raises(InvalidSignaturesError):
         _sdk_verify(mapping.card, ["ES256", "RS256"])
@@ -84,7 +93,10 @@ async def test_an_es256_signer_is_an_opt_in_for_es256_only_verifiers() -> None:
     )
 
     result = await verify_agent_card(mapping.card, A2AKeyResolver(_TRUST))
-    assert result.signer_kids == ("card-ed", "card-ec")
+    assert [(signer.source, signer.kid) for signer in result.signers] == [
+        ("pinned", "card-ed"),
+        ("pinned", "card-ec"),
+    ]
     _sdk_verify(mapping.card, ["ES256", "RS256"])
 
 

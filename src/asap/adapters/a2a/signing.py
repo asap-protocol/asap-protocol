@@ -21,7 +21,7 @@ from joserfc.errors import SecurityWarning
 from joserfc.jwk import ECKey, OKPKey
 
 from asap.adapters.a2a.canonical import canonical_card_form
-from asap.adapters.a2a.errors import A2ACardNotSignableError, describe_paths
+from asap.adapters.a2a.errors import A2ACardNotSignableError, describe_card, describe_paths
 from asap.adapters.a2a.models import AgentCard, AgentCardSignature
 
 CardSigningAlgorithm = Literal["EdDSA", "ES256"]
@@ -55,7 +55,7 @@ def sign_agent_card(
     form = canonical_card_form(card)
     if form.uncovered:
         raise A2ACardNotSignableError(
-            f"Agent Card {card.name!r} holds values that its canonical form drops or rounds, "
+            f"{describe_card(card.name)} holds values that its canonical form drops or rounds, "
             f"so no signature would cover them: {describe_paths(form.uncovered)}. Remove "
             "each empty value (or give it content) and keep integers within ±(2^53 - 1)",
             paths=form.uncovered,

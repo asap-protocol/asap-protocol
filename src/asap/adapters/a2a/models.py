@@ -27,6 +27,13 @@ _V03_MARKER_KEYS = ("url", "protocolVersion")
 _V1_INTERFACE_KEYS = ("supportedInterfaces", "supported_interfaces")
 _MAX_REPORTED_VERSION_LENGTH = 32
 
+MAX_CARD_SKILLS = 1000
+"""Most skills a card may list.
+
+A card is mapped on every ingest, cache hits included, so its size bounds the
+work. A2A sets no limit; a thousand skills is far beyond any agent seen so far.
+"""
+
 
 class AgentInterface(A2AModel):
     """One endpoint where the agent serves A2A (``AgentInterface``).
@@ -130,7 +137,7 @@ class AgentCard(A2AModel):
     security_requirements: list[SecurityRequirement] | None = None
     default_input_modes: list[NonEmptyStr] = Field(min_length=1)
     default_output_modes: list[NonEmptyStr] = Field(min_length=1)
-    skills: list[AgentSkill] = Field(min_length=1)
+    skills: list[AgentSkill] = Field(min_length=1, max_length=MAX_CARD_SKILLS)
     signatures: list[AgentCardSignature] | None = None
     icon_url: str | None = None
 

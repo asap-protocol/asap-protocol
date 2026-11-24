@@ -65,7 +65,8 @@ async def test_a_card_signed_by_the_sdk_verifies_here(alg: str, key: Any, kid: s
 
     result = await verify_agent_card(card, resolver)
 
-    assert (result.verified, result.signer_kids, result.uncovered) == (True, (kid,), ())
+    assert (result.verified, result.uncovered) == (True, ())
+    assert [signer.kid for signer in result.signers] == [kid]
     assert resolver.calls == [(kid, None)]
 
 
@@ -140,7 +141,7 @@ async def test_rotation_a_valid_trusted_signature_and_an_unknown_kid_pass() -> N
 
     result = await verify_agent_card(card, resolver)
 
-    assert result.signer_kids == ("ed",)
+    assert [signer.kid for signer in result.signers] == ["ed"]
     assert resolver.calls == [("retired", None), ("ed", None)]
 
 
