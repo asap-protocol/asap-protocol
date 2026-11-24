@@ -376,7 +376,7 @@ markers = [
 ]
 testpaths = ["tests"]
 # Note: benchmarks/ excluded from testpaths - Locust monkey-patches gevent/ssl which
-# conflicts with pytest-xdist. Run benchmarks separately: uv run pytest benchmarks/
+# conflicts with pytest-xdist. Run benchmarks separately: uv run pytest benchmarks/benchmark_*.py
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 filterwarnings = [
