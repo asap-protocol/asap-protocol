@@ -90,12 +90,33 @@ class BearerChallenge:
         found_error = None if match is None else match.group(1) or match.group(2)
         if found_error != self.challenge_error:
             return f"got a Bearer challenge with error={quoted_word(found_error)}"
-        body = response.json_body or {}
-        description = body.get("error_description")
-        if body.get("error") != self.oauth_error or not has_code(description, self.code):
-            error = quoted_word(body.get("error"))
-            return f"got a body with error={error} and {quoted_code(description)}"
-        return None
+        return _oauth_body_problem(response, self.oauth_error, self.code)
+
+
+@dataclass(frozen=True)
+class UnchallengedRefusal:
+    """An HTTP refusal with no ``WWW-Authenticate`` header, where more scope would not help."""
+
+    status: int
+    oauth_error: str
+    code: str
+
+    def problem(self, response: HttpAnswer) -> str | None:
+        """None when the answer is this refusal: the status, no challenge, the OAuth error body."""
+        if response.status_code != self.status:
+            return f"got {response.describe()}"
+        if "www-authenticate" in response.headers:
+            return f"got HTTP {self.status} with a WWW-Authenticate header, expected none"
+        return _oauth_body_problem(response, self.oauth_error, self.code)
+
+
+def _oauth_body_problem(response: HttpAnswer, oauth_error: str, code: str) -> str | None:
+    body = response.json_body or {}
+    description = body.get("error_description")
+    if body.get("error") != oauth_error or not has_code(description, code):
+        error = quoted_word(body.get("error"))
+        return f"got a body with error={error} and {quoted_code(description)}"
+    return None
 
 
 # The three shared refusals. A missing token gets a challenge with no error
