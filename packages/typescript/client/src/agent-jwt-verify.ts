@@ -26,7 +26,12 @@ export interface ResolvedAgentKey {
   readonly usable: boolean;
 }
 
-/** Returns `undefined` for an unknown agent. A throw is an infrastructure failure and propagates. */
+/**
+ * Returns `undefined` for an unknown agent. A throw is an infrastructure failure and propagates.
+ * It runs before the signature, audience, and expiry checks, with the token's unverified
+ * `sub` and `iss`: keep it a read-only lookup, and update state (such as a last-used time)
+ * only after `verifyAgentJwt` returns `ok: true`.
+ */
 export type AgentKeyResolver = (lookup: AgentKeyLookup) => Promise<ResolvedAgentKey | undefined>;
 
 export interface VerifyAgentJwtOptions {

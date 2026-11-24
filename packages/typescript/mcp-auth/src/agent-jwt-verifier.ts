@@ -15,7 +15,10 @@ import { McpAuthErrorCode } from "./errors.js";
 export interface AgentJwtVerifierConfig {
   /** Required: the token's `aud` must contain one of these values, for example the MCP endpoint URL. */
   readonly audience: string | readonly string[];
-  /** Returns the agent's Ed25519 public JWK and whether it is usable (see `verifyAgentJwt`). */
+  /**
+   * Returns the agent's Ed25519 public JWK and whether it is usable (see `verifyAgentJwt`).
+   * It runs before the signature check, with unverified values: keep it a read-only lookup.
+   */
   readonly resolveAgent: AgentKeyResolver;
   /** Default: one in-memory cache per verifier. Share a store when several instances serve one audience. */
   readonly replayCache?: JtiReplayCache;

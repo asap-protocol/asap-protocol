@@ -82,17 +82,19 @@ const result = await verifyAgentJwt(token, {
 });
 if (!result.ok) {
   // result.reason is a fixed AgentJwtFailureReason string, safe to return to the caller
+} else {
+  await recordAgentUse(result.agentId); // state changes go here, after every check passed
 }
 ```
 
-- **`resolveAgent`** gets the token's `sub` (`agentId`) and `iss` (`hostThumbprint`). It returns `undefined` for an unknown agent, or `{ publicKey, usable }`: the agent's Ed25519 public JWK (type `PublicJwk`, which needs no DOM lib; a DOM `JsonWebKey` is assignable to it), and `usable: false` when the agent is revoked, expired, or pending, when its host is revoked, or when the agent does not belong to that host. The Python function reads these facts from its host and agent stores; here your resolver supplies them.
+- **`resolveAgent`** gets the token's `sub` (`agentId`) and `iss` (`hostThumbprint`). It returns `undefined` for an unknown agent, or `{ publicKey, usable }`: the agent's Ed25519 public JWK (type `PublicJwk`, which needs no DOM lib; a DOM `JsonWebKey` is assignable to it), and `usable: false` when the agent is revoked, expired, or pending, when its host is revoked, or when the agent does not belong to that host. The Python function reads these facts from its host and agent stores; here your resolver supplies them. The resolver runs **before** the signature, audience, and expiry checks, because the key is needed to check the signature. So `agentId` and `hostThumbprint` are not verified yet, and a forged token that names a known agent reaches the resolver too. Keep it a read-only lookup. Write state, such as a last-used time for an idle timeout, only after `verifyAgentJwt` returns `ok: true`, as the example does; the result carries the verified `agentId` and `hostThumbprint`.
 - **`replayCache`** records each `jti` under the agent id, with the token's `exp` as the third argument of `checkAndRecord`; a cache must keep the record at least until then. `InMemoryJtiReplayCache` keeps it for the later of its window (default 90 seconds) and `exp`. It never evicts a live record: when it is full (`maxSize`, default 10 000, or `maxPerPartition` for one agent, default 1 000), it throws `JtiReplayCacheFullError`, which `verifyAgentJwt` passes on. Treat that as a temporary failure (for example HTTP 503 with `Retry-After: retryAfterSeconds`), not as a bad token. `InMemoryJtiReplayCache` serves one process; implement `JtiReplayCache` on a shared store when several instances serve the same audience. Without a cache, a replayed token is not detected.
 - **`nowSeconds`** replaces the clock (seconds since the epoch), for tests.
 - A bad token never throws. A throw from `resolveAgent` or `replayCache` propagates, so a store failure is not reported as a bad token.
 
 The package README lists every difference from the Python verifier.
 
-To protect an HTTP MCP server, you do not call `verifyAgentJwt` yourself: `@asap-protocol/mcp-auth` calls it on each request. See [HTTP MCP servers in TypeScript](../adapters/mcp-auth-bridge.md#http-mcp-servers-in-typescript).
+To protect an HTTP MCP server, you do not call `verifyAgentJwt` yourself: `@asap-protocol/mcp-auth` calls it on each request. There, the verified agent reaches your code after every check, as `ctx.http.authInfo.extra.principal` in a tool and as `options.authInfo` in the handler that you pass to `protect`; record use there, not in the resolver. See [HTTP MCP servers in TypeScript](../adapters/mcp-auth-bridge.md#http-mcp-servers-in-typescript).
 
 ## Discovery and capabilities
 
