@@ -18,7 +18,7 @@ from a2a.client import A2ACardResolver
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from joserfc.jwk import OKPKey
 
-from asap.adapters.a2a import A2ATrustConfig, AgentCardIngestor, CardSigner
+from asap.adapters.a2a import A2ATrustConfig, AgentCardIngestor, CardSigner, PinnedCardKey
 from asap.auth.external_tokens import ExternalTokenConfig
 from examples.a2a_gateway.client import call_skill, pinned_card_verifier
 from examples.a2a_gateway.demo_agent import (
@@ -59,9 +59,10 @@ async def run_smoke() -> list[str]:
     )
     verify_card = pinned_card_verifier(CARD_KID, card_key.public_key())
     public_jwk = {**OKPKey.import_key(card_key.public_key()).as_dict(), "kid": CARD_KID}
-    # The card key may sign for this agent only.
-    trust = A2ATrustConfig.model_validate(
-        {"pinned_keys": {CARD_KID: {"jwk": public_jwk, "agents": [manifest.id]}}}
+    # The card key may sign a card for this agent only: a card it signs for any
+    # other agent URN is refused (A2ASignerScopeError).
+    trust = A2ATrustConfig(
+        pinned_keys={CARD_KID: PinnedCardKey(jwk=public_jwk, agents=(manifest.id,))}
     )
     ingestor = AgentCardIngestor(
         trust,

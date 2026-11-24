@@ -33,7 +33,7 @@ The run starts the gateway in the same process and talks to it over `httpx.ASGIT
 
 1. It builds the gateway with `create_gateway_app` (`gateway.py`). The gateway makes its Agent Card from the ASAP manifest with `build_signed_agent_card`, signs it with an Ed25519 key, and serves it at `/.well-known/agent-card.json`, beside the manifest at `/.well-known/asap/manifest.json`.
 2. An `a2a-sdk` client fetches the card and verifies its signature with a verifier that trusts one pinned key id (`client.py`). The verifier never follows a `jku` URL from the card.
-3. ASAP's own ingest (`AgentCardIngestor`) fetches the same card, verifies it, and maps it back to the manifest.
+3. ASAP's own ingest (`AgentCardIngestor`) fetches the same card, verifies it, and maps it back to the manifest. Its trust config pins the card key for the demo agent's URN only.
 4. The client calls the skill `greet` through `POST /a2a` with a token that has the scope `demo:greet`. The gateway verifies the token, selects the skill, checks the grant, and runs the skill.
 
 ## Walk-through
@@ -95,6 +95,24 @@ The skill `greet` lists `{"schemes": {"https://issuer.example": {"list": ["demo:
 ### 3. Verify the card
 
 Verify the card before you use it. `client.py` shows the `a2a-sdk` side: `pinned_card_verifier` trusts one key id and never follows a `jku` URL from the card. ASAP's `AgentCardIngestor` verifies the same card under an `A2ATrustConfig` and maps it back to the manifest.
+
+A signature proves who signed the card. It does not prove whose card it is. So each trusted key in an `A2ATrustConfig` names the agents it may sign for, and ingest accepts the card only when a key that verified may sign for the card's agent URN:
+
+```python
+from asap.adapters.a2a import A2ATrustConfig, AgentCardIngestor, PinnedCardKey
+
+trust = A2ATrustConfig(
+    pinned_keys={
+        "gateway-card-1": PinnedCardKey(
+            jwk=gateway_card_public_jwk,  # the public JWK of the card key, with "kid": "gateway-card-1"
+            agents=("urn:asap:agent:a2a-gateway-demo",),
+        )
+    }
+)
+result = await AgentCardIngestor(trust).ingest("https://gateway.example/.well-known/agent-card.json")
+```
+
+`agents` is a tuple of agent URNs in code (a list in a JSON or YAML config read with `A2ATrustConfig.model_validate`). The same card, checked with a key pinned for another agent, fails with `A2ASignerScopeError`. A key that may sign for every agent needs the explicit value `agents=ANY_AGENT`. A `verified` card is still not bound to the URL it came from, and it has no expiry: it can be served again from any URL while its key is trusted.
 
 ### 4. Call a skill
 
