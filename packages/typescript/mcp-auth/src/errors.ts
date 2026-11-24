@@ -16,6 +16,9 @@ export const McpAuthErrorCode = {
 
 export type McpAuthErrorCode = (typeof McpAuthErrorCode)[keyof typeof McpAuthErrorCode];
 
+/** The `asap:invalid_token` reason for a token that cannot be decoded, the same with either verifier and in every config. */
+export const MALFORMED_TOKEN_REASON = "malformed token";
+
 /**
  * Build a `tools/call` error result: one text item `"<code>"` or
  * `"<code>: <detail>"`, and `isError: true`. Same payload as Python

@@ -42,6 +42,8 @@ export interface GrantLayerConfig {
 export interface GrantLayer {
   readonly protectTool: ProtectTool;
   readonly scopeChallenge: ScopeChallengeHandler;
+  /** Whether this call entered the wrapper for its tool. */
+  readonly usedWrapper: (authInfo: AuthInfo | undefined) => boolean;
 }
 
 /**
@@ -110,6 +112,8 @@ export function createGrantLayer(config: GrantLayerConfig): GrantLayer {
   const toolCapabilities = new Map(Object.entries(config.toolCapabilities ?? {}));
   const agentGrants = config.agentGrants ?? (() => []);
   const scopesByIssuer = challengeScopes(config.externalIssuers ?? []);
+  // Each verified request gets its own AuthInfo. The SDK passes it to the callback.
+  const callsUsingWrapper = new WeakSet<AuthInfo>();
 
   async function agentGrantsOf(principal: AgentJwtPrincipal): Promise<readonly CapabilityGrant[] | undefined> {
     try {
@@ -120,7 +124,22 @@ export function createGrantLayer(config: GrantLayerConfig): GrantLayer {
     }
   }
 
-  async function grantDenial(capability: string, authInfo: AuthInfo | undefined, args: unknown): Promise<CallToolResult | undefined> {
+  /**
+   * With `scopeChallenge` on the tool, the SDK answers this case with HTTP 403
+   * before the tool runs. So when it reaches the grant layer, the tool was registered without it.
+   */
+  function reportMissingScopeChallenge(name: string, capability: string, principal: McpAuthPrincipal): void {
+    const scope = principal.kind === "external" ? scopesByIssuer.get(principal.issuer)?.get(capability) : undefined;
+    if (scope === undefined) return;
+    config.reportInternalError(
+      new Error(
+        `protectTool(${JSON.stringify(name)}): pass scopeChallenge: auth.scopeChallenge to registerTool for this tool; ` +
+          `an access token without the scope ${JSON.stringify(scope)} got a tool result instead of HTTP 403 insufficient_scope`,
+      ),
+    );
+  }
+
+  async function grantDenial(name: string, capability: string, authInfo: AuthInfo | undefined, args: unknown): Promise<CallToolResult | undefined> {
     const principal = principalOf(authInfo);
     if (principal === undefined) return toolErrorResult(McpAuthErrorCode.AuthRequired);
     if (principal.kind === "agent_jwt" && !(Array.isArray(principal.capabilities) && principal.capabilities.includes(capability))) {
@@ -129,12 +148,12 @@ export function createGrantLayer(config: GrantLayerConfig): GrantLayer {
     const grants = principal.kind === "external" ? principal.grants : await agentGrantsOf(principal);
     if (grants === undefined) return denied("grant lookup failed");
     const grant = grants.find((candidate) => candidate.capability === capability);
-    return grant === undefined ? denied(`no active grant for capability '${capability}'`) : constraintDenial(grant, args);
+    if (grant !== undefined) return constraintDenial(grant, args);
+    reportMissingScopeChallenge(name, capability, principal);
+    return denied(`no active grant for capability '${capability}'`);
   }
 
-  /** The SDK checks `Mcp-Name` against the body on a 2026-07-28 request, so the header names the tool that runs. */
-  function bindingDenial(name: string, ctx: ServerContext | undefined): CallToolResult | undefined {
-    if (ctx?.http?.req?.headers.get("mcp-name") === name) return undefined;
+  function bindingDenial(name: string): CallToolResult {
     config.reportInternalError(new Error(`protectTool(${JSON.stringify(name)}) ran for a request whose Mcp-Name is not that tool; register the callback under the same name`));
     return denied(`the request is not a call to '${name}'`);
   }
@@ -146,7 +165,12 @@ export function createGrantLayer(config: GrantLayerConfig): GrantLayer {
     // The SDK calls (args, ctx) for a tool with an inputSchema and (ctx) for one without.
     return async (...params: unknown[]) => {
       const ctx = params.at(-1) as ServerContext | undefined;
-      const denial = bindingDenial(name, ctx) ?? (await grantDenial(capability, ctx?.http?.authInfo, params.length > 1 ? params[0] : undefined));
+      const http = ctx?.http;
+      // The SDK checks Mcp-Name against the body on a 2026-07-28 request.
+      if (http?.req?.headers.get("mcp-name") !== name) return bindingDenial(name);
+      const authInfo = http.authInfo;
+      if (authInfo !== undefined) callsUsingWrapper.add(authInfo);
+      const denial = await grantDenial(name, capability, authInfo, params.length > 1 ? params[0] : undefined);
       return denial ?? callback(...params);
     };
   }
@@ -161,5 +185,5 @@ export function createGrantLayer(config: GrantLayerConfig): GrantLayer {
     return scope === undefined ? undefined : { scopes: [scope], errorDescription: McpAuthErrorCode.CapabilityDenied };
   }
 
-  return { protectTool: protectTool as ProtectTool, scopeChallenge };
+  return { protectTool: protectTool as ProtectTool, scopeChallenge, usedWrapper: (authInfo) => authInfo !== undefined && callsUsingWrapper.has(authInfo) };
 }

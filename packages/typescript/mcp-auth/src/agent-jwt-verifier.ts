@@ -10,12 +10,15 @@ import {
 } from "@asap-protocol/client";
 import { OAuthError, OAuthErrorCode, type AuthInfo, type OAuthTokenVerifier } from "@modelcontextprotocol/server";
 
-import { McpAuthErrorCode } from "./errors.js";
+import { MALFORMED_TOKEN_REASON, McpAuthErrorCode } from "./errors.js";
 
 export interface AgentJwtVerifierConfig {
   /** Required: the token's `aud` must contain one of these values, for example the MCP endpoint URL. */
   readonly audience: string | readonly string[];
-  /** Returns the agent's Ed25519 public JWK and whether it is usable (see `verifyAgentJwt`). */
+  /**
+   * Returns the agent's Ed25519 public JWK and whether it is usable (see `verifyAgentJwt`).
+   * It runs before the signature check, with unverified values: keep it a read-only lookup.
+   */
   readonly resolveAgent: AgentKeyResolver;
   /** Default: one in-memory cache per verifier. Share a store when several instances serve one audience. */
   readonly replayCache?: JtiReplayCache;
@@ -42,7 +45,11 @@ export interface AgentJwtPrincipal {
 const VERIFIER_FAILURE_MESSAGE = "Agent JWT verification failed: the agent resolver or the replay cache threw";
 const AGENT_OR_SIGNATURE = "agent or signature not accepted";
 
-/** Told apart, these four reasons tell a caller whether an agent exists and whether it is usable. */
+/**
+ * Told apart, the first four reasons tell a caller whether an agent
+ * exists and whether it is usable. A token that cannot be decoded gets the external
+ * verifier's text, so the answer does not depend on which token types are configured.
+ */
 function publicReason(reason: AgentJwtFailureReason): string {
   switch (reason) {
     case AgentJwtFailureReason.UnknownAgent:
@@ -50,6 +57,8 @@ function publicReason(reason: AgentJwtFailureReason): string {
     case AgentJwtFailureReason.UnsupportedKey:
     case AgentJwtFailureReason.BadSignature:
       return AGENT_OR_SIGNATURE;
+    case AgentJwtFailureReason.Malformed:
+      return MALFORMED_TOKEN_REASON;
     default:
       return reason;
   }

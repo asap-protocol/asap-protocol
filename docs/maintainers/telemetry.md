@@ -53,7 +53,7 @@ When package flags are omitted, collectors/aggregate use:
 | npm | `@asap-protocol/client`, `@asap-protocol/mastra`, `@asap-protocol/mcp-auth`, `@asap-protocol/openai-agents` |
 | PyPI | `asap-protocol`, `asap-compliance` |
 
-The npm API answers HTTP 404 for a package that is not on npm, and the npm collector then fails the whole run. So a new package must be on npm before its default reaches the weekly job on `main`.
+The npm API answers HTTP 404 for a package that it does not know, for example a package listed here before its first publish. The npm collector logs one line for it (`… is not on the npm registry (HTTP 404); recorded as no data`) and goes on. That package is no data, not zero: the snapshot leaves it out of `npm`, lists it under `npm_not_on_registry`, and `dashboard.md` names it under **Data quality warnings**. Any other npm error (HTTP 429, a 5xx answer, a network error) still fails the run.
 
 ## Running collectors individually
 
@@ -99,7 +99,7 @@ uv run python scripts/telemetry/aggregate.py --output-dir private/telemetry --al
 
 The script:
 
-- Collects the default npm (≥3) and PyPI (≥2) package sets.
+- Collects the default npm (≥3) and PyPI (≥2) package sets. A package that npm does not know yet is recorded as no data (see [Default package coverage](#default-package-coverage-dist-004)).
 - Retries PyPI Stats HTTP 429, 5xx, and connection errors per package (4 attempts, waits of 10 s, 30 s, 90 s). If PyPI still fails, the snapshot keeps `pypi.packages` empty, sets `pypi.fetch_error: true` with a generic `pypi.reason`, and `dashboard.md` lists it under **Data quality warnings**. The run still exits 0.
 - Fails closed (exit 1, no snapshot) when `TELEMETRY_GITHUB_TOKEN` is missing or a GitHub call fails, unless `--allow-github-skip` is passed. Adapter-request counts feed promotion decisions, so CI never writes placeholder zeros.
 - Validates the snapshot against an embedded **JSON Schema** (`jsonschema`).

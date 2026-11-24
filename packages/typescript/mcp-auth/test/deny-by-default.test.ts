@@ -1,9 +1,9 @@
 import { createAgent, createHost, MemoryStorage, type AgentContext } from "@asap-protocol/client";
-import { completable, createMcpHandler, McpServer } from "@modelcontextprotocol/server";
+import { completable, createMcpHandler, McpServer, type NotificationMethod } from "@modelcontextprotocol/server";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import * as z from "zod";
 
-import { createMcpAuthMiddleware, type McpAuthConfig, type McpAuthMiddleware } from "../src/index.js";
+import { createMcpAuthMiddleware, MCP_PROTOCOL_VERSION, type McpAuthConfig, type McpAuthMiddleware } from "../src/index.js";
 import { LocalTestIssuer } from "./local-issuer.js";
 import { MCP_ENDPOINT, mcpRequest, post, PROTECTED_TOOL, PUBLIC_TOOL, toolsCallBody, toolsCallHeaders, type HeaderList } from "./mcp-requests.js";
 
@@ -51,6 +51,9 @@ function buildServer(auth: McpAuthMiddleware): McpServer {
     handlerRuns.push("prompts/get");
     return { messages: [{ role: "user", content: { type: "text", text: "secret" } }] };
   });
+  // Notification handlers are code that no grant covers: deny by default must keep notifications away from them.
+  for (const [method] of NOTIFICATIONS) server.server.setNotificationHandler(method, () => void handlerRuns.push(method));
+  server.server.fallbackNotificationHandler = async (notification) => void handlerRuns.push(`fallback: ${notification.method}`);
   return server;
 }
 
@@ -64,6 +67,20 @@ function app(overrides: Partial<McpAuthConfig> = {}) {
     ...overrides,
   });
   return auth.protect(createMcpHandler(() => buildServer(auth), { legacy: "reject" }));
+}
+
+const NOTIFICATIONS: [NotificationMethod, Record<string, unknown>][] = [
+  ["notifications/cancelled", { requestId: 1 }],
+  ["notifications/progress", { progressToken: 1, progress: 1 }],
+  ["notifications/roots/list_changed", {}],
+  ["notifications/initialized", {}],
+];
+
+/** A 2026-07-28 notification (no id). The SDK client sends none with an Mcp-Method header; `name` adds Mcp-Name. */
+function notification(method: string, params: Record<string, unknown>, headers: HeaderList, withMethodHeader = true, name?: string): Request {
+  const standard: HeaderList = [["mcp-protocol-version", MCP_PROTOCOL_VERSION], ...(withMethodHeader ? [["mcp-method", method] as [string, string]] : [])];
+  if (name !== undefined) standard.push(["mcp-name", name]);
+  return post([...standard, ...headers], { jsonrpc: "2.0", method, params: { ...params, _meta: { "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION } } });
 }
 
 /** Tokens that verify but carry no grant: no capabilities claim, and a scope that no rule maps. */
@@ -99,6 +116,37 @@ describe.each(ZERO_GRANT_TOKENS)("deny by default after %s verifies", (_token, m
 
     expect(response.status).toBe(200);
     expect(handlerRuns).toEqual(["resources/read"]);
+  });
+
+  it.each(NOTIFICATIONS)("refuses the notification %s with HTTP 403 before any handler runs, with or without Mcp-Method", async (method, params) => {
+    for (const withMethodHeader of [false, true]) {
+      const response = await app().fetch(notification(method, params, bearer(await mint()), withMethodHeader));
+
+      expect(response.status).toBe(403);
+    }
+    expect(handlerRuns).toEqual([]);
+  });
+
+  // A notification may carry the Mcp-Method of a method that the header rule lets through; it must still reach no handler.
+  it.each<[string, string, string?]>([
+    ["tools/call", "tools/call", PUBLIC_TOOL],
+    ["tools/call", "tools/call", PROTECTED_TOOL],
+    ["tools/list", "tools/list"],
+    ["server/discover", "server/discover"],
+  ])("refuses a %s notification with HTTP 403, so it runs no tool and no notification handler", async (_case, method, name) => {
+    const response = await app().fetch(notification(method, { name, arguments: {} }, bearer(await mint()), true, name));
+
+    expect(response.status).toBe(403);
+    expect(handlerRuns).toEqual([]);
+  });
+
+  it("lets a notification listed in allowMethods reach its own handler only, when the client sends its Mcp-Method", async () => {
+    const auth = app({ allowMethods: ["notifications/cancelled"] });
+
+    expect((await auth.fetch(notification("notifications/cancelled", { requestId: 1 }, bearer(await mint()), false))).status).toBe(403);
+    expect((await auth.fetch(notification("notifications/cancelled", { requestId: 1 }, bearer(await mint())))).status).toBe(202);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(handlerRuns).toEqual(["notifications/cancelled"]);
   });
 
   it("refuses a token request that does not send MCP-Protocol-Version 2026-07-28", async () => {
@@ -139,6 +187,19 @@ describe("deny by default leaves requests with no token as they were", () => {
 
     expect(response.status).toBe(200);
     expect(handlerRuns).toEqual([PUBLIC_TOOL]);
+  });
+
+  it.each<[string, string, string?]>([
+    ["a tools/call notification for a public tool", "tools/call", PUBLIC_TOOL],
+    ["a tools/list notification", "tools/list"],
+    ["a server/discover notification", "server/discover"],
+    ["a notification listed in allowMethods", "notifications/cancelled"],
+  ])("answers %s with no token with 401, and runs no handler", async (_case, method, name) => {
+    const response = await app({ allowMethods: ["notifications/cancelled"] }).fetch(notification(method, { name, arguments: {} }, [], true, name));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(response.status).toBe(401);
+    expect(handlerRuns).toEqual([]);
   });
 
   it("answers an allowMethods method with no token with 401: allowMethods needs a verified token", async () => {

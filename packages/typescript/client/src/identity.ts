@@ -87,15 +87,38 @@ async function importEd25519PrivateFromJwk(jwk: JsonWebKey): Promise<CryptoKey> 
   ) as Promise<CryptoKey>;
 }
 
+/**
+ * A public JSON Web Key (RFC 7517), such as an agent's or a host's Ed25519 key
+ * (`{ kty: "OKP", crv: "Ed25519", x }`). It needs no DOM lib, so server code
+ * compiled without one keeps real key types. `JsonWebKey` from the DOM lib and
+ * jose's `JWK` are assignable to it, and it is assignable to `JsonWebKey`.
+ */
+export interface PublicJwk {
+  kty?: string;
+  crv?: string;
+  x?: string;
+  y?: string;
+  n?: string;
+  e?: string;
+  alg?: string;
+  kid?: string;
+  use?: string;
+  /** Web Crypto exports set these two. */
+  ext?: boolean;
+  key_ops?: string[];
+  /** The private part: never set on a public key. Declared so that a check for its absence compiles. */
+  d?: string;
+}
+
 /** Host runtime identity. */
 export interface HostContext {
   readonly hostId: string;
   readonly hostThumbprint: string;
-  readonly publicJwk: JsonWebKey;
+  readonly publicJwk: PublicJwk;
   readonly storage: Storage;
   signHostJwt(options: {
     aud: string | string[];
-    agentPublicKey?: JsonWebKey;
+    agentPublicKey?: PublicJwk;
     ttlSeconds?: number;
   }): Promise<string>;
 }
@@ -105,7 +128,7 @@ export interface AgentContext {
   readonly hostId: string;
   readonly mode: AgentMode;
   readonly hostThumbprint: string;
-  readonly publicJwk: JsonWebKey;
+  readonly publicJwk: PublicJwk;
   readonly storage: Storage;
   signAgentJwt(options: { aud: string | string[]; capabilities?: string[] }): Promise<string>;
 }

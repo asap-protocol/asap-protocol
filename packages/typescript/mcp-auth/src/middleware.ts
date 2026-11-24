@@ -1,9 +1,13 @@
 import { AGENT_JWT_TYP, JtiReplayCacheFullError } from "@asap-protocol/client";
 import {
   bearerAuthChallengeResponse,
+  DEFAULT_MAX_REQUEST_BODY_SIZE,
+  isJsonContentType,
+  isJSONRPCNotification,
   isLegacyRequest,
   OAuthError,
   OAuthErrorCode,
+  readRequestBody,
   type AuthInfo,
   type McpHandlerRequestOptions,
   type OAuthTokenVerifier,
@@ -12,6 +16,7 @@ import {
 import { decodeProtectedHeader } from "jose";
 
 import { createAgentJwtVerifier, type AgentJwtVerifierConfig } from "./agent-jwt-verifier.js";
+import { isJsonObject } from "./constraints.js";
 import { McpAuthErrorCode } from "./errors.js";
 import type { ExternalTokenConfig } from "./external-issuers.js";
 import { createExternalTokenVerifier } from "./external-token-verifier.js";
@@ -46,6 +51,7 @@ export interface McpAuthConfig {
    * `"prompts/get"`. Default: none, so every other method gets HTTP 403
    * before any handler runs. A listed method runs with no grant check. It
    * cannot list `"tools/call"`, and it opens nothing to a request with no token.
+   * A JSON-RPC notification passes only when its method is listed here.
    */
   readonly allowMethods?: readonly string[];
   /** The grants of a verified Agent JWT principal, for example `staticAgentGrants(...)`. Default: none (deny). */
@@ -60,9 +66,12 @@ export interface McpAuthConfig {
   /**
    * Called when verification or a grant lookup fails for a reason other than
    * the token, such as a resolver that throws (HTTP 500 with no detail), an
-   * issuer's JWKS that cannot be fetched (HTTP 503), or a `protectTool`
-   * callback registered under another tool's name. The package itself never
-   * logs, and this hook never receives the token.
+   * issuer's JWKS that cannot be fetched (HTTP 503), a `protectTool`
+   * callback registered under another tool's name, a protected tool
+   * registered without `scopeChallenge` (seen when an access token lacks a
+   * scope that a grant rule maps), or a tool in `toolCapabilities` whose call
+   * got a result without using `protectTool` for that call. The package itself
+   * never logs, and this hook never receives the token.
    */
   readonly onInternalError?: (error: unknown) => void;
 }
@@ -92,7 +101,10 @@ export interface McpAuthMiddleware {
    * `Response`, and any other request reaches `handler.fetch(request, { authInfo })`.
    * Tools read the result as `ctx.http?.authInfo`. A request that the SDK's
    * `isLegacyRequest` would route to 2025-era serving is refused too (401 with
-   * no token, 403 with one), because that path skips the SDK's `Mcp-Name` check.
+   * no token, 403 with one), because that path skips the SDK's `Mcp-Name` check;
+   * so is a JSON-RPC notification whose method `allowMethods` does not list.
+   * After the header checks, `protect` refuses a POST with an unsupported
+   * media type (415) or a body over 4 MiB (413) before it calls the handler.
    */
   protect(handler: McpFetchHandler): McpProtectedHandler;
   /**
@@ -111,7 +123,8 @@ export interface McpAuthMiddleware {
    * each protected tool. When an external principal has no grant for the
    * tool's capability and a scope rule of its issuer gives one, the SDK
    * answers HTTP 403 `insufficient_scope` with that scope and
-   * `asap:capability_denied`, before the tool runs.
+   * `asap:capability_denied`, before the tool runs. Without it, the call gets
+   * a tool result, and `onInternalError` gets an error that names the tool.
    */
   scopeChallenge: ScopeChallengeHandler;
 }
@@ -162,18 +175,55 @@ function tokenSurface(config: McpAuthConfig): { callableTools: ReadonlySet<strin
   return { callableTools, allowMethods };
 }
 
+interface BodyRoute {
+  readonly legacy: boolean;
+  /** The method of a JSON-RPC notification (a message with no `id`). */
+  readonly notification?: string;
+}
+
+function bodyErrorResponse(status: number, message: string): Response {
+  return Response.json({ jsonrpc: "2.0", id: null, error: { code: -32000, message } }, { status });
+}
+
 /**
- * The header rule holds only on the SDK's 2026-07-28 path.
- * `isLegacyRequest` runs the SDK's own routing step on a clone of the body
- * (with its default 4 MiB limit). Under SDK 2.4.0 every request that passes
- * the header rule routes there already, so this guards against a later SDK
- * 2.x that routes differently. A body that cannot be read counts as legacy.
+ * The header rule holds on the SDK's 2026-07-28 path. Inspect the body to
+ * confirm that route and detect notifications. Refuse excess data here because
+ * the downstream handler can use a different limit. Treat a read or parse
+ * error as legacy traffic.
  */
-async function routedAsLegacy(request: Request): Promise<boolean> {
+async function routeOfBody(request: Request): Promise<BodyRoute | Response> {
+  if (request.method === "POST" && !isJsonContentType(request.headers.get("content-type"))) {
+    return bodyErrorResponse(415, "Unsupported Media Type: Content-Type must be application/json");
+  }
   try {
-    return await isLegacyRequest(request);
+    const copy = request.clone();
+    const read = await readRequestBody(copy);
+    if (read.tooLarge) {
+      // Release both branches of the body stream when neither handler will read them.
+      void Promise.allSettled([copy.body?.cancel(), request.body?.cancel()]);
+      return bodyErrorResponse(413, `Payload Too Large: Request body must not exceed ${DEFAULT_MAX_REQUEST_BODY_SIZE} bytes`);
+    }
+    const body: unknown = JSON.parse(read.text);
+    return { legacy: await isLegacyRequest(request, body), notification: isJSONRPCNotification(body) ? body.method : undefined };
   } catch {
-    return true;
+    return { legacy: true };
+  }
+}
+
+/**
+ * Identify a protected tool result when the call did not use the wrapper.
+ * The middleware reports the tool after dispatch. A JSON-RPC error response
+ * or a non-200 response does not confirm that the call reached a tool.
+ */
+async function resultOfUnwrappedTool(request: Request, response: Response, declared: ReadonlySet<string>): Promise<string | undefined> {
+  const name = request.headers.get("mcp-name");
+  if (request.headers.get("mcp-method") !== "tools/call" || name === null || !declared.has(name) || response.status !== 200) return undefined;
+  if (String(response.headers.get("content-type")).startsWith("text/event-stream")) return name;
+  try {
+    const body: unknown = await response.clone().json();
+    return isJsonObject(body) && "result" in body ? name : undefined;
+  } catch {
+    return undefined;
   }
 }
 
@@ -281,19 +331,31 @@ export function createMcpAuthMiddleware(config: McpAuthConfig): McpAuthMiddlewar
         if (authInfo instanceof Response) {
           return authInfo;
         }
-        if (await routedAsLegacy(request)) {
+        const route = await routeOfBody(request);
+        if (route instanceof Response) return route;
+        // A notification passes only when allowMethods lists it and the token verified: by default none reaches a handler.
+        const deniedNotification = route.notification !== undefined && (authInfo === undefined || !allowMethods.has(route.notification));
+        if (route.legacy || deniedNotification) {
           return authInfo === undefined ? authRequiredResponse(resourceMetadataUrl) : capabilityDeniedResponse(resourceMetadataUrl);
         }
-        return handler.fetch(request, authInfo === undefined ? undefined : { authInfo });
+        const response = await handler.fetch(request, authInfo === undefined ? undefined : { authInfo });
+        if (grantLayer.usedWrapper(authInfo)) return response;
+        const unwrapped = await resultOfUnwrappedTool(request, response, declaredProtected);
+        if (unwrapped !== undefined) {
+          const name = JSON.stringify(unwrapped);
+          reportInternalError(new Error(`The call to ${name} returned a result without its protectTool wrapper. Register the tool with registerTool(${name}, config, auth.protectTool(${name}, callback)).`));
+        }
+        return response;
       },
     };
   }
 
-  const { protectTool, scopeChallenge } = createGrantLayer({
+  const grantLayer = createGrantLayer({
     ...config,
     publicTools,
     externalIssuers: config.externalTokens?.issuers,
     reportInternalError,
   });
-  return { authenticate, protect, protectTool, scopeChallenge };
+  const declaredProtected: ReadonlySet<string> = new Set(Object.keys(config.toolCapabilities ?? {}));
+  return { authenticate, protect, protectTool: grantLayer.protectTool, scopeChallenge: grantLayer.scopeChallenge };
 }

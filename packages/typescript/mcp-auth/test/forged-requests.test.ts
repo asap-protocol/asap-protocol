@@ -109,13 +109,13 @@ describe.each(LEGACY_MODES)("forged requests through createMcpHandler (legacy: %
     });
   });
 
-  // SDK 2.4 skips the header check for a notification and acknowledges it with 202; no tool runs from a notification.
-  it("acknowledges a tools/call notification that claims the public tool, and runs no tool", async () => {
+  // SDK 2.4 would acknowledge this notification with 202 and pass it to the server's notification handlers; protect refuses it first.
+  it("refuses a tools/call notification that claims the public tool, and runs no tool", async () => {
     const notification: ForgedRequest = ["", "POST", JSON_TYPE, "tools/call", same, (target) => notificationOf("tools/call", { name: target, arguments: {} })];
 
     const response = await app(legacy).fetch(forged(notification, VERSION_HEADERS[0]![1], PUBLIC_TOOL));
 
-    expect(response.status).toBe(202);
+    expect(response.status).toBe(401);
     expect(toolRuns).toEqual([]);
   });
 });

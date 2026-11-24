@@ -7,7 +7,7 @@ import {
   standardClaimFailure,
   type AgentJwtClaims,
 } from "./agent-jwt-claims.js";
-import { AGENT_JWT_TYP } from "./identity.js";
+import { AGENT_JWT_TYP, type PublicJwk } from "./identity.js";
 import type { JtiReplayCache } from "./jti-replay-cache.js";
 
 /** `EdDSA` (RFC 8037) and its RFC 9864 name `Ed25519`, as Python `JWT_ALGS_VERIFY`. */
@@ -21,12 +21,17 @@ export interface AgentKeyLookup {
 
 /** The agent's Ed25519 public JWK, and whether the agent may authenticate now. */
 export interface ResolvedAgentKey {
-  readonly publicKey: JsonWebKey;
+  readonly publicKey: PublicJwk;
   /** `false` when the agent is revoked, expired, or pending, its host is revoked, or it is not bound to that host. */
   readonly usable: boolean;
 }
 
-/** Returns `undefined` for an unknown agent. A throw is an infrastructure failure and propagates. */
+/**
+ * Returns `undefined` for an unknown agent. A throw is an infrastructure failure and propagates.
+ * It runs before the signature, audience, and expiry checks, with the token's unverified
+ * `sub` and `iss`: keep it a read-only lookup, and update state (such as a last-used time)
+ * only after `verifyAgentJwt` returns `ok: true`.
+ */
 export type AgentKeyResolver = (lookup: AgentKeyLookup) => Promise<ResolvedAgentKey | undefined>;
 
 export interface VerifyAgentJwtOptions {
@@ -70,7 +75,7 @@ function decodeUnverified(token: string): { alg: unknown; typ: unknown; claims: 
   }
 }
 
-function ed25519X(jwk: JsonWebKey): string | undefined {
+function ed25519X(jwk: PublicJwk): string | undefined {
   return jwk.kty === "OKP" && jwk.crv === "Ed25519" ? nonBlankString(jwk.x) : undefined;
 }
 

@@ -54,9 +54,10 @@ from scripts.lib.safe_url import is_safe_http_url
 class NpmPackageRow(TypedDict, total=False):
     """One package entry from ``collect_npm_weekly``."""
 
-    downloads: int
+    downloads: int | None
     package: str
     period: str
+    not_on_registry: bool
 
 
 class NpmWeeklyIngress(TypedDict, total=False):
@@ -155,6 +156,8 @@ SNAPSHOT_SCHEMA: dict[str, Any] = {
             "type": "object",
             "additionalProperties": {"type": "integer"},
         },
+        # Packages that npm does not know yet: no data, so they are absent from ``npm``.
+        "npm_not_on_registry": {"type": "array", "items": {"type": "string"}},
         "pypi": {
             "type": "object",
             "required": ["packages"],
@@ -263,6 +266,23 @@ def build_npm_summary(report: Mapping[str, object]) -> dict[str, int]:
         if isinstance(dl, int):
             out[str(name)] = dl
     return out
+
+
+def npm_packages_not_on_registry(report: Mapping[str, object]) -> list[str]:
+    """Packages whose npm row is "not on the registry" (HTTP 404): no data, never zero.
+
+    Example:
+        >>> npm_packages_not_on_registry({"packages": {"@a/new": {"not_on_registry": True}}})
+        ['@a/new']
+    """
+    pkgs = report.get("packages")
+    if not isinstance(pkgs, dict):
+        return []
+    return sorted(
+        str(name)
+        for name, body in pkgs.items()
+        if isinstance(body, dict) and body.get("not_on_registry") is True
+    )
 
 
 def flatten_adapter_request_counts(github_report: Mapping[str, object]) -> dict[str, int]:
@@ -514,6 +534,12 @@ def render_dashboard(
         degraded.append(
             f"GitHub telemetry skipped ({reason}); adapter-request counts may be zeroed."
         )
+    npm_missing = snapshot.get("npm_not_on_registry")
+    if isinstance(npm_missing, list) and npm_missing:
+        names = ", ".join(f"`{name}`" for name in npm_missing)
+        degraded.append(
+            f"npm has no data for {names} (not on the npm registry yet); the npm column leaves it out."
+        )
     pypi_obj = snapshot.get("pypi")
     if isinstance(pypi_obj, dict) and pypi_obj.get("fetch_error"):
         reason = pypi_obj.get("reason", "unknown")
@@ -671,6 +697,7 @@ def main(argv: list[str] | None = None) -> int:
         "snapshot_version": 1,
         "collected_at": datetime.now(UTC).replace(microsecond=0).isoformat(),
         "npm": build_npm_summary(npm_report),
+        "npm_not_on_registry": npm_packages_not_on_registry(npm_report),
         "pypi": pypi_report,
         "github": github_report,
         "registry": registry_report,

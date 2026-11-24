@@ -127,6 +127,9 @@ jobs:
       - name: Test with coverage (reads tests/fixtures/interop)
         run: pnpm --filter @asap-protocol/mcp-auth test
 
+      - name: Tree-shake check (agadoo)
+        run: pnpm --filter @asap-protocol/mcp-auth run check:treeshake
+
       - name: Load the packed package from ESM and CommonJS
         run: pnpm --filter @asap-protocol/mcp-auth run check:package
 

@@ -420,7 +420,7 @@ This server has one public tool, `echo`, and one protected tool, `secure_action`
 ```ts
 import { createServer } from "node:http";
 
-import type { AgentKeyResolver, ResolvedAgentKey } from "@asap-protocol/client";
+import type { AgentKeyResolver, PublicJwk } from "@asap-protocol/client";
 import { createMcpAuthMiddleware, type CapabilityGrant } from "@asap-protocol/mcp-auth";
 import { toNodeHandler } from "@modelcontextprotocol/node";
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
@@ -431,7 +431,7 @@ const MCP_URL = "https://mcp.example.com/mcp";
 
 // The agents that you accept, by agent id. Load them from your own records.
 interface KnownAgent {
-  publicJwk: ResolvedAgentKey["publicKey"]; // the agent's Ed25519 public key, as a JWK
+  publicJwk: PublicJwk; // the agent's Ed25519 public key, as a JWK
   hostThumbprint: string; // the host that the agent belongs to
   active: boolean; // false when you revoke the agent or its host
   grants: CapabilityGrant[]; // the capabilities that the agent may use
@@ -481,7 +481,7 @@ What each part does:
 - **`publicTools`** lists the tools that a request with no token may call.
 - **`toolCapabilities`** maps every protected tool to its ASAP capability. A tool that is in neither list cannot be called (see [Deny by default](#deny-by-default)).
 - **`agentGrants`** returns the grants of a verified agent. With no `agentGrants`, no agent has a grant. For a fixed map, `staticAgentGrants({ "<agent id>": [...] })` from the same package does the same job.
-- **`protectTool`** wraps the callback of each tool in `toolCapabilities`. Register it under the same name. It throws a `TypeError` for a name that is in `publicTools` or not in `toolCapabilities`. A listed tool that you register **without** `protectTool` runs with no grant check.
+- **`protectTool`** wraps the callback of each tool in `toolCapabilities`. Register it under the same name. It throws a `TypeError` for a name that is in `publicTools` or not in `toolCapabilities`. A listed tool that you register **without** `protectTool` runs with no grant check. The package does not see `registerTool`, so it cannot stop that call; when such a call returns a result, `onInternalError` gets an error that names the tool.
 - **`legacy: "reject"`** keeps the server on revision `2026-07-28`. The token layer trusts the `Mcp-Method` and `Mcp-Name` headers, and the SDK checks them against the body only on that revision.
 - **`onInternalError`** gets failures that are not about the token, such as a resolver that throws. It never gets the token.
 
@@ -493,7 +493,7 @@ The package checks the Agent JWT itself: the type (`typ: agent+jwt`), the Ed2551
 
 - The resolver gets the token's `sub` as `agentId` and its `iss` as `hostThumbprint` (the key thumbprint of the agent's host).
 - Return `undefined` for an agent that you do not know.
-- Otherwise return the agent's Ed25519 public key (a JWK) and `usable`. Return `usable: false` when the agent or its host is revoked, expired, or pending, or when the agent does not belong to that host. The package does not check the host binding: your resolver must.
+- Otherwise return the agent's Ed25519 public key (a JWK, typed `PublicJwk`; it needs no DOM lib) and `usable`. Return `usable: false` when the agent or its host is revoked, expired, or pending, or when the agent does not belong to that host. The package does not check the host binding: your resolver must.
 - The resolver runs **before** the signature check, with values that nobody has verified yet. Keep it a read-only lookup. Do not record "last used" times or other state in it.
 - If the resolver throws, the caller gets HTTP 500 with no detail, and `onInternalError` gets the error.
 
@@ -646,7 +646,7 @@ What each part does:
 - **`jwksUri`** is where the package fetches the issuer's public keys (see [Key fetch and SSRF](#key-fetch-and-ssrf)). Take it from the `jwks_uri` in your authorization server's metadata. Or set `jwks: { keys: [...] }` instead, and nothing is fetched. Set one of the two. The token must be signed with `EdDSA`, `RS256`, or `ES256`.
 - **`grantRules`** turn a token into grants, deny by default. A `scope` rule matches one entry of the space-separated `scope` claim. A `claim` rule matches a top-level claim that is exactly `value`, or a list that holds `value`. Each rule gives one `capability`, with optional `constraints`. Two rules for one capability must have the same constraints, or the config throws a `TypeError`. A scope or claim that no rule names gives nothing.
 - **`resourceMetadataUrl`** is required with `externalTokens` (else a `TypeError`). It is the URL of your RFC 9728 *protected-resource metadata*: a small JSON document that tells an MCP client which authorization server to use. Every 401 and 403 challenge points to it. Serve the document yourself, as the last lines of the code do.
-- **`scopeChallenge`** on each protected tool turns a missing grant into HTTP 403 `insufficient_scope`, with the scope that gives the grant. The SDK client then throws `InsufficientScopeError`, and an MCP client can ask for that scope. Without `scopeChallenge`, a missing grant is a tool result.
+- **`scopeChallenge`** on each protected tool turns a missing grant into HTTP 403 `insufficient_scope`, with the scope that gives the grant. The SDK client then throws `InsufficientScopeError`, and an MCP client can ask for that scope. Without `scopeChallenge`, a missing grant is a tool result, and `onInternalError` gets an error that names the tool: the package cannot see the options of `registerTool`, but the grant layer sees that no 403 came first.
 
 An access token has no replay check: the client sends the same token on each request until it expires. A tool finds the caller in `ctx.http?.authInfo?.extra?.principal`. For an access token it is `{ kind: "external", issuer, subject, scopes, grants }`; for an Agent JWT, `{ kind: "agent_jwt", agentId, hostThumbprint, capabilities }`.
 
@@ -687,7 +687,19 @@ So `ping`, `resources/*`, `prompts/*`, and every other method need `allowMethods
 
 `protect` also refuses a request that the SDK would serve as a 2025-era request: HTTP 401 with no token, 403 with one.
 
-Two things stay with you. Wrap every tool in `toolCapabilities` with `protectTool`. And put in `allowMethods` only methods that any verified caller may use.
+#### Notifications
+
+A JSON-RPC notification (a message with no `id`) gets the same refusal by default: HTTP 401 with no token, 403 with one, and no handler runs. A notification has the same headers as a request, so `protect` reads the body to tell them apart. A notification passes only when the token verifies, its method is in `allowMethods`, and the client sends that method in the `Mcp-Method` header. Then it reaches only the server's handler for that notification, never a tool.
+
+The MCP SDK client 2.4, in revision `2026-07-28`, sends one notification on its own:
+
+| Notification | When the SDK client sends it | What a refusal does | To let it through |
+|--------------|------------------------------|---------------------|-------------------|
+| `notifications/cancelled` | Only when it closes a `subscriptions/listen` subscription (which itself needs `allowMethods: ["subscriptions/listen"]`) | The client passes the 403 to `client.onerror` and goes on. The server loses nothing: the client also closes the subscription's stream, and that ends the subscription. | The SDK client sends no `Mcp-Method` header with a notification, so no `allowMethods` entry opens it. A client that sends `Mcp-Method: notifications/cancelled` needs `allowMethods: ["notifications/cancelled"]`. |
+
+It sends no notification when it connects, calls, receives progress, or closes. It cancels a call, and ends a call that timed out, by closing that call's HTTP stream: the tool sees `ctx.mcpReq.signal` abort. `createMcpHandler` builds a new server for each POST, so a `notifications/cancelled` in its own POST cannot cancel a call that runs in another one.
+
+Two things stay with you. Wrap every tool in `toolCapabilities` with `protectTool` (a tool that is not wrapped is reported to `onInternalError` after a call, not stopped). And put in `allowMethods` only methods that any verified caller may use.
 
 ### Every response
 
@@ -698,10 +710,10 @@ The token layer answers with HTTP. The grant layer answers with a tool result.
 
 | Case | Answer | ASAP code | Header |
 |------|--------|-----------|--------|
-| No token, and the request is not a public one | HTTP 401. Body `{"error":"invalid_token","error_description":"asap:auth_required"}` | `asap:auth_required` | `WWW-Authenticate: Bearer resource_metadata="<url>"` |
+| No token, and the request is not a public one (a notification never is) | HTTP 401. Body `{"error":"invalid_token","error_description":"asap:auth_required"}` | `asap:auth_required` | `WWW-Authenticate: Bearer resource_metadata="<url>"` |
 | `Authorization` is not `Bearer <token>` | HTTP 401. Body `{"error":"invalid_token","error_description":"<ASAP code>"}` | `asap:invalid_token: malformed Authorization header` | `WWW-Authenticate: Bearer error="invalid_token", error_description="<ASAP code>", resource_metadata="<url>"` |
 | Bad, expired, wrong-audience, or replayed token | As in the row above | `asap:invalid_token: <reason>` | As in the row above |
-| Verified token, but a tool or method that the config does not declare, no `MCP-Protocol-Version: 2026-07-28`, or a 2025-era request | HTTP 403. Body `{"error":"insufficient_scope","error_description":"asap:capability_denied"}` | `asap:capability_denied` | `WWW-Authenticate: Bearer error="insufficient_scope", error_description="asap:capability_denied", resource_metadata="<url>"`, with no `scope` |
+| Verified token, but a tool or method that the config does not declare, a notification that `allowMethods` does not list, no `MCP-Protocol-Version: 2026-07-28`, or a 2025-era request | HTTP 403. Body `{"error":"insufficient_scope","error_description":"asap:capability_denied"}` | `asap:capability_denied` | `WWW-Authenticate: Bearer error="insufficient_scope", error_description="asap:capability_denied", resource_metadata="<url>"`, with no `scope` |
 | Access token, no grant for the tool, and a `scope` rule gives one (`scopeChallenge` set) | HTTP 403, same body | `asap:capability_denied` | The same, with `scope="<scope>"` before `resource_metadata` |
 | The issuer's keys cannot be fetched | HTTP 503. Body `{"error":"temporarily_unavailable","error_description":"Authentication service unavailable"}` | None | `Retry-After: <seconds>`, no `WWW-Authenticate` |
 | The in-memory replay cache is full of live records | HTTP 503, same body | None | `Retry-After: <seconds>` |
@@ -713,11 +725,11 @@ The token layer answers with HTTP. The grant layer answers with a tool result.
 | The `protectTool` callback is registered under another tool's name | Tool result | `asap:capability_denied: the request is not a call to '<name>'` | — |
 | The arguments break a constraint | Tool result | `asap:constraint_violation: <field>: <reason>` | — |
 
-`<url>` is your `resourceMetadataUrl`. Without it, the challenge has no `resource_metadata` parameter, so the no-token challenge is a plain `Bearer`. `<reason>` is a fixed text, such as `token expired`, `audience mismatch`, or `jti replay detected`. No answer holds the token or a claim value. For a 500 or a 503, `onInternalError` gets the cause.
+`<url>` is your `resourceMetadataUrl`. Without it, the challenge has no `resource_metadata` parameter, so the no-token challenge is a plain `Bearer`. `<reason>` is a fixed text, such as `malformed token` (a token that cannot be decoded, with either kind of token and in every config), `token expired`, `audience mismatch`, or `jti replay detected`. No answer holds the token or a claim value. For a 500 or a 503, `onInternalError` gets the cause.
 
 The two kinds of token differ in one case. With an Agent JWT, a missing grant is always a tool result, as in the Python bridge. With an access token, it is HTTP 403 when a scope can give the grant, so that a standard MCP client can ask for that scope; otherwise it is a tool result. A constraint violation is a tool result on both paths, because it depends on the arguments.
 
-Some answers come from the MCP SDK, not from this package: HTTP 400 when the headers disagree with the body (`-32020`) or a `_meta` key is missing (`-32602`), and HTTP 415 for a wrong `Content-Type`.
+After the token and header checks, `protect` answers HTTP 415 for an unsupported `Content-Type` and HTTP 413 for a body over 4 MiB. The MCP SDK answers HTTP 400 when the headers disagree with the body (`-32020`) or a `_meta` key is missing (`-32602`).
 
 ### Limits
 

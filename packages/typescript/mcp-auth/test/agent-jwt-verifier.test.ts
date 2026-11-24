@@ -1,4 +1,4 @@
-import { createAgent, createHost, MemoryStorage, type AgentContext, type AgentKeyResolver } from "@asap-protocol/client";
+import { AgentJwtFailureReason, createAgent, createHost, MemoryStorage, type AgentContext, type AgentKeyResolver } from "@asap-protocol/client";
 import { OAuthError, OAuthErrorCode, requireBearerAuth } from "@modelcontextprotocol/server";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -102,10 +102,13 @@ describe("createAgentJwtVerifier (OAuthTokenVerifier)", () => {
     expect(error.message).toBe("asap:invalid_token: agent or signature not accepted");
   });
 
-  it("refuses a string that is not a JWT", async () => {
-    const error = await rejectionOf(verifierWith().verifyAccessToken("opaque-access-token"), "opaque-access-token");
+  // The external verifier's text, so a garbage token gets one reason in every configuration.
+  it("refuses a string that is not a JWT with the reason malformed token, and gives onTokenRefused the detail", async () => {
+    const onTokenRefused = vi.fn();
+    const error = await rejectionOf(verifierWith({ onTokenRefused }).verifyAccessToken("opaque-access-token"), "opaque-access-token");
 
-    expect(error.message).toBe("asap:invalid_token: invalid JWT structure");
+    expect(error.message).toBe("asap:invalid_token: malformed token");
+    expect(onTokenRefused).toHaveBeenCalledWith(AgentJwtFailureReason.Malformed);
   });
 
   it("refuses a replayed token with no cache configured (replay detection is on by default)", async () => {

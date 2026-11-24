@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -16,6 +17,16 @@ from scripts.telemetry.collect_npm import (
     main,
     sum_downloads_from_range_payload,
 )
+
+NEW_PACKAGE = "@asap-protocol/not-published-yet"
+
+
+def _npm_client(status: int, body: dict[str, Any]) -> httpx.Client:
+    """An httpx client whose every GET answers ``status`` with the JSON ``body``."""
+    return httpx.Client(
+        transport=httpx.MockTransport(lambda _req: httpx.Response(status, json=body))
+    )
+
 
 REQUIRED_DEFAULT_NPM_PACKAGES: frozenset[str] = frozenset(
     {
@@ -94,17 +105,38 @@ class TestFetchLastWeekDownloads:
         called_url = mock_client.get.call_args[0][0]
         assert "%40asap-protocol%2Fclient" in called_url
 
-    def test_propagates_http_errors(self) -> None:
-        mock_resp = MagicMock()
-        mock_resp.raise_for_status.side_effect = httpx.HTTPStatusError(
-            "404",
-            request=MagicMock(),
-            response=MagicMock(),
-        )
-        mock_client = MagicMock()
-        mock_client.get.return_value = mock_resp
-        with pytest.raises(httpx.HTTPStatusError):
-            fetch_last_week_downloads(mock_client, "@asap-protocol/client")
+    @pytest.mark.parametrize("status", [429, 500, 503])
+    def test_propagates_other_http_errors(self, status: int) -> None:
+        with (
+            _npm_client(status, {"error": "rate limited"}) as client,
+            pytest.raises(httpx.HTTPStatusError),
+        ):
+            fetch_last_week_downloads(client, "@asap-protocol/client")
+
+    def test_propagates_network_errors(self) -> None:
+        def _refuse(request: httpx.Request) -> httpx.Response:
+            raise httpx.ConnectError("connection refused", request=request)
+
+        with (
+            httpx.Client(transport=httpx.MockTransport(_refuse)) as client,
+            pytest.raises(httpx.ConnectError),
+        ):
+            fetch_last_week_downloads(client, "@asap-protocol/client")
+
+    def test_package_unknown_to_npm_is_no_data_not_zero(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """npm answers 404 for a package it does not know yet (e.g. listed before its first publish)."""
+        with _npm_client(404, {"error": f"package {NEW_PACKAGE} not found"}) as client:
+            out = fetch_last_week_downloads(client, NEW_PACKAGE)
+
+        assert out == {
+            "package": NEW_PACKAGE,
+            "period": "last-week",
+            "downloads": None,
+            "not_on_registry": True,
+        }
+        assert f"{NEW_PACKAGE} is not on the npm registry" in capsys.readouterr().err
 
 
 class TestCollectNpmWeekly:
@@ -141,3 +173,17 @@ class TestCollectNpmWeekly:
         assert mock_client.get.call_count == 2
         raw = json.dumps(report)
         assert '"@asap-protocol/client"' in raw
+
+    def test_unknown_package_does_not_stop_the_run(self) -> None:
+        def _answer(request: httpx.Request) -> httpx.Response:
+            if "not-published-yet" in str(request.url):
+                return httpx.Response(404, json={"error": f"package {NEW_PACKAGE} not found"})
+            return httpx.Response(200, json={"downloads": [{"day": "2026-11-16", "downloads": 9}]})
+
+        # Built before the patch: the patch replaces httpx.Client for the whole module.
+        client = httpx.Client(transport=httpx.MockTransport(_answer))
+        with patch("scripts.telemetry.collect_npm.httpx.Client", return_value=client):
+            report = collect_npm_weekly((NEW_PACKAGE, "@asap-protocol/client"))
+
+        assert report["packages"][NEW_PACKAGE]["downloads"] is None
+        assert report["packages"]["@asap-protocol/client"]["downloads"] == 9

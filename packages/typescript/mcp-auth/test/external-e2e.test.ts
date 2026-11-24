@@ -24,6 +24,7 @@ const METADATA_OPTIONS: AuthMetadataOptions = {
 
 let issuer: LocalTestIssuer;
 let toolRuns: string[];
+let internalErrors: unknown[];
 
 beforeAll(async () => {
   issuer = await LocalTestIssuer.create(ISSUER);
@@ -31,13 +32,14 @@ beforeAll(async () => {
 
 beforeEach(() => {
   toolRuns = [];
+  internalErrors = [];
 });
 
-function buildServer(auth: McpAuthMiddleware): McpServer {
+function buildServer(auth: McpAuthMiddleware, withScopeChallenge: boolean): McpServer {
   const server = new McpServer({ name: "mcp-auth-external-test", version: "0.0.0" });
   server.registerTool(
     PROTECTED_TOOL,
-    { description: "protected", inputSchema: z.object({ action: z.string() }), scopeChallenge: auth.scopeChallenge },
+    { description: "protected", inputSchema: z.object({ action: z.string() }), ...(withScopeChallenge && { scopeChallenge: auth.scopeChallenge }) },
     auth.protectTool(PROTECTED_TOOL, async ({ action }) => {
       toolRuns.push(action);
       return { content: [{ type: "text", text: `executed: ${action}` }] };
@@ -47,21 +49,22 @@ function buildServer(auth: McpAuthMiddleware): McpServer {
 }
 
 /** The MCP endpoint behind the token layer, and the SDK's metadata documents beside it. */
-function app(): { fetch(request: Request): Promise<Response> } {
+function app(withScopeChallenge = true): { fetch(request: Request): Promise<Response> } {
   const auth = createMcpAuthMiddleware({
     externalTokens: {
       issuers: [{ issuer: ISSUER, audience: MCP_ENDPOINT, jwks: issuer.jwks, grantRules: [{ scope: SCOPE, capability: PROTECTED_TOOL, constraints: { action: { not_in: ["drop"] } } }] }],
     },
     toolCapabilities: { [PROTECTED_TOOL]: PROTECTED_TOOL },
     resourceMetadataUrl: METADATA_URL,
+    onInternalError: (error) => internalErrors.push(error),
   });
-  const mcp = auth.protect(createMcpHandler(() => buildServer(auth), { legacy: "reject" }));
+  const mcp = auth.protect(createMcpHandler(() => buildServer(auth, withScopeChallenge), { legacy: "reject" }));
   return { fetch: async (request) => oauthMetadataResponse(request, METADATA_OPTIONS) ?? mcp.fetch(request) };
 }
 
-async function callTool(scope: string | undefined, action: string, token?: string): Promise<Response> {
+async function callTool(scope: string | undefined, action: string, token?: string, withScopeChallenge = true): Promise<Response> {
   const bearer = token ?? (await issuer.mint(issuer.claims(MCP_ENDPOINT, { scope })));
-  return app().fetch(post([...toolsCallHeaders(PROTECTED_TOOL), ["authorization", `Bearer ${bearer}`]], toolsCallBody(PROTECTED_TOOL, { action })));
+  return app(withScopeChallenge).fetch(post([...toolsCallHeaders(PROTECTED_TOOL), ["authorization", `Bearer ${bearer}`]], toolsCallBody(PROTECTED_TOOL, { action })));
 }
 
 describe("external OAuth 2.1 tokens through createMcpHandler (MCP authorization, resource-server side)", () => {
@@ -96,6 +99,18 @@ describe("external OAuth 2.1 tokens through createMcpHandler (MCP authorization,
     );
     expect(await response.json()).toEqual({ error: "insufficient_scope", error_description: "asap:capability_denied" });
     expect(toolRuns).toEqual([]);
+    expect(internalErrors).toEqual([]);
+  });
+
+  // The 403 above comes from scopeChallenge, which the grant layer cannot set; it can see that it did not run.
+  it("reports a tool registered without scopeChallenge to onInternalError, and still denies in the tool result", async () => {
+    const response = await callTool("files:read", "deploy", undefined, false);
+
+    expect(response.status).toBe(200);
+    expect(((await response.json()) as { result: unknown }).result).toMatchObject({ isError: true, content: [{ text: `asap:capability_denied: no active grant for capability '${PROTECTED_TOOL}'` }] });
+    expect(toolRuns).toEqual([]);
+    expect(internalErrors).toHaveLength(1);
+    expect(String(internalErrors[0])).toContain(`protectTool("${PROTECTED_TOOL}"): pass scopeChallenge: auth.scopeChallenge`);
   });
 
   it("answers a constraint violation in the tool result", async () => {

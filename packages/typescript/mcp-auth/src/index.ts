@@ -40,4 +40,12 @@ export type {
   ToolCallback,
 } from "@modelcontextprotocol/server";
 // The same for the @asap-protocol/client types in the verifier config and the constraint check.
-export type { AgentJwtFailureReason, AgentKeyLookup, AgentKeyResolver, ConstraintViolation, JtiReplayCache, ResolvedAgentKey } from "@asap-protocol/client";
+export type {
+  AgentJwtFailureReason,
+  AgentKeyLookup,
+  AgentKeyResolver,
+  ConstraintViolation,
+  JtiReplayCache,
+  PublicJwk,
+  ResolvedAgentKey,
+} from "@asap-protocol/client";

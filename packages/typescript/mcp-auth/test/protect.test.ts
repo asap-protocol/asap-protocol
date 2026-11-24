@@ -103,6 +103,24 @@ describe("protect(handler) in front of the SDK's createMcpHandler", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
+  it("answers 413 before dispatch for a body over the size limit", async () => {
+    const fetchSpy = vi.fn(async () => new Response(null, { status: 204 }));
+    const request = post(toolsCallHeaders(PUBLIC_TOOL), toolsCallBody(PUBLIC_TOOL, { padding: "x".repeat(4 * 1024 * 1024) }));
+
+    expect((await protectedHandlerOf({ fetch: fetchSpy }).fetch(request)).status).toBe(413);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("answers 415 before it parses a body with an unsupported content type", async () => {
+    const fetchSpy = vi.fn(async () => new Response(null, { status: 204 }));
+    const headers = new Headers(toolsCallHeaders(PUBLIC_TOOL));
+    headers.set("content-type", "application/x-www-form-urlencoded");
+    const request = new Request(MCP_ENDPOINT, { method: "POST", headers, body: new URLSearchParams({ message: "hello" }) });
+
+    expect((await protectedHandlerOf({ fetch: fetchSpy }).fetch(request)).status).toBe(415);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it("refuses a request with a token for another audience before the tool runs", async () => {
     const token = await agent.signAgentJwt({ aud: "https://other.example/mcp" });
     const request = post([...toolsCallHeaders(PROTECTED_TOOL), ["authorization", `Bearer ${token}`]], toolsCallBody(PROTECTED_TOOL));

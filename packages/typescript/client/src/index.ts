@@ -10,7 +10,7 @@ export {
   resumeAgent,
   resumeHost,
 } from "./identity.js";
-export type { AgentContext, AgentMode, HostContext } from "./identity.js";
+export type { AgentContext, AgentMode, HostContext, PublicJwk } from "./identity.js";
 
 export { InMemoryJtiReplayCache, JtiReplayCacheFullError } from "./jti-replay-cache.js";
 export type { InMemoryJtiReplayCacheOptions, JtiReplayCache } from "./jti-replay-cache.js";

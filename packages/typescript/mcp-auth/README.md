@@ -1,6 +1,6 @@
 # `@asap-protocol/mcp-auth`
 
-> **Status:** in development for ASAP v2.6.0. Version `0.1.0`. The API can change in a `0.Y.0` release.
+> **Status:** version `0.1.0`, the first version of this package (ASAP v2.6.0 train). Before `1.0.0`, a `0.Y.0` release can change the API.
 
 Middleware that protects an HTTP MCP server with ASAP identity and capability grants. It returns the same four `asap:*` error codes as the Python MCP Auth Bridge (`asap.mcp.auth`).
 
@@ -19,30 +19,47 @@ Middleware that protects an HTTP MCP server with ASAP identity and capability gr
 
 Set `agentJwt`, `externalTokens`, or both. With both, the token's `typ` header picks one verifier: `agent+jwt` goes to the Agent JWT verifier, and any other token goes to the external verifier. A token that its verifier refuses is never tried with the other one.
 
-**Deny by default.** A request with no token reaches only the tools in `publicTools`, `tools/list`, and `server/discover`. A request with a verified token reaches only those, the tools in `toolCapabilities`, and the methods in `allowMethods`; anything else gets HTTP 403 before any handler runs. A tool in `toolCapabilities` runs only when `protectTool` finds a grant for its capability. With no `agentGrants`, no Agent JWT principal has a grant, and an external token has only the grants that its issuer's `grantRules` map. Two things stay with you: wrap every tool in `toolCapabilities` with `protectTool` (a listed tool that is not wrapped runs with no grant check), and list in `allowMethods` only methods whose handlers may run for any verified token.
+**Deny by default.** A request with no token reaches only the tools in `publicTools`, `tools/list`, and `server/discover`. A request with a verified token reaches only those, the tools in `toolCapabilities`, and the methods in `allowMethods`; anything else gets HTTP 403 before any handler runs. A tool in `toolCapabilities` runs only when `protectTool` finds a grant for its capability. With no `agentGrants`, no Agent JWT principal has a grant, and an external token has only the grants that its issuer's `grantRules` map. Two things stay with you: wrap every tool in `toolCapabilities` with `protectTool` (a listed tool that is not wrapped runs with no grant check; `protect` cannot stop that call, but reports it to `onInternalError` when it returns a result), and list in `allowMethods` only methods whose handlers may run for any verified token.
 
 ## Usage (Agent JWT)
 
 ```ts
 import { createServer } from "node:http";
+
+import type { AgentKeyResolver, PublicJwk } from "@asap-protocol/client";
 import { createMcpAuthMiddleware } from "@asap-protocol/mcp-auth";
 import { toNodeHandler } from "@modelcontextprotocol/node";
-import { createMcpHandler } from "@modelcontextprotocol/server";
+import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
+import * as z from "zod";
+
+// Your agent records, by agent id. The resolver only reads them.
+const agents = new Map<string, { publicJwk: PublicJwk; hostThumbprint: string; active: boolean }>();
+const resolveAgent: AgentKeyResolver = async ({ agentId, hostThumbprint }) => {
+  const agent = agents.get(agentId);
+  return agent && { publicKey: agent.publicJwk, usable: agent.active && agent.hostThumbprint === hostThumbprint };
+};
 
 const auth = createMcpAuthMiddleware({
-  agentJwt: {
-    audience: "https://mcp.example.com/mcp", // required
-    resolveAgent: async ({ agentId, hostThumbprint }) => lookUpAgent(agentId, hostThumbprint),
-  },
+  agentJwt: { audience: "https://mcp.example.com/mcp", resolveAgent }, // the audience is required
   publicTools: ["echo"],
   toolCapabilities: { secure_action: "secure_action" }, // every protected tool (deny by default)
-  resourceMetadataUrl: "https://mcp.example.com/.well-known/oauth-protected-resource/mcp",
-  onInternalError: (error) => logger.error(error), // the package itself never logs
+  onInternalError: (error) => console.error(error), // the package itself never logs
 });
+
+function buildServer(): McpServer {
+  const server = new McpServer({ name: "my-mcp-server", version: "1.0.0" });
+  server.registerTool("echo", { inputSchema: z.object({ message: z.string() }) }, async ({ message }) => ({ content: [{ type: "text", text: message }] }));
+  server.registerTool(
+    "secure_action",
+    { inputSchema: z.object({ action: z.string() }) },
+    auth.protectTool("secure_action", async ({ action }) => ({ content: [{ type: "text", text: `executed: ${action}` }] })),
+  );
+  return server;
+}
 
 // legacy: "reject" serves MCP 2026-07-28 only, as a second guard for the public-tool rule.
 const app = auth.protect(createMcpHandler(buildServer, { legacy: "reject" }));
-createServer(toNodeHandler(app)).listen(8787);
+createServer(toNodeHandler(app)).listen(Number(process.env.PORT ?? 8787));
 ```
 
 `resolveAgent` returns the agent's Ed25519 public JWK and whether the agent is usable (see `verifyAgentJwt` in `@asap-protocol/client`). A tool reads the verified agent as `ctx.http?.authInfo?.extra?.principal`.
@@ -50,7 +67,9 @@ createServer(toNodeHandler(app)).listen(8787);
 **Host binding.** `resolveAgent` gets the token's `sub` (`agentId`) and `iss` (`hostThumbprint`). The package checks that the agent's key signed the token, so `principal.hostThumbprint` is the `iss` that the agent signed. The package does **not** check that the agent belongs to that host, or that the host is not revoked: your resolver must, and return `usable: false` when either fails. The example's resolver shows the check.
 
 - **Requests with no token.** A request without an `Authorization` header passes with no auth info only when it sends `MCP-Protocol-Version: 2026-07-28` and either calls a public tool (`Mcp-Method: tools/call`, `Mcp-Name: <tool>`) or is `tools/list` or `server/discover`. Any other request with no token gets HTTP 401. The rule reads headers only, before the SDK parses the body.
+- **Notifications.** A JSON-RPC notification (no `id`) has the same headers as a request, so `protect` reads the body. It refuses a notification unless the token verifies and `allowMethods` lists its method (401 with no token, 403 with one); the client must also send that method in `Mcp-Method`. The MCP SDK client 2.4 sends none on its own in revision `2026-07-28`, except `notifications/cancelled` when it closes a `subscriptions/listen` subscription, and it sends that one with no `Mcp-Method` header. Refusing it loses nothing: closing the subscription's stream ends it.
 - **2025-era requests.** The header rule holds because the SDK checks `Mcp-Method` and `Mcp-Name` against the body on a `2026-07-28` request. So `protect` also runs the SDK's `isLegacyRequest` (on a copy of the body) and refuses any request that the SDK would serve as 2025-era: 401 with no token, 403 with one. Mount the handler with `legacy: "reject"` as well.
+- **POST body checks.** After the token and header checks, `protect` answers 415 for an unsupported `Content-Type`. It answers 413 for a body over 4 MiB before it calls the handler.
 - **Requests with a token.** The token is always verified, also for a public tool. Then the same header rule applies, deny by default: the request must send `MCP-Protocol-Version: 2026-07-28`, and it may call only a tool in `publicTools` or `toolCapabilities`, `tools/list`, `server/discover`, or a method in `allowMethods` (for example `"resources/read"`). Anything else gets HTTP 403 before any handler runs. A method in `allowMethods` runs with no grant check, and every tool in `toolCapabilities` must be wrapped with `protectTool`.
 - **Lifetime.** `signAgentJwt` (and Python `create_agent_jwt`) mint an Agent JWT that lives 60 seconds. The verifier refuses, with `token lifetime too long`, a token whose `exp` is more than 120 seconds (the 60-second lifetime plus 60 seconds of clock skew) after now or after `iat`.
 - **Single use.** Each Agent JWT is accepted once, so a client mints one per request. With the SDK client: `new StreamableHTTPClientTransport(url, { authProvider: { token: () => agent.signAgentJwt({ aud }) } })`.
@@ -64,23 +83,27 @@ createServer(toNodeHandler(app)).listen(8787);
 | The replay cache is full of live records (`JtiReplayCacheFullError`) | 503, body `{"error":"temporarily_unavailable","error_description":"Authentication service unavailable"}`, `Retry-After: <seconds until enough records expire>`, no `WWW-Authenticate`; the error goes to `onInternalError`. The token may be fine |
 | The resolver or the replay cache throws anything else | 500, body `{"error":"server_error","error_description":"Internal Server Error"}`; the error goes to `onInternalError` |
 
-`<reason>` is a fixed string, such as `audience mismatch` or `jti replay detected`. No answer holds the token or any claim value. An unknown agent, an agent that is not usable, a key that is not Ed25519, and a bad signature share one reason, `agent or signature not accepted`, so the answer does not tell whether an agent exists or is revoked. `agentJwt.onTokenRefused` receives the detailed reason (an `AgentJwtFailureReason`) for your logs.
+`<reason>` is a fixed string, such as `malformed token` (a token that cannot be decoded; the same text with either verifier), `audience mismatch`, or `jti replay detected`. No answer holds the token or any claim value. An unknown agent, an agent that is not usable, a key that is not Ed25519, and a bad signature share one reason, `agent or signature not accepted`, so the answer does not tell whether an agent exists or is revoked. `agentJwt.onTokenRefused` receives the detailed reason (an `AgentJwtFailureReason`) for your logs.
 
 ## Grants (tool results)
 
 `protectTool(name, callback)` wraps a tool callback. Pass the result as the third argument of `registerTool`, under the same name. `name` must be in `toolCapabilities` and not in `publicTools`; otherwise `protectTool` throws a `TypeError`. Register a public tool without `protectTool`.
 
 ```ts
-import { createMcpAuthMiddleware, staticAgentGrants } from "@asap-protocol/mcp-auth";
+import { createMcpAuthMiddleware, staticAgentGrants, type AgentKeyResolver } from "@asap-protocol/mcp-auth";
+import { McpServer } from "@modelcontextprotocol/server";
+import * as z from "zod";
 
+const resolveAgent: AgentKeyResolver = async () => undefined; // your resolver, as in the example above
 const auth = createMcpAuthMiddleware({
-  agentJwt: { audience, resolveAgent },
+  agentJwt: { audience: "https://mcp.example.com/mcp", resolveAgent },
   toolCapabilities: { secure_action: "secure_action" }, // tool name → capability, for every protected tool
   agentGrants: staticAgentGrants({
-    [agentId]: [{ capability: "secure_action", constraints: { action: { not_in: ["drop-tables"] } } }],
+    agent_01: [{ capability: "secure_action", constraints: { action: { not_in: ["drop-tables"] } } }],
   }),
 });
 
+const server = new McpServer({ name: "my-mcp-server", version: "1.0.0" });
 server.registerTool(
   "secure_action",
   { inputSchema: z.object({ action: z.string() }) },
@@ -103,14 +126,20 @@ For a tool with no `inputSchema`, write the callback with its `ctx` parameter: `
 ## Usage (external OAuth 2.1 tokens)
 
 ```ts
+import { createServer } from "node:http";
+
 import { createMcpAuthMiddleware } from "@asap-protocol/mcp-auth";
-import { createMcpHandler, getOAuthProtectedResourceMetadataUrl, oauthMetadataResponse } from "@modelcontextprotocol/server";
+import { toNodeHandler } from "@modelcontextprotocol/node";
+import { createMcpHandler, getOAuthProtectedResourceMetadataUrl, McpServer } from "@modelcontextprotocol/server";
+import * as z from "zod";
 
 const resource = new URL("https://mcp.example.com/mcp");
+const issuer = "https://auth.example.com";
+const resourceMetadataUrl = getOAuthProtectedResourceMetadataUrl(resource);
 const auth = createMcpAuthMiddleware({
   externalTokens: {
     issuers: [{
-      issuer: "https://auth.example.com",
+      issuer,
       audience: resource.href, // required (RFC 8707)
       jwksUri: "https://auth.example.com/.well-known/jwks.json", // or jwks: { keys: [...] }
       grantRules: [
@@ -120,21 +149,30 @@ const auth = createMcpAuthMiddleware({
     }],
   },
   toolCapabilities: { secure_action: "secure_action" },
-  resourceMetadataUrl: getOAuthProtectedResourceMetadataUrl(resource), // required with externalTokens
+  resourceMetadataUrl, // required with externalTokens
 });
 
-server.registerTool(
-  "secure_action",
-  { inputSchema: z.object({ action: z.string() }), scopeChallenge: auth.scopeChallenge },
-  auth.protectTool("secure_action", async ({ action }) => ({ content: [{ type: "text", text: action }] })),
-);
+function buildServer(): McpServer {
+  const server = new McpServer({ name: "my-mcp-server", version: "1.0.0" });
+  server.registerTool(
+    "secure_action",
+    { inputSchema: z.object({ action: z.string() }), scopeChallenge: auth.scopeChallenge },
+    auth.protectTool("secure_action", async ({ action }) => ({ content: [{ type: "text", text: action }] })),
+  );
+  return server;
+}
 
-// RFC 9728 metadata from the SDK helper, beside the protected MCP endpoint.
+// RFC 9728 protected-resource metadata, served beside the protected MCP endpoint.
+const metadata = { resource: resource.href, authorization_servers: [issuer], scopes_supported: ["actions:run"], bearer_methods_supported: ["header"] };
 const mcp = auth.protect(createMcpHandler(buildServer, { legacy: "reject" }));
-const app = { fetch: async (request: Request) => oauthMetadataResponse(request, metadataOptions) ?? mcp.fetch(request) };
+const app = {
+  fetch: async (request: Request) =>
+    request.method === "GET" && new URL(request.url).pathname === new URL(resourceMetadataUrl).pathname ? Response.json(metadata) : mcp.fetch(request),
+};
+createServer(toNodeHandler(app)).listen(Number(process.env.PORT ?? 8787));
 ```
 
-With `externalTokens`, `resourceMetadataUrl` is required (a `TypeError` otherwise): the server is then the resource server of MCP authorization, which must serve RFC 9728 metadata, and every 401 and 403 challenge points to it.
+With `externalTokens`, `resourceMetadataUrl` is required (a `TypeError` otherwise): the server is then the resource server of MCP authorization, which must serve RFC 9728 metadata, and every 401 and 403 challenge points to it. Serve the document yourself, as the last lines do. The SDK's `oauthMetadataResponse` does not fit here: it needs full authorization-server metadata and lists one issuer only.
 
 The verifier checks, in this order: the token is a JWT; its `typ` is not `agent+jwt` or `host+jwt`; its `alg` is `EdDSA`, `RS256`, or `ES256` (so `none` and HMAC fail before any key lookup); its unverified `iss` is on the allowlist (trailing slashes do not count); the signature verifies with **that issuer's** keys; `aud` holds the configured audience; `exp` and `nbf` hold; `sub` and `exp` are present. The token picks nothing: `jku`, `x5u`, and the `iss` URL are never fetched. There is no replay check, because a client sends the same access token on every request.
 
@@ -143,7 +181,7 @@ Grants come only from the issuer's `grantRules`, deny by default: a `scope` rule
 | Case | HTTP answer |
 |------|-------------|
 | Refused token | 401, `asap:invalid_token: <reason>`. An issuer that is not allowlisted and a bad signature share one reason, `issuer or signature not accepted` |
-| No grant for the tool, and a scope rule of the issuer gives one | 403, `WWW-Authenticate: Bearer error="insufficient_scope", error_description="asap:capability_denied", scope="<scope>", resource_metadata="<url>"` (needs `scopeChallenge` on the tool) |
+| No grant for the tool, and a scope rule of the issuer gives one | 403, `WWW-Authenticate: Bearer error="insufficient_scope", error_description="asap:capability_denied", scope="<scope>", resource_metadata="<url>"` (needs `scopeChallenge` on the tool; without it, a tool result, and `onInternalError` gets an error that names the tool) |
 | No grant, and no scope rule gives one | Tool result, `asap:capability_denied` |
 | Constraint violated | Tool result, `asap:constraint_violation` |
 | The issuer's JWKS cannot be fetched (network error, timeout, HTTP error, too large, redirect refused, not a JWKS), or the last fetch failed less than `refreshCooldownMs` ago | 503, body `{"error":"temporarily_unavailable","error_description":"Authentication service unavailable"}`, `Retry-After: <seconds until the next fetch is allowed>`, no `WWW-Authenticate`. The cause (host and reason) goes to `onInternalError` only. A client can retry later; the token may be fine. Python answers the same case with the same status and text |
