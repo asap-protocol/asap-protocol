@@ -3,7 +3,7 @@ name: Starters smoke (v2.5.4)
 # Headless smokes for examples/starters/. Path-filtered to keep CI cheap.
 on:
   push:
-    branches: [main, release/2.5.4]
+    branches: [main, release/2.5.4, release/2.6.0]
     paths:
       - "examples/starters/**"
       - "examples/openapi_petstore/**"
@@ -11,7 +11,7 @@ on:
       - "packages/typescript/client/**"
       - ".github/workflows/starters-smoke.yml"
   pull_request:
-    branches: [main, release/2.5.4]
+    branches: [main, release/2.5.4, release/2.6.0]
     paths:
       - "examples/starters/**"
       - "examples/openapi_petstore/**"

@@ -7,7 +7,7 @@ on:
       - "v2.3.*"
       - "v2.4.*"
   pull_request:
-    branches: [main]
+    branches: [main, release/2.6.0]
     paths:
       - "packages/typescript/client/**"
       - "packages/typescript/mastra/**"
