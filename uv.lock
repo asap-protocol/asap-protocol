@@ -324,7 +324,7 @@ wheels = [
 
 [[package]]
 name = "asap-protocol"
-version = "2.5.12"
+version = "2.6.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiosqlite" },

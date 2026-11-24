@@ -40,7 +40,7 @@ ASAP_AGENT_URL=https://your-agent.example.com pytest -m asap_compliance
 
 A profile checks one integration against a running server. It returns one result per check ID, and a failed check says what it expected and what it got. The [compliance testing guide](https://github.com/asap-protocol/asap-protocol/blob/main/docs/guides/compliance-testing.md) lists every config field and every check ID.
 
-- **mcp-auth-bridge** (v1.3.0+, requires `asap-protocol>=2.5.0`): Stdio MCP Auth Bridge release gate — JWT paths, grants, constraints, manifest ⊆ registered tools. See [MCP Auth Bridge](../docs/adapters/mcp-auth-bridge.md) and `examples/mcp_auth_bridge/README.md`.
+- **mcp-auth-bridge** (since 1.3.0). Checks stdio MCP JWTs, grants, and constraints. It also checks that the server registers each tool in the manifest. See [MCP Auth Bridge](https://github.com/asap-protocol/asap-protocol/blob/main/docs/adapters/mcp-auth-bridge.md) and the [stdio example](https://github.com/asap-protocol/asap-protocol/blob/main/examples/mcp_auth_bridge/README.md).
 - **mcp-auth-http**: an HTTP MCP server protected by `@asap-protocol/mcp-auth`, checked over plain HTTP, with no MCP SDK. Each refusal must carry the right `asap:*` code in the right layer (HTTP 401 or 403 with a `Bearer` challenge, or a tool error result). It also checks Agent JWT replay, access-token reuse, a tool that the server does not declare, and that no answer echoes a token. Config: `McpAuthHttpComplianceConfig`; entry point: `validate_mcp_auth_http`.
 - **a2a-bridge**: an A2A v1.0 agent served by an ASAP gateway. The Agent Card must be at the well-known path, parse as A2A v1.0, verify under the keys in your config, name the agent URN in your config, list the gateway's JSON-RPC interface, and match the ASAP manifest on the same origin. Then one `SendMessage` per case: a valid access token (sent twice), no token, a malformed, forged, or wrong-audience token, a token without the grant, arguments that break the grant's constraint, and a skill that the card does not list. Config: `A2ABridgeComplianceConfig`; entry point: `validate_a2a_bridge`.
 
@@ -75,6 +75,13 @@ def test_profile(compliance_profile):
 ```bash
 pytest test_profile.py --asap-profile a2a-bridge --asap-profile-config a2a-bridge.json
 ```
+
+The default `mcp-auth-bridge` config uses the example server and manifest fixture
+from the ASAP Protocol checkout. If you install the package outside the checkout,
+select `--asap-profile mcp-auth-bridge` and pass a JSON file with
+`--asap-profile-config`. Set `server_command` to a list with the command and
+arguments for your stdio server. Set `manifest_fixture_path` to the path to your
+manifest JSON file, or set it to `null` and supply `manifest_url`.
 
 ### Protocol v2.2 and Compliance Harness v2
 
