@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from asap.models.envelope import Envelope
-from asap.transport.websocket import WebSocketTransport
+from asap.transport.ws import WebSocketTransport
 
 _SENT_AT = 100.0
 _TIMEOUT = 10.0

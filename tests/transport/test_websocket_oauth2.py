@@ -29,7 +29,7 @@ from asap.models.payloads import TaskRequest
 from asap.transport.handlers import create_default_registry
 from asap.transport.jsonrpc import ASAP_METHOD, JsonRpcRequest
 from asap.transport.server import create_app
-from asap.transport.websocket import WS_CLOSE_AUTH_REQUIRED
+from asap.transport.ws import WS_CLOSE_AUTH_REQUIRED
 
 from .conftest import TEST_RATE_LIMIT_DEFAULT
 

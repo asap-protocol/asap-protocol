@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 
 from asap.economics.sla import SLABreach
 from asap.transport.server import create_app
-from asap.transport.websocket import (
+from asap.transport.ws import (
     SLA_BREACH_NOTIFICATION_METHOD,
     SLA_SUBSCRIBE_METHOD,
     SLA_UNSUBSCRIBE_METHOD,

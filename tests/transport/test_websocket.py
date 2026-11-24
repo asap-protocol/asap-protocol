@@ -24,7 +24,7 @@ from asap.transport.errors import ProtocolCorrelationError
 from asap.transport.jsonrpc import ASAP_METHOD, INTERNAL_ERROR, JsonRpcRequest
 from asap.transport.server import create_app
 from asap.transport.ws._actions import WSCloseAction, _ws_close_code
-from asap.transport.websocket import (
+from asap.transport.ws import (
     ASAP_ACK_METHOD,
     DEFAULT_POOL_IDLE_TIMEOUT,
     DEFAULT_POOL_MAX_SIZE,
@@ -899,7 +899,7 @@ class TestWebSocketReconnection(NoRateLimitTestBase):
 
     def test_reconnect_delay_exponential_capped(self) -> None:
         """Backoff delay is 1s, 2s, 4s, ... and capped at max_backoff."""
-        from asap.transport.websocket import _reconnect_delay
+        from asap.transport.ws import _reconnect_delay
 
         assert _reconnect_delay(1) == 1.0
         assert _reconnect_delay(2) == 2.0
