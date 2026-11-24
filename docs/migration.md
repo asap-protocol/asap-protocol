@@ -1124,6 +1124,8 @@ protocol.
 | Removed path | Before (v2.5.x) | After (v2.6.0) |
 |--------------|-----------------|----------------|
 | `asap.cli._compat` ([#275](https://github.com/asap-protocol/asap-protocol/issues/275)) | `from asap.cli._compat import DEFAULT_SCHEMAS_DIR, export_all_schemas, _repl_namespace` | `from asap.cli.schemas import DEFAULT_SCHEMAS_DIR`; `from asap.schemas import export_all_schemas`; `from asap.cli.repl import _repl_namespace` |
+| `asap.transport.websocket` | `from asap.transport.websocket import WebSocketTransport` (or any other name) | `from asap.transport.ws import WebSocketTransport` (same names). Test patch targets: `asap.transport.ws.client.websockets.connect`; `asap.transport.ws.codecs.encode_envelope_frame`, `.PAYLOAD_TYPES_REQUIRING_ACK`, `.HEARTBEAT_PING_INTERVAL` |
+| `FRAME_ENCODING_BINARY` | `from asap.transport.websocket import FRAME_ENCODING_BINARY` | No replacement. v2.5.1 removed binary framing; frames are JSON text only (`FRAME_ENCODING_JSON`). Delete the reference |
 
 ---
 

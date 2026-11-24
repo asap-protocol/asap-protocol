@@ -14,6 +14,12 @@ import pytest
 
 _REMOVED_MODULES: tuple[str, ...] = (
     "asap.cli._compat",  # HK-001, issue #275
+    "asap.transport.websocket",  # HK-002
+)
+
+# (module that still exists, name that must not come back on it)
+_REMOVED_NAMES: tuple[tuple[str, str], ...] = (
+    ("asap.transport.ws", "FRAME_ENCODING_BINARY"),  # HK-006
 )
 
 
@@ -23,3 +29,14 @@ def test_removed_module_is_not_importable(module_path: str) -> None:
     with pytest.raises(ModuleNotFoundError) as excinfo:
         importlib.import_module(module_path)
     assert excinfo.value.name == module_path
+
+
+@pytest.mark.parametrize(
+    ("module_path", "name"),
+    _REMOVED_NAMES,
+    ids=[f"{module_path}.{name}" for module_path, name in _REMOVED_NAMES],
+)
+def test_removed_name_is_not_importable(module_path: str, name: str) -> None:
+    """``from module_path import name`` fails because the name is gone."""
+    module = importlib.import_module(module_path)
+    assert not hasattr(module, name), f"{module_path}.{name} is back; v2.6.0 removed it"

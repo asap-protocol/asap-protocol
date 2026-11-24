@@ -4,8 +4,8 @@ This module accepts WebSocket connections, enforces optional OAuth2 bearer
 authentication, runs heartbeat and stale-connection checks, applies per-connection
 rate limiting, dispatches ASAP envelopes, and broadcasts SLA breach notifications.
 
-``_heartbeat_loop`` reads ``HEARTBEAT_PING_INTERVAL`` from the compatibility shim
-at call time so tests can patch ``asap.transport.websocket.HEARTBEAT_PING_INTERVAL``.
+``_heartbeat_loop`` reads ``HEARTBEAT_PING_INTERVAL`` off the codecs module at
+call time so tests can patch ``asap.transport.ws.codecs.HEARTBEAT_PING_INTERVAL``.
 """
 
 from __future__ import annotations
@@ -30,6 +30,10 @@ from asap.transport.ws._dispatch import (
     _maybe_send_received_ack,
     _send_rate_limit_error,
 )
+
+# Module alias: names read through ``_ws_codecs`` at call time stay patchable
+# on ``asap.transport.ws.codecs``.
+from asap.transport.ws import codecs as _ws_codecs
 from asap.transport.ws.codecs import (
     HEARTBEAT_FRAME_TYPE_PING,
     SLA_BREACH_NOTIFICATION_METHOD,
@@ -39,10 +43,6 @@ from asap.transport.ws.codecs import (
     WS_CLOSE_AUTH_REQUIRED,
     _is_heartbeat_pong,
 )
-
-# Shim alias used for test patching. The compatibility module binds the names
-# read through ``_shim`` before importing ``asap.transport.ws``.
-from asap.transport import websocket as _shim
 
 if TYPE_CHECKING:
     from asap.auth.middleware import OAuth2Middleware
@@ -100,10 +100,10 @@ async def _heartbeat_loop(
 ) -> None:
     """Server-initiated heartbeat: ping every N seconds, evict stale connections.
 
-    Reads ``HEARTBEAT_PING_INTERVAL`` off the shim at call time so tests patching
-    ``asap.transport.websocket.HEARTBEAT_PING_INTERVAL`` stay effective.
+    Reads ``HEARTBEAT_PING_INTERVAL`` off the codecs module at call time so tests
+    patching ``asap.transport.ws.codecs.HEARTBEAT_PING_INTERVAL`` stay effective.
     """
-    ping_interval = _shim.HEARTBEAT_PING_INTERVAL
+    ping_interval = _ws_codecs.HEARTBEAT_PING_INTERVAL
     stale_timeout = STALE_CONNECTION_TIMEOUT
     while not closed.is_set():
         try:
