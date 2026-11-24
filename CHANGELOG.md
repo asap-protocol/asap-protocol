@@ -44,6 +44,7 @@ See [GitHub Releases](https://github.com/asap-protocol/asap-protocol/releases/la
 
 ### Documentation
 
+- **docs/migration.md** — removed the "Key Improvements in ASAP" table from the A2A section. It described an old Agent Card format, not A2A v1.0. The v2.6.0 interoperability guide will replace that section.
 - **v2.5.x train closed** at **2.5.11**. No more planned feature scope ships on 2.5.x; any further 2.5.x patch follows the release policy below.
 - **Roadmap reset** — the next train is **v2.6.0 Interop** ([prd-interop.md](product/prd/prd-interop.md)), then **v2.7.0 Spec profile** ([prd-spec-profile.md](product/prd/prd-spec-profile.md)). Living train index: [prd-roadmap.md](product/prd/prd-roadmap.md).
 - **Formal Spec PRD renamed** to `product/prd/prd-spec-profile.md` (target v2.7.0). A redirect stub at the old path (`product/prd/prd-v2.5.5-formal-spec-interop.md`) keeps historical links working.

@@ -2,14 +2,15 @@ name: TypeScript SDK
 
 on:
   push:
-    branches: [main]
+    branches: [main, release/2.6.0]
     paths:
       - "packages/typescript/**"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - ".github/workflows/typescript-sdk.yml"
   pull_request:
-    branches: [main]
+    types: [opened, synchronize, reopened, edited]
+    branches: [main, release/2.6.0]
     paths:
       - "packages/typescript/**"
       - "pnpm-lock.yaml"

@@ -2,7 +2,7 @@ name: Mastra adapter CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, release/2.6.0]
     paths:
       - "packages/typescript/mastra/**"
       - "packages/typescript/client/**"
@@ -11,7 +11,8 @@ on:
       - "pnpm-workspace.yaml"
       - ".github/workflows/mastra-ci.yml"
   pull_request:
-    branches: [main]
+    types: [opened, synchronize, reopened, edited]
+    branches: [main, release/2.6.0]
     paths:
       - "packages/typescript/mastra/**"
       - "packages/typescript/client/**"
