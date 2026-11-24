@@ -1,0 +1,132 @@
+"""Serve the demo gateway over HTTP on a loopback address.
+
+The origin ``http://<host>:<port>`` is in the card, in the token audience
+(``<origin>/a2a``), and in the interface URL. The app answers only a request
+whose ``Host`` names a loopback address and whose ``Origin``, when present,
+names one too: the stance of ``examples/mcp_auth_http``, so a web page cannot
+reach the gateway through DNS rebinding. The token issuer (``LocalIssuer``) and
+the card key are new at each start, so nobody outside the process can get a
+token in this mode.
+"""
+
+from __future__ import annotations
+
+import ipaddress
+from dataclasses import dataclass, field
+from typing import Any
+from urllib.parse import urlsplit
+
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from fastapi import FastAPI
+from joserfc.jwk import OKPKey
+from starlette.datastructures import Headers
+from starlette.responses import JSONResponse
+from starlette.types import ASGIApp, Receive, Scope, Send
+from starlette.websockets import WebSocketClose
+
+from asap.adapters.a2a import CardSigner
+from asap.auth.external_tokens import ExternalTokenConfig
+from examples.a2a_gateway.demo_agent import (
+    A2A_PATH,
+    DEMO_GRANT_RULES,
+    DEMO_SKILLS,
+    demo_card_inputs,
+    demo_manifest,
+)
+from examples.a2a_gateway.gateway import create_gateway_app
+from tests.auth.local_issuer import LocalIssuer
+
+CARD_KID = "gateway-card-1"
+DEMO_ISSUER = "https://issuer.example"
+# 1008 is "policy violation" (RFC 6455 §7.4.1).
+_WEBSOCKET_POLICY_VIOLATION = 1008
+
+
+@dataclass(frozen=True)
+class ServedGateway:
+    """The served app and its origin, with the issuer and the card key made at this start."""
+
+    app: FastAPI
+    origin: str
+    issuer: LocalIssuer = field(repr=False)
+    card_kid: str
+    card_public_jwk: dict[str, Any]
+
+
+def build_served_gateway(origin: str) -> ServedGateway:
+    """Build the demo gateway for *origin*: a new issuer and card key, local requests only."""
+    issuer = LocalIssuer(DEMO_ISSUER)
+    card_key = Ed25519PrivateKey.generate()
+    audience = f"{origin}{A2A_PATH}"
+    tokens = ExternalTokenConfig.model_validate(
+        {"issuers": [issuer.config_entry(audience, grant_rules=DEMO_GRANT_RULES)]}
+    )
+    app = create_gateway_app(
+        demo_manifest(origin),
+        demo_card_inputs(origin),
+        signers=[CardSigner(key=card_key, kid=CARD_KID)],
+        external_tokens=tokens,
+        skills=DEMO_SKILLS,
+    )
+    app.add_middleware(LoopbackOnlyMiddleware)
+    public_jwk = {**OKPKey.import_key(card_key.public_key()).as_dict(), "kid": CARD_KID}
+    return ServedGateway(app, origin, issuer, CARD_KID, public_jwk)
+
+
+def is_loopback_name(hostname: str | None) -> bool:
+    """True for ``localhost`` or a loopback IP literal (``127.0.0.0/8``, ``::1``)."""
+    if hostname == "localhost":
+        return True
+    try:
+        return hostname is not None and ipaddress.ip_address(hostname).is_loopback
+    except ValueError:
+        return False
+
+
+def _host_header_is_local(value: str | None) -> bool:
+    # A Host value is an authority: "127.0.0.1:8788" or "[::1]:8788". One with a
+    # path, user info, or query is not, and is refused rather than parsed.
+    if not value or any(char in value for char in "/?#@\\"):
+        return False
+    try:
+        return is_loopback_name(urlsplit(f"//{value}").hostname)
+    except ValueError:
+        return False
+
+
+def _origin_is_local(value: str) -> bool:
+    try:
+        origin = urlsplit(value)
+        return origin.scheme in {"http", "https"} and is_loopback_name(origin.hostname)
+    except ValueError:
+        return False
+
+
+def _non_local_header(headers: Headers) -> str | None:
+    """The header that makes a request non-local, or None. Its value is never echoed."""
+    if not _host_header_is_local(headers.get("host")):
+        return "Host"
+    if "origin" in headers and not _origin_is_local(headers["origin"]):
+        return "Origin"
+    return None
+
+
+class LoopbackOnlyMiddleware:
+    """Refuse a request with a non-loopback ``Host``, or an ``Origin`` of another host (403)."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Pass a local request on; answer any other HTTP or WebSocket request here."""
+        header = None
+        if scope["type"] in {"http", "websocket"}:
+            header = _non_local_header(Headers(scope=scope))
+        if header is None:
+            await self.app(scope, receive, send)
+        elif scope["type"] == "websocket":
+            await WebSocketClose(code=_WEBSOCKET_POLICY_VIOLATION)(scope, receive, send)
+        else:
+            description = f"the {header} header must name a loopback address"
+            body = {"error": "forbidden", "error_description": description}
+            await JSONResponse(body, status_code=403)(scope, receive, send)
