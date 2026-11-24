@@ -21,9 +21,13 @@ from dataclasses import dataclass
 from typing import Literal
 
 from asap.adapters.a2a.canonical import canonical_card_form
-from asap.adapters.a2a.errors import A2ANoTrustedSignatureError, A2AUnsignedCardError
+from asap.adapters.a2a.errors import (
+    A2ANoTrustedSignatureError,
+    A2AUnsignedCardError,
+    quoted_prefix,
+)
 from asap.adapters.a2a.models import AgentCard
-from asap.adapters.a2a.signature_header import quoted_prefix, read_card_signatures
+from asap.adapters.a2a.signature_header import read_card_signatures
 from asap.adapters.a2a.signature_keys import CARD_VERIFY_ALGORITHMS, CardKey, check_card_signature
 
 CardKeyResolver = Callable[[str, str | None], Awaitable[CardKey | None]]

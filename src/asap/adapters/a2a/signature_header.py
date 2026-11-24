@@ -19,7 +19,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from asap.adapters.a2a.errors import A2AInvalidSignatureError
+from asap.adapters.a2a.errors import A2AInvalidSignatureError, quoted_prefix
 from asap.adapters.a2a.models import AgentCardSignature
 
 MAX_CARD_SIGNATURES = 16
@@ -33,7 +33,6 @@ bytes. The bound keeps a deeply nested header away from the JSON decoder.
 """
 
 _BASE64URL = re.compile(r"[A-Za-z0-9_-]*")
-_MAX_QUOTED_LENGTH = 64
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,11 +66,6 @@ def read_card_signatures(signatures: Sequence[AgentCardSignature]) -> list[CardS
             f"this one has {len(signatures)}",
         )
     return [_read_entry(index, entry) for index, entry in enumerate(signatures)]
-
-
-def quoted_prefix(value: str) -> str:
-    """Quote an untrusted header value for a message, cut to a bounded length."""
-    return repr(value[:_MAX_QUOTED_LENGTH])
 
 
 def _read_entry(index: int, entry: AgentCardSignature) -> CardSignatureEntry:
