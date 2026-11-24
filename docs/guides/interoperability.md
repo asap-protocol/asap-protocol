@@ -16,6 +16,7 @@ The guide describes `asap-protocol` 2.6.0 and `@asap-protocol/mcp-auth` 0.1.0.
 | An A2A v1.0 client | To call a skill of an ASAP agent | [Flow A](#flow-a-an-a2a-client-calls-an-asap-agent) |
 | An ASAP agent | To be found and called by A2A clients | [Flow A](#flow-a-an-a2a-client-calls-an-asap-agent), then [Signed Agent Cards](#signed-agent-cards) |
 | An Agent Card from another party | To verify it and read it as an ASAP manifest | [Verify a card that you fetch](#step-3-verify-a-card-that-you-fetch) |
+| An OAuth 2.1 authorization server | ASAP grants for its access tokens on a Python ASAP server | [External access tokens](#external-access-tokens-on-an-asap-server-python) |
 | A Python MCP server on stdio | Agent JWTs checked against grants | [MCP Auth Bridge](../adapters/mcp-auth-bridge.md) |
 
 ## Terms
@@ -413,6 +414,159 @@ It does **not** mean:
 - **more than the weakest key.** A card for an agent is as strong as the weakest trusted key that may sign for that agent, an `ANY_AGENT` source included.
 
 `verify_agent_card` alone checks the signatures but does not bind the card to an agent. Call `verify_agent_card_for_agent`, or `CardVerification.require_signer_for(agent_urn)`, or use `AgentCardIngestor`, which does both.
+
+## External access tokens on an ASAP server (Python)
+
+An ASAP server can accept OAuth 2.1 access tokens from issuers that you list, and give each token only the grants that your rules map. The reference gateway of Flow A uses this verifier. `create_app` uses it on one route: `POST /asap/capability/execute`.
+
+### What a principal is
+
+For each request, ASAP verifies the token and builds an `ExternalPrincipal`: the issuer, the subject (`sub`), the client id, the scopes, the expiry, and the grants that your rules give. It is keyed by `(issuer, subject)`.
+
+- It lives for that request only. Nothing is stored, and the next request is checked again.
+- It is not an ASAP agent. It has no host, no key, no registry entry, and no `agent_id`, and it never reads the grants of the capability registry. Its grants come only from the rules of its issuer.
+- This is the OAuth *resource server* model: the token comes with every request, and the server checks it every time.
+
+### Configure the issuers
+
+```python
+from asap.auth.external_tokens import ExternalTokenConfig
+from asap.transport.server import create_app
+
+tokens = ExternalTokenConfig.model_validate({
+    "issuers": [
+        {
+            "issuer": "https://auth.example.com",
+            "audience": "https://agent.example.com/asap",
+            "key_source": {"kind": "jwks_uri", "jwks_uri": "https://auth.example.com/.well-known/jwks.json"},
+            "grant_rules": [
+                {"scope": "files:read", "capability": "file:read"},
+                {"scope": "files:write", "capability": "file:write", "constraints": {"path": {"in": ["/tmp"]}}},
+                {"claim": "groups", "value": "auditors", "capability": "file:read"},
+            ],
+        }
+    ]
+})
+app = create_app(manifest, external_token_config=tokens)
+```
+
+Each issuer entry has these fields:
+
+| Field | Meaning |
+|-------|---------|
+| `issuer` | The issuer identifier. The token's `iss` must match it (a trailing slash is ignored). A token from an issuer that is not listed is refused. There is no "accept any issuer" mode |
+| `audience` | Required. The identifier of this server (RFC 8707). The token's `aud` must name it. A token for another resource is refused and never passed on |
+| `key_source` | Where the issuer's public keys come from: `{"kind": "jwks_uri", "jwks_uri": "https://..."}`, `{"kind": "oidc_discovery"}` (reads `jwks_uri` from `<issuer>/.well-known/openid-configuration`), or `{"kind": "static_jwks", "jwks": {...}}` (no fetch) |
+| `introspection` | For opaque tokens, instead of `key_source`: see [Opaque tokens](#opaque-tokens) |
+| `grant_rules` | The only source of grants for this issuer's tokens. No rule, no grant |
+| `required_claims` | Claims that every token must hold, with exact values. See [With `oauth2_config`](#with-oauth2_config) |
+| `allow_private_hosts` | Lets the URLs of this entry reach private or loopback hosts. For local development only |
+
+The config refuses an empty issuer list, a missing audience, a duplicate issuer, a URL that is not HTTPS or that names `localhost` or a private IP address, and a static JWKS with a private or symmetric key.
+
+How a token is checked, in this order:
+
+1. The header: an ASAP Agent JWT (`typ: agent+jwt`) or Host JWT (`typ: host+jwt`) is refused. So are `alg: none`, every `HS*` algorithm, and any other algorithm that is not RSA, RSA-PSS, ECDSA, or `EdDSA`.
+2. The issuer: the token's `iss` must be listed.
+3. The signature, with that issuer's keys only. A `jku`, `x5u`, or `jwk` header in the token is ignored.
+4. The claims: `aud` must name the audience; `exp` is required and `nbf` is checked, with 30 seconds of clock skew; `sub` must be a non-empty string; then `required_claims`.
+5. The grants, from the rules.
+
+Every fetch (JWKS, OpenID discovery, introspection) takes HTTPS only, refuses private addresses, and follows no redirect. A fetched key set is kept for 300 seconds. An unknown `kid` fetches the set again, at most once every 30 seconds per issuer.
+
+### Grant rules
+
+A rule gives one capability, with optional constraints, when it matches the token:
+
+- **`scope` rule:** matches one entry of the `scope` claim (a space-separated string). A token with `scope: "files:read files:write"` matches both scope rules above.
+- **`claim` rule:** matches when a top-level claim is exactly `value`, or is a list that holds `value`. Numbers, booleans, and nested objects never match. The `groups` rule above matches `"groups": ["auditors", "dev"]`.
+
+Deny by default:
+
+- A scope or a claim that no rule names gives nothing. A broad scope such as `admin` gives nothing unless a rule names it.
+- Each capability gets at most one grant. Two rules that give one capability must have the same constraints, or the config is refused.
+- A constraint object may hold only `max`, `min`, `in`, and `not_in`. `max` and `min` need a finite number; `in` and `not_in` need a list.
+- At call time, a constrained field that the call leaves out is a violation, as is a check that cannot be evaluated, such as `NaN` against `max`.
+
+### Call the route
+
+`POST /asap/capability/execute` takes the capability name and its arguments. With the config above:
+
+```http
+POST /asap/capability/execute
+Authorization: Bearer <access token with scope "files:read">
+Content-Type: application/json
+
+{"capability": "file:read"}
+```
+
+```http
+HTTP/1.1 200 OK
+
+{"capability": "file:read", "status": "executed", "principal": {"type": "external", "issuer": "https://auth.example.com", "subject": "user-42"}}
+```
+
+- The answer holds the principal, never an `agent_id`.
+- The route checks the token and the grant, and answers. It does not run code for the capability.
+- The route still accepts an ASAP Agent JWT, exactly as before. The header `typ` picks the path: `agent+jwt` goes to the Agent JWT check, and every other bearer goes to the access-token check. A token that one check refuses is never tried with the other.
+- Only this route accepts access tokens. `GET /asap/capability/list` and `describe`, JSON-RPC `POST /asap`, the WebSocket, and `/asap/agent/*` keep their own authentication.
+- Each call is logged as `asap.capability.external_execute`, with the issuer, the subject, the client id, the capability, and the outcome. No answer and no log line holds the token.
+
+| Case | Answer |
+|------|--------|
+| No bearer | 401 `{"detail": "Authentication required"}`, `WWW-Authenticate: Bearer` |
+| Token refused, for any reason | 401 `{"detail": "invalid_token", "request_id": "…"}`, `WWW-Authenticate: Bearer error="invalid_token"`. The reason goes to the log only |
+| The issuer's keys or the introspection endpoint cannot be reached | 503 `{"detail": "Authentication service unavailable", "request_id": "…"}` |
+| No grant for the capability | 403, `error.code` `capability_not_granted`, `WWW-Authenticate: Bearer error="insufficient_scope"` |
+| A constraint is broken | 403, `error` `constraint_violated` with the `violations` (field, operator, message), no challenge |
+| A body that is not valid JSON or not a valid request | 400, after the token check |
+
+ASAP also adds its own `ASAP` challenge to each 401 under `/asap/capability`. A 503 shows that the issuer that the token names is listed: a client can tell an outage from a bad token. The issuer list is not a secret.
+
+### With `oauth2_config`
+
+`oauth2_config` puts `OAuth2Middleware` in front of `/asap`. `POST /asap/capability/execute` always verifies its own bearer, so the middleware skips that exact path. Any other spelling of the path still goes through the middleware.
+
+To accept the tokens of the `oauth2_config` identity provider on execute, list it as an issuer, with its audience and grant rules. The middleware does not run on that route, so its checks do not apply there: `required_scope`, the identity binding of the agent (the custom claim or the `ASAP_AUTH_SUBJECT_MAP` allowlist), and its expected issuer and audience. The entry's own `issuer`, `audience`, and grant rules apply instead.
+
+One provider can mint tokens for many agents with one audience. To keep a token for agent X off agent Y, set `required_claims` to the middleware's custom claim and this agent's URN:
+
+```python
+from asap.auth.middleware import DEFAULT_CUSTOM_CLAIM
+
+idp_issuer = {
+    "issuer": "https://idp.example.com",
+    "audience": "https://agent.example.com/asap",
+    "key_source": {"kind": "jwks_uri", "jwks_uri": "https://idp.example.com/.well-known/jwks.json"},
+    "grant_rules": [{"scope": "files:read", "capability": "file:read"}],
+    "required_claims": {DEFAULT_CUSTOM_CLAIM: "urn:asap:agent:research"},  # the claim and this agent's URN
+}
+```
+
+Use the claim name that the middleware uses: `oauth2_config.custom_claim`, else the `ASAP_AUTH_CUSTOM_CLAIM` environment variable, else `DEFAULT_CUSTOM_CLAIM`. A token whose claim is missing or different gets the `invalid_token` 401. Without `required_claims` on that entry, `create_app` logs the warning `asap.server.external_issuer_unbound` with the value to set. The subject allowlist has no equivalent.
+
+### Opaque tokens
+
+For an issuer whose tokens are not JWTs, set `introspection` instead of `key_source`:
+
+```python
+opaque_token_issuer = {
+    "issuer": "https://auth.example.com",
+    "audience": "https://agent.example.com/asap",
+    "introspection": {
+        "url": "https://auth.example.com/oauth2/introspect",
+        "client_id": "asap-agent",
+        "client_secret": "<secret>",
+        "cache_ttl_seconds": 60,
+    },
+    "grant_rules": [{"scope": "files:read", "capability": "file:read"}],
+}
+```
+
+- At most one issuer may use introspection. An opaque token names no issuer, so it goes to that one endpoint, with this server's client credentials (HTTP Basic).
+- A bearer shaped like a JWT is never sent to the endpoint unless its `iss` is that issuer.
+- The answer must say `active: true`. Its claims then get the same checks as a JWT: `aud`, `exp`, `sub`, `required_claims`, and the grant rules.
+- `cache_ttl_seconds` (default 60, at most 3600) bounds how long an answer is reused. A token revoked at the issuer stops working within that time. `0` asks the endpoint on every request.
 
 ## Related documentation
 
