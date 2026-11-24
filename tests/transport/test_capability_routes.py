@@ -662,6 +662,45 @@ class TestCapabilityExecute:
         assert body["violations"][0]["operator"] == "required"
         assert "missing required argument" in body["violations"][0]["message"]
 
+    @pytest.mark.parametrize(
+        ("constraints", "raw_arguments"),
+        [
+            ({"amount": {"max": 10}}, '{"amount": NaN}'),
+            ({"path": {"in": "/srv/public"}}, '{"path": 5}'),
+        ],
+        ids=["nan-against-max", "number-against-in-string"],
+    )
+    async def test_execute_unevaluable_constraint_returns_403(
+        self,
+        sample_manifest: Manifest,
+        isolated_rate_limiter: ASAPRateLimiter | None,
+        constraints: dict[str, Any],
+        raw_arguments: str,
+    ) -> None:
+        """A constraint check that cannot be evaluated denies the call: no pass, no 500."""
+        app, agent_store, _, registry = _setup(
+            sample_manifest, isolated_rate_limiter, capabilities=_DEFAULT_CAPS
+        )
+        client = TestClient(app, raise_server_exceptions=False)
+        host_sk = Ed25519PrivateKey.generate()
+        agent_sk = Ed25519PrivateKey.generate()
+        aid = await _register_and_activate(client, app, agent_store, host_sk, agent_sk)
+        registry.grant(aid, "file:read", constraints=constraints)
+
+        r = client.post(
+            "/asap/capability/execute",
+            headers={
+                "Authorization": f"Bearer {_agent_jwt(agent_sk, host_sk, aid)}",
+                "Content-Type": "application/json",
+            },
+            content=f'{{"capability": "file:read", "arguments": {raw_arguments}}}',
+        )
+        assert r.status_code == 403
+        body = r.json()
+        assert body["error"] == "constraint_violated"
+        [(field, spec)] = constraints.items()
+        assert [(v["field"], v["operator"]) for v in body["violations"]] == [(field, *spec)]
+
     async def test_execute_no_auth_returns_401(
         self,
         sample_manifest: Manifest,
