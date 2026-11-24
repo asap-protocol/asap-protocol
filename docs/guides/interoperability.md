@@ -638,6 +638,7 @@ The answer:
 [MCP Auth Bridge: HTTP MCP servers in TypeScript](../adapters/mcp-auth-bridge.md#http-mcp-servers-in-typescript) has the code for a server with Agent JWTs, a server with access tokens, a client for each, and every answer of the package. The parts that matter for interoperability:
 
 - `createMcpAuthMiddleware({ externalTokens: { issuers: [...] }, resourceMetadataUrl, ... })` takes the same kind of issuer entry as the Python config: `issuer`, a required `audience`, keys from `jwksUri` or a static `jwks`, and `grantRules` with `scope` or `claim` rules. The rules and the constraint checks give the same answers as Python: both run the shared test vectors in `tests/fixtures/interop/`.
+- The package accepts access tokens signed with `EdDSA`, `RS256`, or `ES256`. The Python path also accepts `RS384`, `RS512`, the `PS*` algorithms, `ES384`, and `ES512`.
 - With `externalTokens`, `resourceMetadataUrl` is required, and you serve the metadata document at that URL.
 - `toolCapabilities` must list every protected tool, and every one must be wrapped with `protectTool`. A tool or a method that the config does not declare gets HTTP 403 for a verified token.
 - `scopeChallenge` on a protected tool turns a missing grant for an access token into HTTP 403 `insufficient_scope`, with the scope that gives the grant.

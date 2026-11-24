@@ -17,7 +17,7 @@ This guide:
 1. Positions ASAP as an **identity / capability complement** — not an A2A replacement inside NAT.
 2. Documents Path A (NAT `mcp_client` **stdio** → ASAP `protect_server`) and honest transport limits.
 3. Contrasts NAT OAuth2/Keycloak user JWTs with ASAP Host/Agent JWT + grants (no equivalence).
-4. Sketches Agent Card → Manifest mapping as input to the Interop track (v2.6.0).
+4. Points to the A2A v1.0 Agent Card ↔ manifest mapping that `asap.adapters.a2a` ships in v2.6.0.
 
 **Contrast with Lab I adapters:** Mastra and OpenAI Agents ship TypeScript packages that turn ASAP capabilities into framework tools. NAT already has first-class MCP/A2A plugins; ASAP wires **policy** onto tools those plugins call — it does not replace NAT’s conductor.
 
@@ -44,19 +44,11 @@ Upstream docs: [docs.nvidia.com/nemo/agent-toolkit](https://docs.nvidia.com/nemo
 
 Do **not** present ASAP as “A2A but better.” When NAT already uses A2A between agents, keep that path; use ASAP where you need Host/Agent identity, capability grants, compliance, or ASAP-native discovery.
 
-## Agent Card → Manifest (sketch)
+## Agent Card and manifest
 
-Path B for Lab II is **docs-only**. A light field sketch (feeds the A2A Agent Card bridge in the [Interop track, v2.6.0](https://github.com/asap-protocol/asap-protocol/blob/main/product/prd/prd-interop.md)); not a runtime bridge:
+`asap.adapters.a2a` (v2.6.0) maps an A2A v1.0 Agent Card to an ASAP manifest and back, verifies the signatures of a card that you fetch, and signs the cards that an ASAP agent serves. The field table, with every field that one format cannot carry and the reason, is in the [interoperability guide](../guides/interoperability.md#agent-card-and-manifest-fields). The guide also covers [signed cards](../guides/interoperability.md#signed-agent-cards).
 
-| A2A Agent Card (typical) | ASAP Manifest |
-|--------------------------|---------------|
-| `name` / `description` | `name` / `description` |
-| `url` | `endpoints.asap` (+ optional `events`) |
-| Skill / capability list (often strings) | `capabilities.skills[]` with `id`, schemas |
-| `authentication` / `securitySchemes` | `auth.schemes` — **orthogonal** to Agent JWT grants |
-| Card URL `/.well-known/agent-card.json` | `/.well-known/asap/manifest.json` |
-
-Identity in ASAP is URN-based (`urn:asap:agent:*`) with structured skill schemas. Fuller mapping examples: [Migration — Agent Card to Manifest](../migration.md#agent-card-to-manifest).
+A card that an A2A server outside ASAP serves has no ASAP extension. To map it, you give the agent URN and the ASAP endpoint yourself. The NAT side of this mapping is not tested.
 
 ## Auth contrast (no equivalence)
 
@@ -67,7 +59,7 @@ Identity in ASAP is URN-based (`urn:asap:agent:*`) with structured skill schemas
 | Carriage | HTTP `Authorization: Bearer` on **streamable-http** | MCP `_meta.asap_agent_jwt` per `tools/call` (stdio); optional **dev-only** `ASAP_AGENT_JWT` env |
 | Authorization | Scope + audience on the resource server | `CapabilityRegistry.check_grant` (+ constraints) |
 
-These models are **complementary**, not interchangeable. Do not wire Keycloak as a stand-in for ASAP grants, and do not claim NAT `mcp_oauth2` talks to ASAP.
+These models are **complementary**, not interchangeable. Do not wire Keycloak as a stand-in for ASAP grants, and do not claim NAT `mcp_oauth2` talks to ASAP. Since v2.6.0, an ASAP server can give explicit grants to access tokens from an issuer that you list ([external access tokens](../guides/interoperability.md#external-access-tokens-on-an-asap-server-python)); that path is not tested with NAT.
 
 !!! danger "Production hard-stop (env JWT fallback)"
 
@@ -78,9 +70,9 @@ These models are **complementary**, not interchangeable. Do not wire Keycloak as
 | Transport | Path A for ASAP Auth Bridge? |
 |-----------|------------------------------|
 | **stdio** | **Yes** — NAT `mcp_client` spawns ASAP `protect_server` child; demo uses server-side `ASAP_AGENT_JWT` env fallback because NAT does not pass `_meta.asap_agent_jwt` |
-| **streamable-http** / **SSE** | **Blocked** this release — ASAP has no shipped HTTP/SSE Auth Bridge |
+| **streamable-http** / **SSE** | **No** — the Python bridge covers stdio only. `@asap-protocol/mcp-auth` (v2.6.0) protects Streamable HTTP MCP servers written in TypeScript, not NAT's Python MCP servers. HTTP+SSE is not supported |
 
-HTTP/SSE follow-up: [backlog-mcp-auth-typescript.md](https://github.com/asap-protocol/asap-protocol/blob/main/engineering/tasks/v2.5.0/backlog-mcp-auth-typescript.md) (`@asap-protocol/mcp-auth`). Do not invent a Python HTTP protect path in Lab II.
+See [MCP Auth Bridge: HTTP MCP servers in TypeScript](../adapters/mcp-auth-bridge.md#http-mcp-servers-in-typescript). Do not invent a Python HTTP protect path for NAT.
 
 Full matrices: [research note §10](https://github.com/asap-protocol/asap-protocol/blob/main/engineering/tasks/v2.5.3/research-nemo-agent-toolkit.md#10-spike-gap-analysis-2026-07-13).
 
@@ -137,7 +129,7 @@ NAT’s NIM / CUDA LLM path is **out of band** for this interop guide. For edge 
 |-------|-------------------|
 | Maintained ASAP↔NAT adapter package | **No** — experimental Path A demo + this guide |
 | Native NAT↔ASAP protocol / A2A replacement | **Not claimed** |
-| HTTP / streamable-http Auth Bridge | **Blocked** — see mcp-auth backlog |
+| HTTP / streamable-http Auth Bridge for NAT's Python MCP servers | **No** — `@asap-protocol/mcp-auth` covers TypeScript servers only |
 | Published `nemo-agent-toolkit-asap` / `nat.plugins.asap` | **Out of ship** (Path C feasibility only — appendix below) |
 | Protocol changes for NAT | **Out of scope** |
 
